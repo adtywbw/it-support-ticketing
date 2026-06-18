@@ -1,0 +1,252 @@
+import { useTicket, useUpdateTicketStatus, useAssignTicket, useTicketAuditTrail } from '@/hooks/use-tickets';
+import { useUsers } from '@/hooks/use-users';
+import { useAuthStore } from '@/stores/auth-store';
+import StatusBadge from './StatusBadge';
+import PriorityBadge from './PriorityBadge';
+import CommentSection from './CommentSection';
+import AttachmentList from './AttachmentList';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ErrorMessage from '@/components/ui/ErrorMessage';
+import { formatDateTime, formatRelativeTime, getSLAColor, getInitials } from '@/lib/utils';
+import type { TicketStatus } from '@/types';
+
+interface TicketDetailProps {
+  ticketId: number;
+}
+
+const statusFlows: Record<TicketStatus, TicketStatus[]> = {
+  Open: ['InProgress', 'Resolved', 'Closed'],
+  InProgress: ['Resolved', 'Closed', 'Open'],
+  Resolved: ['Closed', 'Open'],
+  Closed: ['Open'],
+};
+
+export default function TicketDetail({ ticketId }: TicketDetailProps) {
+  const user = useAuthStore((s) => s.user);
+  const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
+  const { data: users } = useUsers();
+  const { data: auditTrail } = useTicketAuditTrail(ticketId);
+  const updateStatusMutation = useUpdateTicketStatus();
+  const assignMutation = useAssignTicket();
+
+  const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
+  const canChangeStatus = user && (user.role === 'ITSupport' || user.role === 'Admin');
+  const availableStatuses = ticket ? statusFlows[ticket.status] : [];
+
+  if (isLoading) {
+    return (
+      <div className="card p-12">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ErrorMessage
+        message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load ticket'}
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  if (!ticket) {
+    return <ErrorMessage title="Ticket not found" message="The ticket you are looking for does not exist." />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="card">
+        <div className="card-header">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-sm font-medium text-primary-600">{ticket.ticketNumber}</span>
+                <StatusBadge status={ticket.status} />
+                <PriorityBadge priority={ticket.priority} />
+              </div>
+              <h1 className="text-xl font-semibold text-gray-900">{ticket.subject}</h1>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {canChangeStatus &&
+                availableStatuses.map((status) => (
+                  <button
+                    key={status}
+                    onClick={() =>
+                      updateStatusMutation.mutate({ id: ticket.id, status })
+                    }
+                    className="btn-secondary btn-sm"
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    Mark {status === 'InProgress' ? 'In Progress' : status}
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="card-body space-y-6">
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Created By</label>
+              <p className="mt-1 text-sm text-gray-900">
+                {ticket.createdBy
+                  ? `${ticket.createdBy.firstName} ${ticket.createdBy.lastName}`
+                  : 'Unknown'}
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Assigned To</label>
+              {canAssign ? (
+                <select
+                  value={ticket.assignedToId ?? ''}
+                  onChange={(e) => {
+                    const id = e.target.value ? Number(e.target.value) : undefined;
+                    if (id && id !== ticket.assignedToId) {
+                      assignMutation.mutate({ id: ticket.id, assignedToId: id });
+                    }
+                  }}
+                  className="mt-1 input text-sm"
+                  disabled={assignMutation.isPending}
+                >
+                  <option value="">Unassigned</option>
+                  {users
+                    ?.filter((u) => u.role === 'ITSupport' || u.role === 'Admin')
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.firstName} {u.lastName}
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <p className="mt-1 text-sm text-gray-900">
+                  {ticket.assignedTo
+                    ? `${ticket.assignedTo.firstName} ${ticket.assignedTo.lastName}`
+                    : 'Unassigned'}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Category</label>
+              <p className="mt-1 text-sm text-gray-900">{ticket.category?.name ?? '-'}</p>
+              {ticket.subCategory && (
+                <p className="text-xs text-gray-500">{ticket.subCategory.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">SLA Status</label>
+              <p className={`mt-1 text-sm font-medium ${getSLAColor(ticket.slaMetStatus)}`}>
+                {ticket.slaMetStatus}
+                {ticket.slaDeadline && ` (by ${formatDateTime(ticket.slaDeadline)})`}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Created</label>
+              <p className="mt-1 text-sm text-gray-900">{formatDateTime(ticket.createdAt)}</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Updated</label>
+              <p className="mt-1 text-sm text-gray-900">{formatDateTime(ticket.updatedAt)}</p>
+            </div>
+            {ticket.resolvedAt && (
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase">Resolved</label>
+                <p className="mt-1 text-sm text-gray-900">{formatDateTime(ticket.resolvedAt)}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="text-lg font-semibold text-gray-900">Comments</h2>
+        </div>
+        <div className="card-body">
+          <CommentSection ticketId={ticketId} />
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2 className="text-lg font-semibold text-gray-900">Attachments</h2>
+        </div>
+        <div className="card-body">
+          <AttachmentList ticketId={ticketId} />
+        </div>
+      </div>
+
+      {auditTrail && auditTrail.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-gray-900">Audit Trail</h2>
+          </div>
+          <div className="card-body">
+            <div className="flow-root">
+              <ul className="-mb-8">
+                {(auditTrail as {
+                  id: number;
+                  user?: { firstName: string; lastName: string };
+                  action: string;
+                  field?: string;
+                  oldValue?: string;
+                  newValue?: string;
+                  createdAt: string;
+                }[]).map((entry, idx) => (
+                  <li key={entry.id}>
+                    <div className="relative pb-8">
+                      {idx < auditTrail.length - 1 && (
+                        <span
+                          className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <div className="relative flex gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600 ring-8 ring-white">
+                          {entry.user ? getInitials(entry.user.firstName, entry.user.lastName) : '??'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-700">
+                            <span className="font-medium text-gray-900">
+                              {entry.user
+                                ? `${entry.user.firstName} ${entry.user.lastName}`
+                                : 'Unknown'}
+                            </span>{' '}
+                            {entry.action}
+                            {entry.field && (
+                              <>
+                                {' '}
+                                <span className="font-medium">{entry.field}</span>
+                                {entry.oldValue && entry.newValue && (
+                                  <>
+                                    {' '}
+                                    from <span className="font-medium text-gray-500">"{entry.oldValue}"</span> to{' '}
+                                    <span className="font-medium text-gray-900">"{entry.newValue}"</span>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500">{formatRelativeTime(entry.createdAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
