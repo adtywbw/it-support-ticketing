@@ -18,7 +18,7 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.InProgress]: [TicketStatus.OnHold, TicketStatus.Resolved],
   [TicketStatus.OnHold]: [TicketStatus.InProgress],
   [TicketStatus.Resolved]: [TicketStatus.Closed],
-  [TicketStatus.Closed]: [],
+  [TicketStatus.Closed]: [TicketStatus.Open],
 };
 
 @Injectable()
@@ -254,6 +254,11 @@ export class TicketsService {
 
     if (updateStatusDto.status === TicketStatus.Closed) {
       updateData.closedAt = new Date();
+    }
+
+    if (ticket.status === TicketStatus.Closed && updateStatusDto.status !== TicketStatus.Closed) {
+      updateData.closedAt = null;
+      updateData.resolvedAt = null;
     }
 
     const updatedTicket = await this.prisma.ticket.update({

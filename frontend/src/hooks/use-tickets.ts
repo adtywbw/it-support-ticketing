@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
-import type { Ticket, TicketFilters, CreateTicketPayload, PaginatedResponse, TicketStatus } from '@/types';
+import type { Ticket, TicketFilters, CreateTicketPayload, PaginatedResponse, TicketStatus, TicketPriority } from '@/types';
 
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
@@ -133,6 +133,21 @@ export function useUploadAttachment() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'attachments'] });
+    },
+  });
+}
+
+export function useUpdateTicketPriority() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, priority }: { id: string; priority: TicketPriority }) => {
+      const response = await apiClient.patch<Ticket>(`/tickets/${id}/priority`, { priority });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
   });
 }

@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCreateTicket } from '@/hooks/use-tickets';
+import { useCreateTicket, useUploadAttachment } from '@/hooks/use-tickets';
 import { useCategories } from '@/hooks/use-categories';
 import type { TicketPriority } from '@/types';
+import { formatFileSize } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface FormData {
@@ -24,6 +25,8 @@ export default function CreateTicketForm() {
   const navigate = useNavigate();
   const { data: categories } = useCategories();
   const createMutation = useCreateTicket();
+  const uploadMutation = useUploadAttachment();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
     subject: '',
@@ -32,7 +35,9 @@ export default function CreateTicketForm() {
     subCategoryId: '',
     priority: '',
   });
+  const [files, setFiles] = useState<File[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const selectedCategory = categories?.find((c) => c.id === formData.categoryId);
   const subCategories = selectedCategory?.subCategories ?? [];
@@ -52,36 +57,59 @@ export default function CreateTicketForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    const oversized = selected.find((f) => f.size > MAX_FILE_SIZE);
+    if (oversized) {
+      setUploadError(`File "${oversized.name}" exceeds the 5 MB limit`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    setFiles((prev) => [...prev, ...selected].slice(0, 3));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
-    createMutation.mutate(
-      {
+    setUploadError(null);
+
+    try {
+      const ticket = await createMutation.mutateAsync({
         subject: formData.subject.trim(),
         description: formData.description.trim(),
         categoryId: formData.categoryId,
         subCategoryId: formData.subCategoryId || undefined,
         priority: formData.priority as TicketPriority,
-      },
-      {
-        onSuccess: () => {
-          navigate('/tickets');
-        },
-      },
-    );
+      });
+
+      for (const file of files) {
+        await uploadMutation.mutateAsync({ ticketId: ticket.id, file });
+      }
+
+      navigate('/tickets');
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to create ticket';
+      setUploadError(message);
+    }
   };
 
-  const errorMessage = createMutation.error
-    ? (createMutation.error as { response?: { data?: { message?: string } } })?.response?.data
-        ?.message || 'Failed to create ticket'
-    : null;
+  const isPending = createMutation.isPending || uploadMutation.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {errorMessage && (
+      {(uploadError) && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
-          {errorMessage}
+          {uploadError}
         </div>
       )}
 
@@ -184,14 +212,60 @@ export default function CreateTicketForm() {
         </div>
       </div>
 
+      <div>
+        <label className="label">Attachments (optional, max 3 files, 5 MB each)</label>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-secondary btn-sm"
+            disabled={files.length >= 3}
+          >
+            {files.length >= 3 ? 'Max 3 files' : 'Choose Files'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          {files.length > 0 && (
+            <div className="space-y-1">
+              {files.map((file, i) => (
+                <div
+                  key={`${file.name}-${i}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <svg className="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+                    </svg>
+                    <span className="text-sm text-gray-700 truncate dark:text-gray-300">{file.name}</span>
+                    <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    className="text-sm text-red-600 hover:text-red-800 shrink-0"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="flex items-center justify-end gap-3 pt-4">
         <button type="button" onClick={() => navigate('/tickets')} className="btn-secondary">
           Cancel
         </button>
-        <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-          {createMutation.isPending ? (
+        <button type="submit" className="btn-primary" disabled={isPending}>
+          {isPending ? (
             <span className="flex items-center gap-2">
-              <LoadingSpinner size="sm" /> Creating...
+              <LoadingSpinner size="sm" /> {createMutation.isPending ? 'Creating...' : 'Uploading...'}
             </span>
           ) : (
             'Create Ticket'

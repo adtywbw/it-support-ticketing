@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTickets } from '@/hooks/use-tickets';
+import { useTickets, useUpdateTicketPriority } from '@/hooks/use-tickets';
+import { useAuthStore } from '@/stores/auth-store';
 import type { TicketStatus, TicketPriority } from '@/types';
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
@@ -21,6 +22,8 @@ interface FilterValues {
 
 export default function TicketList() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const updatePriorityMutation = useUpdateTicketPriority();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FilterValues>({
     status: '',
@@ -97,6 +100,9 @@ export default function TicketList() {
                     Subject
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -123,11 +129,30 @@ export default function TicketList() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-xs truncate">
                       {ticket.subject}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {ticket.category?.name ?? '-'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={ticket.status} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <PriorityBadge priority={ticket.priority} />
+                      {user && (user.role === 'ITSupport' || user.role === 'Admin') ? (
+                        <select
+                          value={ticket.priority}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) =>
+                            updatePriorityMutation.mutate({ id: ticket.id, priority: e.target.value as TicketPriority })
+                          }
+                          className="input text-xs py-1 px-2"
+                        >
+                          <option value="Low">Low</option>
+                          <option value="Medium">Medium</option>
+                          <option value="High">High</option>
+                          <option value="Critical">Critical</option>
+                        </select>
+                      ) : (
+                        <PriorityBadge priority={ticket.priority} />
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {ticket.assignedTo ? getUserDisplayName(ticket.assignedTo) : '-'}

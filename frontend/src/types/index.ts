@@ -11,7 +11,7 @@ export interface User {
   updatedAt: string;
 }
 
-export type TicketStatus = 'Open' | 'InProgress' | 'Resolved' | 'Closed';
+export type TicketStatus = 'Open' | 'InProgress' | 'OnHold' | 'Resolved' | 'Closed';
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type SLAStatus = 'OnTrack' | 'AtRisk' | 'Breached';
 

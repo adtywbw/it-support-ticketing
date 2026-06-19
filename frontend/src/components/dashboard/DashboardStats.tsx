@@ -154,16 +154,18 @@ export default function DashboardStats() {
         </div>
       </div>
 
-      {stats.ticketsTrend.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tickets Trend</h3>
-          </div>
-          <div className="card-body">
+      <div className="card">
+        <div className="card-header">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tickets Trend</h3>
+        </div>
+        <div className="card-body">
+          {stats.ticketsTrend.length === 0 || stats.ticketsTrend.every((t) => t.count === 0) ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500">No ticket activity in the last 7 days</p>
+          ) : (
             <div className="flex items-end gap-1 h-32">
               {stats.ticketsTrend.map((item) => {
                 const maxCount = Math.max(...stats.ticketsTrend.map((t) => t.count));
-                const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                const height = (item.count / maxCount) * 100;
                 return (
                   <div
                     key={item.date}
@@ -181,9 +183,9 @@ export default function DashboardStats() {
                 );
               })}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

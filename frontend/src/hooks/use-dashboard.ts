@@ -11,7 +11,7 @@ export function useDashboardStats() {
         priorityCounts: Record<string, number>;
         slaStats: { total: number; onTrack: number; atRisk: number; breached: number; complianceRate: number };
         dailyTrends: { last7Days: Record<string, number>; last30Days: Record<string, number> };
-        categoryResolution: { categoryId: string; categoryName: string; avgMinutes: number }[];
+          categoryResolution: { categoryId: string; categoryName: string; avgResolutionMinutes: number }[];
       }>('/dashboard/stats');
       const raw = response.data;
       const stats: DashboardStats = {
@@ -21,7 +21,7 @@ export function useDashboardStats() {
         slaComplianceRate: raw.slaStats.complianceRate / 100,
         avgResolutionTimeByCategory: raw.categoryResolution.map((c) => ({
           category: c.categoryName,
-          avgHours: c.avgMinutes / 60,
+          avgHours: c.avgResolutionMinutes / 60,
         })),
         ticketsTrend: Object.entries(raw.dailyTrends.last7Days).map(([date, count]) => ({ date, count })),
       };

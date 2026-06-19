@@ -15,9 +15,10 @@ interface TicketDetailProps {
 }
 
 const statusFlows: Record<TicketStatus, TicketStatus[]> = {
-  Open: ['InProgress', 'Resolved', 'Closed'],
-  InProgress: ['Resolved', 'Closed', 'Open'],
-  Resolved: ['Closed', 'Open'],
+  Open: ['InProgress'],
+  InProgress: ['OnHold', 'Resolved'],
+  OnHold: ['InProgress'],
+  Resolved: ['Closed'],
   Closed: ['Open'],
 };
 
@@ -112,7 +113,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                     className="btn-secondary btn-sm"
                     disabled={updateStatusMutation.isPending}
                   >
-                    Mark {status === 'InProgress' ? 'In Progress' : status}
+                    Mark {status === 'InProgress' ? 'In Progress' : status === 'OnHold' ? 'On Hold' : status}
                   </button>
                 ))}
             </div>
