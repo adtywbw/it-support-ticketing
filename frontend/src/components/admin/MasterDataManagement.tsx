@@ -18,7 +18,6 @@ import type {
 type Tab = 'categories' | 'subcategories';
 
 export default function MasterDataManagement() {
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>('categories');
 
   return (

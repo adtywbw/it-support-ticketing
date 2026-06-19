@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
+import type { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationsService {
@@ -20,7 +21,7 @@ export class NotificationsService {
         userId: data.userId,
         title: data.title,
         message: data.message,
-        data: data.data || undefined,
+        data: (data.data as Prisma.InputJsonValue) || undefined,
       },
     });
 

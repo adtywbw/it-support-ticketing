@@ -71,7 +71,7 @@ it-support-ticketing/
 ├── nginx/
 │   └── nginx.conf             # Reverse proxy + rate limiting
 ├── backend/
-│   ├── Dockerfile             # Multi-stage build
+│   ├── Dockerfile             # Multi-stage build (Debian bookworm-slim)
 │   ├── prisma/
 │   │   ├── schema.prisma      # 9 models + 5 enums + indexes
 │   │   └── seed.ts            # Admin user, categories, sample ticket
@@ -91,7 +91,7 @@ it-support-ticketing/
 │       ├── redis/             # ioredis provider
 │       └── common/            # Guards, decorators, interceptors, filters
 ├── frontend/
-│   ├── Dockerfile             # Multi-stage build (Vite → nginx)
+│   ├── Dockerfile             # Multi-stage build (Vite build → nginx static)
 │   └── src/
 │       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, etc.)
 │       ├── stores/            # Zustand stores (auth, notifications)
@@ -148,7 +148,7 @@ cd backend
 cp .env.example .env
 npm install
 npx prisma generate
-npx prisma migrate dev --name init
+npx prisma db push
 npx ts-node prisma/seed.ts
 npm run start:dev
 
@@ -254,7 +254,7 @@ The seed script creates:
 | Service | Image | Port | Healthcheck |
 |---------|-------|------|-------------|
 | nginx | nginx:1.25-alpine | 80 | — |
-| api | (build ./backend) | 3000 | `GET /api/health` |
+| api | `node:20-bookworm-slim` (build ./backend) | 3000 | `GET /api/health` |
 | db | postgres:16-alpine | — | `pg_isready` |
 | cache | redis:7-alpine | — | `redis-cli ping` |
 

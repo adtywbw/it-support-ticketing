@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import { formatRelativeTime, getInitials } from '@/lib/utils';
+import type { Comment } from '@/types';
 
 interface CommentSectionProps {
   ticketId: number;
@@ -35,7 +36,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
   };
 
   const visibleComments = comments?.filter(
-    (c: { isInternal: boolean }) => !c.isInternal || canSeeInternal,
+    (c: Comment) => !c.isInternal || !!canSeeInternal,
   );
 
   return (
@@ -81,13 +82,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           <EmptyState title="No comments yet" description="Be the first to comment on this ticket." />
         )}
 
-        {visibleComments?.map((comment: {
-          id: number;
-          user?: { firstName: string; lastName: string };
-          content: string;
-          isInternal: boolean;
-          createdAt: string;
-        }) => (
+        {visibleComments?.map((comment: Comment) => (
           <div
             key={comment.id}
             className={`rounded-lg border p-4 ${

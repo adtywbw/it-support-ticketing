@@ -31,7 +31,7 @@
 | Database | PostgreSQL 16 | Mature, JSON support, excellent Prisma integration. |
 | Cache | Redis 7 | Refresh token store, cron job lock for horizontal scaling. |
 | Reverse Proxy | Nginx | Single entry point, rate limiting, static file serving. |
-| Containerization | Docker | Reproducible deployment, identical dev/prod environment. |
+| Containerization | Docker (Debian bookworm-slim) | Reproducible deployment, identical dev/prod environment. Debian base chosen over Alpine for native OpenSSL 3.x compatibility with Prisma engines. |
 | ORM | Prisma | Type-safe query builder, auto-generated types, migrations. |
 
 ---
@@ -348,7 +348,22 @@ it-support-ticketing/
 
 ---
 
-## 4. Scaling Suggestions
+## 4. Build & Deployment Notes
+
+### Base Image Choice
+- **Production runtime**: `node:20-bookworm-slim` (Debian 12) — required for native Prisma engine binary compatibility with OpenSSL 3.x.
+- Alpine images are not used because newer Alpine versions (≥3.19) dropped OpenSSL 1.1 compat packages, which Prisma engines (compiled against `libssl.so.1.1`) depend on.
+
+### Database Migration
+- The container's entry point (`CMD`) runs `npx prisma db push` before starting the application, ensuring the database schema matches the Prisma schema.
+- `prisma migrate deploy` was avoided because the project does not maintain migration files in version control. Use `prisma migrate dev` in development to generate migration files once the schema stabilizes.
+
+### Built Artifacts
+- NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.
+
+---
+
+## 5. Scaling Suggestions
 
 ### To Kubernetes / Cloud-Native
 

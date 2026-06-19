@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
-import type { Ticket, TicketFilters, CreateTicketPayload, PaginatedResponse, TicketStatus } from '@/types';
+import type { Ticket, TicketFilters, CreateTicketPayload, PaginatedResponse, TicketStatus, Comment } from '@/types';
 
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();

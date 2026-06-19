@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '@/stores/auth-store';
 import { useNotificationStore } from '@/stores/notification-store';
 
 interface NavbarProps {
@@ -7,7 +6,6 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onMenuToggle }: NavbarProps) {
-  const user = useAuthStore((s) => s.user);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   return (
