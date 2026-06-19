@@ -66,9 +66,8 @@ function CategoryManager() {
   const [editingItem, setEditingItem] = useState<Category | null>(null);
   const [formName, setFormName] = useState('');
   const [formDesc, setFormDesc] = useState('');
-  const [formSLA, setFormSLA] = useState('');
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: async (payload: CreateCategoryPayload) => {
@@ -81,7 +80,7 @@ function CategoryManager() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: number; payload: UpdateCategoryPayload }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: UpdateCategoryPayload }) => {
       await apiClient.patch(`/categories/${id}`, payload);
     },
     onSuccess: () => {
@@ -91,7 +90,7 @@ function CategoryManager() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await apiClient.delete(`/categories/${id}`);
     },
     onSuccess: () => {
@@ -104,7 +103,6 @@ function CategoryManager() {
     setEditingItem(null);
     setFormName('');
     setFormDesc('');
-    setFormSLA('');
     setIsModalOpen(true);
   };
 
@@ -112,7 +110,6 @@ function CategoryManager() {
     setEditingItem(cat);
     setFormName(cat.name);
     setFormDesc(cat.description || '');
-    setFormSLA(cat.slaHours ? String(cat.slaHours) : '');
     setIsModalOpen(true);
   };
 
@@ -123,14 +120,12 @@ function CategoryManager() {
         payload: {
           name: formName,
           description: formDesc || undefined,
-          slaHours: formSLA ? Number(formSLA) : undefined,
         },
       });
     } else {
       createMutation.mutate({
         name: formName,
         description: formDesc || undefined,
-        slaHours: formSLA ? Number(formSLA) : undefined,
       });
     }
   };
@@ -157,7 +152,6 @@ function CategoryManager() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SLA (hours)</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
@@ -167,7 +161,6 @@ function CategoryManager() {
                 <tr key={cat.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{cat.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{cat.description || '-'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{cat.slaHours ?? '-'}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${cat.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       {cat.isActive ? 'Active' : 'Inactive'}
@@ -198,10 +191,6 @@ function CategoryManager() {
           <div>
             <label className="label">Description</label>
             <textarea value={formDesc} onChange={(e) => setFormDesc(e.target.value)} rows={3} className="input resize-y" />
-          </div>
-          <div>
-            <label className="label">SLA Target (hours)</label>
-            <input type="number" value={formSLA} onChange={(e) => setFormSLA(e.target.value)} className="input" min="0" />
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
@@ -240,7 +229,7 @@ function SubCategoryManager() {
       const allSubs: SubCategory[] = [];
       if (categories) {
         for (const cat of categories) {
-          const res = await apiClient.get(`/categories/${cat.id}/subcategories`);
+          const res = await apiClient.get(`/categories/${cat.id}/sub-categories`);
           allSubs.push(...res.data);
         }
       }
@@ -253,13 +242,13 @@ function SubCategoryManager() {
   const [editingItem, setEditingItem] = useState<SubCategory | null>(null);
   const [formName, setFormName] = useState('');
   const [formDesc, setFormDesc] = useState('');
-  const [formCategoryId, setFormCategoryId] = useState<number | ''>('');
+  const [formCategoryId, setFormCategoryId] = useState<string>('');
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: async (payload: CreateSubCategoryPayload) => {
-      await apiClient.post(`/categories/${payload.categoryId}/subcategories`, payload);
+      await apiClient.post(`/categories/${payload.categoryId}/sub-categories`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subcategories'] });
@@ -268,8 +257,8 @@ function SubCategoryManager() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: number; payload: UpdateSubCategoryPayload }) => {
-      await apiClient.patch(`/subcategories/${id}`, payload);
+    mutationFn: async ({ id, payload }: { id: string; payload: UpdateSubCategoryPayload }) => {
+      await apiClient.patch(`/sub-categories/${id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subcategories'] });
@@ -278,8 +267,8 @@ function SubCategoryManager() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiClient.delete(`/subcategories/${id}`);
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/sub-categories/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subcategories'] });
@@ -313,13 +302,13 @@ function SubCategoryManager() {
       createMutation.mutate({
         name: formName,
         description: formDesc || undefined,
-        categoryId: formCategoryId as number,
+        categoryId: formCategoryId,
       });
     }
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
-  const getCategoryName = (id: number) => categories?.find((c) => c.id === id)?.name || 'Unknown';
+  const getCategoryName = (id: string) => categories?.find((c) => c.id === id)?.name || 'Unknown';
 
   if (isLoading) return <div className="card p-12"><LoadingSpinner size="lg" /></div>;
   if (isError) return <ErrorMessage message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load'} onRetry={() => refetch()} />;
@@ -373,7 +362,7 @@ function SubCategoryManager() {
           {!editingItem && (
             <div>
               <label className="label">Category</label>
-              <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value ? Number(e.target.value) : '')} className="input">
+              <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} className="input">
                 <option value="">Select category</option>
                 {categories?.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>

@@ -7,7 +7,7 @@ interface FilterValues {
   status: TicketStatus | '';
   priority: TicketPriority | '';
   search: string;
-  categoryId: number | '';
+  categoryId: string | '';
   assignedToMe: boolean;
 }
 
@@ -85,7 +85,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
       <select
         value={filters.categoryId}
         onChange={(e) =>
-          onFiltersChange({ ...filters, categoryId: e.target.value ? Number(e.target.value) : '' })
+          onFiltersChange({ ...filters, categoryId: e.target.value })
         }
         className="input w-auto"
       >

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
+import { getUserDisplayName, getUserInitials } from '@/lib/utils';
 
 const navItems = [
   {
@@ -110,11 +111,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="border-t border-gray-200 p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-600">
-              {user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : '?'}
+              {user ? getUserInitials(user) : '?'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {user ? `${user.firstName} ${user.lastName}` : 'User'}
+                {user ? getUserDisplayName(user) : 'User'}
               </p>
               <p className="text-xs text-gray-500 truncate">{user?.role}</p>
             </div>

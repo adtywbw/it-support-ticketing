@@ -7,11 +7,11 @@ import CommentSection from './CommentSection';
 import AttachmentList from './AttachmentList';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import ErrorMessage from '@/components/ui/ErrorMessage';
-import { formatDateTime, formatRelativeTime, getSLAColor, getInitials } from '@/lib/utils';
-import type { TicketStatus } from '@/types';
+import { formatDateTime, formatRelativeTime, getSLAColor, getUserInitials, getUserDisplayName } from '@/lib/utils';
+import type { TicketStatus, Ticket } from '@/types';
 
 interface TicketDetailProps {
-  ticketId: number;
+  ticketId: string;
 }
 
 const statusFlows: Record<TicketStatus, TicketStatus[]> = {
@@ -21,13 +21,46 @@ const statusFlows: Record<TicketStatus, TicketStatus[]> = {
   Closed: ['Open'],
 };
 
+function AssignedToDisplay({ ticket }: { ticket: Ticket }) {
+  return (
+    <p className="mt-1 text-sm text-gray-900">
+      {ticket.assignedTo ? getUserDisplayName(ticket.assignedTo) : 'Unassigned'}
+    </p>
+  );
+}
+
+function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: string; name: string; role: string }[] }) {
+  const assignMutation = useAssignTicket();
+  return (
+    <select
+      value={ticket.assignedToId ?? ''}
+      onChange={(e) => {
+        const id = e.target.value || undefined;
+        if (id && id !== ticket.assignedToId) {
+          assignMutation.mutate({ id: ticket.id, assignedToId: id });
+        }
+      }}
+      className="mt-1 input text-sm"
+      disabled={assignMutation.isPending}
+    >
+      <option value="">Unassigned</option>
+      {users
+        ?.filter((u) => u.role === 'ITSupport' || u.role === 'Admin')
+        .map((u) => (
+          <option key={u.id} value={u.id}>
+            {u.name}
+          </option>
+        ))}
+    </select>
+  );
+}
+
 export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const user = useAuthStore((s) => s.user);
   const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
   const { data: users } = useUsers();
   const { data: auditTrail } = useTicketAuditTrail(ticketId);
   const updateStatusMutation = useUpdateTicketStatus();
-  const assignMutation = useAssignTicket();
 
   const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
   const canChangeStatus = user && (user.role === 'ITSupport' || user.role === 'Admin');
@@ -93,41 +126,16 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             <div>
               <label className="text-xs font-medium text-gray-500 uppercase">Created By</label>
               <p className="mt-1 text-sm text-gray-900">
-                {ticket.createdBy
-                  ? `${ticket.createdBy.firstName} ${ticket.createdBy.lastName}`
-                  : 'Unknown'}
+                {ticket.requester ? getUserDisplayName(ticket.requester) : 'Unknown'}
               </p>
             </div>
 
             <div>
               <label className="text-xs font-medium text-gray-500 uppercase">Assigned To</label>
-              {canAssign ? (
-                <select
-                  value={ticket.assignedToId ?? ''}
-                  onChange={(e) => {
-                    const id = e.target.value ? Number(e.target.value) : undefined;
-                    if (id && id !== ticket.assignedToId) {
-                      assignMutation.mutate({ id: ticket.id, assignedToId: id });
-                    }
-                  }}
-                  className="mt-1 input text-sm"
-                  disabled={assignMutation.isPending}
-                >
-                  <option value="">Unassigned</option>
-                  {users
-                    ?.filter((u) => u.role === 'ITSupport' || u.role === 'Admin')
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.firstName} {u.lastName}
-                      </option>
-                    ))}
-                </select>
+              {canAssign && users ? (
+                <AssignedToSelect ticket={ticket} users={users} />
               ) : (
-                <p className="mt-1 text-sm text-gray-900">
-                  {ticket.assignedTo
-                    ? `${ticket.assignedTo.firstName} ${ticket.assignedTo.lastName}`
-                    : 'Unassigned'}
-                </p>
+                <AssignedToDisplay ticket={ticket} />
               )}
             </div>
 
@@ -141,9 +149,9 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
             <div>
               <label className="text-xs font-medium text-gray-500 uppercase">SLA Status</label>
-              <p className={`mt-1 text-sm font-medium ${getSLAColor(ticket.slaMetStatus)}`}>
-                {ticket.slaMetStatus}
-                {ticket.slaDeadline && ` (by ${formatDateTime(ticket.slaDeadline)})`}
+              <p className={`mt-1 text-sm font-medium ${getSLAColor(ticket.slaStatus || '')}`}>
+                {ticket.slaStatus || 'N/A'}
+                {ticket.slaDueAt && ` (by ${formatDateTime(ticket.slaDueAt)})`}
               </p>
             </div>
           </div>
@@ -194,8 +202,8 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             <div className="flow-root">
               <ul className="-mb-8">
                 {(auditTrail as {
-                  id: number;
-                  user?: { firstName: string; lastName: string };
+                  id: string;
+                  user?: { name: string; firstName?: string; lastName?: string };
                   action: string;
                   field?: string;
                   oldValue?: string;
@@ -212,14 +220,12 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                       )}
                       <div className="relative flex gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600 ring-8 ring-white">
-                          {entry.user ? getInitials(entry.user.firstName, entry.user.lastName) : '??'}
+                          {entry.user ? getUserInitials(entry.user) : '??'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-gray-700">
                             <span className="font-medium text-gray-900">
-                              {entry.user
-                                ? `${entry.user.firstName} ${entry.user.lastName}`
-                                : 'Unknown'}
+                              {entry.user ? getUserDisplayName(entry.user) : 'Unknown'}
                             </span>{' '}
                             {entry.action}
                             {entry.field && (

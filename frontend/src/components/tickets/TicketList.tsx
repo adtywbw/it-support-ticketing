@@ -9,13 +9,13 @@ import Pagination from '@/components/ui/Pagination';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, getUserDisplayName } from '@/lib/utils';
 
 interface FilterValues {
   status: TicketStatus | '';
   priority: TicketPriority | '';
   search: string;
-  categoryId: number | '';
+  categoryId: string | '';
   assignedToMe: boolean;
 }
 
@@ -130,9 +130,7 @@ export default function TicketList() {
                       <PriorityBadge priority={ticket.priority} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {ticket.assignedTo
-                        ? `${ticket.assignedTo.firstName} ${ticket.assignedTo.lastName}`
-                        : '-'}
+                      {ticket.assignedTo ? getUserDisplayName(ticket.assignedTo) : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDateTime(ticket.createdAt)}
@@ -144,7 +142,11 @@ export default function TicketList() {
           </div>
 
           {meta && (
-            <Pagination page={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
+            <Pagination
+              page={meta.page}
+              totalPages={meta.totalPages || Math.ceil(meta.total / (meta.limit || 10))}
+              onPageChange={setPage}
+            />
           )}
         </div>
       )}

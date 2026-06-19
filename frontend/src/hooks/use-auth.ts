@@ -1,8 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
-import type { LoginCredentials, AuthResponse, User } from '@/types';
+import type { LoginCredentials, AuthResponse } from '@/types';
 
 export function useLogin() {
   const login = useAuthStore((s) => s.login);
@@ -14,7 +14,8 @@ export function useLogin() {
       return response.data;
     },
     onSuccess: (data) => {
-      login(data.user, data.accessToken, data.refreshToken);
+      const user = { ...data.user, name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() };
+      login(user, data.accessToken, data.refreshToken);
       navigate('/tickets');
     },
   });
@@ -34,19 +35,5 @@ export function useLogout() {
       queryClient.clear();
       navigate('/login');
     },
-  });
-}
-
-export function useCurrentUser() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  return useQuery({
-    queryKey: ['currentUser'],
-    queryFn: async () => {
-      const response = await apiClient.get<User>('/auth/me');
-      return response.data;
-    },
-    enabled: isAuthenticated,
-    retry: false,
   });
 }

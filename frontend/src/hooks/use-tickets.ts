@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
-import type { Ticket, TicketFilters, CreateTicketPayload, PaginatedResponse, TicketStatus, Comment } from '@/types';
+import type { Ticket, TicketFilters, CreateTicketPayload, PaginatedResponse, TicketStatus } from '@/types';
 
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
@@ -20,7 +20,7 @@ export function useTickets(filters: TicketFilters) {
   });
 }
 
-export function useTicket(id: number) {
+export function useTicket(id: string) {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
@@ -49,7 +49,7 @@ export function useUpdateTicketStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: TicketStatus }) => {
+    mutationFn: async ({ id, status }: { id: string; status: TicketStatus }) => {
       const response = await apiClient.patch<Ticket>(`/tickets/${id}/status`, { status });
       return response.data;
     },
@@ -64,7 +64,7 @@ export function useAssignTicket() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, assignedToId }: { id: number; assignedToId: number }) => {
+    mutationFn: async ({ id, assignedToId }: { id: string; assignedToId: string }) => {
       const response = await apiClient.patch<Ticket>(`/tickets/${id}/assign`, { assignedToId });
       return response.data;
     },
@@ -75,11 +75,11 @@ export function useAssignTicket() {
   });
 }
 
-export function useTicketComments(ticketId: number) {
+export function useTicketComments(ticketId: string) {
   return useQuery({
     queryKey: ['ticket', ticketId, 'comments'],
     queryFn: async () => {
-      const response = await apiClient.get<Comment[]>(`/tickets/${ticketId}/comments`);
+      const response = await apiClient.get(`/tickets/${ticketId}/comments`);
       return response.data;
     },
     enabled: !!ticketId,
@@ -93,13 +93,13 @@ export function useAddComment() {
     mutationFn: async ({
       ticketId,
       content,
-      isInternal,
+      type,
     }: {
-      ticketId: number;
+      ticketId: string;
       content: string;
-      isInternal: boolean;
+      type: 'PUBLIC' | 'INTERNAL';
     }) => {
-      const response = await apiClient.post(`/tickets/${ticketId}/comments`, { content, isInternal });
+      const response = await apiClient.post(`/tickets/${ticketId}/comments`, { content, type });
       return response.data;
     },
     onSuccess: (_data, variables) => {
@@ -108,7 +108,7 @@ export function useAddComment() {
   });
 }
 
-export function useTicketAttachments(ticketId: number) {
+export function useTicketAttachments(ticketId: string) {
   return useQuery({
     queryKey: ['ticket', ticketId, 'attachments'],
     queryFn: async () => {
@@ -123,7 +123,7 @@ export function useUploadAttachment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ ticketId, file }: { ticketId: number; file: File }) => {
+    mutationFn: async ({ ticketId, file }: { ticketId: string; file: File }) => {
       const formData = new FormData();
       formData.append('file', file);
       const response = await apiClient.post(`/tickets/${ticketId}/attachments`, formData, {
@@ -137,7 +137,7 @@ export function useUploadAttachment() {
   });
 }
 
-export function useTicketAuditTrail(ticketId: number) {
+export function useTicketAuditTrail(ticketId: string) {
   return useQuery({
     queryKey: ['ticket', ticketId, 'audit'],
     queryFn: async () => {

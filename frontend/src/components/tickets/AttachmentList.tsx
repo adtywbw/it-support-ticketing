@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/use-tickets';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
-import { formatDate, formatFileSize } from '@/lib/utils';
+import { formatDate, formatFileSize, getUserDisplayName } from '@/lib/utils';
 
 interface AttachmentListProps {
-  ticketId: number;
+  ticketId: string;
 }
 
 export default function AttachmentList({ ticketId }: AttachmentListProps) {
@@ -56,11 +56,11 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
       {attachments && attachments.length > 0 && (
         <div className="space-y-2">
           {(attachments as {
-            id: number;
+            id: string;
             fileName: string;
             fileSize: number;
             mimeType: string;
-            uploadedBy?: { firstName: string; lastName: string };
+            uploadedBy?: { name: string };
             createdAt: string;
           }[]).map((attachment) => (
             <div
@@ -75,15 +75,13 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
                   <p className="text-sm font-medium text-gray-900 truncate">{attachment.fileName}</p>
                   <p className="text-xs text-gray-500">
                     {formatFileSize(attachment.fileSize)} &middot;{' '}
-                    {attachment.uploadedBy
-                      ? `${attachment.uploadedBy.firstName} ${attachment.uploadedBy.lastName}`
-                      : 'Unknown'}{' '}
+                    {attachment.uploadedBy ? getUserDisplayName(attachment.uploadedBy) : 'Unknown'}{' '}
                     &middot; {formatDate(attachment.createdAt)}
                   </p>
                 </div>
               </div>
               <a
-                href={`/api/tickets/${ticketId}/attachments/${attachment.id}`}
+                href={`/api/attachments/${attachment.id}/download`}
                 className="btn-secondary btn-sm shrink-0"
                 download
               >

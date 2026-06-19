@@ -3,9 +3,8 @@ import TicketDetail from '@/components/tickets/TicketDetail';
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const ticketId = Number(id);
 
-  if (!id || isNaN(ticketId)) {
+  if (!id) {
     return (
       <div className="card p-12 text-center">
         <p className="text-gray-500">Invalid ticket ID.</p>
@@ -27,7 +26,7 @@ export default function TicketDetailPage() {
         </svg>
         Back to Tickets
       </Link>
-      <TicketDetail ticketId={ticketId} />
+      <TicketDetail ticketId={id} />
     </div>
   );
 }

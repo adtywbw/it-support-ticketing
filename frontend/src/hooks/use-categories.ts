@@ -12,7 +12,7 @@ export function useCategories() {
   });
 }
 
-export function useCategory(id: number) {
+export function useCategory(id: string) {
   return useQuery({
     queryKey: ['category', id],
     queryFn: async () => {

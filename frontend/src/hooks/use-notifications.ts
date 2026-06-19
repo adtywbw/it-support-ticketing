@@ -27,23 +27,12 @@ export function useNotifications(page = 1, limit = 20) {
   return query;
 }
 
-export function useUnreadCount() {
-  return useQuery({
-    queryKey: ['notifications', 'unread-count'],
-    queryFn: async () => {
-      const response = await apiClient.get<{ count: number }>('/notifications/unread-count');
-      return response.data.count;
-    },
-    refetchInterval: 30000,
-  });
-}
-
 export function useMarkAsRead() {
   const queryClient = useQueryClient();
   const decrement = useNotificationStore((s) => s.decrement);
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await apiClient.patch(`/notifications/${id}/read`);
     },
     onSuccess: () => {

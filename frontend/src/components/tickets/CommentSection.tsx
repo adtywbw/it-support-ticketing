@@ -3,11 +3,10 @@ import { useTicketComments, useAddComment } from '@/hooks/use-tickets';
 import { useAuthStore } from '@/stores/auth-store';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
-import { formatRelativeTime, getInitials } from '@/lib/utils';
-import type { Comment } from '@/types';
+import { formatRelativeTime, getUserInitials, getUserDisplayName } from '@/lib/utils';
 
 interface CommentSectionProps {
-  ticketId: number;
+  ticketId: string;
 }
 
 export default function CommentSection({ ticketId }: CommentSectionProps) {
@@ -25,7 +24,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
     if (!content.trim()) return;
 
     addCommentMutation.mutate(
-      { ticketId, content: content.trim(), isInternal },
+      { ticketId, content: content.trim(), type: isInternal ? 'INTERNAL' : 'PUBLIC' },
       {
         onSuccess: () => {
           setContent('');
@@ -35,9 +34,9 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
     );
   };
 
-  const visibleComments = comments?.filter(
-    (c: Comment) => !c.isInternal || !!canSeeInternal,
-  );
+  const visibleComments = Array.isArray(comments)
+    ? comments.filter((c: { type: string }) => c.type !== 'INTERNAL' || !!canSeeInternal)
+    : [];
 
   return (
     <div className="space-y-4">
@@ -78,34 +77,36 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           <p className="text-sm text-red-600">Failed to load comments.</p>
         )}
 
-        {!isLoading && !isError && (!visibleComments || visibleComments.length === 0) && (
+        {!isLoading && !isError && visibleComments.length === 0 && (
           <EmptyState title="No comments yet" description="Be the first to comment on this ticket." />
         )}
 
-        {visibleComments?.map((comment: Comment) => (
+        {visibleComments.map((comment: {
+          id: string;
+          type: string;
+          content: string;
+          createdAt: string;
+          user?: { name?: string; firstName?: string; lastName?: string };
+        }) => (
           <div
             key={comment.id}
             className={`rounded-lg border p-4 ${
-              comment.isInternal ? 'border-yellow-200 bg-yellow-50' : 'border-gray-200 bg-white'
+              comment.type === 'INTERNAL' ? 'border-yellow-200 bg-yellow-50' : 'border-gray-200 bg-white'
             }`}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                  {comment.user
-                    ? getInitials(comment.user.firstName, comment.user.lastName)
-                    : '??'}
+                  {comment.user ? getUserInitials(comment.user) : '??'}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {comment.user
-                      ? `${comment.user.firstName} ${comment.user.lastName}`
-                      : 'Unknown User'}
+                    {comment.user ? getUserDisplayName(comment.user) : 'Unknown User'}
                   </p>
                   <p className="text-xs text-gray-500">{formatRelativeTime(comment.createdAt)}</p>
                 </div>
               </div>
-              {comment.isInternal && (
+              {comment.type === 'INTERNAL' && (
                 <span className="rounded bg-yellow-200 px-2 py-0.5 text-xs font-medium text-yellow-800">
                   Internal
                 </span>

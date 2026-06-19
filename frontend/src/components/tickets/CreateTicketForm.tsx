@@ -8,8 +8,8 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 interface FormData {
   subject: string;
   description: string;
-  categoryId: number | '';
-  subCategoryId: number | '';
+  categoryId: string;
+  subCategoryId: string;
   priority: TicketPriority | '';
 }
 
@@ -60,8 +60,8 @@ export default function CreateTicketForm() {
       {
         subject: formData.subject.trim(),
         description: formData.description.trim(),
-        categoryId: formData.categoryId as number,
-        subCategoryId: formData.subCategoryId ? (formData.subCategoryId as number) : undefined,
+        categoryId: formData.categoryId,
+        subCategoryId: formData.subCategoryId || undefined,
         priority: formData.priority as TicketPriority,
       },
       {
@@ -126,7 +126,7 @@ export default function CreateTicketForm() {
             onChange={(e) =>
               setFormData({
                 ...formData,
-                categoryId: e.target.value ? Number(e.target.value) : '',
+                categoryId: e.target.value,
                 subCategoryId: '',
               })
             }
@@ -150,7 +150,7 @@ export default function CreateTicketForm() {
             id="subCategory"
             value={formData.subCategoryId}
             onChange={(e) =>
-              setFormData({ ...formData, subCategoryId: e.target.value ? Number(e.target.value) : '' })
+              setFormData({ ...formData, subCategoryId: e.target.value })
             }
             className="input"
             disabled={!formData.categoryId || subCategories.length === 0}

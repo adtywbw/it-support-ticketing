@@ -5,6 +5,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { getUserDisplayName, getUserInitials } from '@/lib/utils';
 import type { User, UserRole, CreateUserPayload, UpdateUserPayload } from '@/types';
 
 type UserFormMode = 'create' | 'edit';
@@ -12,8 +13,7 @@ type UserFormMode = 'create' | 'edit';
 interface UserFormData {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   role: UserRole;
   isActive: boolean;
 }
@@ -21,8 +21,7 @@ interface UserFormData {
 const initialFormData: UserFormData = {
   email: '',
   password: '',
-  firstName: '',
-  lastName: '',
+  name: '',
   role: 'User',
   isActive: true,
 };
@@ -52,8 +51,7 @@ export default function UserManagement() {
     setFormData({
       email: user.email,
       password: '',
-      firstName: user.firstName,
-      lastName: user.lastName,
+      name: user.name,
       role: user.role,
       isActive: user.isActive,
     });
@@ -65,8 +63,7 @@ export default function UserManagement() {
       await createUserMutation.mutateAsync(formData as CreateUserPayload);
     } else if (editingUser) {
       const payload: UpdateUserPayload = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        name: formData.name,
         role: formData.role,
         isActive: formData.isActive,
       };
@@ -144,10 +141,10 @@ export default function UserManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-600">
-                          {u.firstName.charAt(0)}{u.lastName.charAt(0)}
+                          {getUserInitials(u)}
                         </div>
                         <span className="text-sm font-medium text-gray-900">
-                          {u.firstName} {u.lastName}
+                          {getUserDisplayName(u)}
                         </span>
                       </div>
                     </td>
@@ -197,20 +194,11 @@ export default function UserManagement() {
       >
         <div className="space-y-4">
           <div>
-            <label className="label">First Name</label>
+            <label className="label">Name</label>
             <input
               type="text"
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              className="input"
-            />
-          </div>
-          <div>
-            <label className="label">Last Name</label>
-            <input
-              type="text"
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="input"
             />
           </div>
@@ -263,7 +251,7 @@ export default function UserManagement() {
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleToggleActive}
         title={userToToggle?.isActive ? 'Deactivate User' : 'Activate User'}
-        message={`Are you sure you want to ${userToToggle?.isActive ? 'deactivate' : 'activate'} ${userToToggle?.firstName} ${userToToggle?.lastName}?`}
+        message={`Are you sure you want to ${userToToggle?.isActive ? 'deactivate' : 'activate'} ${userToToggle ? getUserDisplayName(userToToggle) : ''}?`}
         confirmLabel={userToToggle?.isActive ? 'Deactivate' : 'Activate'}
         variant={userToToggle?.isActive ? 'danger' : 'primary'}
         isLoading={isPending}

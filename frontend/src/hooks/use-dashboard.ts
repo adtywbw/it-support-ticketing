@@ -6,8 +6,26 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard', 'stats'],
     queryFn: async () => {
-      const response = await apiClient.get<DashboardStats>('/dashboard/stats');
-      return response.data;
+      const response = await apiClient.get<{
+        statusCounts: Record<string, number>;
+        priorityCounts: Record<string, number>;
+        slaStats: { total: number; onTrack: number; atRisk: number; breached: number; complianceRate: number };
+        dailyTrends: { last7Days: Record<string, number>; last30Days: Record<string, number> };
+        categoryResolution: { categoryId: string; categoryName: string; avgMinutes: number }[];
+      }>('/dashboard/stats');
+      const raw = response.data;
+      const stats: DashboardStats = {
+        totalTickets: Object.values(raw.statusCounts).reduce((a, b) => a + b, 0),
+        ticketsByStatus: Object.entries(raw.statusCounts).map(([status, count]) => ({ status, count })),
+        ticketsByPriority: Object.entries(raw.priorityCounts).map(([priority, count]) => ({ priority, count })),
+        slaComplianceRate: raw.slaStats.complianceRate / 100,
+        avgResolutionTimeByCategory: raw.categoryResolution.map((c) => ({
+          category: c.categoryName,
+          avgHours: c.avgMinutes / 60,
+        })),
+        ticketsTrend: Object.entries(raw.dailyTrends.last7Days).map(([date, count]) => ({ date, count })),
+      };
+      return stats;
     },
   });
 }

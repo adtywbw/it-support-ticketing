@@ -1,60 +1,61 @@
 export type UserRole = 'User' | 'ITSupport' | 'Admin';
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   role: UserRole;
   isActive: boolean;
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export type TicketStatus = 'Open' | 'InProgress' | 'Resolved' | 'Closed';
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Critical';
-export type SLAMetStatus = 'Met' | 'Breached' | 'Pending';
+export type SLAStatus = 'OnTrack' | 'AtRisk' | 'Breached';
 
 export interface Ticket {
-  id: number;
+  id: string;
   ticketNumber: string;
   subject: string;
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
-  categoryId: number;
+  categoryId: string;
   category?: Category;
-  subCategoryId?: number;
+  subCategoryId?: string | null;
   subCategory?: SubCategory;
-  createdById: number;
-  createdBy?: User;
-  assignedToId?: number;
-  assignedTo?: User;
-  slaDeadline?: string;
-  slaMetStatus: SLAMetStatus;
-  isArchived: boolean;
+  requesterId: string;
+  requester?: { id: string; name: string; email: string };
+  assignedToId?: string | null;
+  assignedTo?: User | null;
+  channel: string;
+  slaDueAt?: string | null;
+  slaStatus?: SLAStatus | null;
+  resolvedAt?: string | null;
+  closedAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  resolvedAt?: string;
-  closedAt?: string;
+  _count?: { comments: number; attachments: number };
 }
 
 export interface Comment {
-  id: number;
-  ticketId: number;
-  userId: number;
-  user?: User;
+  id: string;
+  ticketId: string;
+  userId: string;
+  user?: { id: string; name: string; email: string; role?: string; avatarUrl?: string | null };
   content: string;
-  isInternal: boolean;
+  type: 'PUBLIC' | 'INTERNAL';
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Attachment {
-  id: number;
-  ticketId: number;
-  uploadedById: number;
-  uploadedBy?: User;
+  id: string;
+  ticketId: string;
+  uploadedById: string;
+  uploadedBy?: { id: string; name: string; email: string };
   fileName: string;
   fileSize: number;
   mimeType: string;
@@ -62,40 +63,42 @@ export interface Attachment {
 }
 
 export interface Category {
-  id: number;
+  id: string;
   name: string;
   description?: string;
-  slaHours?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   subCategories?: SubCategory[];
+  _count?: { tickets: number };
 }
 
 export interface SubCategory {
-  id: number;
-  categoryId: number;
+  id: string;
+  categoryId: string;
   name: string;
   description?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  _count?: { tickets: number };
 }
 
 export interface Notification {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   title: string;
   message: string;
+  data?: Record<string, unknown>;
   isRead: boolean;
   createdAt: string;
 }
 
 export interface AuditTrailEntry {
-  id: number;
-  ticketId: number;
-  userId: number;
-  user?: User;
+  id: string;
+  ticketId: string;
+  userId: string;
+  user?: { id: string; name: string; email: string };
   action: string;
   field?: string;
   oldValue?: string;
@@ -109,7 +112,7 @@ export interface PaginatedResponse<T> {
     total: number;
     page: number;
     limit: number;
-    totalPages: number;
+    totalPages?: number;
   };
 }
 
@@ -128,7 +131,7 @@ export interface LoginCredentials {
 }
 
 export interface AuthResponse {
-  user: User;
+  user: User & { firstName?: string; lastName?: string };
   accessToken: string;
   refreshToken: string;
 }
@@ -137,33 +140,31 @@ export interface TicketFilters {
   status?: TicketStatus;
   priority?: TicketPriority;
   search?: string;
-  assignedToId?: number;
+  assignedToId?: string;
   page?: number;
   limit?: number;
   startDate?: string;
   endDate?: string;
-  categoryId?: number;
+  categoryId?: string;
 }
 
 export interface CreateTicketPayload {
   subject: string;
   description: string;
-  categoryId: number;
-  subCategoryId?: number;
+  categoryId: string;
+  subCategoryId?: string;
   priority: TicketPriority;
 }
 
 export interface CreateUserPayload {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   role: UserRole;
 }
 
 export interface UpdateUserPayload {
-  firstName?: string;
-  lastName?: string;
+  name?: string;
   role?: UserRole;
   isActive?: boolean;
 }
@@ -171,20 +172,18 @@ export interface UpdateUserPayload {
 export interface CreateCategoryPayload {
   name: string;
   description?: string;
-  slaHours?: number;
 }
 
 export interface UpdateCategoryPayload {
   name?: string;
   description?: string;
-  slaHours?: number;
   isActive?: boolean;
 }
 
 export interface CreateSubCategoryPayload {
   name: string;
   description?: string;
-  categoryId: number;
+  categoryId: string;
 }
 
 export interface UpdateSubCategoryPayload {
