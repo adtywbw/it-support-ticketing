@@ -20,31 +20,31 @@ export function formatRelativeTime(dateStr: string): string {
 
 export function getStatusColor(status: TicketStatus): string {
   const colors: Record<TicketStatus, string> = {
-    Open: 'bg-blue-100 text-blue-800',
-    InProgress: 'bg-yellow-100 text-yellow-800',
-    Resolved: 'bg-green-100 text-green-800',
-    Closed: 'bg-gray-100 text-gray-800',
+    Open: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    InProgress: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+    Resolved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    Closed: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
   };
   return colors[status];
 }
 
 export function getPriorityColor(priority: TicketPriority): string {
   const colors: Record<TicketPriority, string> = {
-    Low: 'bg-gray-100 text-gray-800',
-    Medium: 'bg-blue-100 text-blue-800',
-    High: 'bg-orange-100 text-orange-800',
-    Critical: 'bg-red-100 text-red-800',
+    Low: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    Medium: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    High: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    Critical: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
   };
   return colors[priority];
 }
 
 export function getSLAColor(status: string): string {
   const colors: Record<string, string> = {
-    OnTrack: 'text-green-600',
-    AtRisk: 'text-yellow-600',
-    Breached: 'text-red-600',
+    OnTrack: 'text-green-600 dark:text-green-400',
+    AtRisk: 'text-yellow-600 dark:text-yellow-400',
+    Breached: 'text-red-600 dark:text-red-400',
   };
-  return colors[status] || 'text-gray-600';
+  return colors[status] || 'text-gray-600 dark:text-gray-400';
 }
 
 export function getUserDisplayName(user?: { name?: string; firstName?: string; lastName?: string } | null): string {

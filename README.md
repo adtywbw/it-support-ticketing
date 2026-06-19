@@ -52,8 +52,16 @@ Browser ──▶ Nginx (:80)
 
 ### Notifications
 - In-app notification system (table-based)
+- Dropdown toggle in navbar with recent notifications
+- Click notification → navigate to ticket
 - Triggers: new ticket, status change, assignment, new comment
 - Event-driven design (`@nestjs/event-emitter`) — extensible to email/Slack
+
+### UI/UX
+- Dark mode toggle (persisted to localStorage, default light)
+- Sidebar minimize/expand with icon-only mode
+- Password reveal on hold (eye icon on all password fields)
+- Responsive mobile layout with hamburger menu
 
 ### Security
 - JWT auth with short-lived access tokens + rotating refresh tokens (Redis)
@@ -105,7 +113,7 @@ it-support-ticketing/
 │       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
 │       │   ├── admin/         # UserManagement, MasterDataManagement
 │       │   └── ui/            # Modal, Pagination, ErrorBoundary, LoadingSpinner, etc.
-│       └── pages/             # 9 pages (login, tickets, detail, dashboard, notifications, change-password, admin)
+│       └── pages/             # 9 pages (login, tickets, detail, create-ticket, dashboard, notifications, change-password, admin-users, admin-master)
 └── uploads/                   # File attachments volume
 ```
 
@@ -212,10 +220,12 @@ The seed script creates:
 ### Admin
 | Method | Path | Description |
 |--------|------|-------------|
-| GET/POST | `/api/users` | List (active only by default, `?includeInactive=true`) / Create user |
-| PATCH/DELETE | `/api/users/:id` | Update / Soft-delete user |
+| GET/POST | `/api/users` | List (`?includeInactive=true` for all) / Create user |
+| PATCH/DELETE | `/api/users/:id` | Update / Hard-delete user |
 | GET/POST | `/api/categories` | List / Create categories |
 | PATCH/DELETE | `/api/categories/:id` | Update / Delete category |
+| GET/POST | `/api/categories/:id/sub-categories` | List / Create sub-categories |
+| PATCH/DELETE | `/api/categories/:categoryId/sub-categories/:id` | Update / Delete sub-category |
 | GET/POST | `/api/sla-configs` | List / Create SLA configs |
 | PATCH | `/api/sla-configs/:id` | Update SLA config |
 
@@ -235,11 +245,11 @@ The seed script creates:
 |-------|------|--------|
 | `/login` | Login form | Public |
 | `/tickets` | Ticket list (own/all) | Authenticated |
-| `/tickets/new` | Create ticket form | All roles |
+| `/tickets/new` | Create ticket form | ITSupport, Admin |
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
 | `/dashboard` | Statistics & charts | ITSupport, Admin |
 | `/notifications` | In-app notifications | Authenticated |
-| `/change-password` | Change own password | Authenticated |
+| `/change-password` | Change own password | ITSupport, Admin |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
 

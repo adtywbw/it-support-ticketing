@@ -25,9 +25,9 @@ export default function Pagination({ page, totalPages, onPageChange }: Paginatio
   };
 
   return (
-    <nav className="flex items-center justify-between border-t border-gray-200 px-4 py-3 sm:px-6">
+    <nav className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3 sm:px-6">
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-gray-700 dark:text-gray-300">
           Page <span className="font-medium">{page}</span> of{' '}
           <span className="font-medium">{totalPages}</span>
         </p>
@@ -41,7 +41,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Paginatio
           </button>
           {getPages().map((p, idx) =>
             p === '...' ? (
-              <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">
+              <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 dark:text-gray-500">
                 ...
               </span>
             ) : (

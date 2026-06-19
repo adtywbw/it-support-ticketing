@@ -7,7 +7,7 @@ export default function TicketDetailPage() {
   if (!id) {
     return (
       <div className="card p-12 text-center">
-        <p className="text-gray-500">Invalid ticket ID.</p>
+        <p className="text-gray-500 dark:text-gray-400">Invalid ticket ID.</p>
         <Link to="/tickets" className="btn-primary mt-4 inline-block">
           Back to Tickets
         </Link>
@@ -19,7 +19,7 @@ export default function TicketDetailPage() {
     <div className="space-y-4">
       <Link
         to="/tickets"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
       >
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />

@@ -23,13 +23,13 @@ const statusFlows: Record<TicketStatus, TicketStatus[]> = {
 
 function AssignedToDisplay({ ticket }: { ticket: Ticket }) {
   return (
-    <p className="mt-1 text-sm text-gray-900">
+    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
       {ticket.assignedTo ? getUserDisplayName(ticket.assignedTo) : 'Unassigned'}
     </p>
   );
 }
 
-function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: string; name: string; role: string }[] }) {
+function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: string; name: string; role: string; isActive: boolean }[] }) {
   const assignMutation = useAssignTicket();
   return (
     <select
@@ -45,7 +45,7 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
     >
       <option value="">Unassigned</option>
       {users
-        ?.filter((u) => u.role === 'ITSupport' || u.role === 'Admin')
+        ?.filter((u) => u.isActive && (u.role === 'ITSupport' || u.role === 'Admin'))
         .map((u) => (
           <option key={u.id} value={u.id}>
             {u.name}
@@ -94,11 +94,11 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="text-sm font-medium text-primary-600">{ticket.ticketNumber}</span>
+                <span className="text-sm font-medium text-primary-600 dark:text-primary-400">{ticket.ticketNumber}</span>
                 <StatusBadge status={ticket.status} />
                 <PriorityBadge priority={ticket.priority} />
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">{ticket.subject}</h1>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{ticket.subject}</h1>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -120,18 +120,18 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
         </div>
 
         <div className="card-body space-y-6">
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap dark:text-gray-300">{ticket.description}</p>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase">Created By</label>
-              <p className="mt-1 text-sm text-gray-900">
+              <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Created By</label>
+              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                 {ticket.requester ? getUserDisplayName(ticket.requester) : 'Unknown'}
               </p>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase">Assigned To</label>
+              <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Assigned To</label>
               {canAssign && users ? (
                 <AssignedToSelect ticket={ticket} users={users} />
               ) : (
@@ -140,15 +140,15 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase">Category</label>
-              <p className="mt-1 text-sm text-gray-900">{ticket.category?.name ?? '-'}</p>
+              <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Category</label>
+              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{ticket.category?.name ?? '-'}</p>
               {ticket.subCategory && (
-                <p className="text-xs text-gray-500">{ticket.subCategory.name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{ticket.subCategory.name}</p>
               )}
             </div>
 
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase">SLA Status</label>
+              <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">SLA Status</label>
               <p className={`mt-1 text-sm font-medium ${getSLAColor(ticket.slaStatus || '')}`}>
                 {ticket.slaStatus || 'N/A'}
                 {ticket.slaDueAt && ` (by ${formatDateTime(ticket.slaDueAt)})`}
@@ -158,17 +158,17 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase">Created</label>
-              <p className="mt-1 text-sm text-gray-900">{formatDateTime(ticket.createdAt)}</p>
+              <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Created</label>
+              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDateTime(ticket.createdAt)}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase">Updated</label>
-              <p className="mt-1 text-sm text-gray-900">{formatDateTime(ticket.updatedAt)}</p>
+              <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Updated</label>
+              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDateTime(ticket.updatedAt)}</p>
             </div>
             {ticket.resolvedAt && (
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase">Resolved</label>
-                <p className="mt-1 text-sm text-gray-900">{formatDateTime(ticket.resolvedAt)}</p>
+                <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Resolved</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDateTime(ticket.resolvedAt)}</p>
               </div>
             )}
           </div>
@@ -177,7 +177,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="text-lg font-semibold text-gray-900">Comments</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Comments</h2>
         </div>
         <div className="card-body">
           <CommentSection ticketId={ticketId} />
@@ -186,7 +186,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="text-lg font-semibold text-gray-900">Attachments</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Attachments</h2>
         </div>
         <div className="card-body">
           <AttachmentList ticketId={ticketId} />
@@ -196,7 +196,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
       {auditTrail && auditTrail.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-gray-900">Audit Trail</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Audit Trail</h2>
           </div>
           <div className="card-body">
             <div className="flow-root">
@@ -214,17 +214,17 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                     <div className="relative pb-8">
                       {idx < auditTrail.length - 1 && (
                         <span
-                          className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200"
+                          className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200 dark:bg-gray-700"
                           aria-hidden="true"
                         />
                       )}
                       <div className="relative flex gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600 ring-8 ring-white">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600 ring-8 ring-white dark:bg-gray-600 dark:text-gray-300 dark:ring-gray-800">
                           {entry.user ? getUserInitials(entry.user) : '??'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-700">
-                            <span className="font-medium text-gray-900">
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            <span className="font-medium text-gray-900 dark:text-gray-100">
                               {entry.user ? getUserDisplayName(entry.user) : 'Unknown'}
                             </span>{' '}
                             {entry.action}
@@ -235,14 +235,14 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                                 {entry.oldValue && entry.newValue && (
                                   <>
                                     {' '}
-                                    from <span className="font-medium text-gray-500">"{entry.oldValue}"</span> to{' '}
-                                    <span className="font-medium text-gray-900">"{entry.newValue}"</span>
+                                    from <span className="font-medium text-gray-500 dark:text-gray-400">"{entry.oldValue}"</span> to{' '}
+                                    <span className="font-medium text-gray-900 dark:text-gray-100">"{entry.newValue}"</span>
                                   </>
                                 )}
                               </>
                             )}
                           </p>
-                          <p className="text-xs text-gray-500">{formatRelativeTime(entry.createdAt)}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(entry.createdAt)}</p>
                         </div>
                       </div>
                     </div>

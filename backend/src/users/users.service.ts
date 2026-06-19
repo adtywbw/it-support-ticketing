@@ -221,9 +221,20 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    await this.prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    try {
+      await this.prisma.$transaction([
+        this.prisma.notification.deleteMany({ where: { userId: id } }),
+        this.prisma.ticketHistory.deleteMany({ where: { userId: id } }),
+        this.prisma.ticket.updateMany({
+          where: { assignedToId: id },
+          data: { assignedToId: null },
+        }),
+        this.prisma.user.delete({ where: { id } }),
+      ]);
+    } catch {
+      throw new ConflictException(
+        'Cannot delete user with existing tickets, comments, or attachments. Deactivate the user instead.',
+      );
+    }
   }
 }

@@ -293,7 +293,8 @@ it-support-ticketing/
 │       │   └── index.ts
 │       ├── stores/
 │       │   ├── auth-store.ts
-│       │   └── notification-store.ts
+│       │   ├── notification-store.ts
+│       │   └── theme-store.ts
 │       ├── hooks/
 │       │   ├── use-auth.ts
 │       │   ├── use-tickets.ts
@@ -331,7 +332,8 @@ it-support-ticketing/
 │       │       ├── EmptyState.tsx
 │       │       ├── ErrorMessage.tsx
 │       │       ├── ErrorBoundary.tsx
-│       │       └── ConfirmDialog.tsx
+│       │       ├── ConfirmDialog.tsx
+│       │       └── PasswordInput.tsx
 │       └── pages/
 │           ├── LoginPage.tsx
 │           ├── TicketsPage.tsx

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useLogin } from '@/hooks/use-auth';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import PasswordInput from '@/components/ui/PasswordInput';
 
 interface FormErrors {
   email?: string;
@@ -43,7 +44,7 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {errorMessage && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
           {errorMessage}
         </div>
       )}
@@ -61,23 +62,22 @@ export default function LoginForm() {
           placeholder="you@example.com"
           autoComplete="email"
         />
-        {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+        {errors.email && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email}</p>}
       </div>
 
       <div>
         <label htmlFor="password" className="label">
           Password
         </label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className={`input ${errors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+          error={!!errors.password}
           placeholder="Enter your password"
           autoComplete="current-password"
         />
-        {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+        {errors.password && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.password}</p>}
       </div>
 
       <button

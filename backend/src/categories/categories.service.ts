@@ -50,6 +50,16 @@ export class CategoriesService {
     });
 
     if (existing) {
+      if (!existing.isActive) {
+        return this.prisma.category.update({
+          where: { id: existing.id },
+          data: {
+            isActive: true,
+            description: createCategoryDto.description ?? existing.description,
+          },
+          include: { subCategories: true },
+        });
+      }
       throw new ConflictException('Category with this name already exists');
     }
 

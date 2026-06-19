@@ -16,6 +16,18 @@ const queryClient = new QueryClient({
   },
 });
 
+const savedTheme = localStorage.getItem('theme-storage');
+if (savedTheme) {
+  try {
+    const parsed = JSON.parse(savedTheme);
+    if (parsed?.state?.isDark) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch {
+    // ignore
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

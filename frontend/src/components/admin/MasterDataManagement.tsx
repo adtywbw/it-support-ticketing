@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient from '@/lib/axios';
 import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -22,14 +23,14 @@ export default function MasterDataManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab('categories')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'categories'
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
             Categories
@@ -38,8 +39,8 @@ export default function MasterDataManagement() {
             onClick={() => setActiveTab('subcategories')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'subcategories'
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
             Sub-categories
@@ -77,6 +78,10 @@ function CategoryManager() {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsModalOpen(false);
     },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create category';
+      toast.error(msg);
+    },
   });
 
   const updateMutation = useMutation({
@@ -87,6 +92,10 @@ function CategoryManager() {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsModalOpen(false);
     },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update category';
+      toast.error(msg);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -96,6 +105,10 @@ function CategoryManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsDeleteOpen(false);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to delete category';
+      toast.error(msg);
     },
   });
 
@@ -147,30 +160,30 @@ function CategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
               {categories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{cat.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{cat.description || '-'}</td>
+                <tr key={cat.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{cat.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{cat.description || '-'}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${cat.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${cat.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
                       {cat.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-sm">
-                    <button onClick={() => openEdit(cat)} className="text-primary-600 hover:text-primary-800 mr-3">Edit</button>
+                    <button onClick={() => openEdit(cat)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
                     <button
                       onClick={() => { setDeletingId(cat.id); setIsDeleteOpen(true); }}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                     >
                       Delete
                     </button>
@@ -244,7 +257,7 @@ function SubCategoryManager() {
   const [formDesc, setFormDesc] = useState('');
   const [formCategoryId, setFormCategoryId] = useState<string>('');
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingItem, setDeletingItem] = useState<{ id: string; categoryId: string } | null>(null);
 
   const createMutation = useMutation({
     mutationFn: async (payload: CreateSubCategoryPayload) => {
@@ -254,25 +267,37 @@ function SubCategoryManager() {
       queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       setIsModalOpen(false);
     },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create sub-category';
+      toast.error(msg);
+    },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: UpdateSubCategoryPayload }) => {
-      await apiClient.patch(`/sub-categories/${id}`, payload);
+    mutationFn: async ({ id, categoryId, payload }: { id: string; categoryId: string; payload: UpdateSubCategoryPayload }) => {
+      await apiClient.patch(`/categories/${categoryId}/sub-categories/${id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       setIsModalOpen(false);
     },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update sub-category';
+      toast.error(msg);
+    },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiClient.delete(`/sub-categories/${id}`);
+    mutationFn: async ({ id, categoryId }: { id: string; categoryId: string }) => {
+      await apiClient.delete(`/categories/${categoryId}/sub-categories/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       setIsDeleteOpen(false);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to delete sub-category';
+      toast.error(msg);
     },
   });
 
@@ -296,6 +321,7 @@ function SubCategoryManager() {
     if (editingItem) {
       updateMutation.mutate({
         id: editingItem.id,
+        categoryId: editingItem.categoryId,
         payload: { name: formName, description: formDesc || undefined, isActive: editingItem.isActive },
       });
     } else if (formCategoryId) {
@@ -325,30 +351,30 @@ function SubCategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
               {subCategories.map((sub) => (
-                <tr key={sub.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{sub.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{getCategoryName(sub.categoryId)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{sub.description || '-'}</td>
+                <tr key={sub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{sub.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{getCategoryName(sub.categoryId)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{sub.description || '-'}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${sub.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${sub.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
                       {sub.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-sm">
-                    <button onClick={() => openEdit(sub)} className="text-primary-600 hover:text-primary-800 mr-3">Edit</button>
-                    <button onClick={() => { setDeletingId(sub.id); setIsDeleteOpen(true); }} className="text-red-600 hover:text-red-800">Delete</button>
+                    <button onClick={() => openEdit(sub)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
+                    <button onClick={() => { setDeletingItem({ id: sub.id, categoryId: sub.categoryId }); setIsDeleteOpen(true); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Delete</button>
                   </td>
                 </tr>
               ))}
@@ -388,7 +414,7 @@ function SubCategoryManager() {
       <ConfirmDialog
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
-        onConfirm={() => deletingId && deleteMutation.mutate(deletingId)}
+        onConfirm={() => deletingItem && deleteMutation.mutate(deletingItem)}
         title="Delete Sub-category"
         message="Are you sure you want to delete this sub-category?"
         confirmLabel="Delete"

@@ -6,7 +6,7 @@ export function useUsers() {
   return useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const response = await apiClient.get<PaginatedResponse<User>>('/users');
+      const response = await apiClient.get<PaginatedResponse<User>>('/users?includeInactive=true');
       return response.data.data;
     },
   });

@@ -50,7 +50,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
         />
         <div className="flex items-center justify-between">
           {canSeeInternal && (
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer dark:text-gray-400">
               <input
                 type="checkbox"
                 checked={isInternal}
@@ -91,28 +91,28 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           <div
             key={comment.id}
             className={`rounded-lg border p-4 ${
-              comment.type === 'INTERNAL' ? 'border-yellow-200 bg-yellow-50' : 'border-gray-200 bg-white'
+              comment.type === 'INTERNAL' ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
             }`}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
                   {comment.user ? getUserInitials(comment.user) : '??'}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {comment.user ? getUserDisplayName(comment.user) : 'Unknown User'}
                   </p>
-                  <p className="text-xs text-gray-500">{formatRelativeTime(comment.createdAt)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(comment.createdAt)}</p>
                 </div>
               </div>
               {comment.type === 'INTERNAL' && (
-                <span className="rounded bg-yellow-200 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                <span className="rounded bg-yellow-200 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
                   Internal
                 </span>
               )}
             </div>
-            <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+            <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap dark:text-gray-300">{comment.content}</p>
           </div>
         ))}
       </div>

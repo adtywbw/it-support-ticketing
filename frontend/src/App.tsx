@@ -43,7 +43,14 @@ export default function App() {
           <Route path="/tickets/new" element={<CreateTicketPage />} />
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route
+            path="/change-password"
+            element={
+              <ProtectedRoute allowedRoles={['ITSupport', 'Admin']}>
+                <ChangePasswordPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/users"
             element={

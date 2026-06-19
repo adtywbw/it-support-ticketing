@@ -6,8 +6,8 @@ Frontend: React 18 + Vite + TanStack Query + Zustand + Tailwind
 
 ## Struktur Kunci
 ```
-backend/src/{auth,tickets,comments,attachments,categories,dashboard,users,sla,notifications,health}
-frontend/src/{pages(8),components/{auth,layout,tickets,dashboard,admin,ui},hooks,stores,types,lib}
+backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,health}
+frontend/src/{pages(9),components/{auth,layout,tickets,dashboard,admin,ui},hooks,stores,types,lib}
 ```
 
 ## Perintah
@@ -32,9 +32,11 @@ GET|PATCH /api/tickets/:id
 PATCH /api/tickets/:id/status|assign
 GET|POST /api/tickets/:id/comments|attachments
 GET|POST|PATCH|DELETE /api/categories
+GET|POST|PATCH|DELETE /api/categories/:categoryId/sub-categories
+PATCH|DELETE /api/sub-categories/:id     # (deprecated, use full path)
 GET|POST|PATCH /api/sla-configs
 GET /api/dashboard/stats
-GET|POST|PATCH|DELETE /api/users        # GET ?includeInactive=true untuk lihat inactive users
+GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat inactive users
 ```
 
 ## Frontend Routes
@@ -44,14 +46,26 @@ GET|POST|PATCH|DELETE /api/users        # GET ?includeInactive=true untuk lihat 
 /admin/users, /admin/master-data
 ```
 
+## Role & Access
+| Role | Dashboard | New Ticket | Change Password | Users | Master Data |
+|------|-----------|------------|-----------------|-------|-------------|
+| EndUser | ✗ | ✗ | ✗ | ✗ | ✗ |
+| ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
 ## Perbaikan Terakhir
-- Role EndUser: type UserRole 'User' → 'EndUser', sidebar nav items, form option
-- Create User: explicit payload destructuring (tanpa isActive), backend reactivates inactive user jika email sudah dipakai
-- Delete User: backend findAll default filter isActive=true (user terhapus hilang dari list); tombol Delete + ConfirmDialog
-- Change Password: endpoint POST /api/auth/change-password + halaman /change-password + sidebar link
-- Error handling: try-catch di handleSubmit, handleToggleActive, handleDelete — error ditampilkan di modal/alert
-- Auth persist: zustand persist middleware ke localStorage
-- Dashboard blank: transform format backend ke DashboardStats type
-- Type mismatch: semua id string UUID, user pakai name, comment pakai type
+- ValidationPipe: UpdateUserDto tambah field isActive (fix "property isActive should not exist")
+- User Deactivate: includeInactive=true agar user tetap terlihat di list setelah di-deactivate
+- User Delete: hard-delete dengan transaction (hapus notifications, ticketHistory, unassign tickets), jika gagal karena FK → pesan error "Deactivate the user instead"
+- Master Data: fix URL sub-categories (tambah categoryId di path update/delete) + toast error handling
+- Sidebar: tombol minimize (collapsed state, icon-only mode)
+- Dark Mode: tailwind darkMode: 'class', theme-store zustand persist, toggle button di sidebar, dark variants di semua komponen utama
+- PasswordInput: komponen reusable dengan eye icon (hold to reveal)
+- Notifikasi: dropdown toggle di Navbar, klik notifikasi → navigate ke tiket
+- Notifikasi counter: auto-fetch via useNotifications() di Layout
+- Change Password: hanya untuk role Admin & ITSupport
+- Dashboard: hide untuk EndUser
+- New Ticket: hide untuk EndUser
+- SLA Compliance dashboard: fix literal \n
+- Categories/Sub-categories: reactivate soft-deleted record saat create dengan nama yang sama
 - ErrorBoundary wrapping App + route /notifications
-- Fix Number(id) bug di TicketDetailPage

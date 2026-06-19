@@ -39,6 +39,12 @@ export class SubCategoriesService {
     });
 
     if (existing) {
+      if (!existing.isActive) {
+        return this.prisma.subCategory.update({
+          where: { id: existing.id },
+          data: { isActive: true, description: data.description ?? existing.description },
+        });
+      }
       throw new ConflictException(
         'Sub-category with this name already exists in this category',
       );

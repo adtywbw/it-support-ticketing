@@ -65,15 +65,15 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
           }[]).map((attachment) => (
             <div
               key={attachment.id}
-              className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3"
+              className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <svg className="h-8 w-8 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <svg className="h-8 w-8 shrink-0 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                 </svg>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{attachment.fileName}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">{attachment.fileName}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {formatFileSize(attachment.fileSize)} &middot;{' '}
                     {attachment.uploadedBy ? getUserDisplayName(attachment.uploadedBy) : 'Unknown'}{' '}
                     &middot; {formatDate(attachment.createdAt)}

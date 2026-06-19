@@ -98,7 +98,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
       </select>
 
       {user && (user.role === 'ITSupport' || user.role === 'Admin') && (
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
           <input
             type="checkbox"
             checked={filters.assignedToMe}
