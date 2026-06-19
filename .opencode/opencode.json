@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "snapshot": true,
+  "references": {
+    "docs": {
+      "path": ".",
+      "description": "Project documentation (ARCHITECTURE.md, README.md)"
+    },
+    "frontend": {
+      "path": "frontend/src",
+      "description": "Frontend source code (React, hooks, components, pages)"
+    },
+    "backend": {
+      "path": "backend/src",
+      "description": "Backend source code (NestJS modules, services, controllers)"
+    }
+  }
+}
