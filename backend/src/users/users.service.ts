@@ -51,15 +51,43 @@ export class UsersService {
     return user;
   }
 
+  async findByIdWithPassword(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        name: true,
+        role: true,
+        isActive: true,
+        avatarUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
   async findAll(params: {
     page?: number;
     limit?: number;
     role?: string;
     search?: string;
+    includeInactive?: boolean;
   }) {
-    const { page = 1, limit = 10, role, search } = params;
+    const { page = 1, limit = 10, role, search, includeInactive } = params;
 
     const where: Record<string, unknown> = {};
+
+    if (!includeInactive) {
+      where.isActive = true;
+    }
 
     if (role) {
       where.role = role;
@@ -101,6 +129,27 @@ export class UsersService {
     });
 
     if (existingUser) {
+      if (!existingUser.isActive) {
+        const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
+        return this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            password: hashedPassword,
+            name: createUserDto.name,
+            role: createUserDto.role || 'EndUser',
+            isActive: true,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+      }
       throw new ConflictException('Email already in use');
     }
 

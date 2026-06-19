@@ -300,7 +300,8 @@ it-support-ticketing/
 │       │   ├── use-categories.ts
 │       │   ├── use-users.ts
 │       │   ├── use-dashboard.ts
-│       │   └── use-notifications.ts
+│       │   ├── use-notifications.ts
+│       │   └── use-change-password.ts
 │       ├── components/
 │       │   ├── auth/
 │       │   │   ├── LoginForm.tsx
@@ -338,6 +339,7 @@ it-support-ticketing/
 │           ├── TicketDetailPage.tsx
 │           ├── DashboardPage.tsx
 │           ├── NotificationsPage.tsx
+│           ├── ChangePasswordPage.tsx
 │           ├── AdminUsersPage.tsx
 │           └── AdminMasterDataPage.tsx
 └── uploads/ (mounted volume)

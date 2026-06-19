@@ -29,12 +29,14 @@ export class UsersController {
     @Query('limit') limit?: string,
     @Query('role') role?: string,
     @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: string,
   ) {
     return this.usersService.findAll({
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
       role,
       search,
+      includeInactive: includeInactive === 'true',
     });
   }
 

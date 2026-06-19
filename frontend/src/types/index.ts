@@ -1,4 +1,4 @@
-export type UserRole = 'User' | 'ITSupport' | 'Admin';
+export type UserRole = 'EndUser' | 'ITSupport' | 'Admin';
 
 export interface User {
   id: string;
@@ -167,6 +167,7 @@ export interface UpdateUserPayload {
   name?: string;
   role?: UserRole;
   isActive?: boolean;
+  password?: string;
 }
 
 export interface CreateCategoryPayload {

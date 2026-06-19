@@ -9,6 +9,7 @@ import CreateTicketPage from '@/pages/CreateTicketPage';
 import TicketDetailPage from '@/pages/TicketDetailPage';
 import DashboardPage from '@/pages/DashboardPage';
 import NotificationsPage from '@/pages/NotificationsPage';
+import ChangePasswordPage from '@/pages/ChangePasswordPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
 import AdminMasterDataPage from '@/pages/AdminMasterDataPage';
 
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/tickets/new" element={<CreateTicketPage />} />
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route
             path="/admin/users"
             element={

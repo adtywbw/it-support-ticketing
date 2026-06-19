@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useUsers, useCreateUser, useUpdateUser } from '@/hooks/use-users';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/use-users';
 import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -22,7 +22,7 @@ const initialFormData: UserFormData = {
   email: '',
   password: '',
   name: '',
-  role: 'User',
+  role: 'EndUser',
   isActive: true,
 };
 
@@ -30,18 +30,23 @@ export default function UserManagement() {
   const { data: users, isLoading, isError, error, refetch } = useUsers();
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [mode, setMode] = useState<UserFormMode>('create');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState<UserFormData>(initialFormData);
+  const [formError, setFormError] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [userToToggle, setUserToToggle] = useState<User | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const openCreate = () => {
     setMode('create');
     setEditingUser(null);
     setFormData(initialFormData);
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -55,31 +60,73 @@ export default function UserManagement() {
       role: user.role,
       isActive: user.isActive,
     });
+    setFormError('');
     setIsModalOpen(true);
   };
 
   const handleSubmit = async () => {
-    if (mode === 'create') {
-      await createUserMutation.mutateAsync(formData as CreateUserPayload);
-    } else if (editingUser) {
-      const payload: UpdateUserPayload = {
-        name: formData.name,
-        role: formData.role,
-        isActive: formData.isActive,
-      };
-      await updateUserMutation.mutateAsync({ id: editingUser.id, payload });
+    setFormError('');
+    try {
+      if (mode === 'create') {
+        const payload: CreateUserPayload = {
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          role: formData.role,
+        };
+        await createUserMutation.mutateAsync(payload);
+      } else if (editingUser) {
+        const payload: UpdateUserPayload = {
+          name: formData.name,
+          role: formData.role,
+          isActive: formData.isActive,
+        };
+        if (formData.password) {
+          payload.password = formData.password;
+        }
+        await updateUserMutation.mutateAsync({ id: editingUser.id, payload });
+      }
+      setIsModalOpen(false);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err as { message?: string })?.message ||
+        'An error occurred';
+      setFormError(msg);
     }
-    setIsModalOpen(false);
   };
 
   const handleToggleActive = async () => {
     if (!userToToggle) return;
-    await updateUserMutation.mutateAsync({
-      id: userToToggle.id,
-      payload: { isActive: !userToToggle.isActive },
-    });
-    setIsConfirmOpen(false);
-    setUserToToggle(null);
+    try {
+      await updateUserMutation.mutateAsync({
+        id: userToToggle.id,
+        payload: { isActive: !userToToggle.isActive },
+      });
+      setIsConfirmOpen(false);
+      setUserToToggle(null);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err as { message?: string })?.message ||
+        'An error occurred';
+      alert(msg);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      await deleteUserMutation.mutateAsync(userToDelete.id);
+      setIsDeleteConfirmOpen(false);
+      setUserToDelete(null);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err as { message?: string })?.message ||
+        'An error occurred';
+      alert(msg);
+    }
   };
 
   if (isLoading) {
@@ -99,7 +146,7 @@ export default function UserManagement() {
     );
   }
 
-  const isPending = createUserMutation.isPending || updateUserMutation.isPending;
+  const isPending = createUserMutation.isPending || updateUserMutation.isPending || deleteUserMutation.isPending;
 
   return (
     <div className="space-y-4">
@@ -174,9 +221,18 @@ export default function UserManagement() {
                           setUserToToggle(u);
                           setIsConfirmOpen(true);
                         }}
-                        className={`${u.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}`}
+                        className={`${u.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'} mr-3`}
                       >
                         {u.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUserToDelete(u);
+                          setIsDeleteConfirmOpen(true);
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -193,6 +249,9 @@ export default function UserManagement() {
         title={mode === 'create' ? 'Create User' : 'Edit User'}
       >
         <div className="space-y-4">
+          {formError && (
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+          )}
           <div>
             <label className="label">Name</label>
             <input
@@ -212,17 +271,16 @@ export default function UserManagement() {
               disabled={mode === 'edit'}
             />
           </div>
-          {mode === 'create' && (
-            <div>
-              <label className="label">Password</label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="input"
-              />
-            </div>
-          )}
+          <div>
+            <label className="label">{mode === 'create' ? 'Password' : 'New Password (leave blank to keep current)'}</label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="input"
+              placeholder={mode === 'edit' ? 'Leave blank to keep current' : ''}
+            />
+          </div>
           <div>
             <label className="label">Role</label>
             <select
@@ -230,7 +288,7 @@ export default function UserManagement() {
               onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
               className="input"
             >
-              <option value="User">User</option>
+              <option value="EndUser">End User</option>
               <option value="ITSupport">IT Support</option>
               <option value="Admin">Admin</option>
             </select>
@@ -254,6 +312,17 @@ export default function UserManagement() {
         message={`Are you sure you want to ${userToToggle?.isActive ? 'deactivate' : 'activate'} ${userToToggle ? getUserDisplayName(userToToggle) : ''}?`}
         confirmLabel={userToToggle?.isActive ? 'Deactivate' : 'Activate'}
         variant={userToToggle?.isActive ? 'danger' : 'primary'}
+        isLoading={isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete User"
+        message={`Are you sure you want to delete ${userToDelete ? getUserDisplayName(userToDelete) : ''}? This will deactivate their account.`}
+        confirmLabel="Delete"
+        variant="danger"
         isLoading={isPending}
       />
     </div>

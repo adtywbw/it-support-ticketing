@@ -58,6 +58,7 @@ Browser ──▶ Nginx (:80)
 ### Security
 - JWT auth with short-lived access tokens + rotating refresh tokens (Redis)
 - bcrypt password hashing (cost 12)
+- Self-service password change (current password verification)
 - class-validator DTO validation (whitelist + forbidNonWhitelisted)
 - Role-based & ownership-based authorization guards
 - Nginx rate limiting (10 req/s per IP)
@@ -104,7 +105,7 @@ it-support-ticketing/
 │       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
 │       │   ├── admin/         # UserManagement, MasterDataManagement
 │       │   └── ui/            # Modal, Pagination, ErrorBoundary, LoadingSpinner, etc.
-│       └── pages/             # 8 pages (login, tickets, detail, dashboard, notifications, admin)
+│       └── pages/             # 9 pages (login, tickets, detail, dashboard, notifications, change-password, admin)
 └── uploads/                   # File attachments volume
 ```
 
@@ -183,6 +184,7 @@ The seed script creates:
 | POST | `/api/auth/login` | Login with email/password |
 | POST | `/api/auth/refresh` | Refresh access token |
 | POST | `/api/auth/logout` | Invalidate refresh token |
+| POST | `/api/auth/change-password` | Change own password |
 
 ### Tickets
 | Method | Path | Description |
@@ -210,8 +212,8 @@ The seed script creates:
 ### Admin
 | Method | Path | Description |
 |--------|------|-------------|
-| GET/POST | `/api/users` | List / Create users |
-| PATCH/DELETE | `/api/users/:id` | Update / Deactivate user |
+| GET/POST | `/api/users` | List (active only by default, `?includeInactive=true`) / Create user |
+| PATCH/DELETE | `/api/users/:id` | Update / Soft-delete user |
 | GET/POST | `/api/categories` | List / Create categories |
 | PATCH/DELETE | `/api/categories/:id` | Update / Delete category |
 | GET/POST | `/api/sla-configs` | List / Create SLA configs |
@@ -237,6 +239,7 @@ The seed script creates:
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
 | `/dashboard` | Statistics & charts | ITSupport, Admin |
 | `/notifications` | In-app notifications | Authenticated |
+| `/change-password` | Change own password | Authenticated |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
 
