@@ -287,60 +287,57 @@ it-support-ticketing/
 │       ├── App.tsx
 │       ├── index.css
 │       ├── lib/
-│       │   ├── api.ts
-│       │   └── query-client.ts
+│       │   ├── axios.ts
+│       │   └── utils.ts
 │       ├── types/
 │       │   └── index.ts
 │       ├── stores/
-│       │   ├── auth.store.ts
-│       │   └── notification.store.ts
+│       │   ├── auth-store.ts
+│       │   └── notification-store.ts
 │       ├── hooks/
-│       │   ├── useAuth.ts
-│       │   ├── useTickets.ts
-│       │   ├── useComments.ts
-│       │   ├── useNotifications.ts
-│       │   └── useDashboard.ts
+│       │   ├── use-auth.ts
+│       │   ├── use-tickets.ts
+│       │   ├── use-categories.ts
+│       │   ├── use-users.ts
+│       │   ├── use-dashboard.ts
+│       │   └── use-notifications.ts
 │       ├── components/
 │       │   ├── auth/
 │       │   │   ├── LoginForm.tsx
 │       │   │   └── ProtectedRoute.tsx
 │       │   ├── layout/
-│       │   │   ├── AppLayout.tsx
+│       │   │   ├── Layout.tsx
 │       │   │   ├── Sidebar.tsx
-│       │   │   ├── Header.tsx
-│       │   │   └── NotificationBell.tsx
+│       │   │   └── Navbar.tsx
 │       │   ├── tickets/
 │       │   │   ├── TicketList.tsx
-│       │   │   ├── TicketCard.tsx
 │       │   │   ├── TicketDetail.tsx
 │       │   │   ├── CreateTicketForm.tsx
-│       │   │   ├── CommentThread.tsx
-│       │   │   └── TicketFilters.tsx
+│       │   │   ├── CommentSection.tsx
+│       │   │   ├── AttachmentList.tsx
+│       │   │   ├── TicketFilters.tsx
+│       │   │   ├── StatusBadge.tsx
+│       │   │   └── PriorityBadge.tsx
 │       │   ├── dashboard/
-│       │   │   ├── StatusPieChart.tsx
-│       │   │   ├── PriorityBarChart.tsx
-│       │   │   ├── TicketTrendChart.tsx
-│       │   │   ├── SLAComplianceCard.tsx
-│       │   │   └── AvgResolutionTimeCard.tsx
+│       │   │   └── DashboardStats.tsx
 │       │   ├── admin/
 │       │   │   ├── UserManagement.tsx
-│       │   │   ├── MasterDataManagement.tsx
-│       │   │   └── SLAConfigForm.tsx
+│       │   │   └── MasterDataManagement.tsx
 │       │   └── ui/
-│       │       ├── Button.tsx
-│       │       ├── Input.tsx
-│       │       ├── Select.tsx
-│       │       ├── Badge.tsx
 │       │       ├── Modal.tsx
 │       │       ├── Pagination.tsx
-│       │       ├── Spinner.tsx
-│       │       └── EmptyState.tsx
+│       │       ├── LoadingSpinner.tsx
+│       │       ├── EmptyState.tsx
+│       │       ├── ErrorMessage.tsx
+│       │       ├── ErrorBoundary.tsx
+│       │       └── ConfirmDialog.tsx
 │       └── pages/
 │           ├── LoginPage.tsx
-│           ├── TicketListPage.tsx
+│           ├── TicketsPage.tsx
 │           ├── CreateTicketPage.tsx
 │           ├── TicketDetailPage.tsx
 │           ├── DashboardPage.tsx
+│           ├── NotificationsPage.tsx
 │           ├── AdminUsersPage.tsx
 │           └── AdminMasterDataPage.tsx
 └── uploads/ (mounted volume)

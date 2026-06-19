@@ -93,16 +93,18 @@ it-support-ticketing/
 ├── frontend/
 │   ├── Dockerfile             # Multi-stage build (Vite build → nginx static)
 │   └── src/
-│       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, etc.)
+│       ├── lib/               # Axios client, utility functions
+│       ├── types/             # TypeScript type definitions
 │       ├── stores/            # Zustand stores (auth, notifications)
+│       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, etc.)
 │       ├── components/
 │       │   ├── auth/          # LoginForm, ProtectedRoute
 │       │   ├── layout/        # Sidebar, Navbar, Layout
 │       │   ├── tickets/       # TicketList, CreateTicketForm, TicketDetail, etc.
-│       │   ├── dashboard/     # Stats, charts, SLA compliance
-│       │   ├── admin/         # User & master data management
-│       │   └── ui/            # Modal, Pagination, Badge, LoadingSpinner, etc.
-│       └── pages/             # 7 pages (login, tickets, detail, dashboard, admin)
+│       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
+│       │   ├── admin/         # UserManagement, MasterDataManagement
+│       │   └── ui/            # Modal, Pagination, ErrorBoundary, LoadingSpinner, etc.
+│       └── pages/             # 8 pages (login, tickets, detail, dashboard, notifications, admin)
 └── uploads/                   # File attachments volume
 ```
 
@@ -163,7 +165,6 @@ npm run dev
 The seed script creates:
 - **Admin** user: `admin@company.com` / `Admin123!`
 - **IT Support** user: `support@company.com` / `Support123!`
-- **End User**: `user@company.com` / `User123!`
 - 2 categories (Hardware, Software) with SLA configs
 - 1 sample ticket
 
@@ -173,7 +174,6 @@ The seed script creates:
 |------|-------|----------|
 | Admin | admin@company.com | Admin123! |
 | ITSupport | support@company.com | Support123! |
-| EndUser | user@company.com | User123! |
 
 ## API Endpoints
 
@@ -236,6 +236,7 @@ The seed script creates:
 | `/tickets/new` | Create ticket form | All roles |
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
 | `/dashboard` | Statistics & charts | ITSupport, Admin |
+| `/notifications` | In-app notifications | Authenticated |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
 
@@ -258,11 +259,16 @@ The seed script creates:
 | db | postgres:16-alpine | — | `pg_isready` |
 | cache | redis:7-alpine | — | `redis-cli ping` |
 
-## Testing
+## Testing & Lint
 
 ```bash
+# Backend unit tests
 cd backend
 npm run test
+
+# Frontend lint (zero warnings policy)
+cd frontend
+npm run lint
 ```
 
 Unit test for TicketsService covers:
