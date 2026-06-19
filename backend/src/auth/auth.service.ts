@@ -74,6 +74,7 @@ export class AuthService {
     id: string;
     email: string;
     role: string;
+    name?: string;
   }): Promise<AuthResponse> {
     const tokenId = uuidv4();
 
@@ -98,6 +99,7 @@ export class AuthService {
       Math.floor(this.refreshTokenExpiryMs / 1000),
     );
 
+    const fullName = user.name || '';
     return {
       accessToken,
       refreshToken,
@@ -105,6 +107,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
+        name: fullName,
+        firstName: fullName.split(' ').slice(0, -1).join(' ') || fullName,
+        lastName: fullName.split(' ').pop() || '',
       },
     };
   }
@@ -112,7 +117,7 @@ export class AuthService {
   private async validateUser(
     email: string,
     password: string,
-  ): Promise<{ id: string; email: string; role: string; isActive: boolean } | null> {
+  ) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       return null;
@@ -123,11 +128,6 @@ export class AuthService {
       return null;
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      isActive: user.isActive,
-    };
+    return user;
   }
 }
