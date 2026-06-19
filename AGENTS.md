@@ -29,7 +29,7 @@ GET  /api/health
 POST /api/auth/login|refresh|logout|change-password
 GET|POST /api/tickets
 GET|PATCH /api/tickets/:id
-PATCH /api/tickets/:id/status|assign
+PATCH /api/tickets/:id/status|assign|priority
 GET|POST /api/tickets/:id/comments|attachments
 GET|POST|PATCH|DELETE /api/categories
 GET|POST|PATCH|DELETE /api/categories/:categoryId/sub-categories
@@ -54,6 +54,14 @@ GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat in
 | Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## Perbaikan Terakhir
+- Dashboard: fix typo avgMinutes → avgResolutionMinutes (category resolution NaN)
+- Dashboard: Ticket Trend tampilkan "No activity" jika semua count 0
+- Ticket Status: tambah OnHold ke frontend (type, color, badge, statusFlows)
+- Status Flows: samakan dengan backend (Closed → Open, InProgress → OnHold/Resolved, dll)
+- Closed → Open: clear closedAt/resolvedAt saat reopen ticket
+- Priority: dropdown editable di tabel Tickets untuk ITSupport/Admin
+- Category: kolom baru di tabel Tickets
+- New Ticket: attachment upload (max 3 files, max 5MB each)
 - ValidationPipe: UpdateUserDto tambah field isActive (fix "property isActive should not exist")
 - User Deactivate: includeInactive=true agar user tetap terlihat di list setelah di-deactivate
 - User Delete: hard-delete dengan transaction (hapus notifications, ticketHistory, unassign tickets), jika gagal karena FK → pesan error "Deactivate the user instead"

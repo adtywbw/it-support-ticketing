@@ -27,7 +27,7 @@ Browser ──▶ Nginx (:80)
 
 ### User & Role Management
 - **EndUser** — create tickets, comment, upload attachments, close resolved tickets
-- **ITSupport** — view queue, claim/assign, reply, add internal notes, change status/priority
+- **ITSupport** — view queue, claim/assign, reply, add internal notes, change status/priority (inline from ticket list)
 - **Admin** — manage users/roles, categories, sub-categories, SLA configs
 
 ### Ticketing
@@ -35,7 +35,7 @@ Browser ──▶ Nginx (:80)
 - Status workflow: `Open → InProgress → Resolved → Closed` (with `OnHold` loop)
 - Priority: Low, Medium, High, Critical
 - Public & internal comments
-- File attachments (max 5/ticket, 10MB each, allowed MIME types)
+- File attachments (max 3/ticket, 5MB each, allowed MIME types)
 - Full audit trail on status/assignee/priority changes
 
 ### SLA Management
