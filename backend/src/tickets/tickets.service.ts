@@ -483,9 +483,9 @@ export class TicketsService {
 
   private async generateTicketNumber(): Promise<string> {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const prefix = `TKT-${year}${month}-`;
+    const yy = String(now.getFullYear()).slice(2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `TKT-${yy}${mm}-`;
 
     const lastTicket = await this.prisma.ticket.findFirst({
       where: { ticketNumber: { startsWith: prefix } },
@@ -499,6 +499,6 @@ export class TicketsService {
       nextSeq = lastSeq + 1;
     }
 
-    return `${prefix}${String(nextSeq).padStart(6, '0')}`;
+    return `${prefix}${String(nextSeq).padStart(3, '0')}`;
   }
 }

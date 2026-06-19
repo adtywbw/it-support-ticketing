@@ -40,6 +40,7 @@ export default function TicketList() {
     ...(filters.priority && { priority: filters.priority }),
     ...(filters.search && { search: filters.search }),
     ...(filters.categoryId && { categoryId: filters.categoryId }),
+    ...(filters.assignedToMe && user?.id && { assignedToId: user.id }),
   };
 
   const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);

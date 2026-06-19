@@ -41,6 +41,7 @@ export function useCreateTicket() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -56,6 +57,7 @@ export function useUpdateTicketStatus() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -71,10 +73,10 @@ export function useAssignTicket() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
-
 export function useTicketComments(ticketId: string) {
   return useQuery({
     queryKey: ['ticket', ticketId, 'comments'],
@@ -148,6 +150,7 @@ export function useUpdateTicketPriority() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

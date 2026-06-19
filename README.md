@@ -31,7 +31,7 @@ Browser ──▶ Nginx (:80)
 - **Admin** — manage users/roles, categories, sub-categories, SLA configs
 
 ### Ticketing
-- Auto-generated ticket number (`TKT-YYYYMM-XXXXXX`)
+- Auto-generated ticket number (`TKT-YYMM-XXX`)
 - Status workflow: `Open → InProgress → Resolved → Closed` (with `OnHold` loop)
 - Priority: Low, Medium, High, Critical
 - Public & internal comments

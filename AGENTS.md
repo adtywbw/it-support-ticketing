@@ -61,6 +61,7 @@ GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat in
 - Closed → Open: clear closedAt/resolvedAt saat reopen ticket
 - Priority: dropdown editable di tabel Tickets untuk ITSupport/Admin
 - Category: kolom baru di tabel Tickets
+- Ticket Number: format TKT-YYMM-XXX (3-digit sequence)
 - New Ticket: attachment upload (max 3 files, max 5MB each)
 - ValidationPipe: UpdateUserDto tambah field isActive (fix "property isActive should not exist")
 - User Deactivate: includeInactive=true agar user tetap terlihat di list setelah di-deactivate
