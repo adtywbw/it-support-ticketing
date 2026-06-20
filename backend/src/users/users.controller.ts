@@ -19,11 +19,11 @@ import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
+  @Roles(Role.ITSupport, Role.Admin)
   async findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -41,16 +41,19 @@ export class UsersController {
   }
 
   @Get(':id')
+  @Roles(Role.Admin)
   async findById(@Param('id') id: string) {
     return this.usersService.findById(id);
   }
 
   @Post()
+  @Roles(Role.Admin)
   async create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
 
   @Patch(':id')
+  @Roles(Role.Admin)
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -59,6 +62,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @Roles(Role.Admin)
   async delete(@Param('id') id: string) {
     await this.usersService.delete(id);
     return { message: 'User deactivated successfully' };

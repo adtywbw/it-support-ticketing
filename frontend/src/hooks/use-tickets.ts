@@ -155,6 +155,20 @@ export function useUpdateTicketPriority() {
   });
 }
 
+export function useDeleteTicket() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/tickets/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 export function useTicketAuditTrail(ticketId: string) {
   return useQuery({
     queryKey: ['ticket', ticketId, 'audit'],

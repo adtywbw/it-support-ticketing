@@ -141,7 +141,7 @@ async function main() {
   if (!existingTicket) {
     await prisma.ticket.create({
       data: {
-        ticketNumber: `TKT-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-000001`,
+        ticketNumber: 'TKT-001',
         subject: 'Cannot connect to company VPN',
         description: 'I am unable to connect to the company VPN from my laptop. It keeps timing out after authentication.',
         requesterId: admin.id,

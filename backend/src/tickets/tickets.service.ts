@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -12,6 +13,7 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
 import { Prisma, TicketStatus, Priority, SLAStatus } from '@prisma/client';
+import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Open]: [TicketStatus.InProgress],
@@ -26,6 +28,8 @@ export class TicketsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    @Inject('StorageService')
+    private readonly storageService: StorageService,
   ) {}
 
   async create(createTicketDto: CreateTicketDto, requesterId: string) {
@@ -354,6 +358,34 @@ export class TicketsService {
     return updatedTicket;
   }
 
+  async delete(id: string): Promise<void> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        attachments: { select: { path: true } },
+      },
+    });
+
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    for (const attachment of ticket.attachments) {
+      try {
+        await this.storageService.delete(attachment.path);
+      } catch {
+        // Ignore file deletion errors
+      }
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.ticketHistory.deleteMany({ where: { ticketId: id } }),
+      this.prisma.comment.deleteMany({ where: { ticketId: id } }),
+      this.prisma.attachment.deleteMany({ where: { ticketId: id } }),
+      this.prisma.ticket.delete({ where: { id } }),
+    ]);
+  }
+
   async getDashboardStats() {
     const [
       statusCounts,
@@ -482,23 +514,18 @@ export class TicketsService {
   }
 
   private async generateTicketNumber(): Promise<string> {
-    const now = new Date();
-    const yy = String(now.getFullYear()).slice(2);
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const prefix = `TKT-${yy}${mm}-`;
-
     const lastTicket = await this.prisma.ticket.findFirst({
-      where: { ticketNumber: { startsWith: prefix } },
       orderBy: { ticketNumber: 'desc' },
       select: { ticketNumber: true },
     });
 
     let nextSeq = 1;
     if (lastTicket) {
-      const lastSeq = parseInt(lastTicket.ticketNumber.split('-')[2], 10);
+      const parts = lastTicket.ticketNumber.split('-');
+      const lastSeq = parseInt(parts[parts.length - 1], 10);
       nextSeq = lastSeq + 1;
     }
 
-    return `${prefix}${String(nextSeq).padStart(3, '0')}`;
+    return `TKT-${String(nextSeq).padStart(3, '0')}`;
   }
 }

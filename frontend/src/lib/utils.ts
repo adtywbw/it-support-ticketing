@@ -11,7 +11,7 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatDateTime(dateStr: string): string {
-  return format(parseISO(dateStr), 'MMM d, yyyy h:mm a');
+  return format(parseISO(dateStr), 'MMM d, yyyy HH:mm');
 }
 
 export function formatRelativeTime(dateStr: string): string {

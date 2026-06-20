@@ -12,5 +12,6 @@ import { LocalStorageService } from './services/local-storage.service';
       useClass: LocalStorageService,
     },
   ],
+  exports: ['StorageService'],
 })
 export class AttachmentsModule {}

@@ -55,6 +55,12 @@ describe('TicketsService', () => {
     update: jest.fn(),
   };
 
+  const mockStorageService = {
+    save: jest.fn(),
+    delete: jest.fn(),
+    getReadStream: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -63,6 +69,7 @@ describe('TicketsService', () => {
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: RedisService, useValue: mockRedisService },
         { provide: SLAService, useValue: mockSlaService },
+        { provide: 'StorageService', useValue: mockStorageService },
       ],
     }).compile();
 
@@ -112,7 +119,7 @@ describe('TicketsService', () => {
 
       const mockCreatedTicket = {
         id: 'ticket-1',
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         subject: createTicketDto.subject,
         description: createTicketDto.description,
         requesterId,
@@ -144,14 +151,13 @@ describe('TicketsService', () => {
       });
 
       expect(mockPrisma.ticket.findFirst).toHaveBeenCalledWith({
-        where: { ticketNumber: { startsWith: 'TKT-2606-' } },
         orderBy: { ticketNumber: 'desc' },
         select: { ticketNumber: true },
       });
 
       expect(mockPrisma.ticket.create).toHaveBeenCalledWith({
         data: {
-          ticketNumber: 'TKT-2606-001',
+          ticketNumber: 'TKT-001',
           subject: createTicketDto.subject,
           description: createTicketDto.description,
           requesterId,
@@ -181,7 +187,7 @@ describe('TicketsService', () => {
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('ticket.created', {
         ticketId: 'ticket-1',
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         subject: createTicketDto.subject,
         requesterId,
       });
@@ -209,7 +215,7 @@ describe('TicketsService', () => {
       expect(mockPrisma.ticketHistory.create).not.toHaveBeenCalled();
     });
 
-    it('should format ticket number as TKT-YYMM-XXX', async () => {
+    it('should format ticket number as TKT-XXX', async () => {
       const mockCategory = {
         id: 'cat-1',
         name: 'Network',
@@ -220,7 +226,7 @@ describe('TicketsService', () => {
       mockPrisma.ticket.findFirst.mockResolvedValueOnce(null);
       mockPrisma.ticket.create.mockResolvedValue({
         id: 'ticket-2',
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         subject: createTicketDto.subject,
         description: createTicketDto.description,
         requesterId,
@@ -240,17 +246,17 @@ describe('TicketsService', () => {
       expect(mockPrisma.ticket.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            ticketNumber: 'TKT-2606-001',
+            ticketNumber: 'TKT-001',
           }),
         }),
       );
 
       mockPrisma.ticket.findFirst.mockResolvedValueOnce({
-        ticketNumber: 'TKT-2606-005',
+        ticketNumber: 'TKT-005',
       });
       mockPrisma.ticket.create.mockResolvedValue({
         id: 'ticket-3',
-        ticketNumber: 'TKT-2606-006',
+        ticketNumber: 'TKT-006',
         subject: createTicketDto.subject,
         description: createTicketDto.description,
         requesterId,
@@ -270,7 +276,7 @@ describe('TicketsService', () => {
       expect(mockPrisma.ticket.create).toHaveBeenLastCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            ticketNumber: 'TKT-2606-006',
+            ticketNumber: 'TKT-006',
           }),
         }),
       );
@@ -335,7 +341,7 @@ describe('TicketsService', () => {
     const mockTickets = [
       {
         id: 'ticket-1',
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         subject: 'VPN Issue',
         status: TicketStatus.Open,
         priority: Priority.High,
@@ -457,7 +463,7 @@ describe('TicketsService', () => {
     it('should successfully transition from Open to InProgress', async () => {
       const existingTicket = {
         id: ticketId,
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         status: TicketStatus.Open,
         assignedToId: 'agent-1',
       };
@@ -498,7 +504,7 @@ describe('TicketsService', () => {
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('ticket.status.updated', {
         ticketId,
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         oldStatus: TicketStatus.Open,
         newStatus: TicketStatus.InProgress,
         assignedToId: 'agent-1',
@@ -511,7 +517,7 @@ describe('TicketsService', () => {
     it('should throw BadRequestException for invalid transition from Open to Closed', async () => {
       const existingTicket = {
         id: ticketId,
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         status: TicketStatus.Open,
         assignedToId: null,
       };
@@ -548,7 +554,7 @@ describe('TicketsService', () => {
     it('should set resolvedAt when transitioning to Resolved', async () => {
       const existingTicket = {
         id: ticketId,
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         status: TicketStatus.InProgress,
         assignedToId: 'agent-1',
       };
@@ -579,7 +585,7 @@ describe('TicketsService', () => {
     it('should set closedAt when transitioning to Closed', async () => {
       const existingTicket = {
         id: ticketId,
-        ticketNumber: 'TKT-2606-001',
+        ticketNumber: 'TKT-001',
         status: TicketStatus.Resolved,
         assignedToId: 'agent-1',
       };

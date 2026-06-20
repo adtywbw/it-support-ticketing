@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -77,5 +78,13 @@ export class TicketsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.ticketsService.updatePriority(id, updatePriorityDto, userId);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
+  async delete(@Param('id') id: string) {
+    await this.ticketsService.delete(id);
+    return { message: 'Ticket deleted successfully' };
   }
 }

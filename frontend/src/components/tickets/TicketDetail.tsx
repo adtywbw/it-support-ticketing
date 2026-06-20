@@ -1,4 +1,6 @@
-import { useTicket, useUpdateTicketStatus, useAssignTicket, useTicketAuditTrail } from '@/hooks/use-tickets';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTicket, useUpdateTicketStatus, useAssignTicket, useDeleteTicket, useTicketAuditTrail } from '@/hooks/use-tickets';
 import { useUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
 import StatusBadge from './StatusBadge';
@@ -7,6 +9,7 @@ import CommentSection from './CommentSection';
 import AttachmentList from './AttachmentList';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import ErrorMessage from '@/components/ui/ErrorMessage';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatDateTime, formatRelativeTime, getSLAColor, getUserInitials, getUserDisplayName } from '@/lib/utils';
 import type { TicketStatus, Ticket } from '@/types';
 
@@ -57,14 +60,18 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
 }
 
 export default function TicketDetail({ ticketId }: TicketDetailProps) {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
   const { data: users } = useUsers();
   const { data: auditTrail } = useTicketAuditTrail(ticketId);
   const updateStatusMutation = useUpdateTicketStatus();
+  const deleteTicketMutation = useDeleteTicket();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
   const canChangeStatus = user && (user.role === 'ITSupport' || user.role === 'Admin');
+  const isAdmin = user?.role === 'Admin';
   const availableStatuses = ticket ? statusFlows[ticket.status] : [];
 
   if (isLoading) {
@@ -116,6 +123,14 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                     Mark {status === 'InProgress' ? 'In Progress' : status === 'OnHold' ? 'On Hold' : status}
                   </button>
                 ))}
+              {isAdmin && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="btn-danger btn-sm"
+                >
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -254,6 +269,23 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          deleteTicketMutation.mutate(ticket.id, {
+            onSuccess: () => {
+              navigate('/tickets');
+            },
+          });
+        }}
+        title="Delete Ticket"
+        message={`Are you sure you want to delete ticket ${ticket.ticketNumber}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteTicketMutation.isPending}
+      />
     </div>
   );
 }

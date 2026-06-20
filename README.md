@@ -133,7 +133,27 @@ it-support-ticketing/
 ## Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose
+- Docker & Docker Compose v2
+- Git
+
+### Debian Server Setup (Debian 13+)
+
+If running on a fresh Debian server, install the required tools first:
+
+```bash
+# Install git
+sudo apt update && sudo apt install -y git curl
+
+# Install Docker using Docker's convenience script (recommended)
+curl -fsSL https://get.docker.com | sh
+
+# Add your user to the docker group (no sudo needed for docker commands)
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify installation
+docker --version && docker compose version
+```
 
 ### Setup
 
@@ -203,6 +223,7 @@ The seed script creates:
 | PATCH | `/api/tickets/:id/status` | Update status |
 | PATCH | `/api/tickets/:id/assign` | Assign ticket |
 | PATCH | `/api/tickets/:id/priority` | Update priority |
+| DELETE | `/api/tickets/:id` | Delete ticket (Admin only) |
 
 ### Comments
 | Method | Path | Description |
