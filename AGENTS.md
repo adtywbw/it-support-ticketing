@@ -28,7 +28,7 @@ docker compose up --build       # localhost:80
 GET  /api/health
 POST /api/auth/login|refresh|logout|change-password
 GET|POST /api/tickets
-GET|PATCH /api/tickets/:id
+GET|PATCH|DELETE /api/tickets/:id
 PATCH /api/tickets/:id/status|assign|priority
 GET|POST /api/tickets/:id/comments|attachments
 GET|POST|PATCH|DELETE /api/categories
@@ -62,6 +62,13 @@ GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat in
 - Priority: dropdown editable di tabel Tickets untuk ITSupport/Admin
 - Category: kolom baru di tabel Tickets
 - Ticket Number: format TKT-YYMM-XXX (3-digit sequence)
+- Ticket Detail: tambah tombol Delete (Admin only) dengan ConfirmDialog
+- Ticket List: tambah kolom Created By, Assigned To dropdown (ITSupport/Admin)
+- Ticket List: tambah tombol Delete (Admin only) dengan ConfirmDialog
+- Ticket Number: format berubah jadi TKT-XXX (sequential, tanpa YYMM)
+- Waktu: formatDateTime jadi 24H (HH:mm)
+- Users: ITSupport bisa GET /users (assign dropdown)
+- Notifikasi: Mark all as read di dropdown navbar
 - New Ticket: attachment upload (max 3 files, max 5MB each)
 - Dashboard: auto-refresh setelah ticket status/priority/assign berubah
 - Assigned to Me: filter checkbox sekarang benar-benar filter oleh user ID

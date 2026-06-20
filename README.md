@@ -27,11 +27,11 @@ Browser ──▶ Nginx (:80)
 
 ### User & Role Management
 - **EndUser** — create tickets, comment, upload attachments, close resolved tickets
-- **ITSupport** — view queue, claim/assign, reply, add internal notes, change status/priority (inline from ticket list)
-- **Admin** — manage users/roles, categories, sub-categories, SLA configs
+- **ITSupport** — view queue, claim/assign, reply, add internal notes, change status/priority/assignee (inline from ticket list)
+- **Admin** — manage users/roles, categories, sub-categories, SLA configs, delete tickets
 
 ### Ticketing
-- Auto-generated ticket number (`TKT-YYMM-XXX`)
+- Auto-generated ticket number (`TKT-XXX`)
 - Status workflow: `Open → InProgress → Resolved → Closed` (with `OnHold` loop)
 - Priority: Low, Medium, High, Critical
 - Public & internal comments
@@ -53,6 +53,7 @@ Browser ──▶ Nginx (:80)
 ### Notifications
 - In-app notification system (table-based)
 - Dropdown toggle in navbar with recent notifications
+- Mark all as read from dropdown and full page
 - Click notification → navigate to ticket
 - Triggers: new ticket, status change, assignment, new comment
 - Event-driven design (`@nestjs/event-emitter`) — extensible to email/Slack
@@ -241,8 +242,8 @@ The seed script creates:
 ### Admin
 | Method | Path | Description |
 |--------|------|-------------|
-| GET/POST | `/api/users` | List (`?includeInactive=true` for all) / Create user |
-| PATCH/DELETE | `/api/users/:id` | Update / Hard-delete user |
+| GET | `/api/users` | List (ITSupport & Admin, `?includeInactive=true` for all) |
+| POST/PATCH/DELETE | `/api/users/:id` | Create / Update / Hard-delete (Admin only) |
 | GET/POST | `/api/categories` | List / Create categories |
 | PATCH/DELETE | `/api/categories/:id` | Update / Delete category |
 | GET/POST | `/api/categories/:id/sub-categories` | List / Create sub-categories |

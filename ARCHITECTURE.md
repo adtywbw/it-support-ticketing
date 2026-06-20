@@ -62,7 +62,7 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │ tickets
 │ PK id (UUID)
-│ ticketNumber (UNIQUE)      VARCHAR   TKT-YYMM-XXX
+│ ticketNumber (UNIQUE)      VARCHAR   TKT-XXX
 │ subject                     VARCHAR(255)
 │ description                 TEXT
 │ FK requesterId → users      UUID
