@@ -5,14 +5,29 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ## Architecture
 
 ```
-Docker Build (target: builder) ──▶ Named Volume (frontend_dist)
-  (vite build baked into image)        │
-                                       ▼
-Browser ──▶ Nginx (:80) ──────── /usr/share/nginx/html
-              ├── /api/ ──▶ NestJS API (:3000)
-              │                ├── PostgreSQL 16
-              │                └── Redis 7
-              └── / ──▶ React SPA
+  ┌───────────────────┐     docker build      ┌──────────────────┐
+  │  Frontend Builder │──── target: builder ──▶│  frontend_dist  │
+  │  (vite build)     │     cp /app/dist/*     │  (named volume) │
+  └───────────────────┘     → /export/         └────────┬─────────┘
+                                                         │
+                                                         ▼
+  ┌──────────┐     ┌─────────────────────┐    ┌──────────────────┐
+  │ Browser  │────▶│  Nginx (:80)        │◀───│ /usr/share/      │
+  │          │     │  reverse proxy      │    │ nginx/html       │
+  └──────────┘     └──────────┬──────────┘    └──────────────────┘
+                              │ /api/
+                              ▼
+                       ┌──────────────┐
+                       │ NestJS (:3000)│
+                       └───┬──────┬───┘
+                           │      │
+                     ┌─────┘      └──────┐
+                     ▼                    ▼
+              ┌──────────────┐  ┌──────────────────┐
+              │ PostgreSQL   │  │  Redis 7          │
+              │     16       │  │ (tokens, lock,    │
+              └──────────────┘  │  cache, cron)     │
+                                └──────────────────┘
 ```
 
 ## Tech Stack
@@ -156,10 +171,10 @@ docker compose up --build
 
 The app will be available at `http://localhost`.
 
-> **Note:** Frontend di-build otomatis saat `docker compose build` (target: builder).
-> `frontend` service meng-copy `/app/dist` ke shared volume `frontend_dist` lalu stay running.
-> Nginx membaca static files dari volume yang sama.  
-> Untuk rebuild dari awal: `docker compose down -v && docker compose up --build`.
+> **Note:** The frontend is built automatically during `docker compose build` (`target: builder` stage).
+> At runtime, the `frontend` service copies `/app/dist` to the shared named volume `frontend_dist`.
+> Nginx reads static files from the same volume (`frontend_dist:/usr/share/nginx/html`).
+> For a clean rebuild: `docker compose down -v && docker compose up --build`.
 
 ### Without Docker
 
@@ -279,7 +294,7 @@ The seed script creates:
 
 | Service | Image / Build | Port | Healthcheck |
 |---------|---------------|------|-------------|
-| frontend | frontend/Dockerfile (target: builder) | — | — (builds frontend during `docker build`, copies dist to volume at runtime, then stays idle with `tail -f`) |
+| frontend | `frontend/Dockerfile` (target: builder) | — | — | Builds frontend via `tsc && vite build`, copies `/app/dist` to shared volume `frontend_dist`, stays idle with `tail -f /dev/null` |
 | nginx | nginx:1.25-alpine | 80 | — |
 | api | backend/Dockerfile (node:20-bookworm-slim) | 3000 | `GET /api/health` |
 | db | postgres:16-alpine | — | `pg_isready` |

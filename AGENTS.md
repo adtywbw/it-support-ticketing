@@ -60,48 +60,67 @@ GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat in
 - `depends_on: - frontend` (short form) — nginx mulai setelah frontend container running (copy sudah selesai karena cepet).
 - Untuk rebuild: `docker compose up --build`.
 
-## Perbaikan Terakhir
-- Docker: frontend build gagal karena `COPY public ./public` (direktori tidak ada) — hapus line
-- Docker: frontend container exit code 0 — ganti ke `tail -f /dev/null` biar stay running
-- Docker: Tailwind CSS tidak diproses karena `postcss.config.js` & `tailwind.config.js` tidak di-`COPY` ke image — tambah COPY line
-- Docker: 403 Forbidden karena bind mount `./frontend/dist` kosong — ganti ke named volume + frontend builder service
-- Dashboard: fix typo avgMinutes → avgResolutionMinutes (category resolution NaN)
-- Dashboard: Ticket Trend tampilkan "No activity" jika semua count 0
-- Ticket Status: tambah OnHold ke frontend (type, color, badge, statusFlows)
-- Status Flows: samakan dengan backend (Closed → Open, InProgress → OnHold/Resolved, dll)
-- Closed → Open: clear closedAt/resolvedAt saat reopen ticket
-- Priority: dropdown editable di tabel Tickets untuk ITSupport/Admin
+## Perintah Penting
+```bash
+docker compose up --build        # Build & start semua service
+docker compose down -v           # Stop + hapus semua volume (frontend_dist, db, dll)
+docker compose logs -f frontend  # Debug frontend build
+docker compose logs -f api       # Debug backend
+docker compose logs -f nginx     # Debug nginx (403, 404, dll)
+```
+
+## Changelog
+
+### Docker
+- Build: ganti bind mount `./frontend/dist` → named volume `frontend_dist` + frontend builder service (fix 403)
+- Build: tambah `COPY postcss.config.js` & `COPY tailwind.config.js` ke Dockerfile (fix Tailwind tidak terproses)
+- Build: hapus `COPY public ./public` (direktori tidak ada)
+- Container: frontend service pakai `exec tail -f /dev/null` biar stay running (tidak exit code 0)
+- Seed: compile `seed.ts` ke JS otomatis di startup, `upsert` update password tiap restart
+- Redis: support `REDIS_URL` (ioredis) sebagai fallback `REDIS_HOST`/`REDIS_PORT`
+- .env.example: tambah `REDIS_HOST` & `REDIS_PORT`
+
+### Tickets
+- Status: tambah `OnHold` ke frontend (type, color, badge, statusFlows)
+- Status Flows: samakan dengan backend (`Closed → Open`, `InProgress → OnHold/Resolved`)
+- Status: clear `closedAt`/`resolvedAt` saat reopen ticket
+- Priority: dropdown editable di tabel Tickets (ITSupport/Admin)
 - Category: kolom baru di tabel Tickets
-- Ticket Number: format TKT-YYMM-XXX (3-digit sequence)
-- Ticket Detail: tambah tombol Delete (Admin only) dengan ConfirmDialog
-- Ticket List: tambah kolom Created By, Assigned To dropdown (ITSupport/Admin)
-- Ticket List: tambah tombol Delete (Admin only) dengan ConfirmDialog
-- Ticket Number: format berubah jadi TKT-XXX (sequential, tanpa YYMM)
+- Number: format `TKT-XXX` (sequential, tanpa YYMM)
+- Delete: tambah tombol Delete (Admin only) + ConfirmDialog di detail & list
+- Kolom Created By, Assigned To dropdown di list (ITSupport/Admin)
+
+### Frontend UI/UX
+- Dark Mode: `tailwind darkMode: 'class'`, theme-store zustand persist, toggle di sidebar
+- Sidebar: minimize/expand (collapsed state, icon-only mode)
+- Sidebar: New Ticket tidak ikut nge-highlight menu Tickets (NavLink `end` prop)
+- PasswordInput: reusable dengan eye icon (hold to reveal)
 - Waktu: formatDateTime jadi 24H (HH:mm)
-- Users: ITSupport bisa GET /users (assign dropdown)
-- Notifikasi: Mark all as read di dropdown navbar
-- New Ticket: attachment upload (max 3 files, max 5MB each)
-- Dashboard: auto-refresh setelah ticket status/priority/assign berubah
-- Assigned to Me: filter checkbox sekarang benar-benar filter oleh user ID
-- Sidebar: New Ticket tidak ikut nge-highlight menu Tickets (NavLink end prop)
-- Master Data: cross-invalidation categories ↔ subcategories
-- ValidationPipe: UpdateUserDto tambah field isActive (fix "property isActive should not exist")
-- User Deactivate: includeInactive=true agar user tetap terlihat di list setelah di-deactivate
-- User Delete: hard-delete dengan transaction (hapus notifications, ticketHistory, unassign tickets), jika gagal karena FK → pesan error "Deactivate the user instead"
-- Master Data: fix URL sub-categories (tambah categoryId di path update/delete) + toast error handling
-- Sidebar: tombol minimize (collapsed state, icon-only mode)
-- Dark Mode: tailwind darkMode: 'class', theme-store zustand persist, toggle button di sidebar, dark variants di semua komponen utama
-- PasswordInput: komponen reusable dengan eye icon (hold to reveal)
-- Notifikasi: dropdown toggle di Navbar, klik notifikasi → navigate ke tiket
-- Notifikasi counter: auto-fetch via useNotifications() di Layout
-- Change Password: hanya untuk role Admin & ITSupport
-- Dashboard: hide untuk EndUser
-- New Ticket: hide untuk EndUser
-- SLA Compliance dashboard: fix literal \n
-- Categories/Sub-categories: reactivate soft-deleted record saat create dengan nama yang sama
-- ErrorBoundary wrapping App + route /notifications
-- Dockerfile: compile seed.ts ke JS dan jalankan otomatis di startup
-- Seed: update `upsert` dengan `update: { password }` agar kredensial ter-refresh tiap restart
-- Auth: fix admin login gagal karena password hash tidak terupdate
-- Redis: support REDIS_URL (ioredis connection string) sebagai fallback REDIS_HOST/REDIS_PORT
-- .env.example: tambah REDIS_HOST & REDIS_PORT agar sesuai dengan redis.service.ts
+- Notifikasi: dropdown toggle di Navbar + Mark all as read
+- Notifikasi: counter auto-fetch via `useNotifications()` di Layout
+- ErrorBoundary: wrapping App + route `/notifications`
+
+### Users & Auth
+- Role: Change Password hanya untuk Admin & ITSupport
+- Role: Dashboard & New Ticket hide untuk EndUser
+- Users: ITSupport bisa GET `/users` (assign dropdown)
+- Users: `includeInactive=true` — user tetap terlihat setelah di-deactivate
+- Users: hard-delete dengan transaction (FK error → "Deactivate the user instead")
+- ValidationPipe: UpdateUserDto tambah field `isActive` (fix forbidden non-whitelisted)
+- Auth: fix admin login gagal — password hash terupdate tiap restart
+
+### Dashboard
+- SLA Compliance: fix literal `\n` di tooltip
+- Ticket Trend: tampilkan "No activity" jika semua count 0
+- Auto-refresh setelah ticket status/priority/assign berubah
+- Category resolution: fix typo `avgMinutes` → `avgResolutionMinutes`
+
+### Master Data
+- Categories/Sub-categories: reactivate soft-deleted record saat create dengan nama sama
+- Cross-invalidation categories ↔ subcategories
+- Fix URL sub-categories: tambah `categoryId` di path update/delete
+- Toast error handling di Master Data
+
+### Filter
+- Assigned to Me: filter by current user ID (sebelumnya tidak berfungsi)
+- Attachment upload: max 3 files, max 5MB each (New Ticket)

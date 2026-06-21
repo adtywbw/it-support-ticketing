@@ -5,26 +5,29 @@
 ### Container Diagram (text-based)
 
 ```
-┌──────────────────┐     shared volume
-│ Frontend Builder │─────▶ frontend_dist ──────┐
-│ (target: builder)│    (cp /app/dist → volume)│
-└──────────────────┘                           │
-                                        ┌──────┴───────┐
-┌──────────────┐     ┌──────────────┐   │              │
-│   Browser    │─────│   Nginx      │──▶│ /usr/share/  │
-│  (React SPA) │     │  (:80)       │   │ nginx/html   │
-└──────────────┘     └──────┬───────┘   └──────────────┘
-                            │
-                    ┌───────┴───────┐
-                    │   API         │
-                    │  (NestJS)     │
-                    │  (:3000)      │
-                    └───┬───────┬───┘
-                        │       │
-              ┌─────────┴┐  ┌───┴──────────┐
-              │PostgreSQL│  │  Redis 7      │
-              │   16     │  │(tokens, lock) │
-              └──────────┘  └──────────────┘
+  ┌───────────────────┐   docker build        ┌──────────────────┐
+  │  Frontend Builder │── target: builder ────▶│  frontend_dist  │
+  │  (vite build)     │   cp /app/dist/*       │  (named volume) │
+  └───────────────────┘   → /export/           └────────┬─────────┘
+                                                         │
+                                                         ▼
+  ┌──────────┐     ┌─────────────────────┐    ┌──────────────────┐
+  │ Browser  │────▶│  Nginx (:80)        │◀───│ /usr/share/      │
+  │          │     │  reverse proxy      │    │ nginx/html       │
+  └──────────┘     └───────┬─────────────┘    └──────────────────┘
+                           │  /api/
+                           ▼
+                    ┌──────────────┐
+                    │ NestJS (:3000)│
+                    └───┬──────┬───┘
+                        │      │
+                  ┌─────┘      └──────┐
+                  ▼                    ▼
+           ┌──────────────┐  ┌──────────────────┐
+           │ PostgreSQL   │  │  Redis 7          │
+           │     16       │  │ (tokens, lock,    │
+           └──────────────┘  │  cache, cron)     │
+                             └──────────────────┘
 ```
 
 ### Stack Justification
@@ -373,8 +376,14 @@ it-support-ticketing/
 
 ### Built Artifacts
 - NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.
-- Frontend (React) is built via a separate `frontend` Docker service with `target: builder`. The Vite build output (`/app/dist/`) is copied to a named Docker volume (`frontend_dist`) at runtime. The `nginx` service reads static files from the same volume (`frontend_dist:/usr/share/nginx/html`).
-- Required files for a successful frontend build: `postcss.config.js`, `tailwind.config.js`, `vite.config.ts`, and all source files under `src/`. Missing config files result in unprocessed Tailwind CSS (raw `@apply` directives).
+- React frontend is built via a separate `frontend` Docker service using `target: builder` stage from `frontend/Dockerfile`. Build pipeline:
+  1. `npm ci` installs all dependencies (including devDependencies — Tailwind, PostCSS, TypeScript).
+  2. `npm run build` executes `tsc && vite build`.
+  3. Vite processes PostCSS plugins (`tailwindcss`, `autoprefixer`), resolves `@/` path aliases, and outputs to `/app/dist/`.
+  4. At container runtime, the `frontend` service copies `/app/dist/*` to the `frontend_dist` named volume.
+  5. The `nginx` service mounts the same volume at `/usr/share/nginx/html` and serves the SPA.
+- `postcss.config.js` and `tailwind.config.js` **must** be copied into the image — the Vite build silently skips PostCSS/Tailwind processing if they are absent, producing raw `@tailwind`/`@apply` directives that browsers cannot interpret.
+- The `production` stage of the Dockerfile is retained for standalone use (e.g., CI/CD pipelines where the frontend image serves itself via nginx).
 
 ---
 
