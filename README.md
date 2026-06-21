@@ -5,11 +5,14 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ## Architecture
 
 ```
-Browser ──▶ Nginx (:80)
+Docker Build (target: builder) ──▶ Named Volume (frontend_dist)
+  (vite build baked into image)        │
+                                       ▼
+Browser ──▶ Nginx (:80) ──────── /usr/share/nginx/html
               ├── /api/ ──▶ NestJS API (:3000)
               │                ├── PostgreSQL 16
               │                └── Redis 7
-              └── / ──▶ React SPA (static build)
+              └── / ──▶ React SPA
 ```
 
 ## Tech Stack
@@ -147,11 +150,16 @@ git clone <repo-url> && cd it-support-ticketing
 cp .env.example backend/.env
 # Edit secrets (JWT_SECRET, JWT_REFRESH_SECRET) in backend/.env
 
-# 3. Build and run (database seeded automatically on first start)
+# 3. Build and run (database + frontend build automatically on first start)
 docker compose up --build
 ```
 
 The app will be available at `http://localhost`.
+
+> **Note:** Frontend di-build otomatis saat `docker compose build` (target: builder).
+> `frontend` service meng-copy `/app/dist` ke shared volume `frontend_dist` lalu stay running.
+> Nginx membaca static files dari volume yang sama.  
+> Untuk rebuild dari awal: `docker compose down -v && docker compose up --build`.
 
 ### Without Docker
 
@@ -269,10 +277,11 @@ The seed script creates:
 
 ## Docker Services
 
-| Service | Image | Port | Healthcheck |
-|---------|-------|------|-------------|
+| Service | Image / Build | Port | Healthcheck |
+|---------|---------------|------|-------------|
+| frontend | frontend/Dockerfile (target: builder) | — | — (builds frontend during `docker build`, copies dist to volume at runtime, then stays idle with `tail -f`) |
 | nginx | nginx:1.25-alpine | 80 | — |
-| api | `node:20-bookworm-slim` (build ./backend) | 3000 | `GET /api/health` |
+| api | backend/Dockerfile (node:20-bookworm-slim) | 3000 | `GET /api/health` |
 | db | postgres:16-alpine | — | `pg_isready` |
 | cache | redis:7-alpine | — | `redis-cli ping` |
 

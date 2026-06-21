@@ -16,7 +16,8 @@ cd backend && npm test          # Unit test (14 tests)
 cd backend && npm run build     # NestJS build
 cd frontend && npm run build    # tsc + vite build
 cd frontend && npm run lint     # ESLint zero warnings
-docker compose up --build       # localhost:80
+docker compose up --build       # localhost:80 (frontend di-build otomatis via Docker)
+docker compose down -v          # Hapus container + volume (frontend_dist, db, dll)
 ```
 
 ## Seed Credentials
@@ -53,7 +54,17 @@ GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat in
 | ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ |
 | Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
+## Docker Build Flow
+- `frontend` service: build dari `frontend/Dockerfile` (target `builder`) — `npm ci && npm run build` baked ke image, runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu `tail -f /dev/null` (running).
+- `nginx` service: baca static files dari `frontend_dist:/usr/share/nginx/html`.
+- `depends_on: - frontend` (short form) — nginx mulai setelah frontend container running (copy sudah selesai karena cepet).
+- Untuk rebuild: `docker compose up --build`.
+
 ## Perbaikan Terakhir
+- Docker: frontend build gagal karena `COPY public ./public` (direktori tidak ada) — hapus line
+- Docker: frontend container exit code 0 — ganti ke `tail -f /dev/null` biar stay running
+- Docker: Tailwind CSS tidak diproses karena `postcss.config.js` & `tailwind.config.js` tidak di-`COPY` ke image — tambah COPY line
+- Docker: 403 Forbidden karena bind mount `./frontend/dist` kosong — ganti ke named volume + frontend builder service
 - Dashboard: fix typo avgMinutes → avgResolutionMinutes (category resolution NaN)
 - Dashboard: Ticket Trend tampilkan "No activity" jika semua count 0
 - Ticket Status: tambah OnHold ke frontend (type, color, badge, statusFlows)

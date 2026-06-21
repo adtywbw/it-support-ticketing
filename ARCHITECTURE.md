@@ -5,15 +5,20 @@
 ### Container Diagram (text-based)
 
 ```
-┌──────────────┐     ┌──────────────┐
-│   Browser    │─────│   Nginx      │
-│  (React SPA) │     │  :80         │
-└──────────────┘     └──────┬───────┘
+┌──────────────────┐     shared volume
+│ Frontend Builder │─────▶ frontend_dist ──────┐
+│ (target: builder)│    (cp /app/dist → volume)│
+└──────────────────┘                           │
+                                        ┌──────┴───────┐
+┌──────────────┐     ┌──────────────┐   │              │
+│   Browser    │─────│   Nginx      │──▶│ /usr/share/  │
+│  (React SPA) │     │  (:80)       │   │ nginx/html   │
+└──────────────┘     └──────┬───────┘   └──────────────┘
                             │
                     ┌───────┴───────┐
                     │   API         │
                     │  (NestJS)     │
-                    │  :3000        │
+                    │  (:3000)      │
                     └───┬───────┬───┘
                         │       │
               ┌─────────┴┐  ┌───┴──────────┐
@@ -368,6 +373,8 @@ it-support-ticketing/
 
 ### Built Artifacts
 - NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.
+- Frontend (React) is built via a separate `frontend` Docker service with `target: builder`. The Vite build output (`/app/dist/`) is copied to a named Docker volume (`frontend_dist`) at runtime. The `nginx` service reads static files from the same volume (`frontend_dist:/usr/share/nginx/html`).
+- Required files for a successful frontend build: `postcss.config.js`, `tailwind.config.js`, `vite.config.ts`, and all source files under `src/`. Missing config files result in unprocessed Tailwind CSS (raw `@apply` directives).
 
 ---
 
