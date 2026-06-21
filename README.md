@@ -137,25 +137,6 @@ it-support-ticketing/
 - Docker & Docker Compose v2
 - Git
 
-### Debian Server Setup (Debian 13+)
-
-If running on a fresh Debian server, install the required tools first:
-
-```bash
-# Install git
-sudo apt update && sudo apt install -y git curl
-
-# Install Docker using Docker's convenience script (recommended)
-curl -fsSL https://get.docker.com | sh
-
-# Add your user to the docker group (no sudo needed for docker commands)
-sudo usermod -aG docker $USER
-newgrp docker
-
-# Verify installation
-docker --version && docker compose version
-```
-
 ### Setup
 
 ```bash
