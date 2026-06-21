@@ -368,6 +368,7 @@ it-support-ticketing/
   - `db push` ensures the database schema matches the Prisma schema.
   - `seed.js` populates initial users, categories, SLA configs, and a sample ticket.
 - `prisma migrate deploy` was avoided because the project does not maintain migration files in version control. Use `prisma migrate dev` in development to generate migration files once the schema stabilizes.
+- **Env validation**: `bootstrap()` calls `validateEnv()` which throws if `JWT_SECRET` or `DATABASE_URL` is not set, preventing the app from starting with missing configuration.
 
 ### Database Seeding
 - `prisma/seed.ts` is compiled to `dist/prisma/seed.js` during the Docker multi-stage build (`npx tsc prisma/seed.ts --outDir dist/prisma`).
@@ -395,13 +396,13 @@ it-support-ticketing/
 
 2. **File Upload** — Replace `LocalStorageService` with an S3/GCS implementation behind the existing `StorageService` interface. Use presigned URLs for direct client-to-storage upload, bypassing the API server entirely.
 
-3. **Cron Job** — The SLA breach check uses a Redis lock to prevent duplicate execution. In Kubernetes, extract this into a separate `CronJob` resource with a dedicated container running the check on schedule, rather than relying on the in-process `@Cron` decorator.
+3. **Cron Job** — The SLA breach check uses a Redis lock to prevent duplicate execution and processes tickets in batches of 500 to avoid memory exhaustion with 10,000+ active tickets. In Kubernetes, extract this into a separate `CronJob` resource with a dedicated container running the check on schedule, rather than relying on the in-process `@Cron` decorator.
 
 4. **Database** — Switch to managed PostgreSQL (AWS RDS / GCP Cloud SQL) with read replicas for reporting queries. Prisma supports connection pooling via PgBouncer, which should be deployed as a sidecar or connection pooler.
 
 5. **Redis** — Use managed Redis (AWS ElastiCache / GCP Memorystore). Separate Redis instances for tokens vs. cache to avoid eviction of session data.
 
-6. **Session Affinity** — Not required. JWT tokens in `Authorization` header make every request stateless.
+6. **Session Affinity** — Not required. JWT access tokens are in-memory (not persisted to localStorage); refresh tokens are httpOnly cookies sent with every `/api/auth/refresh` request.
 
 7. **Static Assets** — Serve the React frontend build from a CDN (CloudFront / Cloudflare), not from Nginx. The Nginx container becomes unnecessary in this setup; the API can be exposed via an Ingress controller directly.
 

@@ -15,7 +15,7 @@ export function useLogin() {
     },
     onSuccess: (data) => {
       const user = { ...data.user, name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() };
-      login(user, data.accessToken, data.refreshToken);
+      login(user, data.accessToken);
       navigate('/tickets');
     },
   });

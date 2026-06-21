@@ -38,7 +38,7 @@ export class AuthService {
     let payload: JwtPayload;
     try {
       payload = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_SECRET || 'super-secret-key',
+        secret: process.env.JWT_SECRET!,
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
@@ -110,7 +110,7 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(
       { ...payload, jti: tokenId },
       {
-        secret: process.env.JWT_SECRET || 'super-secret-key',
+        secret: process.env.JWT_SECRET!,
         expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d',
       },
     );

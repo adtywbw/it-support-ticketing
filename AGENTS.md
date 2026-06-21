@@ -69,6 +69,10 @@ docker compose logs -f api       # Debug backend
 docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 ```
 
+## Env Requirements
+- `JWT_SECRET` dan `DATABASE_URL` wajib diset — startup throw error jika tidak ada
+- `JWT_SECRET` tidak boleh menggunakan fallback hardcoded; generate unik per-install
+
 ## Changelog
 
 ### Docker
@@ -124,3 +128,13 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 ### Filter
 - Assigned to Me: filter by current user ID (sebelumnya tidak berfungsi)
 - Attachment upload: max 3 files, max 5MB each (New Ticket)
+
+### Security
+- Env: `validateEnv()` di startup — throw jika `JWT_SECRET`/`DATABASE_URL` tidak diset
+- JWT: hapus hardcoded `'super-secret-key'` fallback di 3 file (auth.module, jwt.strategy, auth.service)
+- WebSocket: validasi JWT via `jwtService.verify()` di handshake gateway (S-2)
+- Auth: refresh token pindah ke httpOnly cookie (`secure`, `sameSite: strict`, path `/api/auth`)
+- Auth: access token hanya di memory (zustand tanpa persist) — tidak ada token di localStorage
+- Auth: silent refresh otomatis di `ProtectedRoute` saat page reload
+- Ticket: `findById` filter untuk EndUser — hanya bisa lihat ticket milik sendiri (S-4)
+- SLA: `performSLACheck()` pakai batch pagination 500/trip (P-1)

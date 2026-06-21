@@ -169,13 +169,3 @@ export function useDeleteTicket() {
   });
 }
 
-export function useTicketAuditTrail(ticketId: string) {
-  return useQuery({
-    queryKey: ['ticket', ticketId, 'audit'],
-    queryFn: async () => {
-      const response = await apiClient.get(`/tickets/${ticketId}/audit`);
-      return response.data;
-    },
-    enabled: !!ticketId,
-  });
-}

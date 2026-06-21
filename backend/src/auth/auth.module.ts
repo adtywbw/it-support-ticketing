@@ -11,7 +11,7 @@ import { UsersModule } from '../users/users.module';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       useFactory: () => ({
-        secret: process.env.JWT_SECRET || 'super-secret-key',
+        secret: process.env.JWT_SECRET!,
         signOptions: {
           expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRY || '15m',
         },

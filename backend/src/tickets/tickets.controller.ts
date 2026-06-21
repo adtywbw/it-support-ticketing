@@ -45,8 +45,11 @@ export class TicketsController {
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.ticketsService.findById(id);
+  async findById(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string; role: Role },
+  ) {
+    return this.ticketsService.findById(id, user.role, user.id);
   }
 
   @Patch(':id/status')

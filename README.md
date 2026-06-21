@@ -37,9 +37,9 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 | Backend | NestJS + TypeScript (strict), Prisma ORM |
 | Frontend | React 18 + Vite, TanStack Query v5, Zustand, Tailwind CSS v3 |
 | Database | PostgreSQL 16 |
-| Cache | Redis 7 (refresh tokens, cron lock, cache) |
+| Cache | Redis 7 (refresh tokens httpOnly cookie, cron lock, cache) |
 | Proxy | Nginx (rate limit 10r/s, gzip, reverse proxy) |
-| Auth | JWT (access 15m + refresh 7d, bcrypt cost 12) |
+| Auth | JWT access (15m, in-memory) + refresh token (7d, httpOnly cookie), bcrypt cost 12 |
 
 ## Features
 
@@ -83,11 +83,14 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Responsive mobile layout with hamburger menu
 
 ### Security
-- JWT auth with short-lived access tokens + rotating refresh tokens (Redis)
+- JWT auth with short-lived access tokens (in-memory) + rotating refresh tokens (httpOnly cookie, Redis-backed)
+- Env validation at startup — app throws if `JWT_SECRET` or `DATABASE_URL` is missing (no hardcoded fallback)
+- WebSocket gateway authenticates connections via JWT verification
 - bcrypt password hashing (cost 12)
 - Self-service password change (current password verification)
 - class-validator DTO validation (whitelist + forbidNonWhitelisted)
 - Role-based & ownership-based authorization guards
+- EndUser restricted to own tickets only (findAll + findById)
 - Nginx rate limiting (10 req/s per IP)
 
 ## Project Structure
@@ -163,7 +166,8 @@ git clone <repo-url> && cd it-support-ticketing
 
 # 2. Environment variables
 cp .env.example backend/.env
-# Edit secrets (JWT_SECRET, JWT_REFRESH_SECRET) in backend/.env
+# Edit secrets (JWT_SECRET, DATABASE_URL) in backend/.env
+# Wajib: JWT_SECRET dan DATABASE_URL harus diset — startup akan throw error jika tidak ada
 
 # 3. Build and run (database + frontend build automatically on first start)
 docker compose up --build
@@ -215,9 +219,9 @@ The seed script creates:
 ### Auth
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/auth/login` | Login with email/password |
-| POST | `/api/auth/refresh` | Refresh access token |
-| POST | `/api/auth/logout` | Invalidate refresh token |
+| POST | `/api/auth/login` | Login — sets refresh token as httpOnly cookie, returns `accessToken` + `user` |
+| POST | `/api/auth/refresh` | Refresh access token — reads refresh token from cookie (no body needed), returns `accessToken` + `user` |
+| POST | `/api/auth/logout` | Invalidate refresh token + clear cookie |
 | POST | `/api/auth/change-password` | Change own password |
 
 ### Tickets

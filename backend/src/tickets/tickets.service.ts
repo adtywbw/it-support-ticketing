@@ -198,7 +198,7 @@ export class TicketsService {
     return { data: tickets, meta: { page, limit, total } };
   }
 
-  async findById(id: string) {
+  async findById(id: string, userRole?: string, userId?: string) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id },
       include: {
@@ -230,6 +230,10 @@ export class TicketsService {
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
+    }
+
+    if (userRole === 'EndUser' && ticket.requesterId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
 
     return ticket;

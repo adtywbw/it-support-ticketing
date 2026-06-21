@@ -82,57 +82,71 @@ export class SLAService {
   }
 
   private async performSLACheck() {
-    const activeTickets = await this.prisma.ticket.findMany({
-      where: {
-        status: {
-          notIn: [TicketStatus.Resolved, TicketStatus.Closed],
+    const now = new Date();
+    const batchSize = 500;
+    let processed = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const batch = await this.prisma.ticket.findMany({
+        where: {
+          status: {
+            notIn: [TicketStatus.Resolved, TicketStatus.Closed],
+          },
         },
-      },
-      include: {
-        category: {
-          include: {
-            slaConfigs: {
-              where: { isActive: true },
+        include: {
+          category: {
+            include: {
+              slaConfigs: {
+                where: { isActive: true },
+              },
             },
           },
         },
-      },
-    });
+        take: batchSize,
+        skip: processed,
+        orderBy: { id: 'asc' },
+      });
 
-    const now = new Date();
-
-    for (const ticket of activeTickets) {
-      const slaConfig = ticket.category.slaConfigs.find(
-        (config) => config.priority === ticket.priority,
-      );
-
-      if (!slaConfig) continue;
-
-      const totalWindowMs = slaConfig.resolutionTimeMinutes * 60 * 1000;
-      const elapsedMs = now.getTime() - ticket.createdAt.getTime();
-      const remainingMs = ticket.slaDueAt.getTime() - now.getTime();
-      const remainingRatio = remainingMs / totalWindowMs;
-
-      let newSlaStatus: SLAStatus = ticket.slaStatus;
-
-      if (remainingMs <= 0) {
-        newSlaStatus = SLAStatus.Breached;
-      } else if (remainingRatio <= 0.2) {
-        newSlaStatus = SLAStatus.AtRisk;
-      } else {
-        newSlaStatus = SLAStatus.OnTrack;
+      if (batch.length === 0) {
+        hasMore = false;
+        break;
       }
 
-      if (newSlaStatus !== ticket.slaStatus) {
-        await this.prisma.ticket.update({
-          where: { id: ticket.id },
-          data: { slaStatus: newSlaStatus },
-        });
-
-        this.logger.log(
-          `Ticket ${ticket.ticketNumber} SLA status changed from ${ticket.slaStatus} to ${newSlaStatus}`,
+      for (const ticket of batch) {
+        const slaConfig = ticket.category.slaConfigs.find(
+          (config) => config.priority === ticket.priority,
         );
+
+        if (!slaConfig) continue;
+
+        const totalWindowMs = slaConfig.resolutionTimeMinutes * 60 * 1000;
+        const remainingMs = ticket.slaDueAt.getTime() - now.getTime();
+        const remainingRatio = remainingMs / totalWindowMs;
+
+        let newSlaStatus: SLAStatus = ticket.slaStatus;
+
+        if (remainingMs <= 0) {
+          newSlaStatus = SLAStatus.Breached;
+        } else if (remainingRatio <= 0.2) {
+          newSlaStatus = SLAStatus.AtRisk;
+        } else {
+          newSlaStatus = SLAStatus.OnTrack;
+        }
+
+        if (newSlaStatus !== ticket.slaStatus) {
+          await this.prisma.ticket.update({
+            where: { id: ticket.id },
+            data: { slaStatus: newSlaStatus },
+          });
+
+          this.logger.log(
+            `Ticket ${ticket.ticketNumber} SLA status changed from ${ticket.slaStatus} to ${newSlaStatus}`,
+          );
+        }
       }
+
+      processed += batch.length;
     }
   }
 }
