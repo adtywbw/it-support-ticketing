@@ -6,12 +6,19 @@ export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
 
   constructor() {
-    this.client = new Redis({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      password: process.env.REDIS_PASSWORD || undefined,
-      retryStrategy: (times) => Math.min(times * 50, 2000),
-    });
+    const url = process.env.REDIS_URL;
+    if (url) {
+      this.client = new Redis(url, {
+        retryStrategy: (times) => Math.min(times * 50, 2000),
+      });
+    } else {
+      this.client = new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        password: process.env.REDIS_PASSWORD || undefined,
+        retryStrategy: (times) => Math.min(times * 50, 2000),
+      });
+    }
   }
 
   getClient(): Redis {

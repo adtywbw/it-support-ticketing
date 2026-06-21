@@ -159,6 +159,7 @@ The app will be available at `http://localhost`.
 # Backend
 cd backend
 cp .env.example .env
+# Ensure REDIS_HOST & REDIS_PORT (or REDIS_URL) are set in .env
 npm install
 npx prisma generate
 npx prisma db push

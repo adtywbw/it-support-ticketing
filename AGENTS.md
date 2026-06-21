@@ -92,3 +92,5 @@ GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat in
 - Dockerfile: compile seed.ts ke JS dan jalankan otomatis di startup
 - Seed: update `upsert` dengan `update: { password }` agar kredensial ter-refresh tiap restart
 - Auth: fix admin login gagal karena password hash tidak terupdate
+- Redis: support REDIS_URL (ioredis connection string) sebagai fallback REDIS_HOST/REDIS_PORT
+- .env.example: tambah REDIS_HOST & REDIS_PORT agar sesuai dengan redis.service.ts
