@@ -166,7 +166,7 @@ git clone <repo-url> && cd it-support-ticketing
 cp .env.example backend/.env
 # Edit secrets (JWT_SECRET, JWT_REFRESH_SECRET) in backend/.env
 
-# 3. Build and run
+# 3. Build and run (database seeded automatically on first start)
 docker compose up --build
 ```
 
@@ -181,7 +181,7 @@ cp .env.example .env
 npm install
 npx prisma generate
 npx prisma db push
-npx ts-node prisma/seed.ts
+npx ts-node prisma/seed.ts     # requires ts-node installed globally or via npx
 npm run start:dev
 
 # Frontend (separate terminal)

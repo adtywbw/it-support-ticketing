@@ -356,8 +356,15 @@ it-support-ticketing/
 - Alpine images are not used because newer Alpine versions (≥3.19) dropped OpenSSL 1.1 compat packages, which Prisma engines (compiled against `libssl.so.1.1`) depend on.
 
 ### Database Migration
-- The container's entry point (`CMD`) runs `npx prisma db push` before starting the application, ensuring the database schema matches the Prisma schema.
+- The container's entry point (`CMD`) runs `npx prisma db push && node dist/prisma/seed.js && node dist/src/main`.
+  - `db push` ensures the database schema matches the Prisma schema.
+  - `seed.js` populates initial users, categories, SLA configs, and a sample ticket.
 - `prisma migrate deploy` was avoided because the project does not maintain migration files in version control. Use `prisma migrate dev` in development to generate migration files once the schema stabilizes.
+
+### Database Seeding
+- `prisma/seed.ts` is compiled to `dist/prisma/seed.js` during the Docker multi-stage build (`npx tsc prisma/seed.ts --outDir dist/prisma`).
+- The compiled JS runs directly with `node` in production — no `ts-node` dependency needed at runtime.
+- Uses `prisma.user.upsert` with `update: { password }` so credentials are refreshed on every container restart.
 
 ### Built Artifacts
 - NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.

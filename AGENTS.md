@@ -89,3 +89,6 @@ GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat in
 - SLA Compliance dashboard: fix literal \n
 - Categories/Sub-categories: reactivate soft-deleted record saat create dengan nama yang sama
 - ErrorBoundary wrapping App + route /notifications
+- Dockerfile: compile seed.ts ke JS dan jalankan otomatis di startup
+- Seed: update `upsert` dengan `update: { password }` agar kredensial ter-refresh tiap restart
+- Auth: fix admin login gagal karena password hash tidak terupdate
