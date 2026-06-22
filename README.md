@@ -55,6 +55,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Public & internal comments
 - File attachments (max 3/ticket, 5MB each, allowed MIME types)
 - Full audit trail on status/assignee/priority changes
+- Export CSV with current filters (ITSupport & Admin)
 
 ### SLA Management
 - Configurable SLA per category + priority
@@ -71,7 +72,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ### Notifications
 - In-app notification system (table-based)
 - Dropdown toggle in navbar with recent notifications
-- Mark all as read from dropdown and full page
+- Mark all as read & Clear all from dropdown and full page
 - Click notification → navigate to ticket
 - Triggers: new ticket, status change, assignment, new comment
 - Event-driven design (`@nestjs/event-emitter`) — extensible to email/Slack
@@ -229,6 +230,7 @@ The seed script creates:
 |--------|------|-------------|
 | GET | `/api/tickets` | List (paginated, filtered, sorted) |
 | POST | `/api/tickets` | Create ticket |
+| GET | `/api/tickets/export/csv` | Export CSV (ITSupport & Admin) |
 | GET | `/api/tickets/:id` | Ticket detail |
 | PATCH | `/api/tickets/:id/status` | Update status |
 | PATCH | `/api/tickets/:id/assign` | Assign ticket |
@@ -247,6 +249,14 @@ The seed script creates:
 | POST | `/api/tickets/:ticketId/attachments` | Upload file |
 | GET | `/api/tickets/:ticketId/attachments` | List attachments |
 | GET | `/api/attachments/:id/download` | Download file |
+
+### Notifications
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/notifications` | List (paginated) |
+| PATCH | `/api/notifications/:id/read` | Mark as read |
+| PATCH | `/api/notifications/read-all` | Mark all as read |
+| DELETE | `/api/notifications` | Clear all notifications |
 
 ### Admin
 | Method | Path | Description |

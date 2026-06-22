@@ -29,6 +29,7 @@ docker compose down -v          # Hapus container + volume (frontend_dist, db, d
 GET  /api/health
 POST /api/auth/login|refresh|logout|change-password
 GET|POST /api/tickets
+GET /api/tickets/export/csv           # ITSupport & Admin only
 GET|PATCH|DELETE /api/tickets/:id
 PATCH /api/tickets/:id/status|assign|priority
 GET|POST /api/tickets/:id/comments|attachments
@@ -38,6 +39,7 @@ PATCH|DELETE /api/sub-categories/:id     # (deprecated, use full path)
 GET|POST|PATCH /api/sla-configs
 GET /api/dashboard/stats
 GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat inactive users
+GET|PATCH|DELETE /api/notifications   # DELETE clear all, PATCH read-all/:id/read
 ```
 
 ## Frontend Routes

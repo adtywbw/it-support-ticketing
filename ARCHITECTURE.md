@@ -229,50 +229,57 @@ it-support-ticketing/
 │       │   ├── auth.module.ts
 │       │   ├── auth.controller.ts
 │       │   ├── auth.service.ts
-│       │   ├── auth.dto.ts
+│       │   ├── dto/
+│       │   │   ├── login.dto.ts
+│       │   │   ├── refresh.dto.ts
+│       │   │   └── change-password.dto.ts
 │       │   └── strategies/
-│       │       ├── jwt.strategy.ts
-│       │       └── jwt-refresh.strategy.ts
+│       │       └── jwt.strategy.ts
 │       ├── users/
 │       │   ├── users.module.ts
 │       │   ├── users.controller.ts
 │       │   ├── users.service.ts
-│       │   └── users.dto.ts
+│       │   └── dto/
 │       ├── tickets/
 │       │   ├── tickets.module.ts
 │       │   ├── tickets.controller.ts
 │       │   ├── tickets.service.ts
-│       │   └── tickets.dto.ts
+│       │   └── dto/
+│       │       ├── create-ticket.dto.ts
+│       │       ├── query-ticket.dto.ts
+│       │       ├── update-status.dto.ts
+│       │       ├── assign-ticket.dto.ts
+│       │       └── update-priority.dto.ts
 │       ├── comments/
 │       │   ├── comments.module.ts
 │       │   ├── comments.controller.ts
 │       │   ├── comments.service.ts
-│       │   └── comments.dto.ts
+│       │   └── dto/
 │       ├── attachments/
 │       │   ├── attachments.module.ts
 │       │   ├── attachments.controller.ts
 │       │   ├── attachments.service.ts
-│       │   └── attachments.dto.ts
+│       │   └── dto/
 │       ├── categories/
 │       │   ├── categories.module.ts
 │       │   ├── categories.controller.ts
 │       │   ├── categories.service.ts
-│       │   └── categories.dto.ts
+│       │   └── dto/
 │       ├── sub-categories/
 │       │   ├── sub-categories.module.ts
 │       │   ├── sub-categories.controller.ts
 │       │   ├── sub-categories.service.ts
-│       │   └── sub-categories.dto.ts
+│       │   └── dto/
 │       ├── sla/
 │       │   ├── sla.module.ts
 │       │   ├── sla.controller.ts
 │       │   ├── sla.service.ts
-│       │   └── sla.dto.ts
+│       │   └── dto/
 │       ├── notifications/
 │       │   ├── notifications.module.ts
 │       │   ├── notifications.controller.ts
-│       │   ├── notifications.service.ts
-│       │   └── notifications.dto.ts
+│       │   ├── notifications.gateway.ts
+│       │   └── notifications.service.ts
 │       ├── dashboard/
 │       │   ├── dashboard.module.ts
 │       │   ├── dashboard.controller.ts
