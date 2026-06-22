@@ -42,8 +42,8 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     ...(filters.search && { search: filters.search }),
     ...(filters.categoryId && { categoryId: filters.categoryId }),
     ...(filters.assignedToMe && user?.id && { assignedToId: user.id }),
-    ...(filters.startDate && { startDate: filters.startDate }),
-    ...(filters.endDate && { endDate: filters.endDate }),
+    ...(filters.startDate && { dateFrom: filters.startDate }),
+    ...(filters.endDate && { dateTo: filters.endDate }),
   };
 
   const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);

@@ -291,7 +291,7 @@ The seed script creates:
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
 | `/dashboard` | Statistics & charts | ITSupport, Admin |
 | `/notifications` | In-app notifications | Authenticated |
-| `/change-password` | Change own password | ITSupport, Admin |
+| `/my-account` | Profile info & change password | Authenticated |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
 

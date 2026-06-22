@@ -1,27 +1,29 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+type ThemeMode = 'light' | 'dark' | 'high-contrast';
+
 interface ThemeState {
-  isDark: boolean;
-  toggle: () => void;
-  setDark: (dark: boolean) => void;
+  mode: ThemeMode;
+  setMode: (mode: ThemeMode) => void;
+}
+
+function applyTheme(mode: ThemeMode) {
+  const root = document.documentElement;
+  root.classList.remove('dark', 'high-contrast');
+  if (mode === 'dark') root.classList.add('dark');
+  if (mode === 'high-contrast') root.classList.add('high-contrast');
 }
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      isDark: false,
-      toggle: () =>
-        set((state) => {
-          const next = !state.isDark;
-          document.documentElement.classList.toggle('dark', next);
-          return { isDark: next };
-        }),
-      setDark: (dark: boolean) => {
-        document.documentElement.classList.toggle('dark', dark);
-        set({ isDark: dark });
+      mode: 'light',
+      setMode: (mode: ThemeMode) => {
+        applyTheme(mode);
+        set({ mode });
       },
     }),
-    { name: 'theme-storage' },
+    { name: 'theme-storage', onRehydrateStorage: () => (state) => { if (state) applyTheme(state.mode); } },
   ),
 );

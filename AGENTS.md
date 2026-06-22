@@ -45,14 +45,14 @@ GET|PATCH|DELETE /api/notifications   # DELETE clear all, PATCH read-all/:id/rea
 ## Frontend Routes
 ```
 /login, /tickets, /tickets/new, /tickets/:id
-/dashboard, /notifications, /change-password
+/dashboard, /notifications, /my-account
 /admin/users, /admin/master-data
 ```
 
 ## Role & Access
-| Role | Dashboard | New Ticket | Change Password | Users | Master Data |
-|------|-----------|------------|-----------------|-------|-------------|
-| EndUser | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Role | Dashboard | New Ticket | My Account | Users | Master Data |
+|------|-----------|------------|------------|-------|-------------|
+| EndUser | ✗ | ✗ | ✓ | ✗ | ✗ |
 | ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ |
 | Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
@@ -155,3 +155,13 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 ### Notifications
 - Backend: `DELETE /api/notifications` — hapus semua notifikasi user
 - Frontend: Tombol "Clear all" di NotificationsPage & dropdown Navbar
+
+### Theme
+- Dark Mode: `tailwind darkMode: 'class'`, theme-store zustand persist
+- High Contrast: mode tambahan via class `high-contrast` di HTML element
+- Theme switcher: Light/Dark/High Contrast ada di profile dropdown Navbar
+
+### Users & Auth
+- My Account: halaman `/my-account` untuk semua role, berisi profil & change password
+- Change Password: pindah dari sidebar ke halaman My Account (bukan route terpisah)
+- Profile dropdown: Navbar — avatar user, My Account, theme toggle, Logout
