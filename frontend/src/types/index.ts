@@ -35,6 +35,9 @@ export interface Ticket {
   slaStatus?: SLAStatus | null;
   resolvedAt?: string | null;
   closedAt?: string | null;
+  histories?: AuditTrailEntry[];
+  comments?: Comment[];
+  attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
   _count?: { comments: number; attachments: number };

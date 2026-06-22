@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTicket, useUpdateTicketStatus, useAssignTicket, useDeleteTicket, useTicketAuditTrail } from '@/hooks/use-tickets';
+import { useTicket, useUpdateTicketStatus, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
 import { useUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
 import StatusBadge from './StatusBadge';
@@ -64,7 +64,6 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const user = useAuthStore((s) => s.user);
   const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
   const { data: users } = useUsers();
-  const { data: auditTrail } = useTicketAuditTrail(ticketId);
   const updateStatusMutation = useUpdateTicketStatus();
   const deleteTicketMutation = useDeleteTicket();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -209,7 +208,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
         </div>
       </div>
 
-      {auditTrail && auditTrail.length > 0 && (
+      {ticket.histories && ticket.histories.length > 0 && (
         <div className="card">
           <div className="card-header">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Audit Trail</h2>
@@ -217,18 +216,10 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
           <div className="card-body">
             <div className="flow-root">
               <ul className="-mb-8">
-                {(auditTrail as {
-                  id: string;
-                  user?: { name: string; firstName?: string; lastName?: string };
-                  action: string;
-                  field?: string;
-                  oldValue?: string;
-                  newValue?: string;
-                  createdAt: string;
-                }[]).map((entry, idx) => (
+                {ticket.histories!.map((entry, idx) => (
                   <li key={entry.id}>
                     <div className="relative pb-8">
-                      {idx < auditTrail.length - 1 && (
+                      {idx < ticket.histories!.length - 1 && (
                         <span
                           className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-200 dark:bg-gray-700"
                           aria-hidden="true"

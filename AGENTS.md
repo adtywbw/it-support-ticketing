@@ -138,3 +138,8 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Auth: silent refresh otomatis di `ProtectedRoute` saat page reload
 - Ticket: `findById` filter untuk EndUser — hanya bisa lihat ticket milik sendiri (S-4)
 - SLA: `performSLACheck()` pakai batch pagination 500/trip (P-1)
+
+### Post-Code-Review Fix
+- Fix: `useTicketAuditTrail` dihapus (B-1) tapi `TicketDetail.tsx` masih import & pakai — ganti ke `ticket.histories`
+- Fix: Tambah `histories`, `comments`, `attachments` ke `Ticket` interface (types/index.ts)
+- Fix: `frontend/node_modules` & `frontend/dist` ownership root (dari Docker) — `rm -rf` & reinstall
