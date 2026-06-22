@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
 import { useNotificationStore } from '@/stores/notification-store';
-import { useMarkAsRead, useMarkAllAsRead } from '@/hooks/use-notifications';
+import { useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { formatRelativeTime } from '@/lib/utils';
 import type { Notification, PaginatedResponse } from '@/types';
 
@@ -16,6 +16,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
+  const clearAll = useClearAll();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +109,15 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 >
                   See all notifications
                 </button>
+                {data && data.length > 0 && (
+                  <button
+                    onClick={() => clearAll.mutate()}
+                    disabled={clearAll.isPending}
+                    className="w-full rounded-lg py-1.5 text-center text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
+                  >
+                    {clearAll.isPending ? 'Clearing...' : 'Clear all'}
+                  </button>
+                )}
                 {data && data.some((n) => !n.isRead) && (
                   <button
                     onClick={() => markAllAsRead.mutate()}

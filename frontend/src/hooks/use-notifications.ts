@@ -56,3 +56,18 @@ export function useMarkAllAsRead() {
     },
   });
 }
+
+export function useClearAll() {
+  const queryClient = useQueryClient();
+  const reset = useNotificationStore((s) => s.reset);
+
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.delete('/notifications');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      reset();
+    },
+  });
+}

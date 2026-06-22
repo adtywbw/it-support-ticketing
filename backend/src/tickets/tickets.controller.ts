@@ -7,8 +7,10 @@ import {
   Param,
   Body,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { Role } from '@prisma/client';
 import { TicketsService } from './tickets.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -42,6 +44,20 @@ export class TicketsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.ticketsService.create(createTicketDto, userId);
+  }
+
+  @Get('export/csv')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ITSupport, Role.Admin)
+  async exportCsv(
+    @Query() queryTicketDto: QueryTicketDto,
+    @CurrentUser() user: { id: string; role: Role },
+    @Res() res: Response,
+  ) {
+    const csv = await this.ticketsService.exportCsv(queryTicketDto, user.role, user.id);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="tickets-export.csv"');
+    res.send(csv);
   }
 
   @Get(':id')

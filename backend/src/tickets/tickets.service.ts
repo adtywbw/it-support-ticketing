@@ -198,6 +198,88 @@ export class TicketsService {
     return { data: tickets, meta: { page, limit, total } };
   }
 
+  async exportCsv(queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
+    const {
+      status,
+      priority,
+      categoryId,
+      assignedToId,
+      requesterId,
+      slaStatus,
+      dateFrom,
+      dateTo,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = queryTicketDto;
+
+    const where: Prisma.TicketWhereInput = {};
+
+    if (userRole === 'EndUser') {
+      where.requesterId = userId;
+    }
+
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (categoryId) where.categoryId = categoryId;
+    if (assignedToId) where.assignedToId = assignedToId;
+    if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
+    if (slaStatus) where.slaStatus = slaStatus;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) where.createdAt.lte = new Date(dateTo);
+    }
+    if (search) {
+      where.OR = [
+        { subject: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { ticketNumber: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority'];
+    const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderBy: Prisma.TicketOrderByWithRelationInput = {};
+    if (orderField === 'priority') {
+      orderBy.priority = sortOrder as Prisma.SortOrder;
+    } else if (orderField === 'slaDueAt') {
+      orderBy.slaDueAt = sortOrder as Prisma.SortOrder;
+    } else if (orderField === 'updatedAt') {
+      orderBy.updatedAt = sortOrder as Prisma.SortOrder;
+    } else {
+      orderBy.createdAt = sortOrder as Prisma.SortOrder;
+    }
+
+    const tickets = await this.prisma.ticket.findMany({
+      where,
+      orderBy,
+      include: {
+        requester: { select: { id: true, name: true, email: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+        category: { select: { id: true, name: true } },
+        subCategory: { select: { id: true, name: true } },
+      },
+    });
+
+    const headers = ['Ticket #', 'Subject', 'Status', 'Priority', 'Category', 'Sub Category', 'Created By', 'Assigned To', 'Created At', 'Resolved At', 'SLA Status'];
+    const rows = tickets.map((t) => [
+      t.ticketNumber,
+      `"${(t.subject || '').replace(/"/g, '""')}"`,
+      t.status,
+      t.priority,
+      t.category?.name || '',
+      t.subCategory?.name || '',
+      t.requester?.name || '',
+      t.assignedTo?.name || '',
+      t.createdAt.toISOString(),
+      t.resolvedAt?.toISOString() || '',
+      t.slaStatus || '',
+    ]);
+
+    return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  }
+
   async findById(id: string, userRole?: string, userId?: string) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id },

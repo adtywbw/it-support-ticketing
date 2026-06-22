@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useNotifications, useMarkAsRead, useMarkAllAsRead } from '@/hooks/use-notifications';
+import { useNotifications, useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { formatRelativeTime } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -8,6 +8,7 @@ export default function NotificationsPage() {
   const { data, isLoading } = useNotifications();
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
+  const clearAll = useClearAll();
 
   if (isLoading) {
     return (
@@ -23,15 +24,26 @@ export default function NotificationsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-        {notifications.some((n) => !n.isRead) && (
-          <button
-            onClick={() => markAllAsRead.mutate()}
-            className="btn-secondary btn-sm"
-            disabled={markAllAsRead.isPending}
-          >
-            Mark all as read
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {notifications.length > 0 && (
+            <button
+              onClick={() => clearAll.mutate()}
+              className="btn-secondary btn-sm"
+              disabled={clearAll.isPending}
+            >
+              Clear all
+            </button>
+          )}
+          {notifications.some((n) => !n.isRead) && (
+            <button
+              onClick={() => markAllAsRead.mutate()}
+              className="btn-secondary btn-sm"
+              disabled={markAllAsRead.isPending}
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (

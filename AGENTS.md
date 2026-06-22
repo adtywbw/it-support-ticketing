@@ -143,3 +143,12 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Fix: `useTicketAuditTrail` dihapus (B-1) tapi `TicketDetail.tsx` masih import & pakai — ganti ke `ticket.histories`
 - Fix: Tambah `histories`, `comments`, `attachments` ke `Ticket` interface (types/index.ts)
 - Fix: `frontend/node_modules` & `frontend/dist` ownership root (dari Docker) — `rm -rf` & reinstall
+
+### Export CSV
+- Backend: `GET /api/tickets/export/csv` (ITSupport/Admin only) — download CSV dengan filter yang sama seperti list
+- Frontend: Tombol "Export CSV" di header TicketsPage (ITSupport/Admin)
+- CSV headers: Ticket #, Subject, Status, Priority, Category, Sub Category, Created By, Assigned To, Created At, Resolved At, SLA Status
+
+### Notifications
+- Backend: `DELETE /api/notifications` — hapus semua notifikasi user
+- Frontend: Tombol "Clear all" di NotificationsPage & dropdown Navbar

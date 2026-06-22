@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Delete,
   Param,
   Query,
   UseGuards,
@@ -50,5 +51,11 @@ export class NotificationsController {
   async markAllAsRead(@CurrentUser('id') userId: string) {
     await this.notificationsService.markAllAsRead(userId);
     return { message: 'All notifications marked as read' };
+  }
+
+  @Delete()
+  async clearAll(@CurrentUser('id') userId: string) {
+    await this.notificationsService.clearAll(userId);
+    return { message: 'All notifications cleared' };
   }
 }
