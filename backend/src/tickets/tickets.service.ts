@@ -148,10 +148,14 @@ export class TicketsService {
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) {
-        where.createdAt.gte = new Date(dateFrom);
+        const startDate = new Date(dateFrom);
+        startDate.setUTCHours(0, 0, 0, 0);
+        where.createdAt.gte = startDate;
       }
       if (dateTo) {
-        where.createdAt.lte = new Date(dateTo);
+        const endDate = new Date(dateTo);
+        endDate.setUTCHours(23, 59, 59, 999);
+        where.createdAt.lte = endDate;
       }
     }
 
@@ -227,8 +231,16 @@ export class TicketsService {
     if (slaStatus) where.slaStatus = slaStatus;
     if (dateFrom || dateTo) {
       where.createdAt = {};
-      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-      if (dateTo) where.createdAt.lte = new Date(dateTo);
+      if (dateFrom) {
+        const startDate = new Date(dateFrom);
+        startDate.setUTCHours(0, 0, 0, 0);
+        where.createdAt.gte = startDate;
+      }
+      if (dateTo) {
+        const endDate = new Date(dateTo);
+        endDate.setUTCHours(23, 59, 59, 999);
+        where.createdAt.lte = endDate;
+      }
     }
     if (search) {
       where.OR = [

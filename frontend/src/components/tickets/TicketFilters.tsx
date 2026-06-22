@@ -173,6 +173,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
             type="date"
             value={local.startDate}
             onChange={(e) => update({ startDate: e.target.value })}
+            max={local.endDate || undefined}
             className="input w-auto"
             title="Start date"
           />
@@ -180,6 +181,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
             type="date"
             value={local.endDate}
             onChange={(e) => update({ endDate: e.target.value })}
+            min={local.startDate || undefined}
             className="input w-auto"
             title="End date"
           />

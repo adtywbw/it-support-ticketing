@@ -176,3 +176,5 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 ### Date Filter
 - Date range: dropdown preset (All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
 - Input date muncul hanya saat pilih Custom
+- Backend: `dateTo` di-set ke 23:59:59.999 UTC agar ticket yang dibuat setelah tengah malam tetap terfilter
+- Custom: start date `max` dibatasi end date, end date `min` dibatasi start date
