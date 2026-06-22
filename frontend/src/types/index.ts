@@ -60,7 +60,7 @@ export interface Attachment {
   uploadedById: string;
   uploadedBy?: { id: string; name: string; email: string };
   fileName: string;
-  fileSize: number;
+  size: number;
   mimeType: string;
   createdAt: string;
 }

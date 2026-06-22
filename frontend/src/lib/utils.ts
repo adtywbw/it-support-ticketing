@@ -70,6 +70,7 @@ export function getUserInitials(user?: { name?: string; firstName?: string; last
 }
 
 export function formatFileSize(bytes: number): string {
+  if (bytes == null || isNaN(bytes) || bytes < 0) return '0 B';
   if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];

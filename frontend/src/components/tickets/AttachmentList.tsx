@@ -58,7 +58,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
           {(attachments as {
             id: string;
             fileName: string;
-            fileSize: number;
+            size: number;
             mimeType: string;
             uploadedBy?: { name: string };
             createdAt: string;
@@ -74,7 +74,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">{attachment.fileName}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {formatFileSize(attachment.fileSize)} &middot;{' '}
+                    {formatFileSize(attachment.size)} &middot;{' '}
                     {attachment.uploadedBy ? getUserDisplayName(attachment.uploadedBy) : 'Unknown'}{' '}
                     &middot; {formatDate(attachment.createdAt)}
                   </p>

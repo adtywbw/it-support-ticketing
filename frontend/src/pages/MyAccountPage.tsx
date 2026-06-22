@@ -63,55 +63,58 @@ export default function MyAccountPage() {
           </div>
         </div>
 
-        <hr className="my-6 border-gray-200 dark:border-gray-700" />
+        {user?.role !== 'EndUser' && (
+          <>
+            <hr className="my-6 border-gray-200 dark:border-gray-700" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Change Password</h2>
 
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Change Password</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">{error}</div>
+              )}
+              {success && (
+                <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">{success}</div>
+              )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">{error}</div>
-          )}
-          {success && (
-            <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">{success}</div>
-          )}
+              <div>
+                <label className="label">Current Password</label>
+                <PasswordInput
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-          <div>
-            <label className="label">Current Password</label>
-            <PasswordInput
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-          </div>
+              <div>
+                <label className="label">New Password</label>
+                <PasswordInput
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
+              </div>
 
-          <div>
-            <label className="label">New Password</label>
-            <PasswordInput
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
+              <div>
+                <label className="label">Confirm New Password</label>
+                <PasswordInput
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                />
+              </div>
 
-          <div>
-            <label className="label">Confirm New Password</label>
-            <PasswordInput
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn-primary w-full"
-            disabled={changePasswordMutation.isPending}
-          >
-            {changePasswordMutation.isPending ? 'Changing Password...' : 'Change Password'}
-          </button>
-        </form>
+              <button
+                type="submit"
+                className="btn-primary w-full"
+                disabled={changePasswordMutation.isPending}
+              >
+                {changePasswordMutation.isPending ? 'Changing Password...' : 'Change Password'}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
