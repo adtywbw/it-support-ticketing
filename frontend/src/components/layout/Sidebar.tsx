@@ -145,30 +145,32 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         </nav>
 
         <div className="border-t border-gray-200 p-2 space-y-2 dark:border-gray-700">
-          {!collapsed && (
-            <NavLink
-              to="/my-account"
-              onClick={onClose}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100',
-                )
-              }
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
-                {user ? getUserInitials(user) : '?'}
-              </div>
+          <NavLink
+            to="/my-account"
+            onClick={onClose}
+            title={collapsed ? (user ? getUserDisplayName(user) : 'User') : undefined}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center rounded-lg text-sm font-medium transition-colors',
+                collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
+                isActive
+                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100',
+              )
+            }
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
+              {user ? getUserInitials(user) : '?'}
+            </div>
+            {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">
                   {user ? getUserDisplayName(user) : 'User'}
                 </p>
                 <p className="text-xs text-gray-500 truncate dark:text-gray-400">{user?.role}</p>
               </div>
-            </NavLink>
-          )}
+            )}
+          </NavLink>
         </div>
       </aside>
     </>
