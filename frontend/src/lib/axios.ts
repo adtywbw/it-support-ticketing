@@ -4,9 +4,6 @@ import { getAccessToken, useAuthStore } from '@/stores/auth-store';
 
 const apiClient = axios.create({
   baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 interface FailedRequest {

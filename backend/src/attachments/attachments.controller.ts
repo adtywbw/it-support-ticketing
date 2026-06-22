@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Param,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -38,15 +39,23 @@ export class AttachmentsController {
   @Get('attachments/:id/download')
   async download(
     @Param('id') id: string,
+    @Query('view') view: string,
     @Res() res: Response,
   ) {
     const attachment = await this.attachmentsService.getDownloadInfo(id);
 
     res.setHeader('Content-Type', attachment.mimeType);
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${attachment.originalName}"`,
-    );
+    if (view === '1') {
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${attachment.originalName}"`,
+      );
+    } else {
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${attachment.originalName}"`,
+      );
+    }
 
     const fileStream = fs.createReadStream(attachment.path);
     fileStream.pipe(res);

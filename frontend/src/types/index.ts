@@ -57,9 +57,9 @@ export interface Comment {
 export interface Attachment {
   id: string;
   ticketId: string;
-  uploadedById: string;
-  uploadedBy?: { id: string; name: string; email: string };
-  fileName: string;
+  userId: string;
+  user?: { id: string; name: string };
+  originalName: string;
   size: number;
   mimeType: string;
   createdAt: string;
