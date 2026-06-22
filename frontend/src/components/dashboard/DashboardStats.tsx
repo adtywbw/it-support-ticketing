@@ -128,26 +128,34 @@ export default function DashboardStats() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Avg Resolution Time by Category</h3>
           </div>
           <div className="card-body">
-            {stats.avgResolutionTimeByCategory.length === 0 ? (
+              {stats.avgResolutionTimeByCategory.length === 0 ? (
               <p className="text-sm text-gray-400 dark:text-gray-500">No data</p>
             ) : (
               <div className="space-y-2">
-                {stats.avgResolutionTimeByCategory.map((item) => (
-                  <div key={item.category} className="flex items-center gap-3">
-                    <span className="w-32 text-sm text-gray-600 dark:text-gray-400 truncate">{item.category}</span>
-                    <div className="flex-1 h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary-500"
-                        style={{
-                          width: `${Math.min((item.avgHours / 48) * 100, 100)}%`,
-                        }}
-                      />
+                {stats.avgResolutionTimeByCategory.map((item) => {
+                  const avgMinutes = item.avgMinutes;
+                  const displayValue = avgMinutes >= 60
+                    ? `${(avgMinutes / 60).toFixed(1)}h`
+                    : avgMinutes >= 1
+                      ? `${Math.round(avgMinutes)}m`
+                      : `${Math.round(avgMinutes * 60)}s`;
+                  return (
+                    <div key={item.category} className="flex items-center gap-3">
+                      <span className="w-32 text-sm text-gray-600 dark:text-gray-400 truncate">{item.category}</span>
+                      <div className="flex-1 h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary-500"
+                          style={{
+                            width: `${Math.min((avgMinutes / 2880) * 100, 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 w-20 text-right">
+                        {displayValue}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 w-20 text-right">
-                      {item.avgHours.toFixed(1)}h
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

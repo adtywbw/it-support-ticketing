@@ -21,7 +21,7 @@ export function useDashboardStats() {
         slaComplianceRate: raw.slaStats.complianceRate / 100,
         avgResolutionTimeByCategory: raw.categoryResolution.map((c) => ({
           category: c.categoryName,
-          avgHours: c.avgResolutionMinutes / 60,
+          avgMinutes: c.avgResolutionMinutes,
         })),
         ticketsTrend: Object.entries(raw.dailyTrends.last7Days).map(([date, count]) => ({ date, count })),
       };

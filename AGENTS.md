@@ -129,7 +129,7 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 
 ### Filter
 - Assigned to Me: filter by current user ID (sebelumnya tidak berfungsi)
-- Date Range: filter by created date (start date & end date picker)
+- Date Range: ganti 2 date picker terpisah jadi dropdown preset (All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom) — hemat tempat
 - Attachment upload: max 3 files, max 5MB each (New Ticket)
 
 ### Security
@@ -164,3 +164,15 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - My Account: halaman `/my-account` untuk semua role, berisi profil & change password
 - Change Password: pindah dari sidebar ke halaman My Account (bukan route terpisah)
 - Profile dropdown: Navbar — avatar user, My Account, theme toggle, Logout
+
+### Login
+- Bug: axios interceptor ikut nge-handle 401 dari `/auth/login` dan nyoba refresh token — error asli "Invalid email or password" ketelan
+- Fix: tambah pengecualian `/auth/login` di axios interceptor
+- Fix: tambah `toast.error()` di `useLogin` hook biar error muncul sebagai toast
+
+### Dashboard
+- Avg Resolution Time: unit cerdas — tampilkan jam (`≥60m`), menit (`≥1m`), atau detik (`<1m`) sesuai nilai
+
+### Date Filter
+- Date range: dropdown preset (All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
+- Input date muncul hanya saat pilih Custom

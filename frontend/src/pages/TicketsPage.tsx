@@ -17,6 +17,7 @@ export default function TicketsPage() {
     search: '',
     categoryId: '',
     assignedToMe: false,
+    datePreset: 'all',
     startDate: '',
     endDate: '',
   });

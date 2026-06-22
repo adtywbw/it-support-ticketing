@@ -124,7 +124,7 @@ export interface DashboardStats {
   ticketsByStatus: { status: string; count: number }[];
   ticketsByPriority: { priority: string; count: number }[];
   slaComplianceRate: number;
-  avgResolutionTimeByCategory: { category: string; avgHours: number }[];
+  avgResolutionTimeByCategory: { category: string; avgMinutes: number }[];
   ticketsTrend: { date: string; count: number }[];
 }
 

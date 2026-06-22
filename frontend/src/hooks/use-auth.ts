@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import apiClient from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
 import type { LoginCredentials, AuthResponse } from '@/types';
@@ -17,6 +18,10 @@ export function useLogin() {
       const user = { ...data.user, name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() };
       login(user, data.accessToken);
       navigate('/tickets');
+    },
+    onError: (error: unknown) => {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Login failed. Please try again.';
+      toast.error(message);
     },
   });
 }

@@ -55,7 +55,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Public & internal comments
 - File attachments (max 3/ticket, 5MB each, allowed MIME types)
 - Full audit trail on status/assignee/priority changes
-- Filter by status, priority, category, assigned to me, date range
+- Filter by status, priority, category, assigned to me, date range (dropdown presets: All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
 - Export CSV with current filters (ITSupport & Admin)
 
 ### SLA Management
@@ -68,7 +68,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Ticket counts by status and priority
 - Daily trends (7d and 30d)
 - SLA compliance rate
-- Average resolution time per category
+- Average resolution time per category (smart unit: hours/minutes/seconds)
 
 ### Notifications
 - In-app notification system (table-based)
