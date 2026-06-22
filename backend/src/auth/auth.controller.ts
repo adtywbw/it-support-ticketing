@@ -25,12 +25,13 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(loginDto);
     res.cookie(REFRESH_COOKIE, result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: req.secure,
       sameSite: 'strict',
       path: '/api/auth',
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -50,7 +51,7 @@ export class AuthController {
     const result = await this.authService.refresh(token);
     res.cookie(REFRESH_COOKIE, result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: req.secure,
       sameSite: 'strict',
       path: '/api/auth',
       maxAge: 7 * 24 * 60 * 60 * 1000,
