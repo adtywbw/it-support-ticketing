@@ -50,6 +50,7 @@ export interface Comment {
   user?: { id: string; name: string; email: string; role?: string; avatarUrl?: string | null };
   content: string;
   type: 'PUBLIC' | 'INTERNAL';
+  attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +58,7 @@ export interface Comment {
 export interface Attachment {
   id: string;
   ticketId: string;
+  commentId?: string;
   userId: string;
   user?: { id: string; name: string };
   originalName: string;

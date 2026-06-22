@@ -127,6 +127,13 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Fix URL sub-categories: tambah `categoryId` di path update/delete
 - Toast error handling di Master Data
 
+### Comments — File Upload
+- Backend: `POST /tickets/:ticketId/comments` kini menerima multipart/form-data dengan field `content`, `type`, dan `files` (max 3 file, 5MB each, allowed MIME types)
+- Backend: `commentId` (optional) ditambahkan ke model Attachment — file terupload di link ke comment
+- Frontend: CommentSection — tambah tombol "Attach files" dengan file list + remove, thumbnail preview untuk gambar
+- Frontend: comment card — tampilkan attachment list dengan thumbnail preview (image) & tombol Download, modal full-size preview untuk gambar
+- Prisma: `db push` untuk menambahkan kolom `commentId` + index
+
 ### Filter
 - Assigned to Me: filter by current user ID (sebelumnya tidak berfungsi)
 - Date Range: ganti 2 date picker terpisah jadi dropdown preset (All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom) — hemat tempat

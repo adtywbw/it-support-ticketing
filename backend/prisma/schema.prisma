@@ -106,8 +106,9 @@ model Comment {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  ticket Ticket @relation(fields: [ticketId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
+  ticket      Ticket       @relation(fields: [ticketId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  attachments Attachment[]
 
   @@index([ticketId])
   @@index([createdAt])
@@ -122,6 +123,7 @@ enum CommentType {
 model Attachment {
   id           String   @id @default(uuid())
   ticketId     String
+  commentId    String?
   userId       String
   originalName String
   mimeType     String
@@ -129,10 +131,12 @@ model Attachment {
   path         String
   createdAt    DateTime @default(now())
 
-  ticket Ticket @relation(fields: [ticketId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
+  ticket  Ticket   @relation(fields: [ticketId], references: [id])
+  comment Comment? @relation(fields: [commentId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
 
   @@index([ticketId])
+  @@index([commentId])
   @@map("attachments")
 }
 

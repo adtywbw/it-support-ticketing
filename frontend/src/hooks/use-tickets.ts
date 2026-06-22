@@ -96,12 +96,22 @@ export function useAddComment() {
       ticketId,
       content,
       type,
+      files,
     }: {
       ticketId: string;
       content: string;
       type: 'PUBLIC' | 'INTERNAL';
+      files?: File[];
     }) => {
-      const response = await apiClient.post(`/tickets/${ticketId}/comments`, { content, type });
+      const formData = new FormData();
+      formData.append('content', content);
+      formData.append('type', type);
+      if (files) {
+        files.forEach((file) => formData.append('files', file));
+      }
+      const response = await apiClient.post(`/tickets/${ticketId}/comments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       return response.data;
     },
     onSuccess: (_data, variables) => {

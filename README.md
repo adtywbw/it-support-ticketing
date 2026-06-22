@@ -52,7 +52,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Auto-generated ticket number (`TKT-XXX`)
 - Status workflow: `Open → InProgress → Resolved → Closed` (with `OnHold` loop)
 - Priority: Low, Medium, High, Critical
-- Public & internal comments
+- Public & internal comments with file attachments (max 3/comment, 5MB each, allowed MIME types, image preview)
 - File attachments (max 3/ticket, 5MB each, allowed MIME types)
 - Full audit trail on status/assignee/priority changes
 - Filter by status, priority, category, assigned to me, date range (dropdown presets: All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
@@ -147,8 +147,8 @@ it-support-ticketing/
 
 - **users** — roles: EndUser, ITSupport, Admin
 - **tickets** — status workflow, SLA tracking, indexes on (status, assignedTo, requesterId, createdAt, slaDueAt)
-- **comments** — PUBLIC/INTERNAL types
-- **attachments** — MIME validation, max size enforcement
+- **comments** — PUBLIC/INTERNAL types, linked to attachments
+- **attachments** — MIME validation, max size enforcement, optional FK to comments
 - **categories** / **sub_categories** — hierarchical master data
 - **sla_configs** — unique (categoryId, priority)
 - **ticket_history** — audit trail for all state changes
@@ -241,8 +241,8 @@ The seed script creates:
 ### Comments
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/tickets/:ticketId/comments` | List comments |
-| POST | `/api/tickets/:ticketId/comments` | Add comment |
+| GET | `/api/tickets/:ticketId/comments` | List comments (includes attachments) |
+| POST | `/api/tickets/:ticketId/comments` | Add comment — multipart/form-data (`content`, `type`, `files` up to 3) |
 
 ### Attachments
 | Method | Path | Description |

@@ -5,10 +5,13 @@ import {
   Param,
   Body,
   UseGuards,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { Role, CommentType } from '@prisma/client';
 import { CommentsService } from './comments.service';
-import { CreateCommentDto } from './dto/create-comment.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
@@ -26,14 +29,25 @@ export class CommentsController {
   }
 
   @Post()
+  @UseInterceptors(FilesInterceptor('files', 3))
   async create(
     @Param('ticketId') ticketId: string,
-    @Body() createCommentDto: CreateCommentDto,
+    @Body('content') content: string,
+    @Body('type') type: string,
+    @UploadedFiles() files: Express.Multer.File[],
     @CurrentUser() user: { id: string; role: Role },
   ) {
+    if (!content?.trim()) {
+      throw new BadRequestException('Content is required');
+    }
+
+    const commentType = type === 'INTERNAL' ? CommentType.INTERNAL : CommentType.PUBLIC;
+
     return this.commentsService.create(
       ticketId,
-      createCommentDto,
+      content.trim(),
+      commentType,
+      files || [],
       user.id,
       user.role,
     );

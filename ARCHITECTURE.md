@@ -129,19 +129,21 @@
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
 │ INDEXES: (ticketId), (createdAt)
+│ 1──< attachments (commentId)
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │ attachments
 │ PK id (UUID)
 │ FK ticketId → tickets       UUID
+│ FK commentId → comments     UUID? (nullable — untuk file yang di-upload di comment)
 │ FK userId → users           UUID
 │ originalName               VARCHAR
 │ mimeType                   VARCHAR
 │ size                       Int
 │ path                       VARCHAR
 │ createdAt                  DateTime
-│ INDEXES: (ticketId)
+│ INDEXES: (ticketId), (commentId)
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
