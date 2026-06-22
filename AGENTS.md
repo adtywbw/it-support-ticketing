@@ -158,8 +158,7 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 
 ### Theme
 - Dark Mode: `tailwind darkMode: 'class'`, theme-store zustand persist
-- High Contrast: mode tambahan via class `high-contrast` di HTML element
-- Theme switcher: Light/Dark/High Contrast ada di profile dropdown Navbar
+- Theme switcher: Light/Dark ada di profile dropdown Navbar
 
 ### Users & Auth
 - My Account: halaman `/my-account` untuk semua role, berisi profil & change password

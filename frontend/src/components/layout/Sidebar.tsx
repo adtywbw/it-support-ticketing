@@ -1,7 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
-import { useLogout } from '@/hooks/use-auth';
 import { getUserDisplayName, getUserInitials } from '@/lib/utils';
 
 const navItems = [
@@ -67,7 +66,6 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const user = useAuthStore((s) => s.user);
-  const logoutMutation = useLogout();
 
   const filteredItems = navItems.filter(
     (item) => user && item.roles.includes(user.role),
@@ -171,20 +169,6 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
               </div>
             </NavLink>
           )}
-          <button
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            className={cn(
-              'flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors dark:text-red-400 dark:hover:bg-red-900/20',
-              collapsed ? 'justify-center' : 'gap-2',
-            )}
-            title={collapsed ? 'Logout' : undefined}
-          >
-            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-            </svg>
-            {!collapsed && (logoutMutation.isPending ? 'Logging out...' : 'Logout')}
-          </button>
         </div>
       </aside>
     </>

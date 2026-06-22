@@ -19,18 +19,23 @@ interface TicketFiltersProps {
 }
 
 export default function TicketFilters({ filters, onFiltersChange }: TicketFiltersProps) {
-  const [localSearch, setLocalSearch] = useState(filters.search);
+  const [local, setLocal] = useState(filters);
   const { data: categories } = useCategories();
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (localSearch !== filters.search) {
-        onFiltersChange({ ...filters, search: localSearch });
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [localSearch]);
+    setLocal(filters);
+  }, [filters]);
+
+  const handleApply = () => {
+    onFiltersChange(local);
+  };
+
+  const update = (partial: Partial<FilterValues>) => {
+    setLocal((prev) => ({ ...prev, ...partial }));
+  };
+
+  const hasChanges = JSON.stringify(local) !== JSON.stringify(filters);
 
   const statuses: { value: TicketStatus | ''; label: string }[] = [
     { value: '', label: 'All Statuses' },
@@ -54,16 +59,16 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
       <div className="flex-1 min-w-[200px]">
         <input
           type="text"
-          value={localSearch}
-          onChange={(e) => setLocalSearch(e.target.value)}
+          value={local.search}
+          onChange={(e) => update({ search: e.target.value })}
           placeholder="Search tickets..."
           className="input"
         />
       </div>
 
       <select
-        value={filters.status}
-        onChange={(e) => onFiltersChange({ ...filters, status: e.target.value as TicketStatus | '' })}
+        value={local.status}
+        onChange={(e) => update({ status: e.target.value as TicketStatus | '' })}
         className="input w-auto"
       >
         {statuses.map((s) => (
@@ -74,8 +79,8 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
       </select>
 
       <select
-        value={filters.priority}
-        onChange={(e) => onFiltersChange({ ...filters, priority: e.target.value as TicketPriority | '' })}
+        value={local.priority}
+        onChange={(e) => update({ priority: e.target.value as TicketPriority | '' })}
         className="input w-auto"
       >
         {priorities.map((p) => (
@@ -86,10 +91,8 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
       </select>
 
       <select
-        value={filters.categoryId}
-        onChange={(e) =>
-          onFiltersChange({ ...filters, categoryId: e.target.value })
-        }
+        value={local.categoryId}
+        onChange={(e) => update({ categoryId: e.target.value })}
         className="input w-auto"
       >
         <option value="">All Categories</option>
@@ -102,16 +105,16 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
 
       <input
         type="date"
-        value={filters.startDate}
-        onChange={(e) => onFiltersChange({ ...filters, startDate: e.target.value })}
+        value={local.startDate}
+        onChange={(e) => update({ startDate: e.target.value })}
         className="input w-auto"
         title="Start date"
       />
 
       <input
         type="date"
-        value={filters.endDate}
-        onChange={(e) => onFiltersChange({ ...filters, endDate: e.target.value })}
+        value={local.endDate}
+        onChange={(e) => update({ endDate: e.target.value })}
         className="input w-auto"
         title="End date"
       />
@@ -120,13 +123,17 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer whitespace-nowrap">
           <input
             type="checkbox"
-            checked={filters.assignedToMe}
-            onChange={(e) => onFiltersChange({ ...filters, assignedToMe: e.target.checked })}
+            checked={local.assignedToMe}
+            onChange={(e) => update({ assignedToMe: e.target.checked })}
             className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
           Assigned to me
         </label>
       )}
+
+      <button onClick={handleApply} disabled={!hasChanges} className="btn-primary">
+        Apply
+      </button>
     </div>
   );
 }

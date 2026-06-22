@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-type ThemeMode = 'light' | 'dark' | 'high-contrast';
+type ThemeMode = 'light' | 'dark';
 
 interface ThemeState {
   mode: ThemeMode;
@@ -10,9 +10,7 @@ interface ThemeState {
 
 function applyTheme(mode: ThemeMode) {
   const root = document.documentElement;
-  root.classList.remove('dark', 'high-contrast');
-  if (mode === 'dark') root.classList.add('dark');
-  if (mode === 'high-contrast') root.classList.add('high-contrast');
+  root.classList.toggle('dark', mode === 'dark');
 }
 
 export const useThemeStore = create<ThemeState>()(
