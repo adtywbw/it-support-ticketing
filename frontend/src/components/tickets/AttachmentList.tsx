@@ -1,8 +1,39 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/use-tickets';
+import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import { formatDate, formatFileSize, getUserDisplayName } from '@/lib/utils';
+
+function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () => void }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const urlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    apiClient.get(`/attachments/${id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
+      .then((r) => {
+        const u = URL.createObjectURL(r.data);
+        urlRef.current = u;
+        setBlobUrl(u);
+      })
+      .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
+    return () => {
+      ctrl.abort();
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    };
+  }, [id]);
+
+  if (blobUrl === null) return <div className="h-10 w-10 shrink-0 rounded bg-gray-200 animate-pulse dark:bg-gray-600" />;
+  if (blobUrl === '') return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+      </svg>
+    </div>
+  );
+  return <img src={blobUrl} alt={alt} className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer" onClick={onClick} />;
+}
 
 interface AttachmentListProps {
   ticketId: string;
@@ -12,13 +43,21 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState('');
+  const previewUrlRef = useRef<string | null>(null);
   const { data: attachments, isLoading, isError } = useTicketAttachments(ticketId);
   const uploadMutation = useUploadAttachment();
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setUploading(true);
     try {
       await uploadMutation.mutateAsync({ ticketId, file });
@@ -28,56 +67,81 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
     }
   };
 
+  const openPreview = useCallback(async (attachment: { id: string; originalName: string }) => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPreviewId(attachment.id);
+    setPreviewName(attachment.originalName);
+    setPreviewUrl(null);
+    try {
+      const res = await apiClient.get(`/attachments/${attachment.id}/download?view=1`, {
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
+    } catch {
+      setPreviewUrl('');
+    }
+  }, []);
+
+  const closePreview = useCallback(() => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPreviewId(null);
+    setPreviewUrl(null);
+    setPreviewName('');
+  }, []);
+
+  const handleDownload = useCallback(async (attachment: { id: string; originalName: string }) => {
+    try {
+      const res = await apiClient.get(`/attachments/${attachment.id}/download`, {
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.originalName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="btn-secondary btn-sm"
-          disabled={uploading}
-        >
+        <button onClick={() => fileInputRef.current?.click()} className="btn-secondary btn-sm" disabled={uploading}>
           {uploading ? 'Uploading...' : 'Upload File'}
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
+        <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
       </div>
 
       {isLoading && <LoadingSpinner />}
-
       {isError && <p className="text-sm text-red-600">Failed to load attachments.</p>}
-
       {!isLoading && !isError && (!attachments || attachments.length === 0) && (
         <EmptyState title="No attachments" description="Upload files to attach to this ticket." />
       )}
 
       {attachments && attachments.length > 0 && (
         <div className="space-y-2">
-          {(attachments as {
-            id: string;
-            originalName: string;
-            size: number;
-            mimeType: string;
-            user?: { id: string; name: string };
-            createdAt: string;
-          }[]).map((attachment) => {
+          {(attachments as Array<{
+            id: string; originalName: string; size: number; mimeType: string;
+            user?: { id: string; name: string }; createdAt: string;
+          }>).map((attachment) => {
             const isImage = attachment.mimeType?.startsWith('image/');
             return (
-              <div
-                key={attachment.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
-              >
+              <div key={attachment.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
                 <div className="flex items-center gap-3 min-w-0">
                   {isImage ? (
-                    <img
-                      src={`/api/attachments/${attachment.id}/download?view=1`}
-                      alt={attachment.originalName}
-                      className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer"
-                      onClick={() => setPreviewId(attachment.id)}
-                    />
+                    <Thumbnail id={attachment.id} alt={attachment.originalName} onClick={() => openPreview(attachment)} />
                   ) : (
                     <svg className="h-8 w-8 shrink-0 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
@@ -86,10 +150,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">
                       {isImage ? (
-                        <button
-                          onClick={() => setPreviewId(attachment.id)}
-                          className="hover:underline text-left"
-                        >
+                        <button onClick={() => openPreview(attachment)} className="hover:underline text-left">
                           {attachment.originalName}
                         </button>
                       ) : (
@@ -103,48 +164,34 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
                     </p>
                   </div>
                 </div>
-                <a
-                  href={`/api/attachments/${attachment.id}/download`}
-                  className="btn-secondary btn-sm shrink-0"
-                  download
-                >
+                <button onClick={() => handleDownload(attachment)} className="btn-secondary btn-sm shrink-0">
                   Download
-                </a>
+                </button>
               </div>
             );
           })}
         </div>
       )}
 
-      {previewId && (() => {
-        const att = (attachments as {
-          id: string;
-          originalName: string;
-          mimeType: string;
-        }[] | undefined)?.find(a => a.id === previewId);
-        if (!att) return null;
-        return (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-            onClick={() => setPreviewId(null)}
-          >
-            <button
-              onClick={() => setPreviewId(null)}
-              className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+      {previewId && previewUrl !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={closePreview}>
+          <button onClick={closePreview} className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          {previewUrl === '' ? (
+            <p className="text-white text-sm">Failed to load image.</p>
+          ) : (
             <img
-              src={`/api/attachments/${previewId}/download?view=1`}
-              alt={att.originalName}
+              src={previewUrl}
+              alt={previewName}
               className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
               onClick={(e) => e.stopPropagation()}
             />
-          </div>
-        );
-      })()}
+          )}
+        </div>
+      )}
     </div>
   );
 }
