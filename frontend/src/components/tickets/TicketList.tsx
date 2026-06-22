@@ -3,26 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { useTickets, useUpdateTicketPriority, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
 import { useUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
-import type { TicketStatus, TicketPriority } from '@/types';
+import type { TicketPriority } from '@/types';
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
-import TicketFilters from './TicketFilters';
 import Pagination from '@/components/ui/Pagination';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatDateTime, getUserDisplayName } from '@/lib/utils';
+import TicketFilters, { type FilterValues } from './TicketFilters';
 
-interface FilterValues {
-  status: TicketStatus | '';
-  priority: TicketPriority | '';
-  search: string;
-  categoryId: string | '';
-  assignedToMe: boolean;
+interface TicketListProps {
+  filters: FilterValues;
+  onFiltersChange: (filters: FilterValues) => void;
+  page: number;
+  onPageChange: (page: number) => void;
 }
 
-export default function TicketList() {
+export default function TicketList({ filters, onFiltersChange, page, onPageChange }: TicketListProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const updatePriorityMutation = useUpdateTicketPriority();
@@ -31,14 +30,6 @@ export default function TicketList() {
   const { data: users } = useUsers();
 
   const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
-  const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<FilterValues>({
-    status: '',
-    priority: '',
-    search: '',
-    categoryId: '',
-    assignedToMe: false,
-  });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; ticketNumber: string } | null>(null);
 
   const isAdmin = user?.role === 'Admin';
@@ -51,14 +42,11 @@ export default function TicketList() {
     ...(filters.search && { search: filters.search }),
     ...(filters.categoryId && { categoryId: filters.categoryId }),
     ...(filters.assignedToMe && user?.id && { assignedToId: user.id }),
+    ...(filters.startDate && { startDate: filters.startDate }),
+    ...(filters.endDate && { endDate: filters.endDate }),
   };
 
   const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);
-
-  const handleFiltersChange = (newFilters: FilterValues) => {
-    setFilters(newFilters);
-    setPage(1);
-  };
 
   if (isLoading) {
     return (
@@ -83,7 +71,7 @@ export default function TicketList() {
   return (
     <div className="space-y-4">
       <div className="card p-4">
-        <TicketFilters filters={filters} onFiltersChange={handleFiltersChange} />
+        <TicketFilters filters={filters} onFiltersChange={onFiltersChange} />
       </div>
 
       {tickets.length === 0 ? (
@@ -231,7 +219,7 @@ export default function TicketList() {
             <Pagination
               page={meta.page}
               totalPages={meta.totalPages || Math.ceil(meta.total / (meta.limit || 10))}
-              onPageChange={setPage}
+              onPageChange={onPageChange}
             />
           )}
         </div>

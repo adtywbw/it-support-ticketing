@@ -3,16 +3,46 @@ import { Link } from 'react-router-dom';
 import apiClient from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
 import TicketList from '@/components/tickets/TicketList';
+import type { FilterValues } from '@/components/tickets/TicketFilters';
 
 export default function TicketsPage() {
   const user = useAuthStore((s) => s.user);
   const [exporting, setExporting] = useState(false);
   const canExport = user && (user.role === 'ITSupport' || user.role === 'Admin');
 
+  const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState<FilterValues>({
+    status: '',
+    priority: '',
+    search: '',
+    categoryId: '',
+    assignedToMe: false,
+    startDate: '',
+    endDate: '',
+  });
+
+  const handleFiltersChange = (newFilters: FilterValues) => {
+    setFilters(newFilters);
+    setPage(1);
+  };
+
+  const buildExportParams = () => {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    if (filters.priority) params.append('priority', filters.priority);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.categoryId) params.append('categoryId', filters.categoryId);
+    if (filters.assignedToMe && user?.id) params.append('assignedToId', user.id);
+    if (filters.startDate) params.append('dateFrom', filters.startDate);
+    if (filters.endDate) params.append('dateTo', filters.endDate);
+    return params.toString();
+  };
+
   const handleExport = async () => {
     setExporting(true);
     try {
-      const response = await apiClient.get('/tickets/export/csv', { responseType: 'blob' });
+      const qs = buildExportParams();
+      const response = await apiClient.get(`/tickets/export/csv${qs ? `?${qs}` : ''}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const a = document.createElement('a');
       a.href = url;
@@ -41,7 +71,7 @@ export default function TicketsPage() {
           </Link>
         </div>
       </div>
-      <TicketList />
+      <TicketList filters={filters} onFiltersChange={handleFiltersChange} page={page} onPageChange={setPage} />
     </div>
   );
 }

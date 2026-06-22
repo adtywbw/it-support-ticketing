@@ -129,6 +129,7 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 
 ### Filter
 - Assigned to Me: filter by current user ID (sebelumnya tidak berfungsi)
+- Date Range: filter by created date (start date & end date picker)
 - Attachment upload: max 3 files, max 5MB each (New Ticket)
 
 ### Security

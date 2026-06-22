@@ -3,12 +3,14 @@ import type { TicketStatus, TicketPriority } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useAuthStore } from '@/stores/auth-store';
 
-interface FilterValues {
+export interface FilterValues {
   status: TicketStatus | '';
   priority: TicketPriority | '';
   search: string;
   categoryId: string | '';
   assignedToMe: boolean;
+  startDate: string;
+  endDate: string;
 }
 
 interface TicketFiltersProps {
@@ -34,6 +36,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
     { value: '', label: 'All Statuses' },
     { value: 'Open', label: 'Open' },
     { value: 'InProgress', label: 'In Progress' },
+    { value: 'OnHold', label: 'On Hold' },
     { value: 'Resolved', label: 'Resolved' },
     { value: 'Closed', label: 'Closed' },
   ];
@@ -97,8 +100,24 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         ))}
       </select>
 
+      <input
+        type="date"
+        value={filters.startDate}
+        onChange={(e) => onFiltersChange({ ...filters, startDate: e.target.value })}
+        className="input w-auto"
+        title="Start date"
+      />
+
+      <input
+        type="date"
+        value={filters.endDate}
+        onChange={(e) => onFiltersChange({ ...filters, endDate: e.target.value })}
+        className="input w-auto"
+        title="End date"
+      />
+
       {user && (user.role === 'ITSupport' || user.role === 'Admin') && (
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer whitespace-nowrap">
           <input
             type="checkbox"
             checked={filters.assignedToMe}
