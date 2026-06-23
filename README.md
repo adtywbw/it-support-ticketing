@@ -193,6 +193,11 @@ The app will be available at `http://localhost`.
 > At runtime, the `frontend` service copies `/app/dist` to the shared named volume `frontend_dist`.
 > Nginx reads static files from the same volume (`frontend_dist:/usr/share/nginx/html`).
 > For a clean rebuild: `docker compose down -v && docker compose up --build`.
+>
+> **Tips:**
+> - Build specific service only: `docker compose build api` or `docker compose build frontend`
+> - Start without rebuild: `docker compose up -d` (uses existing images)
+> - Clean dangling images: `docker image prune -f`
 
 ### Without Docker
 
@@ -203,7 +208,7 @@ cp .env.example .env
 # Ensure REDIS_HOST & REDIS_PORT (or REDIS_URL) are set in .env
 npm install
 npx prisma generate
-npx prisma db push
+npx prisma migrate dev --name init
 npx ts-node prisma/seed.ts     # requires ts-node installed globally or via npx
 npm run start:dev
 
@@ -330,13 +335,13 @@ The seed script creates:
 
 ## Docker Services
 
-| Service | Image / Build | Port | Healthcheck |
-|---------|---------------|------|-------------|
-| frontend | `frontend/Dockerfile` (target: builder) | — | — | Builds frontend via `tsc && vite build`, copies `/app/dist` to shared volume `frontend_dist`, stays idle with `tail -f /dev/null` |
-| nginx | nginx:1.25-alpine | 80 | — |
-| api | backend/Dockerfile (node:20-bookworm-slim) | 3000 | `GET /api/health` |
-| db | postgres:16-alpine | — | `pg_isready` |
-| cache | redis:7-alpine | — | `redis-cli ping` |
+| Service | Image / Build | Port | Restart | Healthcheck | Logging |
+|---------|---------------|------|---------|-------------|---------|
+| frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
+| nginx | nginx:1.25-alpine | 80 | unless-stopped | — | 10m x 3 files |
+| api | `backend/Dockerfile` (node:20-bookworm-slim) | 3000 | unless-stopped | `GET /api/health` (30s) | 10m x 3 files |
+| db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
+| cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |
 
 ## Testing & Lint
 

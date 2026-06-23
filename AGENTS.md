@@ -16,8 +16,13 @@ cd backend && npm test          # Unit test (14 tests)
 cd backend && npm run build     # NestJS build
 cd frontend && npm run build    # tsc + vite build
 cd frontend && npm run lint     # ESLint zero warnings
-docker compose up --build       # localhost:80 (frontend di-build otomatis via Docker)
+docker compose up --build       # Build & start semua service (localhost:80)
+docker compose up -d            # Start tanpa build (pakai image yang sudah ada)
+docker compose build api        # Build backend aja
+docker compose build frontend   # Build frontend aja
+docker compose up -d            # Start setelah build spesifik
 docker compose down -v          # Hapus container + volume (frontend_dist, db, dll)
+docker image prune -f           # Hapus dangling images
 ```
 
 ## Seed Credentials
@@ -227,3 +232,10 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Backend: `checkConfig()` validasi bot token via `getMe` API + group chat ID via `getChat` API
 - Frontend: tombol "Check" di Bot Settings — validasi real-time, tampilkan status inline ✅/❌
 - Frontend: validasi Group Chat ID — "Save Settings" disable + pesan error jika group chat di-enable tapi ID kosong
+
+### Production Readiness
+- Docker: tambah `restart: unless-stopped` di semua service — auto-restart saat crash
+- Docker: tambah healthcheck di service `api` (`GET /api/health`, interval 30s, start_period 30s)
+- Docker: tambah logging config (`json-file`, max-size 10m, max-file 3) — cegah disk penuh
+- Prisma: ganti `npx prisma db push` → `npx prisma migrate deploy` di Dockerfile CMD — migration versioned, aman, rollbackable
+- Prisma: initial migration `20260623000000_init` dibuat dari `prisma migrate diff` + resolve

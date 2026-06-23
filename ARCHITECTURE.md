@@ -389,16 +389,23 @@ it-support-ticketing/
 - Alpine images are not used because newer Alpine versions (≥3.19) dropped OpenSSL 1.1 compat packages, which Prisma engines (compiled against `libssl.so.1.1`) depend on.
 
 ### Database Migration
-- The container's entry point (`CMD`) runs `npx prisma db push && node dist/prisma/seed.js && node dist/src/main`.
-  - `db push` ensures the database schema matches the Prisma schema.
+- The container's entry point (`CMD`) runs `npx prisma migrate deploy && node dist/prisma/seed.js && node dist/src/main`.
+  - `migrate deploy` applies pending migrations (versioned, rollbackable). Safer than `db push` for production — no accidental data loss.
+  - **Initial migration** `20260623000000_init` was generated via `prisma migrate diff --from-empty --to-schema-datamodel` and marked as applied with `prisma migrate resolve --applied`.
   - `seed.js` populates initial users, categories, SLA configs, and a sample ticket.
-- `prisma migrate deploy` was avoided because the project does not maintain migration files in version control. Use `prisma migrate dev` in development to generate migration files once the schema stabilizes.
+- All migration files are stored in `prisma/migrations/` and tracked in version control.
+- To create new migrations during development: `npx prisma migrate dev --name <description>`.
 - **Env validation**: `bootstrap()` calls `validateEnv()` which throws if `JWT_SECRET` or `DATABASE_URL` is not set, preventing the app from starting with missing configuration.
 
 ### Database Seeding
 - `prisma/seed.ts` is compiled to `dist/prisma/seed.js` during the Docker multi-stage build (`npx tsc prisma/seed.ts --outDir dist/prisma`).
 - The compiled JS runs directly with `node` in production — no `ts-node` dependency needed at runtime.
 - Uses `prisma.user.upsert` with `update: { password }` so credentials are refreshed on every container restart.
+
+### Production Deployment
+- All services have `restart: unless-stopped` — containers auto-restart on crash.
+- API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures.
+- Logging: `json-file` driver with `max-size: 10m` and `max-file: 3` — prevents disk exhaustion from unbounded logs.
 
 ### Built Artifacts
 - NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.
