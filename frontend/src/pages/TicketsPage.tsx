@@ -20,6 +20,8 @@ export default function TicketsPage() {
     datePreset: 'all',
     startDate: '',
     endDate: '',
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
   });
 
   const handleFiltersChange = (newFilters: FilterValues) => {

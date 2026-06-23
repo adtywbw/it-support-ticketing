@@ -185,3 +185,10 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Input date muncul hanya saat pilih Custom
 - Backend: `dateTo` di-set ke 23:59:59.999 UTC agar ticket yang dibuat setelah tengah malam tetap terfilter
 - Custom: start date `max` dibatasi end date, end date `min` dibatasi start date
+
+### Sorting
+- Backend `GET /api/tickets`: tambah sort fields `ticketNumber`, `subject`, `status` ke whitelist (`allowedSortFields`)
+- Frontend: column headers Ticket #, Subject, Status, Priority, Created jadi clickable sort — toggle asc/desc
+- Sort indicator (arrow icon) pada active sort column, semi-transparent panah pada inactive column
+- Sort state (`sortBy`/`sortOrder`) di `FilterValues`, berubah via `onFiltersChange` → reset page ke 1
+- Backend `sortBy` whitelist: `createdAt`, `updatedAt`, `slaDueAt`, `priority`, `ticketNumber`, `subject`, `status`

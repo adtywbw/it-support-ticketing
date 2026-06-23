@@ -14,6 +14,8 @@ export interface FilterValues {
   datePreset: DatePreset;
   startDate: string;
   endDate: string;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
 }
 
 interface TicketFiltersProps {

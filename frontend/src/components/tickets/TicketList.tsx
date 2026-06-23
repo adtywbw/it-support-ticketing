@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTickets, useUpdateTicketPriority, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
 import { useUsers } from '@/hooks/use-users';
@@ -44,7 +44,36 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     ...(filters.assignedToMe && user?.id && { assignedToId: user.id }),
     ...(filters.startDate && { dateFrom: filters.startDate }),
     ...(filters.endDate && { dateTo: filters.endDate }),
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder,
   };
+
+  const handleSort = (field: string) => {
+    const newOrder = filters.sortBy === field && filters.sortOrder === 'asc' ? 'desc' : 'asc';
+    onFiltersChange({ ...filters, sortBy: field, sortOrder: newOrder as 'asc' | 'desc' });
+  };
+
+  function SortHeader({ field, children, className = '' }: { field: string; children: ReactNode; className?: string }) {
+    const isActive = filters.sortBy === field;
+    const direction = isActive && filters.sortOrder === 'asc' ? 'asc' : 'desc';
+    return (
+      <th
+        className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors ${className}`}
+        onClick={() => handleSort(field)}
+      >
+        <span className="inline-flex items-center gap-1">
+          {children}
+          <svg className={`w-3 h-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-30 group-hover:opacity-60'}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+            {direction === 'asc' ? (
+              <path d="M6 2v8M3 5l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
+            ) : (
+              <path d="M6 10V2M3 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+            )}
+          </svg>
+        </span>
+      </th>
+    );
+  }
 
   const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);
 
@@ -92,30 +121,20 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Ticket #
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Subject
-                  </th>
+                  <SortHeader field="ticketNumber">Ticket #</SortHeader>
+                  <SortHeader field="subject">Subject</SortHeader>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Priority
-                  </th>
+                  <SortHeader field="status">Status</SortHeader>
+                  <SortHeader field="priority">Priority</SortHeader>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Assigned To
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Created By
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Created
-                  </th>
+                  <SortHeader field="createdAt">Created</SortHeader>
                   {isAdmin && (
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Actions

@@ -167,12 +167,18 @@ export class TicketsService {
       ];
     }
 
-    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority'];
+    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
     const orderBy: Prisma.TicketOrderByWithRelationInput = {};
 
-    if (orderField === 'priority') {
+    if (orderField === 'ticketNumber') {
+      orderBy.ticketNumber = sortOrder as Prisma.SortOrder;
+    } else if (orderField === 'subject') {
+      orderBy.subject = sortOrder as Prisma.SortOrder;
+    } else if (orderField === 'status') {
+      orderBy.status = sortOrder as Prisma.SortOrder;
+    } else if (orderField === 'priority') {
       orderBy.priority = sortOrder as Prisma.SortOrder;
     } else if (orderField === 'slaDueAt') {
       orderBy.slaDueAt = sortOrder as Prisma.SortOrder;
