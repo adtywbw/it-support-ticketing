@@ -113,7 +113,7 @@ it-support-ticketing/
 ├── backend/
 │   ├── Dockerfile             # Multi-stage build (Debian bookworm-slim)
 │   ├── prisma/
-│   │   ├── schema.prisma      # 9 models + 5 enums + indexes
+│   │   ├── schema.prisma      # 10 models + 5 enums + indexes
 │   │   └── seed.ts            # Admin user, categories, sample ticket
 │   └── src/
 │       ├── auth/              # JWT auth, login/refresh/logout
@@ -151,7 +151,7 @@ it-support-ticketing/
 
 ## Database Schema
 
-9 tables with proper indexes and foreign keys:
+10 tables with proper indexes and foreign keys:
 
 - **users** — roles: EndUser, ITSupport, Admin
 - **tickets** — status workflow, SLA tracking, indexes on (status, assignedTo, requesterId, createdAt, slaDueAt)
