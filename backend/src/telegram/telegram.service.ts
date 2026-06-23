@@ -10,6 +10,7 @@ export interface TelegramSettings {
   enabledEvents: string[];
   enableGroupChat: boolean;
   groupChatId?: string;
+  notifyIndividualsWhenGroupChat: boolean;
   templates: Record<string, string>;
 }
 
@@ -63,6 +64,7 @@ export class TelegramService
       enabledEvents: ['ticket.created'],
       enableGroupChat: false,
       groupChatId: process.env.TELEGRAM_GROUP_CHAT_ID || undefined,
+      notifyIndividualsWhenGroupChat: false,
       templates: {},
     };
     if (config?.settings && typeof config.settings === 'object') {
@@ -74,6 +76,8 @@ export class TelegramService
         groupChatId:
           (s.groupChatId as string) ||
           (!s.enableGroupChat ? undefined : defaults.groupChatId),
+        notifyIndividualsWhenGroupChat:
+          (s.notifyIndividualsWhenGroupChat as boolean) ?? defaults.notifyIndividualsWhenGroupChat,
         templates: {
           ...DEFAULT_TEMPLATES,
           ...((s.templates as Record<string, string>) || {}),
@@ -199,6 +203,7 @@ export class TelegramService
       const merged: Record<string, unknown> = {
         enabledEvents: data.settings.enabledEvents,
         enableGroupChat: data.settings.enableGroupChat,
+        notifyIndividualsWhenGroupChat: data.settings.notifyIndividualsWhenGroupChat,
         templates: { ...DEFAULT_TEMPLATES, ...(data.settings.templates || {}) },
       };
       if (data.settings.groupChatId) {
@@ -245,6 +250,7 @@ export class TelegramService
 
     if (settings.enableGroupChat && settings.groupChatId) {
       await this.sendMessage(token, Number(settings.groupChatId), message);
+      if (!settings.notifyIndividualsWhenGroupChat) return;
     }
 
     const users = await this.prisma.user.findMany({

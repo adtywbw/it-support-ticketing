@@ -5,6 +5,7 @@ export interface TelegramSettings {
   enabledEvents: string[];
   enableGroupChat: boolean;
   groupChatId?: string;
+  notifyIndividualsWhenGroupChat: boolean;
   templates: Record<string, string>;
 }
 

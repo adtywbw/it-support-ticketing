@@ -42,6 +42,7 @@ export default function MyAccountPage() {
   const [botToken, setBotToken] = useState('');
   const [enabledEvents, setEnabledEvents] = useState<string[]>([]);
   const [enableGroupChat, setEnableGroupChat] = useState(false);
+  const [notifyIndividualsWhenGroupChat, setNotifyIndividualsWhenGroupChat] = useState(false);
   const [groupChatId, setGroupChatId] = useState('');
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -51,6 +52,7 @@ export default function MyAccountPage() {
     setBotToken('');
     setEnabledEvents(telegramConfig.data.settings.enabledEvents || []);
     setEnableGroupChat(telegramConfig.data.settings.enableGroupChat || false);
+    setNotifyIndividualsWhenGroupChat(telegramConfig.data.settings.notifyIndividualsWhenGroupChat || false);
     setGroupChatId('');
     setTemplates(telegramConfig.data.settings.templates || {});
     setConfigLoaded(true);
@@ -101,6 +103,7 @@ export default function MyAccountPage() {
     const settings: TelegramSettings = {
       enabledEvents,
       enableGroupChat,
+      notifyIndividualsWhenGroupChat,
       templates,
     };
     if (enableGroupChat && groupChatId) {
@@ -290,16 +293,29 @@ export default function MyAccountPage() {
               </div>
 
               {enableGroupChat && (
-                <div>
-                  <label className="label">Group Chat ID</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={groupChatId}
-                    onChange={(e) => setGroupChatId(e.target.value)}
-                    placeholder={telegramConfig.data?.hasGroupChatId ? 'Group ID configured' : '-1001234567890'}
-                  />
-                </div>
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer pt-2">
+                    <input
+                      type="checkbox"
+                      checked={notifyIndividualsWhenGroupChat}
+                      onChange={(e) => setNotifyIndividualsWhenGroupChat(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Also notify individually
+                    </span>
+                  </label>
+                  <div>
+                    <label className="label">Group Chat ID</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={groupChatId}
+                      onChange={(e) => setGroupChatId(e.target.value)}
+                      placeholder={telegramConfig.data?.hasGroupChatId ? 'Group ID configured' : '-1001234567890'}
+                    />
+                  </div>
+                </>
               )}
 
               <div>

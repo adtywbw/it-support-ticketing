@@ -226,7 +226,7 @@ model Notification {
 model TelegramConfig {
   id        String   @id @default(uuid())
   botToken  String?
-  settings  Json     @default("{\"enabledEvents\":[\"ticket.created\"],\"templates\":{}}")
+  settings  Json     @default("{\"enabledEvents\":[\"ticket.created\"],\"templates\":{},\"notifyIndividualsWhenGroupChat\":false}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
