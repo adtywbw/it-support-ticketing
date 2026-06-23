@@ -6,3 +6,4 @@ dist/
 coverage/
 .turbo/
 graphify-out/
+nginx/certs/

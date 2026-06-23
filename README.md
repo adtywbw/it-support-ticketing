@@ -11,11 +11,11 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
   └───────────────────┘     → /export/         └────────┬─────────┘
                                                          │
                                                          ▼
-  ┌──────────┐     ┌─────────────────────┐    ┌──────────────────┐
-  │ Browser  │────▶│  Nginx (:80)        │◀───│ /usr/share/      │
-  │          │     │  reverse proxy      │    │ nginx/html       │
-  └──────────┘     └──────────┬──────────┘    └──────────────────┘
-                              │ /api/
+   ┌──────────┐     ┌─────────────────────────┐    ┌──────────────────┐
+   │ Browser  │────▶│  Nginx (:80 → 301, :443)│◀───│ /usr/share/      │
+   │          │     │  reverse proxy + SSL    │    │ nginx/html       │
+   └──────────┘     └────────────┬────────────┘    └──────────────────┘
+                                │ /api/
                               ▼
                        ┌──────────────┐
                        │ NestJS (:3000)│
@@ -38,7 +38,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 | Frontend | React 18 + Vite, TanStack Query v5, Zustand, Tailwind CSS v3 |
 | Database | PostgreSQL 16 |
 | Cache | Redis 7 (refresh tokens httpOnly cookie, cron lock, cache) |
-| Proxy | Nginx (rate limit 10r/s, gzip, reverse proxy) |
+| Proxy | Nginx (SSL termination, rate limit 10r/s, gzip, reverse proxy, HTTP→HTTPS redirect) |
 | Auth | JWT access (15m, in-memory) + refresh token (7d, httpOnly cookie), bcrypt cost 12 |
 
 ## Features
@@ -94,6 +94,8 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Responsive mobile layout with hamburger menu
 
 ### Security
+- HTTPS enforced via Nginx SSL termination (mkcert self-signed CA, domain `helpdesk.rsmch.internal`)
+- HTTP → HTTPS redirect on port 80
 - JWT auth with short-lived access tokens (in-memory) + rotating refresh tokens (httpOnly cookie, Redis-backed)
 - Env validation at startup — app throws if `JWT_SECRET` or `DATABASE_URL` is missing (no hardcoded fallback)
 - WebSocket gateway authenticates connections via JWT verification
@@ -111,7 +113,8 @@ it-support-ticketing/
 ├── docker-compose.yml         # Multi-container setup
 ├── .env.example               # Environment variables template
 ├── nginx/
-│   └── nginx.conf             # Reverse proxy + rate limiting
+│   ├── nginx.conf             # Reverse proxy + rate limiting + SSL
+│   └── certs/                 # mkcert SSL cert & key (gitignored)
 ├── backend/
 │   ├── Dockerfile             # Multi-stage build (Debian bookworm-slim)
 │   ├── prisma/
@@ -187,7 +190,7 @@ cp .env.example backend/.env
 docker compose up --build
 ```
 
-The app will be available at `http://localhost`.
+The app will be available at `https://helpdesk.rsmch.internal` (HTTP on port 80 redirects to HTTPS).
 
 > **Note:** The frontend is built automatically during `docker compose build` (`target: builder` stage).
 > At runtime, the `frontend` service copies `/app/dist` to the shared named volume `frontend_dist`.
@@ -338,7 +341,7 @@ The seed script creates:
 | Service | Image / Build | Port | Restart | Healthcheck | Logging |
 |---------|---------------|------|---------|-------------|---------|
 | frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
-| nginx | nginx:1.25-alpine | 80 | unless-stopped | — | 10m x 3 files |
+| nginx | nginx:1.25-alpine | 80 → 301, 443 | unless-stopped | — | 10m x 3 files |
 | api | `backend/Dockerfile` (node:20-bookworm-slim) | 3000 | unless-stopped | `GET /api/health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
 | cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |

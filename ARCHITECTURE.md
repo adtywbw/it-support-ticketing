@@ -11,11 +11,11 @@
   └───────────────────┘   → /export/           └────────┬─────────┘
                                                          │
                                                          ▼
-  ┌──────────┐     ┌─────────────────────┐    ┌──────────────────┐
-  │ Browser  │────▶│  Nginx (:80)        │◀───│ /usr/share/      │
-  │          │     │  reverse proxy      │    │ nginx/html       │
-  └──────────┘     └───────┬─────────────┘    └──────────────────┘
-                           │  /api/
+   ┌──────────┐     ┌─────────────────────────┐    ┌──────────────────┐
+   │ Browser  │────▶│  Nginx (:80 → 301, :443)│◀───│ /usr/share/      │
+   │          │     │  reverse proxy + SSL    │    │ nginx/html       │
+   └──────────┘     └────────────┬────────────┘    └──────────────────┘
+                                │  /api/
                            ▼
                     ┌──────────────┐
                     │ NestJS (:3000)│
@@ -38,7 +38,7 @@
 | Frontend | React 18 + Vite | Fast dev/build, TanStack Query for server state caching/refetching, Zustand for minimal client state. |
 | Database | PostgreSQL 16 | Mature, JSON support, excellent Prisma integration. |
 | Cache | Redis 7 | Refresh token store, cron job lock for horizontal scaling. |
-| Reverse Proxy | Nginx | Single entry point, rate limiting, static file serving. |
+| Reverse Proxy | Nginx | Single entry point, rate limiting, static file serving, SSL termination with mkcert (self-signed CA). HTTP → HTTPS redirect on port 443. |
 | Containerization | Docker (Debian bookworm-slim) | Reproducible deployment, identical dev/prod environment. Debian base chosen over Alpine for native OpenSSL 3.x compatibility with Prisma engines. |
 | ORM | Prisma | Type-safe query builder, auto-generated types, migrations. |
 
@@ -203,7 +203,8 @@ it-support-ticketing/
 ├── docker-compose.yml
 ├── .env.example
 ├── nginx/
-│   └── nginx.conf
+│   ├── nginx.conf
+│   └── certs/               # mkcert SSL cert & key (gitignored)
 ├── backend/
 │   ├── Dockerfile
 │   ├── .dockerignore
@@ -404,7 +405,8 @@ it-support-ticketing/
 
 ### Production Deployment
 - All services have `restart: unless-stopped` — containers auto-restart on crash.
-- API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures.
+- API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures.
+- HTTPS: Nginx terminates SSL on port 443 using mkcert-generated certificates (`nginx/certs/`). Port 80 redirects to HTTPS via 301. All API and frontend traffic is encrypted.
 - Logging: `json-file` driver with `max-size: 10m` and `max-file: 3` — prevents disk exhaustion from unbounded logs.
 
 ### Built Artifacts

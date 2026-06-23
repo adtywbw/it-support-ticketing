@@ -16,7 +16,7 @@ cd backend && npm test          # Unit test (14 tests)
 cd backend && npm run build     # NestJS build
 cd frontend && npm run build    # tsc + vite build
 cd frontend && npm run lint     # ESLint zero warnings
-docker compose up --build       # Build & start semua service (localhost:80)
+docker compose up --build       # Build & start semua service (https://helpdesk.rsmch.internal)
 docker compose up -d            # Start tanpa build (pakai image yang sudah ada)
 docker compose build api        # Build backend aja
 docker compose build frontend   # Build frontend aja
@@ -70,9 +70,19 @@ GET|POST|DELETE|PUT|POST /api/telegram     # status, link, unlink, config, test-
 | ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ |
 | Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
+## HTTPS
+- Domain: `helpdesk.rsmch.internal` (resolve via AdGuard Home DNS Rewrite)
+- Sertifikat: mkcert (self-signed CA lokal, trusted manual di tiap client)
+- Nginx listen di port 80 (redirect 301 → HTTPS) + 443 (SSL)
+- Cert files: `nginx/certs/{cert.pem,key.pem}` (gitignored)
+- Regenerate: `mkcert -cert-file nginx/certs/cert.pem -key-file nginx/certs/key.pem "helpdesk.rsmch.internal"`
+- Install CA di client Linux: `sudo cp rootCA.pem /etc/ca-certificates/trust-source/anchors/ && sudo update-ca-trust`
+- `rootCA.pem` lokasi di server: `~/.local/share/mkcert/rootCA.pem`
+
 ## Docker Build Flow
 - `frontend` service: build dari `frontend/Dockerfile` (target `builder`) — `npm ci && npm run build` baked ke image, runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu `tail -f /dev/null` (running).
-- `nginx` service: baca static files dari `frontend_dist:/usr/share/nginx/html`.
+- `nginx` service: baca static files dari `frontend_dist:/usr/share/nginx/html`, SSL certs dari `./nginx/certs`.
+- `nginx` listen di port 80 (redirect 301 → HTTPS) + 443 (SSL).
 - `depends_on: - frontend` (short form) — nginx mulai setelah frontend container running (copy sudah selesai karena cepet).
 - Untuk rebuild: `docker compose up --build`.
 
@@ -239,3 +249,12 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Docker: tambah logging config (`json-file`, max-size 10m, max-file 3) — cegah disk penuh
 - Prisma: ganti `npx prisma db push` → `npx prisma migrate deploy` di Dockerfile CMD — migration versioned, aman, rollbackable
 - Prisma: initial migration `20260623000000_init` dibuat dari `prisma migrate diff` + resolve
+
+### HTTPS
+- Nginx: tambah SSL/TLS via mkcert (self-signed CA) — domain `helpdesk.rsmch.internal`
+- Nginx: listen port 80 untuk redirect 301 → HTTPS, port 443 untuk SSL
+- Nginx: mount `./nginx/certs` volume untuk SSL cert & key
+- Docker: expose port 443 di service nginx
+- Git: ignore `nginx/certs/` biar private key tidak ter-commit
+- Healthcheck: fix URL dari `/api/health` → `/health` (app tidak pakai global prefix)
+- Backend: fix Dockerfile — tambah `wget` ke apt-get install untuk healthcheck

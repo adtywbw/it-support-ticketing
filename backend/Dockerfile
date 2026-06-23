@@ -17,7 +17,7 @@ RUN npx tsc prisma/seed.ts --outDir dist/prisma --module commonjs --target es202
 
 FROM node:20-bookworm-slim AS production
 
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y openssl wget && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
