@@ -65,6 +65,31 @@ export function useTelegramConfig() {
   });
 }
 
+export interface CheckResult {
+  bot: { valid: boolean; username?: string; firstName?: string; error?: string };
+  groupChat: { valid: boolean; title?: string; type?: string; error?: string } | null;
+}
+
+export function useCheckTelegram() {
+  return useMutation({
+    mutationFn: async (data: { botToken?: string; groupChatId?: string }) => {
+      const res = await apiClient.post<CheckResult>('/telegram/check', data);
+      return res.data;
+    },
+  });
+}
+
+export function useSendTestNotification() {
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<{ message: string }>(
+        '/telegram/test-notification',
+      );
+      return res.data;
+    },
+  });
+}
+
 export function useUpdateTelegramConfig() {
   const queryClient = useQueryClient();
 

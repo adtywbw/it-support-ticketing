@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChangePassword } from '@/hooks/use-change-password';
 import {
@@ -7,8 +7,12 @@ import {
   useUpdateTelegramConfig,
   useGenerateTelegramCode,
   useUnlinkTelegram,
+  useSendTestNotification,
+  useCheckTelegram,
   type TelegramSettings,
+  type CheckResult,
 } from '@/hooks/use-telegram';
+import toast from 'react-hot-toast';
 import PasswordInput from '@/components/ui/PasswordInput';
 import { getUserDisplayName, getUserInitials } from '@/lib/utils';
 
@@ -35,9 +39,11 @@ export default function MyAccountPage() {
   const telegramStatus = useTelegramStatus();
   const generateCode = useGenerateTelegramCode();
   const unlinkTelegram = useUnlinkTelegram();
+  const sendTestNotification = useSendTestNotification();
 
   const telegramConfig = useTelegramConfig();
   const updateConfig = useUpdateTelegramConfig();
+  const checkTelegram = useCheckTelegram();
 
   const [botToken, setBotToken] = useState('');
   const [enabledEvents, setEnabledEvents] = useState<string[]>([]);
@@ -47,8 +53,21 @@ export default function MyAccountPage() {
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [configLoaded, setConfigLoaded] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
+  const initialConfig = useRef<{
+    enabledEvents: string[];
+    enableGroupChat: boolean;
+    notifyIndividualsWhenGroupChat: boolean;
+    templates: Record<string, string>;
+  } | null>(null);
 
   if (telegramConfig.data && !configLoaded) {
+    initialConfig.current = {
+      enabledEvents: telegramConfig.data.settings.enabledEvents || [],
+      enableGroupChat: telegramConfig.data.settings.enableGroupChat || false,
+      notifyIndividualsWhenGroupChat: telegramConfig.data.settings.notifyIndividualsWhenGroupChat || false,
+      templates: telegramConfig.data.settings.templates || {},
+    };
     setBotToken('');
     setEnabledEvents(telegramConfig.data.settings.enabledEvents || []);
     setEnableGroupChat(telegramConfig.data.settings.enableGroupChat || false);
@@ -93,6 +112,22 @@ export default function MyAccountPage() {
     }
   };
 
+  const handleCheck = async () => {
+    setCheckResult(null);
+    try {
+      const result = await checkTelegram.mutateAsync({
+        botToken,
+        groupChatId: enableGroupChat ? groupChatId : undefined,
+      });
+      setCheckResult(result);
+      if (result.bot.valid && (!result.groupChat || result.groupChat.valid)) {
+        toast.success('Configuration looks good!');
+      }
+    } catch {
+      toast.error('Failed to check configuration');
+    }
+  };
+
   const toggleEvent = (event: string) => {
     setEnabledEvents((prev) =>
       prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event],
@@ -106,13 +141,27 @@ export default function MyAccountPage() {
       notifyIndividualsWhenGroupChat,
       templates,
     };
-    if (enableGroupChat && groupChatId) {
-      settings.groupChatId = groupChatId;
+    if (enableGroupChat) {
+      settings.groupChatId = groupChatId || undefined;
     }
     await updateConfig.mutateAsync({ botToken, settings });
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 3000);
   };
+
+  const checkHasError = checkResult && (
+    !checkResult.bot.valid || (checkResult.groupChat && !checkResult.groupChat.valid)
+  );
+
+  const init = initialConfig.current;
+  const hasChanges = init && (
+    botToken !== '' ||
+    groupChatId !== '' ||
+    enableGroupChat !== init.enableGroupChat ||
+    notifyIndividualsWhenGroupChat !== init.notifyIndividualsWhenGroupChat ||
+    JSON.stringify(enabledEvents.sort()) !== JSON.stringify(init.enabledEvents.sort()) ||
+    JSON.stringify(templates) !== JSON.stringify(init.templates)
+  );
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -197,13 +246,32 @@ export default function MyAccountPage() {
                 <p className="text-sm text-green-600 dark:text-green-400">
                   Connected to Telegram
                 </p>
-                <button
-                  onClick={() => unlinkTelegram.mutate()}
-                  className="btn-secondary"
-                  disabled={unlinkTelegram.isPending}
-                >
-                  {unlinkTelegram.isPending ? 'Unlinking...' : 'Unlink Telegram'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => unlinkTelegram.mutate()}
+                    className="btn-secondary"
+                    disabled={unlinkTelegram.isPending}
+                  >
+                    {unlinkTelegram.isPending ? 'Unlinking...' : 'Unlink Telegram'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await sendTestNotification.mutateAsync();
+                        toast.success('Test notification sent!');
+                      } catch (err: unknown) {
+                        const msg =
+                          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+                          'Failed to send test notification';
+                        toast.error(msg);
+                      }
+                    }}
+                    className="btn-secondary"
+                    disabled={sendTestNotification.isPending}
+                  >
+                    {sendTestNotification.isPending ? 'Sending...' : 'Test Notification'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3 mb-6">
@@ -252,13 +320,62 @@ export default function MyAccountPage() {
             <div className="space-y-4">
               <div>
                 <label className="label">Bot Token</label>
-                <input
-                  type="password"
-                  className="input"
-                  value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)}
-                  placeholder={telegramConfig.data?.hasBotToken ? 'Token configured' : 'TELEGRAM_BOT_TOKEN'}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    className="input flex-1"
+                    value={botToken}
+                    onChange={(e) => { setBotToken(e.target.value); setCheckResult(null); }}
+                    placeholder={telegramConfig.data?.hasBotToken ? 'Token configured' : 'TELEGRAM_BOT_TOKEN'}
+                  />
+                  <button
+                    onClick={handleCheck}
+                    className="btn-secondary whitespace-nowrap"
+                    disabled={checkTelegram.isPending}
+                  >
+                    {checkTelegram.isPending ? 'Checking...' : 'Check'}
+                  </button>
+                </div>
+                {checkResult && (
+                  <div className="mt-1 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      {checkResult.bot.valid ? (
+                        <>
+                          <span className="text-green-600 dark:text-green-400">✅</span>
+                          <span className="text-green-600 dark:text-green-400">
+                            Bot @{checkResult.bot.username} valid
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-red-600 dark:text-red-400">❌</span>
+                          <span className="text-red-600 dark:text-red-400">
+                            {checkResult.bot.error}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {checkResult.groupChat && (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        {checkResult.groupChat.valid ? (
+                          <>
+                            <span className="text-green-600 dark:text-green-400">✅</span>
+                            <span className="text-green-600 dark:text-green-400">
+                              Group {checkResult.groupChat.title} ({checkResult.groupChat.type}) found
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-red-600 dark:text-red-400">❌</span>
+                            <span className="text-red-600 dark:text-red-400">
+                              {checkResult.groupChat.error}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -282,7 +399,7 @@ export default function MyAccountPage() {
                     <input
                       type="checkbox"
                       checked={enableGroupChat}
-                      onChange={(e) => setEnableGroupChat(e.target.checked)}
+                      onChange={(e) => { setEnableGroupChat(e.target.checked); setCheckResult(null); }}
                       className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -298,7 +415,7 @@ export default function MyAccountPage() {
                     <input
                       type="checkbox"
                       checked={notifyIndividualsWhenGroupChat}
-                      onChange={(e) => setNotifyIndividualsWhenGroupChat(e.target.checked)}
+                      onChange={(e) => { setNotifyIndividualsWhenGroupChat(e.target.checked); setCheckResult(null); }}
                       className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -311,9 +428,14 @@ export default function MyAccountPage() {
                       type="text"
                       className="input"
                       value={groupChatId}
-                      onChange={(e) => setGroupChatId(e.target.value)}
+                      onChange={(e) => { setGroupChatId(e.target.value); setCheckResult(null); }}
                       placeholder={telegramConfig.data?.hasGroupChatId ? 'Group ID configured' : '-1001234567890'}
                     />
+                    {checkResult?.groupChat && !checkResult.groupChat.valid && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                        Fix the Group Chat ID error above before saving
+                      </p>
+                    )}
                   </div>
                 </>
               )}
@@ -344,10 +466,16 @@ export default function MyAccountPage() {
               <button
                 onClick={handleSaveConfig}
                 className="btn-primary w-full"
-                disabled={updateConfig.isPending}
+                disabled={updateConfig.isPending || (!hasChanges && !!checkHasError)}
               >
                 {updateConfig.isPending ? 'Saving...' : 'Save Settings'}
               </button>
+
+              {checkHasError && !hasChanges && (
+                <p className="text-xs text-red-600 dark:text-red-400 text-center">
+                  Fix the errors shown above or change the settings to save
+                </p>
+              )}
 
               {configSaved && (
                 <p className="text-sm text-green-600 dark:text-green-400 text-center">

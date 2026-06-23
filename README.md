@@ -82,6 +82,8 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Bot polling via raw `fetch` API (long-polling, non-blocking `setTimeout` loop)
 - Personal linking: Admin generates code → sends `/start <code>` to bot → chat ID saved to user
 - Configurable via Admin My Account: bot token, enabled events, group chat, message templates
+- Test Notification button — sends test message respecting group/individual settings, with real-time Telegram API error feedback
+- Check Config button — validates bot token (`getMe`) + group chat ID (`getChat`) with inline ✅/❌ status
 - Template variables: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`
 - Token stored in DB, never sent to frontend (masked with `hasBotToken` flag)
 
@@ -294,6 +296,8 @@ The seed script creates:
 | DELETE | `/api/telegram/link` | Unlink Telegram |
 | GET | `/api/telegram/config` | Get config (Admin only) |
 | PUT | `/api/telegram/config` | Update config (Admin only) |
+| POST | `/api/telegram/test-notification` | Send test notification (Admin only) |
+| POST | `/api/telegram/check` | Check bot token & group chat config (Admin only) |
 
 ### Health
 | Method | Path | Description |

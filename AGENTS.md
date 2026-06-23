@@ -40,7 +40,7 @@ GET|POST|PATCH /api/sla-configs
 GET /api/dashboard/stats
 GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat inactive users
 GET|PATCH|DELETE /api/notifications   # DELETE clear all, PATCH read-all/:id/read
-GET|POST|DELETE|PUT /api/telegram     # status, link, unlink, config (Admin only)
+GET|POST|DELETE|PUT|POST /api/telegram     # status, link, unlink, config, test-notification, check (Admin only)
 ```
 
 ## Telegram
@@ -90,6 +90,8 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Backend: `TelegramConfig` model — botToken, settings (enabledEvents, enableGroupChat, groupChatId, templates) disimpan di DB
 - Frontend: MyAccount — Link/Unlink Telegram (Admin only), Bot Settings (token, group chat, event checkboxes, template editor)
 - Event: `ticket.created` tambah field `priority` & `requesterEmail` di payload
+- Test Notification: tombol di My Account (Admin) — kirim test message sesuai settingan (group/individual), validasi real-time dari Telegram API
+- Check Config: tombol "Check" di Bot Settings — validasi bot token (via `getMe`) + group chat ID (via `getChat`) real-time dari Telegram API, menampilkan status inline (✅/❌)
 - Keamanan: bot token tidak pernah dikirim ke frontend (hanya flag `hasBotToken: true`)
 
 ## Changelog
@@ -209,3 +211,19 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Sort indicator (arrow icon) pada active sort column, semi-transparent panah pada inactive column
 - Sort state (`sortBy`/`sortOrder`) di `FilterValues`, berubah via `onFiltersChange` → reset page ke 1
 - Backend `sortBy` whitelist: `createdAt`, `updatedAt`, `slaDueAt`, `priority`, `ticketNumber`, `subject`, `status`
+
+### Telegram — Test Notification
+- Backend: tambah `POST /api/telegram/test-notification` (Admin only) + `sendTestNotification()` method
+- Backend: `sendTestNotification()` membaca settings (groupChat/individual) — kirim sesuai preferensi
+- Backend: group chat failure tidak blocking — fallback ke individual, error dilaporkan sebagai partial failure
+- Backend: validasi real-time dari Telegram API — throw `BadRequestException` jika gagal (token tidak dikonfigurasi, akun tidak link, atau error dari Telegram)
+- Frontend: tombol "Test Notification" di My Account (Admin) — muncul hanya saat Telegram sudah link
+- Frontend: toast success/error — menampilkan pesan error asli dari backend/Telegram API
+- Fix: `sendTestNotification` tidak throw partial failure jika group chat gagal tapi individual berhasil — cukup return success + server-side log
+- Fix: `updateConfig` support clear bot token (kirim `""` → hapus dari DB, fallback ke env var)
+
+### Telegram — Check Config
+- Backend: tambah `POST /api/telegram/check` (Admin only) + `checkConfig()` method
+- Backend: `checkConfig()` validasi bot token via `getMe` API + group chat ID via `getChat` API
+- Frontend: tombol "Check" di Bot Settings — validasi real-time, tampilkan status inline ✅/❌
+- Frontend: validasi Group Chat ID — "Save Settings" disable + pesan error jika group chat di-enable tapi ID kosong

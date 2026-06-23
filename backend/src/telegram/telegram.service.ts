@@ -3,6 +3,7 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -197,17 +198,22 @@ export class TelegramService
     if (data.botToken !== undefined) {
       if (data.botToken) {
         update.botToken = data.botToken;
+      } else {
+        update.botToken = null;
       }
     }
     if (data.settings) {
+      const existingSettings = (config?.settings as Record<string, unknown>) || {};
       const merged: Record<string, unknown> = {
         enabledEvents: data.settings.enabledEvents,
         enableGroupChat: data.settings.enableGroupChat,
         notifyIndividualsWhenGroupChat: data.settings.notifyIndividualsWhenGroupChat,
         templates: { ...DEFAULT_TEMPLATES, ...(data.settings.templates || {}) },
       };
-      if (data.settings.groupChatId) {
-        merged.groupChatId = data.settings.groupChatId;
+      if (data.settings.groupChatId !== undefined) {
+        merged.groupChatId = data.settings.groupChatId || undefined;
+      } else if (existingSettings.groupChatId && data.settings.enableGroupChat) {
+        merged.groupChatId = existingSettings.groupChatId;
       }
       update.settings = merged;
     }
@@ -281,6 +287,140 @@ export class TelegramService
     if (user?.telegramChatId) {
       await this.sendMessage(token, Number(user.telegramChatId), message);
     }
+  }
+
+  async checkConfig(botToken?: string, groupChatId?: string) {
+    const token = botToken || (await this.resolveToken());
+
+    const result: {
+      bot: { valid: boolean; username?: string; firstName?: string; error?: string };
+      groupChat: { valid: boolean; title?: string; type?: string; error?: string } | null;
+    } = { bot: { valid: false }, groupChat: null };
+
+    if (!token) {
+      result.bot.error = 'Bot token not configured';
+      return result;
+    }
+
+    if (!groupChatId) {
+      const settings = await this.resolveSettings();
+      if (settings.enableGroupChat && settings.groupChatId) {
+        groupChatId = settings.groupChatId;
+      }
+    }
+
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        result.bot.error = `Telegram API error (${res.status}): ${body?.description || 'Unknown error'}`;
+      } else {
+        const data = await res.json();
+        result.bot = {
+          valid: true,
+          username: data.result?.username,
+          firstName: data.result?.first_name,
+        };
+      }
+    } catch (err) {
+      result.bot.error = err instanceof Error ? err.message : 'Unknown error';
+    }
+
+    if (groupChatId) {
+      result.groupChat = { valid: false };
+      try {
+        const chatRes = await fetch(
+          `https://api.telegram.org/bot${token}/getChat?chat_id=${encodeURIComponent(groupChatId)}`,
+        );
+        if (!chatRes.ok) {
+          const body = await chatRes.json().catch(() => ({}));
+          result.groupChat.error = `Telegram API error (${chatRes.status}): ${body?.description || 'Unknown error'}`;
+        } else {
+          const data = await chatRes.json();
+          const chatInfo = {
+            title: data.result?.title || data.result?.first_name || 'Chat found',
+            type: data.result?.type,
+          };
+
+          const actionRes = await fetch(
+            `https://api.telegram.org/bot${token}/sendChatAction`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: groupChatId, action: 'typing' }),
+            },
+          );
+
+          if (actionRes.ok) {
+            result.groupChat = { valid: true, ...chatInfo };
+          } else {
+            const body = await actionRes.json().catch(() => ({}));
+            result.groupChat = {
+              valid: false,
+              error: `Telegram API error (${actionRes.status}): ${body?.description || 'Chat is not reachable'}`,
+            };
+          }
+        }
+      } catch (err) {
+        result.groupChat.error = err instanceof Error ? err.message : 'Unknown error';
+      }
+    }
+
+    return result;
+  }
+
+  private async sendMessageSafe(token: string, chatId: number, text: string) {
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      },
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new BadRequestException(
+        `Telegram API error (${res.status}): ${body?.description || 'Unknown error'}`,
+      );
+    }
+  }
+
+  async sendTestNotification(userId: string) {
+    const token = await this.resolveToken();
+    if (!token) {
+      throw new BadRequestException('Telegram bot token is not configured. Set a token in Bot Settings or TELEGRAM_BOT_TOKEN env.');
+    }
+
+    const settings = await this.resolveSettings();
+    const message =
+      'This is a test notification from your IT Support Ticketing system. If you receive this, your Telegram integration is working correctly!';
+
+    let groupSent = false;
+
+    if (settings.enableGroupChat && settings.groupChatId) {
+      try {
+        await this.sendMessageSafe(token, Number(settings.groupChatId), message);
+        groupSent = true;
+        if (!settings.notifyIndividualsWhenGroupChat) return;
+      } catch (err) {
+        this.logger.warn(
+          `Test notification group chat failed: ${err instanceof BadRequestException ? err.message : 'Unknown error'}`,
+        );
+      }
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { telegramChatId: true },
+    });
+
+    if (!user?.telegramChatId) {
+      if (groupSent) return;
+      throw new BadRequestException('Your Telegram account is not linked. Please link your Telegram account first.');
+    }
+
+    await this.sendMessageSafe(token, Number(user.telegramChatId), message);
   }
 
   async generateLinkCode(userId: string): Promise<string> {

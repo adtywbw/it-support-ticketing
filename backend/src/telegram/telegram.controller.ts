@@ -52,4 +52,21 @@ export class TelegramController {
   ) {
     return this.telegramService.updateConfig(body);
   }
+
+  @Post('test-notification')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
+  async sendTestNotification(@CurrentUser('id') userId: string) {
+    await this.telegramService.sendTestNotification(userId);
+    return { message: 'Test notification sent' };
+  }
+
+  @Post('check')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
+  async check(
+    @Body() body: { botToken?: string; groupChatId?: string },
+  ) {
+    return this.telegramService.checkConfig(body.botToken, body.groupChatId);
+  }
 }
