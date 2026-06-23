@@ -14,7 +14,10 @@ model User {
   name          String
   role          Role     @default(EndUser)
   isActive      Boolean  @default(true)
-  avatarUrl     String?
+  avatarUrl       String?
+  telegramChatId  String?   @unique
+  telegramCode    String?   @unique
+  telegramCodeAt  DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -218,4 +221,14 @@ model Notification {
   @@index([userId, isRead])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model TelegramConfig {
+  id        String   @id @default(uuid())
+  botToken  String?
+  settings  Json     @default("{\"enabledEvents\":[\"ticket.created\"],\"templates\":{}}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("telegram_config")
 }

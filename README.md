@@ -78,6 +78,13 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Triggers: new ticket, status change, assignment, new comment
 - Event-driven design (`@nestjs/event-emitter`) — extensible to email/Slack
 
+### Telegram Integration (Admin)
+- Bot polling via raw `fetch` API (long-polling, non-blocking `setTimeout` loop)
+- Personal linking: Admin generates code → sends `/start <code>` to bot → chat ID saved to user
+- Configurable via Admin My Account: bot token, enabled events, group chat, message templates
+- Template variables: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`
+- Token stored in DB, never sent to frontend (masked with `hasBotToken` flag)
+
 ### UI/UX
 - Dark mode toggle (persisted to localStorage, default light)
 - Sidebar minimize/expand with icon-only mode
@@ -117,6 +124,7 @@ it-support-ticketing/
 │       ├── sub-categories/
 │       ├── sla/               # Config + cron breach checker
 │       ├── notifications/     # Event-driven + WebSocket gateway
+│       ├── telegram/          # Bot polling, sendMessage, link/unlink, config CRUD
 │       ├── dashboard/         # Statistics & analytics
 │       ├── users/             # Admin user management
 │       ├── health/            # DB + Redis health check
@@ -137,7 +145,7 @@ it-support-ticketing/
 │       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
 │       │   ├── admin/         # UserManagement, MasterDataManagement
 │       │   └── ui/            # Modal, Pagination, ErrorBoundary, LoadingSpinner, etc.
-│       └── pages/             # 9 pages (login, tickets, detail, create-ticket, dashboard, notifications, change-password, admin-users, admin-master)
+│       └── pages/             # 10 pages (login, tickets, detail, create-ticket, dashboard, notifications, my-account, admin-users, admin-master)
 └── uploads/                   # File attachments volume
 ```
 
@@ -153,6 +161,7 @@ it-support-ticketing/
 - **sla_configs** — unique (categoryId, priority)
 - **ticket_history** — audit trail for all state changes
 - **notifications** — per-user with read/unread status
+- **telegram_config** — global Telegram bot config (token, events, templates) stored as JSON
 
 ## Quick Start
 
@@ -170,6 +179,7 @@ git clone <repo-url> && cd it-support-ticketing
 cp .env.example backend/.env
 # Edit secrets (JWT_SECRET, DATABASE_URL) in backend/.env
 # Wajib: JWT_SECRET dan DATABASE_URL harus diset — startup akan throw error jika tidak ada
+# Telegram: TELEGRAM_BOT_TOKEN opsional (bisa diisi via Admin UI nanti)
 
 # 3. Build and run (database + frontend build automatically on first start)
 docker compose up --build
@@ -275,6 +285,15 @@ The seed script creates:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/dashboard/stats` | All dashboard statistics |
+
+### Telegram
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/telegram/status` | Check if current user is linked |
+| POST | `/api/telegram/link` | Generate link code (6-digit, 5 min expiry) |
+| DELETE | `/api/telegram/link` | Unlink Telegram |
+| GET | `/api/telegram/config` | Get config (Admin only) |
+| PUT | `/api/telegram/config` | Update config (Admin only) |
 
 ### Health
 | Method | Path | Description |

@@ -189,7 +189,9 @@ describe('TicketsService', () => {
         ticketId: 'ticket-1',
         ticketNumber: 'TKT-001',
         subject: createTicketDto.subject,
+        priority: Priority.High,
         requesterId,
+        requesterEmail: 'john@test.com',
       });
 
       expect(result).toEqual(mockCreatedTicket);

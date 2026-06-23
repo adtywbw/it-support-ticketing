@@ -15,6 +15,7 @@ import { SLAModule } from './sla/sla.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthModule } from './health/health.module';
+import { TelegramModule } from './telegram/telegram.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { HealthModule } from './health/health.module';
     NotificationsModule,
     DashboardModule,
     HealthModule,
+    TelegramModule,
   ],
 })
 export class AppModule {}

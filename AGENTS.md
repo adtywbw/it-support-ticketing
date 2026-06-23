@@ -6,8 +6,8 @@ Frontend: React 18 + Vite + TanStack Query + Zustand + Tailwind
 
 ## Struktur Kunci
 ```
-backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,health}
-frontend/src/{pages(9),components/{auth,layout,tickets,dashboard,admin,ui},hooks,stores,types,lib}
+backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,health}
+frontend/src/{pages(10),components/{auth,layout,tickets,dashboard,admin,ui},hooks,stores,types,lib}
 ```
 
 ## Perintah
@@ -40,7 +40,16 @@ GET|POST|PATCH /api/sla-configs
 GET /api/dashboard/stats
 GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk lihat inactive users
 GET|PATCH|DELETE /api/notifications   # DELETE clear all, PATCH read-all/:id/read
+GET|POST|DELETE|PUT /api/telegram     # status, link, unlink, config (Admin only)
 ```
+
+## Telegram
+- Bot polling via `TelegramService.pollLoop()` (non-blocking setTimeout loop)
+- Config disimpan di model `TelegramConfig` — botToken, enabledEvents, templates, enableGroupChat, groupChatId
+- Notifikasi dikirim ke grup (jika enableGroupChat=true) + ke semua user ITSupport/Admin yang link
+- Event listener: `ticket.created`, `ticket.assigned`, `ticket.status.updated`
+- Template bisa diedit via Admin UI (My Account) — variable: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`
+- Bot token fallback: DB config → `.env TELEGRAM_BOT_TOKEN`
 
 ## Frontend Routes
 ```
@@ -74,6 +83,14 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 ## Env Requirements
 - `JWT_SECRET` dan `DATABASE_URL` wajib diset — startup throw error jika tidak ada
 - `JWT_SECRET` tidak boleh menggunakan fallback hardcoded; generate unik per-install
+- `TELEGRAM_BOT_TOKEN` opsional — fallback jika token belum disimpan di DB config
+
+### Telegram
+- Backend: module `telegram/` — service (polling bot, kirim pesan), controller (link, config CRUD), listener (event-driven)
+- Backend: `TelegramConfig` model — botToken, settings (enabledEvents, enableGroupChat, groupChatId, templates) disimpan di DB
+- Frontend: MyAccount — Link/Unlink Telegram (Admin only), Bot Settings (token, group chat, event checkboxes, template editor)
+- Event: `ticket.created` tambah field `priority` & `requesterEmail` di payload
+- Keamanan: bot token tidak pernah dikirim ke frontend (hanya flag `hasBotToken: true`)
 
 ## Changelog
 

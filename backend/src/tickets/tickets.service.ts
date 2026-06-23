@@ -92,7 +92,9 @@ export class TicketsService {
       ticketId: ticket.id,
       ticketNumber: ticket.ticketNumber,
       subject: ticket.subject,
+      priority: ticket.priority,
       requesterId,
+      requesterEmail: ticket.requester.email,
     });
 
     return ticket;

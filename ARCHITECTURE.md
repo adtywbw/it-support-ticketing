@@ -182,6 +182,16 @@
 │ createdAt                  DateTime
 │ INDEXES: (userId, isRead), (createdAt)
 └─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ telegram_config
+│ PK id (UUID)
+│ botToken                   VARCHAR? (nullable — fallback from .env)
+│ settings                   JSON    (enabledEvents[], enableGroupChat,
+│                                     groupChatId?, templates{})
+│ createdAt                  DateTime
+│ updatedAt                  DateTime
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -282,6 +292,11 @@ it-support-ticketing/
 │       │   ├── notifications.controller.ts
 │       │   ├── notifications.gateway.ts
 │       │   └── notifications.service.ts
+│       ├── telegram/
+│       │   ├── telegram.module.ts
+│       │   ├── telegram.controller.ts
+│       │   ├── telegram.service.ts
+│       │   └── telegram.listener.ts
 │       ├── dashboard/
 │       │   ├── dashboard.module.ts
 │       │   ├── dashboard.controller.ts
@@ -319,6 +334,7 @@ it-support-ticketing/
 │       │   ├── use-users.ts
 │       │   ├── use-dashboard.ts
 │       │   ├── use-notifications.ts
+│       │   ├── use-telegram.ts
 │       │   └── use-change-password.ts
 │       ├── components/
 │       │   ├── auth/
@@ -350,7 +366,7 @@ it-support-ticketing/
 │       │       ├── ErrorMessage.tsx
 │       │       ├── ErrorBoundary.tsx
 │       │       ├── ConfirmDialog.tsx
-│       │       └── PasswordInput.tsx
+│       │   └── PasswordInput.tsx
 │       └── pages/
 │           ├── LoginPage.tsx
 │           ├── TicketsPage.tsx
@@ -358,7 +374,7 @@ it-support-ticketing/
 │           ├── TicketDetailPage.tsx
 │           ├── DashboardPage.tsx
 │           ├── NotificationsPage.tsx
-│           ├── ChangePasswordPage.tsx
+│           ├── MyAccountPage.tsx
 │           ├── AdminUsersPage.tsx
 │           └── AdminMasterDataPage.tsx
 └── uploads/ (mounted volume)
