@@ -9,7 +9,7 @@ export default function TicketsPage() {
   const user = useAuthStore((s) => s.user);
   const [exporting, setExporting] = useState(false);
   const canExport = user && (user.role === 'ITSupport' || user.role === 'Admin');
-  const canCreate = canExport;
+  const canCreate = !!user;
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FilterValues>({

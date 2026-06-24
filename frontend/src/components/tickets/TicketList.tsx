@@ -25,6 +25,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
+  const canCreate = !!user;
   const updatePriorityMutation = useUpdateTicketPriority();
   const assignMutation = useAssignTicket();
   const deleteTicketMutation = useDeleteTicket();
@@ -108,7 +109,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
             title="No tickets found"
             description={filters.search ? 'Try adjusting your search or filters.' : 'No tickets have been created yet.'}
             action={
-              canAssign ? (
+              canCreate ? (
                 <button onClick={() => navigate('/tickets/new')} className="btn-primary">
                   Create Ticket
                 </button>

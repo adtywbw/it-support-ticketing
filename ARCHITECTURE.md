@@ -481,8 +481,8 @@ it-support-ticketing/
 ### Security Rules
 - Access tokens are short-lived JWTs stored only in frontend memory; refresh tokens are httpOnly cookies backed by Redis and revoked on logout.
 - Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation.
-- EndUser access is ownership-scoped: EndUser can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
-- EndUser cannot create tickets or access `/dashboard`, `/tickets/new`, or admin routes; both backend roles and frontend routes/actions enforce this.
+- EndUser access is ownership-scoped: EndUser can create tickets as requester, can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
+- EndUser cannot access `/dashboard` or admin routes; both backend roles and frontend routes/actions enforce this.
 - INTERNAL comments and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses.
 - File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level checks before persistence.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.

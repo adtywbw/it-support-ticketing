@@ -12,6 +12,7 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - .env.example: tambah `REDIS_HOST` & `REDIS_PORT`
 
 ## Tickets
+- Create: EndUser bisa akses menu/form New Ticket dan `POST /api/tickets` untuk membuat ticket sendiri
 - Status: tambah `OnHold` ke frontend (type, color, badge, statusFlows)
 - Status Flows: samakan dengan backend (`Closed → Open`, `InProgress → OnHold/Resolved`)
 - Status: clear `closedAt`/`resolvedAt` saat reopen ticket

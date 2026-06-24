@@ -45,7 +45,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ## Features
 
 ### User & Role Management
-- **EndUser** — view own tickets, add public comments/attachments to own tickets, close own resolved tickets
+- **EndUser** — create tickets, view own tickets, add public comments/attachments to own tickets, close own resolved tickets
 - **ITSupport** — view queue, claim/assign, reply, add internal notes, change status/priority/assignee (inline from ticket list)
 - **Admin** — manage users/roles, categories, sub-categories, SLA configs, create/delete tickets
 
@@ -277,7 +277,7 @@ Production containers do not run seed automatically. If the seed script is run m
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/tickets` | List (paginated, filtered, sorted) |
-| POST | `/api/tickets` | Create ticket (ITSupport & Admin) |
+| POST | `/api/tickets` | Create ticket (authenticated users; EndUser creates own ticket) |
 | GET | `/api/tickets/export/csv` | Export CSV (ITSupport & Admin) |
 | GET | `/api/tickets/:id` | Ticket detail |
 | PATCH | `/api/tickets/:id/status` | Update status |
@@ -349,7 +349,7 @@ Production containers do not run seed automatically. If the seed script is run m
 |-------|------|--------|
 | `/login` | Login form | Public |
 | `/tickets` | Ticket list (own/all) | Authenticated |
-| `/tickets/new` | Create ticket form | ITSupport, Admin |
+| `/tickets/new` | Create ticket form | Authenticated |
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
 | `/dashboard` | Statistics & charts | ITSupport, Admin |
 | `/notifications` | In-app notifications | Authenticated |

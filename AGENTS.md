@@ -23,7 +23,7 @@
 - Jangan simpan access token di `localStorage` atau storage persisten lain.
 - Jangan tambahkan fallback hardcoded untuk `JWT_SECRET`, `DATABASE_URL`, atau `REDIS_URL`.
 - Jangan bypass repository pattern dengan inject `PrismaService` langsung di service baru.
-- Jangan buka akses EndUser ke Dashboard, New Ticket, `/admin` routes, atau ticket milik user lain.
+- Jangan buka akses EndUser ke Dashboard, `/admin` routes, atau ticket milik user lain.
 - Jangan tampilkan attachment/comment internal ke EndUser.
 - Jangan kirim Telegram bot token ke frontend; frontend hanya boleh menerima flag seperti `hasBotToken`.
 - Jangan menjalankan `docker compose down -v` kecuali diminta eksplisit karena menghapus DB/volume.
@@ -70,13 +70,13 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ## Role & Access
 | Role | Dashboard | New Ticket | My Account | Users | Master Data | Maintenance |
 |------|-----------|------------|------------|-------|-------------|-------------|
-| EndUser | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
+| EndUser | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ |
 | ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
 | Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## Constraints
 - EndUser hanya bisa lihat ticket sendiri dan close own resolved ticket (`Resolved → Closed`).
-- EndUser tidak bisa create ticket/comment/upload/list attachment untuk ticket user lain.
+- EndUser bisa create ticket sendiri, tapi tidak bisa comment/upload/list attachment untuk ticket user lain.
 - Attachment/comment internal tidak pernah dikirim ke EndUser.
 - Access token memory-only; tidak ada token di `localStorage`.
 - Refresh token httpOnly cookie path `/api/auth`; pastikan setting `secure` sesuai environment agar local HTTP tetap bisa auth.
@@ -95,7 +95,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ```
 GET  /api/health
 POST /api/auth/login|refresh|logout|change-password
-GET|POST /api/tickets                 # POST ITSupport/Admin only
+GET|POST /api/tickets                 # POST authenticated users; EndUser creates own ticket
 GET /api/tickets/export/csv           # ITSupport/Admin only
 GET|PATCH|DELETE /api/tickets/:id
 PATCH /api/tickets/:id/status|assign|priority

@@ -38,7 +38,7 @@ export class TicketsController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ITSupport, Role.Admin)
+  @Roles(Role.EndUser, Role.ITSupport, Role.Admin)
   async create(
     @Body() createTicketDto: CreateTicketDto,
     @CurrentUser('id') userId: string,
