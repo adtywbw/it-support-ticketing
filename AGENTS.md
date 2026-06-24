@@ -108,7 +108,51 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Check Config: tombol "Check" di Bot Settings — validasi bot token (via `getMe`) + group chat ID (via `getChat`) real-time dari Telegram API, menampilkan status inline (✅/❌)
 - Keamanan: bot token tidak pernah dikirim ke frontend (hanya flag `hasBotToken: true`)
 
-## Changelog
+## Convention
+- Backend: service → repository → controller, DTO validation via `class-validator` (`whitelist` + `forbidNonWhitelisted`)
+- Frontend: functional components + hooks, named exports (no default), Tailwind utility classes
+- File naming: `kebab-case` for files, `PascalCase` for components/classes, `camelCase` for variables/functions
+- Error: throw `BadRequestException`/`NotFoundException` on backend, `toast.error()` on frontend
+- No CSS modules or styled-components — Tailwind only
+- Import: `@/` alias for frontend, relative paths for backend within module
+
+## State
+- **Zustand (persist)**: theme (dark/light) — localStorage
+- **Zustand (no persist)**: auth (user, accessToken memory-only), notification count
+- **TanStack Query**: tickets, users, categories, notifications, dashboard stats — semua server state (cache + refetch)
+- **React state**: form input (`useState`/`useReducer`), component-local UI state
+
+## Models
+User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig
+- Ticket → User (requesterId, assignedToId), Ticket → Category/SubCategory
+- Comment → Ticket + User, Attachment → Ticket + User + Comment (optional)
+- SLAConfig unique on (categoryId, priority)
+
+## Constraints
+- **EndUser**: hanya bisa lihat & close own resolved ticket (`Resolved → Closed`) — ownership + role dicek di service
+- **Access token**: memory only (zustand tanpa persist) — tidak ada token di localStorage
+- **Refresh token**: httpOnly cookie (`secure`, `sameSite: strict`, path `/api/auth`)
+- **JWT_SECRET**: no hardcoded fallback — throw error jika tidak di `.env`
+- **docker compose down -v**: hapus DB + volume → seed ulang otomatis
+- **EndUser**: no Dashboard, no New Ticket, no /admin routes
+- **WebSocket**: disconnect jika user dinonaktifkan (cek `isActive` di DB)
+- **Password hash**: bcrypt cost 12, di-update tiap restart via seed `upsert`
+
+## API Response
+- Success: `{ data, meta? }` — meta berisi `{ page, limit, total }` untuk paginated
+- Error: `{ error: { code, message } }` — global `HttpExceptionFilter` applies to all endpoints
+
+## File Placement
+- Pages: `frontend/src/pages/`
+- Components: `frontend/src/components/{domain}/` (tickets, dashboard, admin, ui)
+- Hooks: `frontend/src/hooks/` — TanStack Query hooks
+- Stores: `frontend/src/stores/` — Zustand
+- Types: `frontend/src/types/`
+- Lib: `frontend/src/lib/` — axios client, utils
+- Backend module: `backend/src/{module}/` — `module.ts`, `controller.ts`, `service.ts`, `dto/`
+- Backend repositories: `backend/src/common/repositories/`
+
+# Changelog
 
 ### Docker
 - Build: ganti bind mount `./frontend/dist` → named volume `frontend_dist` + frontend builder service (fix 403)
