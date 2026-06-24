@@ -392,9 +392,11 @@ Run a backup while Docker Compose services are up:
 ```
 
 The script creates a timestamped directory under `backups/` containing:
-- `db.sql.gz` — PostgreSQL logical dump from the `db` service
-- `uploads.tar.gz` — archive of the `uploads_data` volume mounted at `/app/uploads`
+- `db.sql.gz` — PostgreSQL logical dump (`pg_dump --schema public`) containing all tables: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config
+- `uploads.tar.gz` — archive of the `uploads_data` volume mounted at `/app/uploads` (all attachment files)
 - `manifest.txt` — timestamp and backup metadata
+
+> **Note:** Redis is not included in backups. After a restore, refresh tokens and cache are lost — all users must log in again.
 
 `backups/` is gitignored. Store backup copies outside the server as part of production operations.
 

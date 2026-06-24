@@ -146,7 +146,7 @@ GET /api/maintenance/backups/:id/download/db|uploads  # Admin only
 - `frontend` service build dari `frontend/Dockerfile` target `builder`; runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu stay running.
 - `nginx` service baca static files dari `frontend_dist:/usr/share/nginx/html`.
 - `api` service port `3000` bind ke `127.0.0.1` untuk debug lokal; traffic normal lewat nginx `/api/`.
-- Backup operasional: jalankan `./scripts/backup.sh` saat Compose services up; output `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` dan folder `backups/` gitignored.
+- Backup operasional: jalankan `./scripts/backup.sh` saat Compose services up; output `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` dan folder `backups/` gitignored. `db.sql.gz` berisi semua tabel public schema (users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config). Redis tidak di-backup.
 - Admin UI Maintenance: `/admin/maintenance` bisa create/list/download/delete/restore backup; restore penuh DB + uploads, wajib typed confirmation, dan membuat pre-restore backup otomatis.
 - Backup UI: tombol `DB` download `db.sql.gz` (dump PostgreSQL), tombol `Uploads` download `uploads.tar.gz` (attachment files).
 - API image memasang `postgresql-client-16`, `gzip`, `tar`, `gosu`; entrypoint chown `/app/uploads` dan `/app/backups`, lalu menjalankan app sebagai user `node`.

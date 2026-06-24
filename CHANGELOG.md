@@ -150,6 +150,7 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Maintenance Mode: frontend `MaintenanceBanner` polls health every 5s, shows amber overlay when maintenance active
 - Maintenance Mode: Admin must enable maintenance first before backup/restore buttons are active in UI
 - Maintenance Mode: auto-enable before restore (5s drain), auto-disable after restore completes
+- Backup: detail isi `db.sql.gz` ditambahkan ke docs (semua tabel public schema); Redis tidak di-backup
 - Maintenance UI: tambah route Admin `/admin/maintenance` untuk create/list/download/delete backup DB dan uploads
 - Maintenance UI: tombol Delete backup memakai `ConfirmDialog` standar dan menghapus folder backup timestamp
 - Maintenance UI: tombol Restore melakukan restore penuh DB + uploads dengan typed confirmation dan logout paksa setelah sukses
