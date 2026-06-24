@@ -95,6 +95,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - `Uploads` downloads `uploads.tar.gz`, an archive of uploaded attachment files
 - Delete uses the same confirmation dialog pattern as other destructive actions
 - Restore performs a full DB + uploads restore, requires typed backup ID confirmation, creates a pre-restore backup automatically, and forces login again after success
+- **Maintenance Mode**: Admin must enable maintenance mode first before backup/restore buttons become active. During maintenance, non-admin users see an overlay banner and cannot access the system. Restore auto-enables maintenance mode with a 5-second drain time, then auto-disables when complete.
 
 ### UI/UX
 - Dark mode toggle (persisted to localStorage, default light)
@@ -119,6 +120,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - CSV export neutralizes spreadsheet formula injection
 - Nginx + NestJS rate limiting (10 req/s per IP each layer)
 - EndUser status changes restricted to closing own resolved tickets
+- `MaintenanceGuard` global guard blocks non-admin requests during maintenance mode (stored in Redis)
 
 ## Project Structure
 
@@ -319,9 +321,11 @@ Production containers do not run seed automatically. If the seed script is run m
 | PATCH | `/api/sla-configs/:id` | Update SLA config |
 | GET/POST | `/api/maintenance/backups` | List / Create operational backups (Admin only) |
 | DELETE | `/api/maintenance/backups/:id` | Delete an operational backup folder (Admin only) |
-| POST | `/api/maintenance/backups/:id/restore` | Full restore database + uploads from a backup (Admin only) |
+| POST | `/api/maintenance/backups/:id/restore` | Full restore database + uploads from a backup (Admin only; auto maintenance mode) |
 | GET | `/api/maintenance/backups/:id/download/db` | Download database backup (Admin only) |
 | GET | `/api/maintenance/backups/:id/download/uploads` | Download uploads backup (Admin only) |
+| GET | `/api/maintenance/mode` | Get maintenance mode status (Public) |
+| PATCH | `/api/maintenance/mode` | Toggle maintenance mode on/off (Admin only) |
 
 ### Dashboard
 | Method | Path | Description |
@@ -342,7 +346,7 @@ Production containers do not run seed automatically. If the seed script is run m
 ### Health
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | DB + Redis status |
+| GET | `/api/health` | DB + Redis status + maintenance mode status |
 
 ## Frontend Pages
 
@@ -394,7 +398,7 @@ The script creates a timestamped directory under `backups/` containing:
 
 `backups/` is gitignored. Store backup copies outside the server as part of production operations.
 
-Admins can also create, list, download, delete, and restore backups from `/admin/maintenance`. The UI creates the same `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt` set under `backups/<timestamp>/`. Restore is destructive, requires typed backup ID confirmation, creates a fresh pre-restore backup automatically, and requires login again after success.
+Admins can also create, list, download, delete, and restore backups from `/admin/maintenance`. The UI creates the same `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt` set under `backups/<timestamp>/`. Restore is destructive, requires typed backup ID confirmation, creates a fresh pre-restore backup automatically, and requires login again after success. Admin must enable maintenance mode before backup/restore buttons become active in the UI.
 
 The API image installs `postgresql-client-16` to match the PostgreSQL 16 server. Its entrypoint fixes ownership of mounted `/app/uploads` and `/app/backups`, then drops privileges so the NestJS process still runs as `node`.
 

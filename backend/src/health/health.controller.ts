@@ -29,10 +29,23 @@ export class HealthController {
 
     const isHealthy = Object.values(checks).every((s) => s === 'healthy');
 
+    let maintenance = { enabled: false, message: null as string | null };
+    try {
+      const enabled = await this.redisService.get('maintenance:enabled');
+      const message = await this.redisService.get('maintenance:message');
+      maintenance = {
+        enabled: enabled === '1',
+        message: message || null,
+      };
+    } catch {
+      // ignore — maintenance status is best-effort
+    }
+
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       checks,
+      maintenance,
     };
   }
 }

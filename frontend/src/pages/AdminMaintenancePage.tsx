@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useBackups, useCreateBackup, useDeleteBackup, useRestoreBackup, downloadBackupFile } from '@/hooks/use-maintenance';
+import { useBackups, useCreateBackup, useDeleteBackup, useRestoreBackup, useMaintenanceMode, useSetMaintenanceMode, downloadBackupFile } from '@/hooks/use-maintenance';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import EmptyState from '@/components/ui/EmptyState';
@@ -37,11 +37,13 @@ export default function AdminMaintenancePage() {
   const createBackupMutation = useCreateBackup();
   const deleteBackupMutation = useDeleteBackup();
   const restoreBackupMutation = useRestoreBackup();
+  const { data: maintenanceStatus } = useMaintenanceMode();
+  const setMaintenanceModeMutation = useSetMaintenanceMode();
   const [downloading, setDownloading] = useState<string | null>(null);
   const [backupToDelete, setBackupToDelete] = useState<BackupInfo | null>(null);
   const [backupToRestore, setBackupToRestore] = useState<BackupInfo | null>(null);
   const [restoreConfirmation, setRestoreConfirmation] = useState('');
-  const isActionPending = createBackupMutation.isPending || deleteBackupMutation.isPending || restoreBackupMutation.isPending;
+  const isActionPending = createBackupMutation.isPending || deleteBackupMutation.isPending || restoreBackupMutation.isPending || setMaintenanceModeMutation.isPending;
 
   const handleCreateBackup = async () => {
     try {
@@ -104,6 +106,19 @@ export default function AdminMaintenancePage() {
     }
   };
 
+  const handleToggleMaintenance = async () => {
+    try {
+      const newEnabled = !maintenanceStatus?.enabled;
+      await setMaintenanceModeMutation.mutateAsync({
+        enabled: newEnabled,
+        message: newEnabled ? 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.' : undefined,
+      });
+      toast.success(newEnabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to toggle maintenance mode'));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -116,6 +131,39 @@ export default function AdminMaintenancePage() {
       <section className="card p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Maintenance Mode</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Must be enabled before creating or restoring backups. Non-admin users cannot access the system while this is on.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleMaintenance}
+            disabled={isActionPending}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              maintenanceStatus?.enabled
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-amber-600 text-white hover:bg-amber-700'
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {setMaintenanceModeMutation.isPending
+              ? 'Updating...'
+              : maintenanceStatus?.enabled
+                ? 'Disable Maintenance'
+                : 'Enable Maintenance'}
+          </button>
+        </div>
+        {maintenanceStatus?.enabled && (
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+            Maintenance mode is currently <span className="font-semibold">enabled</span>.
+            {maintenanceStatus.message && ` Message: "${maintenanceStatus.message}"`}
+          </div>
+        )}
+      </section>
+
+      <section className="card p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create Backup</h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Generates a compressed PostgreSQL dump and uploads archive under the server `backups/` directory.
@@ -124,7 +172,7 @@ export default function AdminMaintenancePage() {
           <button
             type="button"
             onClick={handleCreateBackup}
-            disabled={isActionPending}
+            disabled={isActionPending || !maintenanceStatus?.enabled}
             className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createBackupMutation.isPending ? 'Creating backup...' : 'Create Backup'}
@@ -189,7 +237,7 @@ export default function AdminMaintenancePage() {
                         <button
                           type="button"
                           onClick={() => openRestoreDialog(backup)}
-                          disabled={isActionPending || !backup.files.db.exists || !backup.files.uploads.exists}
+                          disabled={isActionPending || !maintenanceStatus?.enabled || !backup.files.db.exists || !backup.files.uploads.exists}
                           className="text-amber-600 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-amber-400 dark:hover:text-amber-300"
                         >
                           Restore
@@ -239,6 +287,9 @@ docker compose up -d`}
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
             Restore will replace the current database and uploaded files with backup{' '}
             <span className="font-mono font-semibold">{backupToRestore?.id}</span>. This cannot be undone from the UI.
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            Restore will automatically enable <span className="font-semibold">maintenance mode</span> for ~5 seconds while data is being restored. All non-admin users will be temporarily blocked.
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-300">
             A fresh pre-restore backup will be created automatically before restore starts. Type the backup ID to confirm.

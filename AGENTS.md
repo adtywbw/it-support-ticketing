@@ -83,6 +83,17 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - WebSocket disconnect jika user dinonaktifkan (cek `isActive` di DB).
 - Password hash bcrypt cost 12, di-update tiap restart via seed `upsert`.
 
+## Maintenance Mode
+- Flag disimpan di Redis (`maintenance:enabled`, `maintenance:message`), bukan di DB karena Redis tidak ikut di-restore.
+- `MaintenanceGuard` adalah global guard di `app.module.ts` (diproses sebelum `ThrottlerGuard`).
+- Yang diizinkan saat maintenance aktif: `/api/health`, semua `/api/maintenance/*`, semua `/api/auth/*`.
+- Non-admin user yang melakukan API call saat maintenance aktif akan menerima `503 { error: { code: 'MAINTENANCE', message } }`.
+- `MaintenanceGuard` menggunakan `@SkipMaintenance()` decorator untuk skip check pada handler tertentu.
+- Auto-maintenance: restoreBackup() otomatis enable maintenance sebelum DROP SCHEMA, drain 5 detik, lalu disable setelah restore selesai.
+- Frontend `MaintenanceBanner` poll `/api/health` setiap 5 detik; jika `maintenance.enabled === true`, tampilkan overlay banner.
+- Admin wajib enable maintenance mode dulu sebelum bisa backup/restore dari UI.
+- Health endpoint selalu accessible tanpa auth; response termasuk `maintenance: { enabled, message }`.
+
 ## Auth & Security
 - `JWT_SECRET`, `DATABASE_URL`, dan `REDIS_URL` wajib diset; startup throw error jika kosong.
 - `JWT_SECRET` tidak boleh memakai fallback hardcoded; generate unik per install.
@@ -93,7 +104,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 
 ## API Summary
 ```
-GET  /api/health
+GET  /api/health                               # Includes maintenance status
 POST /api/auth/login|refresh|logout|change-password
 GET|POST /api/tickets                 # POST authenticated users; EndUser creates own ticket
 GET /api/tickets/export/csv           # ITSupport/Admin only
@@ -108,9 +119,11 @@ GET /api/dashboard/stats
 GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk inactive users
 GET|PATCH|DELETE /api/notifications   # DELETE clear all, PATCH read-all/:id/read
 GET|POST|DELETE|PUT|POST /api/telegram # status, link, unlink, config, test-notification, check
+GET  /api/maintenance/mode            # Public; returns maintenance status
+PATCH /api/maintenance/mode           # Admin only; toggle maintenance on/off
 GET|POST /api/maintenance/backups       # Admin only; list/create backup
 DELETE /api/maintenance/backups/:id      # Admin only; delete backup folder
-POST /api/maintenance/backups/:id/restore # Admin only; full restore DB + uploads
+POST /api/maintenance/backups/:id/restore # Admin only; full restore DB + uploads (auto maintenance mode)
 GET /api/maintenance/backups/:id/download/db|uploads  # Admin only
 ```
 

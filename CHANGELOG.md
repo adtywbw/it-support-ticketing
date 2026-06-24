@@ -144,6 +144,12 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Telegram: fix create config typo dan clear bot token hanya saat token field diubah
 
 ## Production Readiness
+- Maintenance Mode: global `MaintenanceGuard` blocks non-admin API requests when `maintenance:enabled=1` in Redis; allowed endpoints: `/health`, `/maintenance/*`, `/auth/*`
+- Maintenance Mode: health endpoint includes `maintenance: { enabled, message }` in response for frontend polling
+- Maintenance Mode: `GET /api/maintenance/mode` (public) + `PATCH /api/maintenance/mode` (Admin) for manual toggle
+- Maintenance Mode: frontend `MaintenanceBanner` polls health every 5s, shows amber overlay when maintenance active
+- Maintenance Mode: Admin must enable maintenance first before backup/restore buttons are active in UI
+- Maintenance Mode: auto-enable before restore (5s drain), auto-disable after restore completes
 - Maintenance UI: tambah route Admin `/admin/maintenance` untuk create/list/download/delete backup DB dan uploads
 - Maintenance UI: tombol Delete backup memakai `ConfirmDialog` standar dan menghapus folder backup timestamp
 - Maintenance UI: tombol Restore melakukan restore penuh DB + uploads dengan typed confirmation dan logout paksa setelah sukses

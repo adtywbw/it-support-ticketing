@@ -1,6 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
-import type { BackupInfo } from '@/types';
+import type { BackupInfo, MaintenanceStatus } from '@/types';
+
+export function useMaintenanceMode() {
+  return useQuery({
+    queryKey: ['maintenance', 'mode'],
+    queryFn: async () => {
+      const response = await apiClient.get<MaintenanceStatus>('/maintenance/mode');
+      return response.data;
+    },
+    refetchInterval: 5000,
+  });
+}
+
+export function useSetMaintenanceMode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ enabled, message }: { enabled: boolean; message?: string }) => {
+      const response = await apiClient.patch<MaintenanceStatus>('/maintenance/mode', {
+        enabled,
+        message,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'mode'] });
+    },
+  });
+}
 
 export function useBackups() {
   return useQuery({

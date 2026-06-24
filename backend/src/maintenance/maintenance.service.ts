@@ -3,9 +3,13 @@ import { execFile } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
+import { RedisService } from '../redis/redis.service';
 
 const execFileAsync = promisify(execFile);
 const BACKUP_ID_PATTERN = /^\d{8}-\d{6}$/;
+const MAINTENANCE_KEY = 'maintenance:enabled';
+const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
+const DRAIN_TIME_MS = 5000;
 
 export interface BackupFileInfo {
   exists: boolean;
@@ -30,6 +34,28 @@ interface PgOptions {
 export class MaintenanceService {
   private readonly backupDir = process.env.BACKUP_DIR || '/app/backups';
   private readonly uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
+
+  constructor(private readonly redis: RedisService) {}
+
+  async setMaintenanceMode(enabled: boolean, message?: string): Promise<void> {
+    await this.redis.set(MAINTENANCE_KEY, enabled ? '1' : '0');
+    if (message !== undefined) {
+      await this.redis.set(MAINTENANCE_MESSAGE_KEY, message);
+    } else if (enabled) {
+      await this.redis.set(MAINTENANCE_MESSAGE_KEY, 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.');
+    } else {
+      await this.redis.del(MAINTENANCE_MESSAGE_KEY);
+    }
+  }
+
+  async getMaintenanceMode(): Promise<{ enabled: boolean; message: string | null }> {
+    const enabled = await this.redis.get(MAINTENANCE_KEY);
+    const message = await this.redis.get(MAINTENANCE_MESSAGE_KEY);
+    return {
+      enabled: enabled === '1',
+      message: message || null,
+    };
+  }
 
   async createBackup(source = 'admin-ui'): Promise<BackupInfo> {
     const databaseUrl = process.env.DATABASE_URL;
@@ -156,12 +182,16 @@ export class MaintenanceService {
     const preRestoreBackup = await this.createBackup('pre-restore');
 
     try {
+      await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
+      await new Promise((resolve) => setTimeout(resolve, DRAIN_TIME_MS));
       await this.restoreDatabase(dbPath);
       await this.restoreUploads(uploadsPath);
     } catch (error) {
       throw new BadRequestException(
         error instanceof Error ? error.message : 'Restore backup failed',
       );
+    } finally {
+      await this.setMaintenanceMode(false);
     }
 
     return preRestoreBackup;

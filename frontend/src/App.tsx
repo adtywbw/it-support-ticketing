@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Layout from '@/layout/Layout';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import MaintenanceBanner from '@/components/MaintenanceBanner';
 import LoginPage from '@/pages/LoginPage';
 import TicketsPage from '@/pages/TicketsPage';
 import CreateTicketPage from '@/pages/CreateTicketPage';
@@ -29,6 +30,7 @@ export default function App() {
           },
         }}
       />
+      <MaintenanceBanner />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 

@@ -49,6 +49,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       [HttpStatus.NOT_FOUND]: 'NOT_FOUND',
       [HttpStatus.CONFLICT]: 'CONFLICT',
       [HttpStatus.UNPROCESSABLE_ENTITY]: 'UNPROCESSABLE_ENTITY',
+      [HttpStatus.SERVICE_UNAVAILABLE]: 'MAINTENANCE',
       [HttpStatus.INTERNAL_SERVER_ERROR]: 'INTERNAL_ERROR',
     };
     return codes[status] || 'UNKNOWN_ERROR';

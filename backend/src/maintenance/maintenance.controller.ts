@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Post,
+  Patch,
   Param,
   Res,
   UseGuards,
@@ -15,30 +16,50 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
+import { MaintenanceModeDto } from './dto/maintenance-mode.dto';
 
 @Controller('maintenance')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
+  @Get('mode')
+  getMaintenanceMode() {
+    return this.maintenanceService.getMaintenanceMode();
+  }
+
+  @Patch('mode')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
+  async setMaintenanceMode(@Body() dto: MaintenanceModeDto) {
+    await this.maintenanceService.setMaintenanceMode(dto.enabled, dto.message);
+    return this.maintenanceService.getMaintenanceMode();
+  }
+
   @Get('backups')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
   listBackups() {
     return this.maintenanceService.listBackups();
   }
 
   @Post('backups')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
   createBackup() {
     return this.maintenanceService.createBackup();
   }
 
   @Delete('backups/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
   async deleteBackup(@Param('id') id: string) {
     await this.maintenanceService.deleteBackup(id);
     return { message: 'Backup deleted successfully' };
   }
 
   @Post('backups/:id/restore')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
   async restoreBackup(
     @Param('id') id: string,
     @Body() restoreBackupDto: RestoreBackupDto,
@@ -54,6 +75,8 @@ export class MaintenanceController {
   }
 
   @Get('backups/:id/download/db')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
   async downloadDatabaseBackup(
     @Param('id') id: string,
     @Res() res: Response,
@@ -63,6 +86,8 @@ export class MaintenanceController {
   }
 
   @Get('backups/:id/download/uploads')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Admin)
   async downloadUploadsBackup(
     @Param('id') id: string,
     @Res() res: Response,

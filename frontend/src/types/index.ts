@@ -108,6 +108,11 @@ export interface BackupInfo {
   };
 }
 
+export interface MaintenanceStatus {
+  enabled: boolean;
+  message: string | null;
+}
+
 export interface AuditTrailEntry {
   id: string;
   ticketId: string;

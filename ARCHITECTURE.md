@@ -68,7 +68,7 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
 
-The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users.
+The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users. It also manages a maintenance mode flag stored in Redis that blocks non-admin/non-auth API requests via `MaintenanceGuard`.
 
 All repositories are exported from `RepositoriesModule` (marked `@Global()`) and registered once in `AppModule` — no per-module imports needed, mirroring the pattern used by `PrismaModule`.
 
@@ -464,6 +464,8 @@ it-support-ticketing/
 - Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
 - Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
 - Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads via `tar`, then requires the user to log in again.
+- Restore flow: enable maintenance mode → 5-second drain time → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode. `MaintenanceGuard` blocks non-admin API requests during restore while admin can still access `/api/maintenance/*` endpoints.
+- Admin must enable maintenance mode from the UI before backup/restore buttons become active.
 - Restore is destructive and should be run during a maintenance window.
 
 ### Production Deployment
@@ -487,6 +489,9 @@ it-support-ticketing/
 - INTERNAL comments and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses.
 - File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level checks before persistence.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.
+- `MaintenanceGuard` (global `APP_GUARD`) blocks all non-essential API requests when maintenance mode is enabled. Allowed during maintenance: `/health`, `/maintenance/*` (all methods), `/auth/*` (all methods). Non-admin users receive `503 { error: { code: 'MAINTENANCE', message } }`.
+- Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.
+- Health endpoint always accessible (no auth required) and includes `maintenance: { enabled, message }` in its response for frontend polling.
 
 ### Built Artifacts
 - NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.
