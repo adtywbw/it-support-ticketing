@@ -137,7 +137,7 @@ it-support-ticketing/
 │       ├── health/            # DB + Redis health check
 │       ├── prisma/            # PrismaService
 │       ├── redis/             # ioredis provider
-│       └── common/            # Guards, decorators, interceptors, filters
+│       └── common/            # Guards, decorators, interceptors, filters, repositories
 ├── frontend/
 │   ├── Dockerfile             # Multi-stage build (Vite build → nginx static)
 │   └── src/
@@ -145,14 +145,20 @@ it-support-ticketing/
 │       ├── types/             # TypeScript type definitions
 │       ├── stores/            # Zustand stores (auth, notifications)
 │       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, etc.)
+│       ├── auth/              # LoginForm, ProtectedRoute
+│       ├── layout/            # Sidebar, Navbar, Layout
 │       ├── components/
-│       │   ├── auth/          # LoginForm, ProtectedRoute
-│       │   ├── layout/        # Sidebar, Navbar, Layout
+│       │   ├── tickets/       # TicketList, CreateTicketForm, TicketDetail, etc.
+│       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
+│       │   ├── admin/         # UserManagement, MasterDataManagement
+│       ├── auth/              # LoginForm, ProtectedRoute
+│       ├── layout/            # Sidebar, Navbar, Layout
+│       ├── components/
 │       │   ├── tickets/       # TicketList, CreateTicketForm, TicketDetail, etc.
 │       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
 │       │   ├── admin/         # UserManagement, MasterDataManagement
 │       │   └── ui/            # Modal, Pagination, ErrorBoundary, LoadingSpinner, etc.
-│       └── pages/             # 10 pages (login, tickets, detail, create-ticket, dashboard, notifications, my-account, admin-users, admin-master)
+│       └── pages/             # 9 pages (tickets, detail, create-ticket, dashboard, notifications, my-account, admin-users, admin-master)
 └── uploads/                   # File attachments volume
 ```
 
@@ -367,7 +373,7 @@ Unit test for TicketsService covers:
 
 ## Scaling
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md#4-scaling-suggestions) for detailed scaling guide:
+See [ARCHITECTURE.md](./ARCHITECTURE.md#6-scaling-suggestions) for detailed scaling guide:
 
 1. Stateless API — ready for horizontal scaling (HPA)
 2. File upload — switch to S3/GCS via `StorageService` interface

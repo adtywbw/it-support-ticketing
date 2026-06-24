@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { PrismaService } from '../prisma/prisma.service';
-import type { Prisma } from '@prisma/client';
+import { NotificationRepository } from '../common/repositories/notification.repository';
+import { UserRepository } from '../common/repositories/user.repository';
 
 @Injectable()
 export class NotificationsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly notificationRepository: NotificationRepository,
+    private readonly userRepository: UserRepository,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -16,13 +17,11 @@ export class NotificationsService {
     message: string;
     data?: Record<string, unknown>;
   }) {
-    const notification = await this.prisma.notification.create({
-      data: {
-        userId: data.userId,
-        title: data.title,
-        message: data.message,
-        data: (data.data as Prisma.InputJsonValue) || undefined,
-      },
+    const notification = await this.notificationRepository.create({
+      user: { connect: { id: data.userId } },
+      title: data.title,
+      message: data.message,
+      data: data.data as any,
     });
 
     this.eventEmitter.emit('notification.created', notification);
@@ -34,50 +33,23 @@ export class NotificationsService {
     userId: string,
     params: { page?: number; limit?: number; unreadOnly?: boolean },
   ) {
-    const { page = 1, limit = 20, unreadOnly = false } = params;
-
-    const where: Record<string, unknown> = { userId };
-    if (unreadOnly) {
-      where.isRead = false;
-    }
-
-    const [notifications, total] = await Promise.all([
-      this.prisma.notification.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.notification.count({ where }),
-    ]);
-
-    return { data: notifications, meta: { page, limit, total } };
+    return this.notificationRepository.findByUserId(userId, params);
   }
 
   async markAsRead(id: string, userId: string) {
-    return this.prisma.notification.updateMany({
-      where: { id, userId },
-      data: { isRead: true },
-    });
+    return this.notificationRepository.markAsRead(id, userId);
   }
 
   async markAllAsRead(userId: string) {
-    return this.prisma.notification.updateMany({
-      where: { userId, isRead: false },
-      data: { isRead: true },
-    });
+    return this.notificationRepository.markAllAsRead(userId);
   }
 
   async clearAll(userId: string) {
-    return this.prisma.notification.deleteMany({
-      where: { userId },
-    });
+    return this.notificationRepository.clearAll(userId);
   }
 
   async getUnreadCount(userId: string) {
-    return this.prisma.notification.count({
-      where: { userId, isRead: false },
-    });
+    return this.notificationRepository.getUnreadCount(userId);
   }
 
   @OnEvent('ticket.created')
@@ -87,10 +59,7 @@ export class NotificationsService {
     subject: string;
     requesterId: string;
   }) {
-    const itsupportUsers = await this.prisma.user.findMany({
-      where: { role: { in: ['ITSupport', 'Admin'] }, isActive: true },
-      select: { id: true },
-    });
+    const itsupportUsers = await this.userRepository.findSupportUsers();
 
     for (const user of itsupportUsers) {
       await this.create({

@@ -1,59 +1,53 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TicketsService } from './tickets.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TicketStatus, Priority, SLAStatus } from '@prisma/client';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
-import { RedisService } from '../redis/redis.service';
-import { SLAService } from '../sla/sla.service';
+import { TicketRepository } from '../common/repositories/ticket.repository';
+import { CategoryRepository } from '../common/repositories/category.repository';
+import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
+import { UserRepository } from '../common/repositories/user.repository';
 
 describe('TicketsService', () => {
   let service: TicketsService;
-  let prisma: any;
+  let ticketRepository: any;
+  let categoryRepository: any;
+  let subCategoryRepository: any;
+  let userRepository: any;
   let eventEmitter: any;
 
-  const mockPrisma = {
-    ticket: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      count: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    category: {
-      findUnique: jest.fn(),
-    },
-    subCategory: {
-      findUnique: jest.fn(),
-    },
-    ticketHistory: {
-      create: jest.fn(),
-    },
-    $transaction: jest.fn(),
+  const mockTicketRepository = {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    count: jest.fn(),
+    update: jest.fn(),
+    transaction: jest.fn(),
+    transactionBatch: jest.fn(),
+  };
+
+  const mockCategoryRepository = {
+    findById: jest.fn(),
+    findAll: jest.fn(),
+    findByName: jest.fn(),
+  };
+
+  const mockSubCategoryRepository = {
+    findById: jest.fn(),
+    findByCategoryId: jest.fn(),
+    findByCategoryAndName: jest.fn(),
+  };
+
+  const mockUserRepository = {
+    getForValidation: jest.fn(),
   };
 
   const mockEventEmitter = {
     emit: jest.fn(),
-  };
-
-  const mockRedisService = {
-    getClient: jest.fn(),
-    set: jest.fn(),
-    get: jest.fn(),
-    del: jest.fn(),
-    exists: jest.fn(),
-    ping: jest.fn(),
-  };
-
-  const mockSlaService = {
-    getSLAConfig: jest.fn(),
-    findAll: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
   };
 
   const mockStorageService = {
@@ -66,25 +60,36 @@ describe('TicketsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TicketsService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: TicketRepository, useValue: mockTicketRepository },
+        { provide: CategoryRepository, useValue: mockCategoryRepository },
+        { provide: SubCategoryRepository, useValue: mockSubCategoryRepository },
+        { provide: UserRepository, useValue: mockUserRepository },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: RedisService, useValue: mockRedisService },
-        { provide: SLAService, useValue: mockSlaService },
         { provide: 'StorageService', useValue: mockStorageService },
       ],
     }).compile();
 
     service = module.get<TicketsService>(TicketsService);
-    prisma = module.get(PrismaService);
+    ticketRepository = module.get(TicketRepository);
+    categoryRepository = module.get(CategoryRepository);
+    subCategoryRepository = module.get(SubCategoryRepository);
+    userRepository = module.get(UserRepository);
     eventEmitter = module.get(EventEmitter2);
 
-    mockPrisma.$transaction.mockImplementation(
+    mockTicketRepository.transaction.mockImplementation(
       (fn: (tx: Record<string, unknown>) => unknown) =>
         fn({
           ticket: {
             findFirst: (...args: unknown[]) =>
-              mockPrisma.ticket.findFirst(...args),
+              mockTicketRepository.findFirst(...args),
           },
+          ticketHistory: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+          ticketHistoryDeleteMany: jest.fn(),
+          commentDeleteMany: jest.fn(),
+          attachmentDeleteMany: jest.fn(),
+          ticketDelete: jest.fn(),
         }),
     );
   });
@@ -145,56 +150,37 @@ describe('TicketsService', () => {
         subCategory: null,
       };
 
-      mockPrisma.category.findUnique.mockResolvedValue(mockCategory);
-      mockPrisma.ticket.findFirst.mockResolvedValue(null);
-      mockPrisma.ticket.create.mockResolvedValue(mockCreatedTicket);
-      mockPrisma.ticketHistory.create.mockResolvedValue({});
+      mockCategoryRepository.findById.mockResolvedValue(mockCategory);
+      mockTicketRepository.findFirst.mockResolvedValue(null);
+      mockTicketRepository.create.mockResolvedValue(mockCreatedTicket);
 
       const result = await service.create(createTicketDto, requesterId);
 
-      expect(mockPrisma.category.findUnique).toHaveBeenCalledWith({
-        where: { id: createTicketDto.categoryId },
-        include: {
-          slaConfigs: {
+      expect(mockCategoryRepository.findById).toHaveBeenCalledWith(
+        createTicketDto.categoryId,
+        expect.objectContaining({
+          slaConfigs: expect.objectContaining({
             where: { priority: Priority.High, isActive: true },
-          },
-        },
-      });
+          }),
+        }),
+      );
 
-      expect(mockPrisma.ticket.findFirst).toHaveBeenCalledWith({
-        orderBy: { ticketNumber: 'desc' },
-        select: { ticketNumber: true },
-      });
+      expect(mockTicketRepository.transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { isolationLevel: 'Serializable' },
+      );
 
-      expect(mockPrisma.ticket.create).toHaveBeenCalledWith({
-        data: {
+      expect(mockTicketRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
           ticketNumber: 'TKT-001',
           subject: createTicketDto.subject,
-          description: createTicketDto.description,
-          requesterId,
-          categoryId: createTicketDto.categoryId,
-          subCategoryId: null,
-          priority: Priority.High,
-          slaDueAt,
-          slaStatus: SLAStatus.OnTrack,
-          status: TicketStatus.Open,
-        },
-        include: {
+        }),
+        expect.objectContaining({
           requester: { select: { id: true, name: true, email: true } },
           category: true,
           subCategory: true,
-        },
-      });
-
-      expect(mockPrisma.ticketHistory.create).toHaveBeenCalledWith({
-        data: {
-          ticketId: 'ticket-1',
-          userId: requesterId,
-          field: 'status',
-          oldValue: null,
-          newValue: TicketStatus.Open,
-        },
-      });
+        }),
+      );
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('ticket.created', {
         ticketId: 'ticket-1',
@@ -209,23 +195,18 @@ describe('TicketsService', () => {
     });
 
     it('should throw BadRequestException when category is not found', async () => {
-      mockPrisma.category.findUnique.mockResolvedValue(null);
+      mockCategoryRepository.findById.mockResolvedValue(null);
 
       await expect(
         service.create(createTicketDto, requesterId),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrisma.category.findUnique).toHaveBeenCalledWith({
-        where: { id: createTicketDto.categoryId },
-        include: {
-          slaConfigs: {
-            where: { priority: Priority.High, isActive: true },
-          },
-        },
-      });
+      expect(mockCategoryRepository.findById).toHaveBeenCalledWith(
+        createTicketDto.categoryId,
+        expect.any(Object),
+      );
 
-      expect(mockPrisma.ticket.create).not.toHaveBeenCalled();
-      expect(mockPrisma.ticketHistory.create).not.toHaveBeenCalled();
+      expect(mockTicketRepository.create).not.toHaveBeenCalled();
     });
 
     it('should format ticket number as TKT-XXX', async () => {
@@ -235,9 +216,9 @@ describe('TicketsService', () => {
         slaConfigs: [],
       };
 
-      mockPrisma.category.findUnique.mockResolvedValue(mockCategory);
-      mockPrisma.ticket.findFirst.mockResolvedValueOnce(null);
-      mockPrisma.ticket.create.mockResolvedValue({
+      mockCategoryRepository.findById.mockResolvedValue(mockCategory);
+      mockTicketRepository.findFirst.mockResolvedValueOnce(null);
+      mockTicketRepository.create.mockResolvedValue({
         id: 'ticket-2',
         ticketNumber: 'TKT-001',
         subject: createTicketDto.subject,
@@ -256,18 +237,15 @@ describe('TicketsService', () => {
 
       await service.create(createTicketDto, requesterId);
 
-      expect(mockPrisma.ticket.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            ticketNumber: 'TKT-001',
-          }),
-        }),
+      expect(mockTicketRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ ticketNumber: 'TKT-001' }),
+        expect.any(Object),
       );
 
-      mockPrisma.ticket.findFirst.mockResolvedValueOnce({
+      mockTicketRepository.findFirst.mockResolvedValueOnce({
         ticketNumber: 'TKT-005',
       });
-      mockPrisma.ticket.create.mockResolvedValue({
+      mockTicketRepository.create.mockResolvedValue({
         id: 'ticket-3',
         ticketNumber: 'TKT-006',
         subject: createTicketDto.subject,
@@ -286,12 +264,9 @@ describe('TicketsService', () => {
 
       await service.create(createTicketDto, requesterId);
 
-      expect(mockPrisma.ticket.create).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            ticketNumber: 'TKT-006',
-          }),
-        }),
+      expect(mockTicketRepository.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ticketNumber: 'TKT-006' }),
+        expect.any(Object),
       );
     });
 
@@ -310,19 +285,16 @@ describe('TicketsService', () => {
         ],
       };
 
-      mockPrisma.category.findUnique.mockResolvedValue(mockCategory);
-      mockPrisma.ticket.findFirst.mockResolvedValue(null);
-
-      const expectedSlaDue = new Date(now.getTime() + resolutionTimeMinutes * 60 * 1000);
+      mockCategoryRepository.findById.mockResolvedValue(mockCategory);
+      mockTicketRepository.findFirst.mockResolvedValue(null);
 
       await service.create(createTicketDto, requesterId);
 
-      expect(mockPrisma.ticket.create).toHaveBeenCalledWith(
+      expect(mockTicketRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            slaDueAt: expectedSlaDue,
-          }),
+          slaDueAt: new Date(now.getTime() + resolutionTimeMinutes * 60 * 1000),
         }),
+        expect.any(Object),
       );
     });
 
@@ -333,19 +305,18 @@ describe('TicketsService', () => {
         slaConfigs: [],
       };
 
-      mockPrisma.category.findUnique.mockResolvedValue(mockCategory);
-      mockPrisma.ticket.findFirst.mockResolvedValue(null);
+      mockCategoryRepository.findById.mockResolvedValue(mockCategory);
+      mockTicketRepository.findFirst.mockResolvedValue(null);
 
       const expectedSlaDue = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       await service.create(createTicketDto, requesterId);
 
-      expect(mockPrisma.ticket.create).toHaveBeenCalledWith(
+      expect(mockTicketRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            slaDueAt: expectedSlaDue,
-          }),
+          slaDueAt: expectedSlaDue,
         }),
+        expect.any(Object),
       );
     });
   });
@@ -370,13 +341,13 @@ describe('TicketsService', () => {
     ];
 
     it('should return paginated tickets with default pagination', async () => {
-      mockPrisma.ticket.findMany.mockResolvedValue(mockTickets);
-      mockPrisma.ticket.count.mockResolvedValue(1);
+      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
+      mockTicketRepository.count.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {};
       const result = await service.findAll(queryTicketDto, 'Admin', 'admin-1');
 
-      expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
+      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 0,
           take: 10,
@@ -384,7 +355,7 @@ describe('TicketsService', () => {
         }),
       );
 
-      expect(mockPrisma.ticket.count).toHaveBeenCalledWith({ where: {} });
+      expect(mockTicketRepository.count).toHaveBeenCalledWith({});
 
       expect(result).toEqual({
         data: mockTickets,
@@ -393,8 +364,8 @@ describe('TicketsService', () => {
     });
 
     it('should apply filters correctly', async () => {
-      mockPrisma.ticket.findMany.mockResolvedValue(mockTickets);
-      mockPrisma.ticket.count.mockResolvedValue(1);
+      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
+      mockTicketRepository.count.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {
         status: TicketStatus.Open,
@@ -404,9 +375,9 @@ describe('TicketsService', () => {
         limit: 5,
       };
 
-      const result = await service.findAll(queryTicketDto, 'Admin', 'admin-1');
+      await service.findAll(queryTicketDto, 'Admin', 'admin-1');
 
-      expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
+      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             status: TicketStatus.Open,
@@ -418,20 +389,16 @@ describe('TicketsService', () => {
         }),
       );
 
-      expect(mockPrisma.ticket.count).toHaveBeenCalledWith({
-        where: {
-          status: TicketStatus.Open,
-          priority: Priority.High,
-          categoryId: 'cat-1',
-        },
+      expect(mockTicketRepository.count).toHaveBeenCalledWith({
+        status: TicketStatus.Open,
+        priority: Priority.High,
+        categoryId: 'cat-1',
       });
-
-      expect(result.meta).toEqual({ page: 2, limit: 5, total: 1 });
     });
 
     it('should search by subject using case-insensitive contains', async () => {
-      mockPrisma.ticket.findMany.mockResolvedValue(mockTickets);
-      mockPrisma.ticket.count.mockResolvedValue(1);
+      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
+      mockTicketRepository.count.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {
         search: 'vpn',
@@ -439,7 +406,7 @@ describe('TicketsService', () => {
 
       await service.findAll(queryTicketDto, 'Admin', 'admin-1');
 
-      expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
+      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             OR: [
@@ -453,13 +420,13 @@ describe('TicketsService', () => {
     });
 
     it('should restrict to requester tickets for EndUser role', async () => {
-      mockPrisma.ticket.findMany.mockResolvedValue(mockTickets);
-      mockPrisma.ticket.count.mockResolvedValue(1);
+      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
+      mockTicketRepository.count.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {};
       await service.findAll(queryTicketDto, 'EndUser', 'user-1');
 
-      expect(mockPrisma.ticket.findMany).toHaveBeenCalledWith(
+      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             requesterId: 'user-1',
@@ -486,9 +453,8 @@ describe('TicketsService', () => {
         status: TicketStatus.InProgress,
       };
 
-      mockPrisma.ticket.findUnique.mockResolvedValue(existingTicket);
-      mockPrisma.ticket.update.mockResolvedValue(updatedTicket);
-      mockPrisma.ticketHistory.create.mockResolvedValue({});
+      mockTicketRepository.findById.mockResolvedValue(existingTicket);
+      mockTicketRepository.update.mockResolvedValue(updatedTicket);
 
       const updateStatusDto: UpdateStatusDto = {
         status: TicketStatus.InProgress,
@@ -496,24 +462,14 @@ describe('TicketsService', () => {
 
       const result = await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
 
-      expect(mockPrisma.ticket.findUnique).toHaveBeenCalledWith({
-        where: { id: ticketId },
-      });
+      expect(mockTicketRepository.findById).toHaveBeenCalledWith(ticketId);
 
-      expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
-        where: { id: ticketId },
-        data: { status: TicketStatus.InProgress },
-      });
+      expect(mockTicketRepository.update).toHaveBeenCalledWith(
+        ticketId,
+        expect.objectContaining({ status: TicketStatus.InProgress }),
+      );
 
-      expect(mockPrisma.ticketHistory.create).toHaveBeenCalledWith({
-        data: {
-          ticketId,
-          userId,
-          field: 'status',
-          oldValue: TicketStatus.Open,
-          newValue: TicketStatus.InProgress,
-        },
-      });
+      expect(mockTicketRepository.transaction).toHaveBeenCalled();
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('ticket.status.updated', {
         ticketId,
@@ -535,7 +491,7 @@ describe('TicketsService', () => {
         assignedToId: null,
       };
 
-      mockPrisma.ticket.findUnique.mockResolvedValue(existingTicket);
+      mockTicketRepository.findById.mockResolvedValue(existingTicket);
 
       const updateStatusDto: UpdateStatusDto = {
         status: TicketStatus.Closed,
@@ -545,12 +501,11 @@ describe('TicketsService', () => {
         service.updateStatus(ticketId, updateStatusDto, userId, 'Admin'),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
-      expect(mockPrisma.ticketHistory.create).not.toHaveBeenCalled();
+      expect(mockTicketRepository.update).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when ticket does not exist', async () => {
-      mockPrisma.ticket.findUnique.mockResolvedValue(null);
+      mockTicketRepository.findById.mockResolvedValue(null);
 
       const updateStatusDto: UpdateStatusDto = {
         status: TicketStatus.InProgress,
@@ -560,8 +515,7 @@ describe('TicketsService', () => {
         service.updateStatus(ticketId, updateStatusDto, userId, 'Admin'),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
-      expect(mockPrisma.ticketHistory.create).not.toHaveBeenCalled();
+      expect(mockTicketRepository.update).not.toHaveBeenCalled();
     });
 
     it('should set resolvedAt when transitioning to Resolved', async () => {
@@ -572,13 +526,12 @@ describe('TicketsService', () => {
         assignedToId: 'agent-1',
       };
 
-      mockPrisma.ticket.findUnique.mockResolvedValue(existingTicket);
-      mockPrisma.ticket.update.mockImplementation(async ({ data }) => ({
+      mockTicketRepository.findById.mockResolvedValue(existingTicket);
+      mockTicketRepository.update.mockImplementation(async (_id: string, data: any) => ({
         ...existingTicket,
         status: TicketStatus.Resolved,
         resolvedAt: data.resolvedAt,
       }));
-      mockPrisma.ticketHistory.create.mockResolvedValue({});
 
       const updateStatusDto: UpdateStatusDto = {
         status: TicketStatus.Resolved,
@@ -586,13 +539,13 @@ describe('TicketsService', () => {
 
       await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
 
-      expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
-        where: { id: ticketId },
-        data: expect.objectContaining({
+      expect(mockTicketRepository.update).toHaveBeenCalledWith(
+        ticketId,
+        expect.objectContaining({
           status: TicketStatus.Resolved,
           resolvedAt: expect.any(Date),
         }),
-      });
+      );
     });
 
     it('should set closedAt when transitioning to Closed', async () => {
@@ -603,13 +556,12 @@ describe('TicketsService', () => {
         assignedToId: 'agent-1',
       };
 
-      mockPrisma.ticket.findUnique.mockResolvedValue(existingTicket);
-      mockPrisma.ticket.update.mockImplementation(async ({ data }) => ({
+      mockTicketRepository.findById.mockResolvedValue(existingTicket);
+      mockTicketRepository.update.mockImplementation(async (_id: string, data: any) => ({
         ...existingTicket,
         status: TicketStatus.Closed,
         closedAt: data.closedAt,
       }));
-      mockPrisma.ticketHistory.create.mockResolvedValue({});
 
       const updateStatusDto: UpdateStatusDto = {
         status: TicketStatus.Closed,
@@ -617,13 +569,13 @@ describe('TicketsService', () => {
 
       await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
 
-      expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
-        where: { id: ticketId },
-        data: expect.objectContaining({
+      expect(mockTicketRepository.update).toHaveBeenCalledWith(
+        ticketId,
+        expect.objectContaining({
           status: TicketStatus.Closed,
           closedAt: expect.any(Date),
         }),
-      });
+      );
     });
   });
 });

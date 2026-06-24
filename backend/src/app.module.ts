@@ -17,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthModule } from './health/health.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { RepositoriesModule } from './common/repositories/repositories.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TelegramModule } from './telegram/telegram.module';
     }),
     EventEmitterModule.forRoot(),
     PrismaModule,
+    RepositoriesModule,
     RedisModule,
     AuthModule,
     UsersModule,

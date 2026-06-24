@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import Layout from '@/components/layout/Layout';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import Layout from '@/layout/Layout';
+import ProtectedRoute from '@/auth/ProtectedRoute';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import LoginPage from '@/pages/LoginPage';
 import TicketsPage from '@/pages/TicketsPage';

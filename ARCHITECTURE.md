@@ -42,10 +42,37 @@
 | Reverse Proxy | Nginx | Single entry point, rate limiting, static file serving, reverse proxy. |
 | Containerization | Docker (Debian bookworm-slim) | Reproducible deployment, identical dev/prod environment. Debian base chosen over Alpine for native OpenSSL 3.x compatibility with Prisma engines. |
 | ORM | Prisma | Type-safe query builder, auto-generated types, migrations. |
+| Repository Pattern | Domain Repositories | Abstraction layer over PrismaService — services depend on repositories instead of ORM directly. Enables testability and DB-agnostic business logic. |
 
 ---
 
-## 2. Database Schema (ERD Textual)
+## 2. Repository Pattern
+
+Business logic services (`TicketsService`, `UsersService`, etc.) depend on **domain repositories** (`TicketRepository`, `UserRepository`, etc.) instead of injecting `PrismaService` directly. This abstraction layer provides:
+
+- **Testability** — services can be unit-tested with mock repositories instead of mocking the entire Prisma client
+- **Separation of concerns** — data access logic is encapsulated in repositories; services focus on business rules
+- **DB-agnosticism** — if the ORM changes, only repositories need updating, not services
+
+### Repository List
+
+| Repository | Prisma Model | Used By |
+|------------|-------------|---------|
+| `UserRepository` | `user` | `JwtStrategy`, `UsersService`, `TicketsService`, `NotificationsService`, `NotificationsGateway`, `TelegramService` |
+| `TicketRepository` | `ticket` | `TicketsService`, `CommentsService`, `AttachmentsService`, `SLAService`, `DashboardService` |
+| `CommentRepository` | `comment` | `CommentsService` |
+| `AttachmentRepository` | `attachment` | `AttachmentsService`, `CommentsService` |
+| `CategoryRepository` | `category` | `CategoriesService`, `TicketsService`, `SLAService` |
+| `SubCategoryRepository` | `subCategory` | `SubCategoriesService`, `TicketsService` |
+| `SlaConfigRepository` | `sLAConfig` | `SLAService` |
+| `NotificationRepository` | `notification` | `NotificationsService` |
+| `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
+
+All repositories are exported from `RepositoriesModule` (marked `@Global()`) and registered once in `AppModule` — no per-module imports needed, mirroring the pattern used by `PrismaModule`.
+
+---
+
+## 3. Database Schema (ERD Textual)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -237,8 +264,19 @@ it-support-ticketing/
 │       │   │   └── response-envelope.interceptor.ts
 │       │   ├── interfaces/
 │       │   │   └── storage-service.interface.ts
-│       │   └── pipes/
-│       │       └── uuid-validation.pipe.ts
+│       │   ├── pipes/
+│       │   │   └── uuid-validation.pipe.ts
+│       │   └── repositories/
+│       │       ├── repositories.module.ts
+│       │       ├── user.repository.ts
+│       │       ├── ticket.repository.ts
+│       │       ├── comment.repository.ts
+│       │       ├── attachment.repository.ts
+│       │       ├── category.repository.ts
+│       │       ├── sub-category.repository.ts
+│       │       ├── sla-config.repository.ts
+│       │       ├── notification.repository.ts
+│       │       └── telegram-config.repository.ts
 │       ├── auth/
 │       │   ├── auth.module.ts
 │       │   ├── auth.controller.ts
@@ -338,14 +376,14 @@ it-support-ticketing/
 │       │   ├── use-notifications.ts
 │       │   ├── use-telegram.ts
 │       │   └── use-change-password.ts
+│       ├── auth/
+│       │   ├── LoginForm.tsx
+│       │   └── ProtectedRoute.tsx
+│       ├── layout/
+│       │   ├── Layout.tsx
+│       │   ├── Sidebar.tsx
+│       │   └── Navbar.tsx
 │       ├── components/
-│       │   ├── auth/
-│       │   │   ├── LoginForm.tsx
-│       │   │   └── ProtectedRoute.tsx
-│       │   ├── layout/
-│       │   │   ├── Layout.tsx
-│       │   │   ├── Sidebar.tsx
-│       │   │   └── Navbar.tsx
 │       │   ├── tickets/
 │       │   │   ├── TicketList.tsx
 │       │   │   ├── TicketDetail.tsx
@@ -384,7 +422,7 @@ it-support-ticketing/
 
 ---
 
-## 4. Build & Deployment Notes
+## 5. Build & Deployment Notes
 
 ### Base Image Choice
 - **Production runtime**: `node:20-bookworm-slim` (Debian 12) — required for native Prisma engine binary compatibility with OpenSSL 3.x.
@@ -427,7 +465,7 @@ it-support-ticketing/
 
 ---
 
-## 5. Scaling Suggestions
+## 6. Scaling Suggestions
 
 ### To Kubernetes / Cloud-Native
 

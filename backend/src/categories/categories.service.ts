@@ -3,121 +3,80 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { CategoryRepository } from '../common/repositories/category.repository';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly categoryRepository: CategoryRepository) {}
 
   async findAll() {
-    return this.prisma.category.findMany({
-      orderBy: { name: 'asc' },
-      include: {
-        subCategories: {
-          where: { isActive: true },
-          orderBy: { name: 'asc' },
-        },
-        _count: { select: { tickets: true } },
-      },
-    });
+    return this.categoryRepository.findAll();
   }
 
   async findById(id: string) {
-    const category = await this.prisma.category.findUnique({
-      where: { id },
-      include: {
-        subCategories: {
-          where: { isActive: true },
-          orderBy: { name: 'asc' },
-        },
-        slaConfigs: true,
-        _count: { select: { tickets: true } },
-      },
-    });
-
+    const category = await this.categoryRepository.findById(id);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
-
     return category;
   }
 
   async create(createCategoryDto: CreateCategoryDto) {
-    const existing = await this.prisma.category.findUnique({
-      where: { name: createCategoryDto.name },
-    });
+    const existing = await this.categoryRepository.findByName(createCategoryDto.name);
 
     if (existing) {
       if (!existing.isActive) {
-        return this.prisma.category.update({
-          where: { id: existing.id },
-          data: {
+        return this.categoryRepository.update(
+          existing.id,
+          {
             isActive: true,
             description: createCategoryDto.description ?? existing.description,
           },
-          include: { subCategories: true },
-        });
+          { subCategories: true },
+        );
       }
       throw new ConflictException('Category with this name already exists');
     }
 
-    return this.prisma.category.create({
-      data: {
+    return this.categoryRepository.create(
+      {
         name: createCategoryDto.name,
         description: createCategoryDto.description,
       },
-      include: {
-        subCategories: true,
-      },
-    });
+      { subCategories: true },
+    );
   }
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto) {
-    const category = await this.prisma.category.findUnique({
-      where: { id },
-    });
-
+    const category = await this.categoryRepository.findById(id);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
     if (updateCategoryDto.name) {
-      const existing = await this.prisma.category.findUnique({
-        where: { name: updateCategoryDto.name },
-      });
+      const existing = await this.categoryRepository.findByName(updateCategoryDto.name);
       if (existing && existing.id !== id) {
         throw new ConflictException('Category with this name already exists');
       }
     }
 
-    return this.prisma.category.update({
-      where: { id },
-      data: updateCategoryDto,
-      include: {
-        subCategories: true,
-      },
+    return this.categoryRepository.update(id, updateCategoryDto, {
+      subCategories: true,
     });
   }
 
   async delete(id: string): Promise<void> {
-    const category = await this.prisma.category.findUnique({
-      where: { id },
-      include: { _count: { select: { tickets: true } } },
-    });
-
+    const category = await this.categoryRepository.findWithTicketCount(id);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
     if (category._count.tickets > 0) {
-      await this.prisma.category.update({
-        where: { id },
-        data: { isActive: false },
-      });
+      await this.categoryRepository.update(id, { isActive: false });
     } else {
-      await this.prisma.category.delete({ where: { id } });
+      await this.categoryRepository.delete(id);
     }
   }
 }

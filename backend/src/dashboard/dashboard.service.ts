@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TicketRepository } from '../common/repositories/ticket.repository';
 import { TicketStatus, SLAStatus } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly ticketRepository: TicketRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async getStats() {
     const [
@@ -36,29 +40,29 @@ export class DashboardService {
   }
 
   private async getStatusCounts() {
-    const counts = await this.prisma.ticket.groupBy({
+    const counts = await this.ticketRepository.groupBy({
       by: ['status'],
       _count: { id: true },
-    });
+    } as any);
 
     const result: Record<string, number> = {};
     for (const status of Object.values(TicketStatus)) {
       result[status] = 0;
     }
-    for (const item of counts) {
+    for (const item of counts as any[]) {
       result[item.status] = item._count.id;
     }
     return result;
   }
 
   private async getPriorityCounts() {
-    const counts = await this.prisma.ticket.groupBy({
+    const counts = await this.ticketRepository.groupBy({
       by: ['priority'],
       _count: { id: true },
-    });
+    } as any);
 
     const result: Record<string, number> = {};
-    for (const item of counts) {
+    for (const item of counts as any[]) {
       result[item.priority] = item._count.id;
     }
     return result;
@@ -70,16 +74,10 @@ export class DashboardService {
     };
 
     const [total, onTrack, atRisk, breached] = await Promise.all([
-      this.prisma.ticket.count({ where: activeWhere }),
-      this.prisma.ticket.count({
-        where: { ...activeWhere, slaStatus: SLAStatus.OnTrack },
-      }),
-      this.prisma.ticket.count({
-        where: { ...activeWhere, slaStatus: SLAStatus.AtRisk },
-      }),
-      this.prisma.ticket.count({
-        where: { ...activeWhere, slaStatus: SLAStatus.Breached },
-      }),
+      this.ticketRepository.count(activeWhere),
+      this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.OnTrack }),
+      this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.AtRisk }),
+      this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.Breached }),
     ]);
 
     return {
@@ -96,7 +94,7 @@ export class DashboardService {
     since.setDate(since.getDate() - days);
     since.setHours(0, 0, 0, 0);
 
-    const tickets = await this.prisma.ticket.findMany({
+    const tickets = await this.ticketRepository.findMany({
       where: { createdAt: { gte: since } },
       select: { createdAt: true },
       orderBy: { createdAt: 'asc' },

@@ -5,7 +5,8 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { TelegramConfigRepository } from '../common/repositories/telegram-config.repository';
+import { UserRepository } from '../common/repositories/user.repository';
 
 export interface TelegramSettings {
   enabledEvents: string[];
@@ -31,7 +32,10 @@ export class TelegramService
   private readonly logger = new Logger(TelegramService.name);
   private polling = false;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly telegramConfigRepository: TelegramConfigRepository,
+    private readonly userRepository: UserRepository,
+  ) {}
 
   async onApplicationBootstrap() {
     await this.startBot();
@@ -54,13 +58,13 @@ export class TelegramService
   }
 
   private async resolveToken(): Promise<string | null> {
-    const config = await this.prisma.telegramConfig.findFirst();
+    const config = await this.telegramConfigRepository.findFirst();
     if (config?.botToken) return config.botToken;
     return process.env.TELEGRAM_BOT_TOKEN || null;
   }
 
   private async resolveSettings(): Promise<TelegramSettings> {
-    const config = await this.prisma.telegramConfig.findFirst();
+    const config = await this.telegramConfigRepository.findFirst();
     const defaults: TelegramSettings = {
       enabledEvents: ['ticket.created'],
       enableGroupChat: false,
@@ -129,12 +133,7 @@ export class TelegramService
         return;
       }
 
-      const user = await this.prisma.user.findFirst({
-        where: {
-          telegramCode: code,
-          telegramCodeAt: { gte: new Date() },
-        },
-      });
+      const user = await this.userRepository.findWithTelegramCode(code);
 
       if (!user) {
         await this.sendMessage(
@@ -145,13 +144,10 @@ export class TelegramService
         return;
       }
 
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          telegramChatId: String(chatId),
-          telegramCode: null,
-          telegramCodeAt: null,
-        },
+      await this.userRepository.update(user.id, {
+        telegramChatId: String(chatId),
+        telegramCode: null,
+        telegramCodeAt: null,
       });
 
       await this.sendMessage(
@@ -175,11 +171,9 @@ export class TelegramService
   }
 
   async getConfig() {
-    let config = await this.prisma.telegramConfig.findFirst();
+    let config = await this.telegramConfigRepository.findFirst();
     if (!config) {
-      config = await this.prisma.telegramConfig.create({
-        data: { settings: {} },
-      });
+      config = await this.telegramConfigRepository.create({ settings: {} });
     }
     const settings = config.settings as unknown as TelegramSettings;
     return {
@@ -194,9 +188,9 @@ export class TelegramService
     botToken?: string;
     settings?: TelegramSettings;
   }) {
-    let config = await this.prisma.telegramConfig.findFirst();
+    let config = await this.telegramConfigRepository.findFirst();
     if (!config) {
-      config = await this.prisma.telegramConfig.create({ data: {} });
+      config = await this.telegramConfigRepository.create({ data: {} });
     }
 
     const update: Record<string, unknown> = {};
@@ -223,11 +217,7 @@ export class TelegramService
       update.settings = merged;
     }
 
-    await this.prisma.telegramConfig.update({
-      where: { id: config.id },
-      data: update,
-    });
-
+    await this.telegramConfigRepository.update(config.id, update);
     await this.startBot();
 
     return this.getConfig();
@@ -264,14 +254,7 @@ export class TelegramService
       if (!settings.notifyIndividualsWhenGroupChat) return;
     }
 
-    const users = await this.prisma.user.findMany({
-      where: {
-        role: { in: ['ITSupport', 'Admin'] },
-        isActive: true,
-        telegramChatId: { not: null },
-      },
-      select: { telegramChatId: true },
-    });
+    const users = await this.userRepository.findTelegramLinkedUsers();
 
     for (const user of users) {
       if (user.telegramChatId) {
@@ -284,10 +267,7 @@ export class TelegramService
     const token = await this.resolveToken();
     if (!token) return;
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { telegramChatId: true },
-    });
+    const user = await this.userRepository.getTelegramChatId(userId);
 
     if (user?.telegramChatId) {
       await this.sendMessage(token, Number(user.telegramChatId), message);
@@ -415,10 +395,7 @@ export class TelegramService
       }
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { telegramChatId: true },
-    });
+    const user = await this.userRepository.getTelegramChatId(userId);
 
     if (!user?.telegramChatId) {
       if (groupSent) return;
@@ -432,30 +409,24 @@ export class TelegramService
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { telegramCode: code, telegramCodeAt: expiresAt },
+    await this.userRepository.update(userId, {
+      telegramCode: code,
+      telegramCodeAt: expiresAt,
     });
 
     return code;
   }
 
   async unlink(userId: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        telegramChatId: null,
-        telegramCode: null,
-        telegramCodeAt: null,
-      },
+    await this.userRepository.update(userId, {
+      telegramChatId: null,
+      telegramCode: null,
+      telegramCodeAt: null,
     });
   }
 
   async getStatus(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { telegramChatId: true },
-    });
+    const user = await this.userRepository.getTelegramChatId(userId);
     return { linked: !!user?.telegramChatId };
   }
 }

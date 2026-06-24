@@ -8,7 +8,7 @@ import { Server, Socket } from 'socket.io';
 import { OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { UserRepository } from '../common/repositories/user.repository';
 
 interface NotificationPayload {
   userId: string;
@@ -36,7 +36,7 @@ export class NotificationsGateway
 
   constructor(
     private readonly jwtService: JwtService,
-    private readonly prisma: PrismaService,
+    private readonly userRepository: UserRepository,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -53,10 +53,7 @@ export class NotificationsGateway
       const payload = this.jwtService.verify<{ sub: string }>(token);
       const userId = payload.sub;
 
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { isActive: true },
-      });
+      const user = await this.userRepository.getForValidation(userId);
       if (!user?.isActive) {
         client.disconnect();
         return;

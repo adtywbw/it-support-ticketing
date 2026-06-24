@@ -3,46 +3,41 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
+import { CategoryRepository } from '../common/repositories/category.repository';
 
 @Injectable()
 export class SubCategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly subCategoryRepository: SubCategoryRepository,
+    private readonly categoryRepository: CategoryRepository,
+  ) {}
 
   async findByCategoryId(categoryId: string) {
-    const category = await this.prisma.category.findUnique({
-      where: { id: categoryId },
-    });
-
+    const category = await this.categoryRepository.findById(categoryId);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
-    return this.prisma.subCategory.findMany({
-      where: { categoryId, isActive: true },
-      orderBy: { name: 'asc' },
-      include: { _count: { select: { tickets: true } } },
-    });
+    return this.subCategoryRepository.findByCategoryId(categoryId);
   }
 
   async create(data: { categoryId: string; name: string; description?: string }) {
-    const category = await this.prisma.category.findUnique({
-      where: { id: data.categoryId },
-    });
-
+    const category = await this.categoryRepository.findById(data.categoryId);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
-    const existing = await this.prisma.subCategory.findUnique({
-      where: { categoryId_name: { categoryId: data.categoryId, name: data.name } },
-    });
+    const existing = await this.subCategoryRepository.findByCategoryAndName(
+      data.categoryId,
+      data.name,
+    );
 
     if (existing) {
       if (!existing.isActive) {
-        return this.prisma.subCategory.update({
-          where: { id: existing.id },
-          data: { isActive: true, description: data.description ?? existing.description },
+        return this.subCategoryRepository.update(existing.id, {
+          isActive: true,
+          description: data.description ?? existing.description,
         });
       }
       throw new ConflictException(
@@ -50,8 +45,10 @@ export class SubCategoriesService {
       );
     }
 
-    return this.prisma.subCategory.create({
-      data,
+    return this.subCategoryRepository.create({
+      category: { connect: { id: data.categoryId } },
+      name: data.name,
+      description: data.description,
     });
   }
 
@@ -59,23 +56,16 @@ export class SubCategoriesService {
     id: string,
     data: { name?: string; description?: string; isActive?: boolean },
   ) {
-    const subCategory = await this.prisma.subCategory.findUnique({
-      where: { id },
-    });
-
+    const subCategory = await this.subCategoryRepository.findById(id);
     if (!subCategory) {
       throw new NotFoundException('Sub-category not found');
     }
 
     if (data.name && data.name !== subCategory.name) {
-      const existing = await this.prisma.subCategory.findUnique({
-        where: {
-          categoryId_name: {
-            categoryId: subCategory.categoryId,
-            name: data.name,
-          },
-        },
-      });
+      const existing = await this.subCategoryRepository.findByCategoryAndName(
+        subCategory.categoryId,
+        data.name,
+      );
       if (existing) {
         throw new ConflictException(
           'Sub-category with this name already exists in this category',
@@ -83,16 +73,12 @@ export class SubCategoriesService {
       }
     }
 
-    return this.prisma.subCategory.update({
-      where: { id },
-      data,
-    });
+    return this.subCategoryRepository.update(id, data);
   }
 
   async delete(id: string): Promise<void> {
-    const subCategory = await this.prisma.subCategory.findUnique({
-      where: { id },
-      include: { _count: { select: { tickets: true } } },
+    const subCategory = await this.subCategoryRepository.findById(id, {
+      _count: { select: { tickets: true } },
     });
 
     if (!subCategory) {
@@ -100,12 +86,9 @@ export class SubCategoriesService {
     }
 
     if (subCategory._count.tickets > 0) {
-      await this.prisma.subCategory.update({
-        where: { id },
-        data: { isActive: false },
-      });
+      await this.subCategoryRepository.update(id, { isActive: false });
     } else {
-      await this.prisma.subCategory.delete({ where: { id } });
+      await this.subCategoryRepository.delete(id);
     }
   }
 }

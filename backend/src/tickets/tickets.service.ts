@@ -6,13 +6,16 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { PrismaService } from '../prisma/prisma.service';
+import { TicketRepository } from '../common/repositories/ticket.repository';
+import { CategoryRepository } from '../common/repositories/category.repository';
+import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
+import { UserRepository } from '../common/repositories/user.repository';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
-import { Prisma, TicketStatus, Priority, SLAStatus, CommentType } from '@prisma/client';
+import { TicketStatus, Priority, SLAStatus, CommentType } from '@prisma/client';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
@@ -26,16 +29,18 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
 @Injectable()
 export class TicketsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly ticketRepository: TicketRepository,
+    private readonly categoryRepository: CategoryRepository,
+    private readonly subCategoryRepository: SubCategoryRepository,
+    private readonly userRepository: UserRepository,
     private readonly eventEmitter: EventEmitter2,
     @Inject('StorageService')
     private readonly storageService: StorageService,
   ) {}
 
   async create(createTicketDto: CreateTicketDto, requesterId: string) {
-    const category = await this.prisma.category.findUnique({
-      where: { id: createTicketDto.categoryId },
-      include: { slaConfigs: { where: { priority: createTicketDto.priority || Priority.Medium, isActive: true } } },
+    const category = await this.categoryRepository.findById(createTicketDto.categoryId, {
+      slaConfigs: { where: { priority: createTicketDto.priority || Priority.Medium, isActive: true } },
     });
 
     if (!category) {
@@ -43,49 +48,51 @@ export class TicketsService {
     }
 
     if (createTicketDto.subCategoryId) {
-      const subCategory = await this.prisma.subCategory.findUnique({
-        where: { id: createTicketDto.subCategoryId },
-      });
+      const subCategory = await this.subCategoryRepository.findById(createTicketDto.subCategoryId);
       if (!subCategory || subCategory.categoryId !== createTicketDto.categoryId) {
         throw new BadRequestException('Invalid sub-category for the selected category');
       }
     }
 
-    const slaConfig = category.slaConfigs[0];
+    const slaConfig = category.slaConfigs?.[0];
     const slaDueAt = slaConfig
       ? new Date(Date.now() + slaConfig.resolutionTimeMinutes * 60 * 1000)
       : new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const ticketNumber = await this.generateTicketNumber();
 
-    const ticket = await this.prisma.ticket.create({
-      data: {
+    const ticket = await this.ticketRepository.create(
+      {
         ticketNumber,
         subject: createTicketDto.subject,
         description: createTicketDto.description,
-        requesterId,
-        categoryId: createTicketDto.categoryId,
-        subCategoryId: createTicketDto.subCategoryId || null,
+        requester: { connect: { id: requesterId } },
+        category: { connect: { id: createTicketDto.categoryId } },
+        subCategory: createTicketDto.subCategoryId
+          ? { connect: { id: createTicketDto.subCategoryId } }
+          : undefined,
         priority: createTicketDto.priority || Priority.Medium,
         slaDueAt,
         slaStatus: SLAStatus.OnTrack,
         status: TicketStatus.Open,
       },
-      include: {
+      {
         requester: { select: { id: true, name: true, email: true } },
         category: true,
         subCategory: true,
       },
-    });
+    );
 
-    await this.prisma.ticketHistory.create({
-      data: {
-        ticketId: ticket.id,
-        userId: requesterId,
-        field: 'status',
-        oldValue: null,
-        newValue: TicketStatus.Open,
-      },
+    await this.ticketRepository.transaction(async (tx) => {
+      await tx.ticketHistory.create({
+        data: {
+          ticketId: ticket.id,
+          userId: requesterId,
+          field: 'status',
+          oldValue: null,
+          newValue: TicketStatus.Open,
+        },
+      });
     });
 
     this.eventEmitter.emit('ticket.created', {
@@ -117,47 +124,30 @@ export class TicketsService {
       sortOrder = 'desc',
     } = queryTicketDto;
 
-    const where: Prisma.TicketWhereInput = {};
+    const where: Record<string, unknown> = {};
 
     if (userRole === 'EndUser') {
       where.requesterId = userId;
     }
 
-    if (status) {
-      where.status = status;
-    }
-
-    if (priority) {
-      where.priority = priority;
-    }
-
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-
-    if (assignedToId) {
-      where.assignedToId = assignedToId;
-    }
-
-    if (requesterId && userRole !== 'EndUser') {
-      where.requesterId = requesterId;
-    }
-
-    if (slaStatus) {
-      where.slaStatus = slaStatus;
-    }
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (categoryId) where.categoryId = categoryId;
+    if (assignedToId) where.assignedToId = assignedToId;
+    if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
+    if (slaStatus) where.slaStatus = slaStatus;
 
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) {
         const startDate = new Date(dateFrom);
         startDate.setUTCHours(0, 0, 0, 0);
-        where.createdAt.gte = startDate;
+        (where.createdAt as Record<string, unknown>).gte = startDate;
       }
       if (dateTo) {
         const endDate = new Date(dateTo);
         endDate.setUTCHours(23, 59, 59, 999);
-        where.createdAt.lte = endDate;
+        (where.createdAt as Record<string, unknown>).lte = endDate;
       }
     }
 
@@ -171,28 +161,11 @@ export class TicketsService {
 
     const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
-
-    const orderBy: Prisma.TicketOrderByWithRelationInput = {};
-
-    if (orderField === 'ticketNumber') {
-      orderBy.ticketNumber = sortOrder as Prisma.SortOrder;
-    } else if (orderField === 'subject') {
-      orderBy.subject = sortOrder as Prisma.SortOrder;
-    } else if (orderField === 'status') {
-      orderBy.status = sortOrder as Prisma.SortOrder;
-    } else if (orderField === 'priority') {
-      orderBy.priority = sortOrder as Prisma.SortOrder;
-    } else if (orderField === 'slaDueAt') {
-      orderBy.slaDueAt = sortOrder as Prisma.SortOrder;
-    } else if (orderField === 'updatedAt') {
-      orderBy.updatedAt = sortOrder as Prisma.SortOrder;
-    } else {
-      orderBy.createdAt = sortOrder as Prisma.SortOrder;
-    }
+    const orderBy: Record<string, string> = { [orderField]: sortOrder };
 
     const [tickets, total] = await Promise.all([
-      this.prisma.ticket.findMany({
-        where,
+      this.ticketRepository.findMany({
+        where: where as any,
         skip: (page - 1) * limit,
         take: limit,
         orderBy,
@@ -204,7 +177,7 @@ export class TicketsService {
           _count: { select: { comments: true, attachments: true } },
         },
       }),
-      this.prisma.ticket.count({ where }),
+      this.ticketRepository.count(where as any),
     ]);
 
     return { data: tickets, meta: { page, limit, total } };
@@ -212,42 +185,32 @@ export class TicketsService {
 
   async exportCsv(queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
     const {
-      status,
-      priority,
-      categoryId,
-      assignedToId,
-      requesterId,
-      slaStatus,
-      dateFrom,
-      dateTo,
-      search,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
+      status, priority, categoryId, assignedToId, requesterId,
+      slaStatus, dateFrom, dateTo, search,
+      sortBy = 'createdAt', sortOrder = 'desc',
     } = queryTicketDto;
 
-    const where: Prisma.TicketWhereInput = {};
+    const where: Record<string, unknown> = {};
 
-    if (userRole === 'EndUser') {
-      where.requesterId = userId;
-    }
-
+    if (userRole === 'EndUser') where.requesterId = userId;
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (categoryId) where.categoryId = categoryId;
     if (assignedToId) where.assignedToId = assignedToId;
     if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
     if (slaStatus) where.slaStatus = slaStatus;
+
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) {
         const startDate = new Date(dateFrom);
         startDate.setUTCHours(0, 0, 0, 0);
-        where.createdAt.gte = startDate;
+        (where.createdAt as Record<string, unknown>).gte = startDate;
       }
       if (dateTo) {
         const endDate = new Date(dateTo);
         endDate.setUTCHours(23, 59, 59, 999);
-        where.createdAt.lte = endDate;
+        (where.createdAt as Record<string, unknown>).lte = endDate;
       }
     }
     if (search) {
@@ -260,19 +223,10 @@ export class TicketsService {
 
     const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    const orderBy: Prisma.TicketOrderByWithRelationInput = {};
-    if (orderField === 'priority') {
-      orderBy.priority = sortOrder as Prisma.SortOrder;
-    } else if (orderField === 'slaDueAt') {
-      orderBy.slaDueAt = sortOrder as Prisma.SortOrder;
-    } else if (orderField === 'updatedAt') {
-      orderBy.updatedAt = sortOrder as Prisma.SortOrder;
-    } else {
-      orderBy.createdAt = sortOrder as Prisma.SortOrder;
-    }
+    const orderBy: Record<string, string> = { [orderField]: sortOrder };
 
-    const tickets = await this.prisma.ticket.findMany({
-      where,
+    const tickets = await this.ticketRepository.findMany({
+      where: where as any,
       orderBy,
       include: {
         requester: { select: { id: true, name: true, email: true } },
@@ -283,7 +237,7 @@ export class TicketsService {
     });
 
     const headers = ['Ticket #', 'Subject', 'Status', 'Priority', 'Category', 'Sub Category', 'Created By', 'Assigned To', 'Created At', 'Resolved At', 'SLA Status'];
-    const rows = tickets.map((t) => [
+    const rows = tickets.map((t: any) => [
       t.ticketNumber,
       `"${(t.subject || '').replace(/"/g, '""')}"`,
       t.status,
@@ -297,38 +251,35 @@ export class TicketsService {
       t.slaStatus || '',
     ]);
 
-    return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    return [headers.join(','), ...rows.map((r: any) => r.join(','))].join('\n');
   }
 
   async findById(id: string, userRole?: string, userId?: string) {
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id },
-      include: {
-        requester: { select: { id: true, name: true, email: true, avatarUrl: true } },
-        assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
-        category: { select: { id: true, name: true } },
-        subCategory: { select: { id: true, name: true } },
-        comments: {
-          where: userRole === 'EndUser' ? { type: CommentType.PUBLIC } : undefined,
-          orderBy: { createdAt: 'asc' },
-          include: {
-            user: { select: { id: true, name: true, email: true, role: true } },
-          },
+    const ticket = await this.ticketRepository.findById(id, {
+      requester: { select: { id: true, name: true, email: true, avatarUrl: true } },
+      assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
+      category: { select: { id: true, name: true } },
+      subCategory: { select: { id: true, name: true } },
+      comments: {
+        where: userRole === 'EndUser' ? { type: CommentType.PUBLIC } : undefined,
+        orderBy: { createdAt: 'asc' },
+        include: {
+          user: { select: { id: true, name: true, email: true, role: true } },
         },
-        attachments: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: { select: { id: true, name: true } },
-          },
-        },
-        histories: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: { select: { id: true, name: true } },
-          },
-        },
-        _count: { select: { comments: true, attachments: true } },
       },
+      attachments: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true } },
+        },
+      },
+      histories: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true } },
+        },
+      },
+      _count: { select: { comments: true, attachments: true } },
     });
 
     if (!ticket) {
@@ -343,7 +294,7 @@ export class TicketsService {
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string, userRole: string) {
-    const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+    const ticket = await this.ticketRepository.findById(id);
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
@@ -367,7 +318,7 @@ export class TicketsService {
       );
     }
 
-    const updateData: Prisma.TicketUpdateInput = {
+    const updateData: Record<string, unknown> = {
       status: updateStatusDto.status,
     };
 
@@ -384,19 +335,18 @@ export class TicketsService {
       updateData.resolvedAt = null;
     }
 
-    const updatedTicket = await this.prisma.ticket.update({
-      where: { id },
-      data: updateData,
-    });
+    const updatedTicket = await this.ticketRepository.update(id, updateData as any);
 
-    await this.prisma.ticketHistory.create({
-      data: {
-        ticketId: id,
-        userId,
-        field: 'status',
-        oldValue: ticket.status,
-        newValue: updateStatusDto.status,
-      },
+    await this.ticketRepository.transaction(async (tx) => {
+      await tx.ticketHistory.create({
+        data: {
+          ticketId: id,
+          userId,
+          field: 'status',
+          oldValue: ticket.status,
+          newValue: updateStatusDto.status,
+        },
+      });
     });
 
     this.eventEmitter.emit('ticket.status.updated', {
@@ -414,33 +364,32 @@ export class TicketsService {
   }
 
   async assignTicket(id: string, assignTicketDto: AssignTicketDto, userId: string) {
-    const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+    const ticket = await this.ticketRepository.findById(id);
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    const assignedUser = await this.prisma.user.findUnique({
-      where: { id: assignTicketDto.assignedToId },
-    });
+    const assignedUser = await this.userRepository.getForValidation(assignTicketDto.assignedToId);
     if (!assignedUser || assignedUser.role === 'EndUser') {
       throw new BadRequestException('Cannot assign ticket to this user');
     }
 
     const oldAssigneeId = ticket.assignedToId;
 
-    const updatedTicket = await this.prisma.ticket.update({
-      where: { id },
-      data: { assignedToId: assignTicketDto.assignedToId },
-    });
+    const updatedTicket = await this.ticketRepository.update(id, {
+      assignedTo: { connect: { id: assignTicketDto.assignedToId } },
+    } as any);
 
-    await this.prisma.ticketHistory.create({
-      data: {
-        ticketId: id,
-        userId,
-        field: 'assignedTo',
-        oldValue: oldAssigneeId || null,
-        newValue: assignTicketDto.assignedToId,
-      },
+    await this.ticketRepository.transaction(async (tx) => {
+      await tx.ticketHistory.create({
+        data: {
+          ticketId: id,
+          userId,
+          field: 'assignedTo',
+          oldValue: oldAssigneeId || null,
+          newValue: assignTicketDto.assignedToId,
+        },
+      });
     });
 
     this.eventEmitter.emit('ticket.assigned', {
@@ -454,42 +403,40 @@ export class TicketsService {
   }
 
   async updatePriority(id: string, updatePriorityDto: UpdatePriorityDto, userId: string) {
-    const ticket = await this.prisma.ticket.findUnique({ where: { id } });
+    const ticket = await this.ticketRepository.findById(id);
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    const updatedTicket = await this.prisma.ticket.update({
-      where: { id },
-      data: { priority: updatePriorityDto.priority },
+    const updatedTicket = await this.ticketRepository.update(id, {
+      priority: updatePriorityDto.priority,
     });
 
-    await this.prisma.ticketHistory.create({
-      data: {
-        ticketId: id,
-        userId,
-        field: 'priority',
-        oldValue: ticket.priority,
-        newValue: updatePriorityDto.priority,
-      },
+    await this.ticketRepository.transaction(async (tx) => {
+      await tx.ticketHistory.create({
+        data: {
+          ticketId: id,
+          userId,
+          field: 'priority',
+          oldValue: ticket.priority,
+          newValue: updatePriorityDto.priority,
+        },
+      });
     });
 
     return updatedTicket;
   }
 
   async delete(id: string): Promise<void> {
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id },
-      include: {
-        attachments: { select: { path: true } },
-      },
+    const ticket = await this.ticketRepository.findById(id, {
+      attachments: { select: { path: true } },
     });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    for (const attachment of ticket.attachments) {
+    for (const attachment of ticket.attachments || []) {
       try {
         await this.storageService.delete(attachment.path);
       } catch {
@@ -497,16 +444,16 @@ export class TicketsService {
       }
     }
 
-    await this.prisma.$transaction([
-      this.prisma.ticketHistory.deleteMany({ where: { ticketId: id } }),
-      this.prisma.comment.deleteMany({ where: { ticketId: id } }),
-      this.prisma.attachment.deleteMany({ where: { ticketId: id } }),
-      this.prisma.ticket.delete({ where: { id } }),
-    ]);
+    await this.ticketRepository.transaction(async (tx) => {
+      await tx.ticketHistory.deleteMany({ where: { ticketId: id } });
+      await tx.comment.deleteMany({ where: { ticketId: id } });
+      await tx.attachment.deleteMany({ where: { ticketId: id } });
+      await tx.ticket.delete({ where: { id } });
+    });
   }
 
   private async generateTicketNumber(): Promise<string> {
-    return this.prisma.$transaction(async (tx) => {
+    return this.ticketRepository.transaction(async (tx) => {
       const lastTicket = await tx.ticket.findFirst({
         orderBy: { ticketNumber: 'desc' },
         select: { ticketNumber: true },

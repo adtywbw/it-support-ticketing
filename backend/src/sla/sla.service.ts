@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../prisma/prisma.service';
+import { SlaConfigRepository } from '../common/repositories/sla-config.repository';
+import { TicketRepository } from '../common/repositories/ticket.repository';
 import { RedisService } from '../redis/redis.service';
 import { Priority, SLAStatus, TicketStatus } from '@prisma/client';
 
@@ -10,19 +11,18 @@ export class SLAService {
   private readonly logger = new Logger(SLAService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly slaConfigRepository: SlaConfigRepository,
+    private readonly ticketRepository: TicketRepository,
     private readonly redisService: RedisService,
   ) {}
 
   async getSLAConfig(categoryId: string, priority: Priority) {
-    const config = await this.prisma.sLAConfig.findUnique({
-      where: {
-        categoryId_priority: { categoryId, priority },
-      },
+    const config = await this.slaConfigRepository.findUnique({
+      categoryId_priority: { categoryId, priority },
     });
 
     if (!config || !config.isActive) {
-      const fallback = await this.prisma.sLAConfig.findFirst({
+      const fallback = await this.slaConfigRepository.findFirst({
         where: { isActive: true },
         orderBy: { resolutionTimeMinutes: 'asc' },
       });
@@ -33,12 +33,7 @@ export class SLAService {
   }
 
   async findAll() {
-    return this.prisma.sLAConfig.findMany({
-      include: {
-        category: { select: { id: true, name: true } },
-      },
-      orderBy: [{ categoryId: 'asc' }, { priority: 'asc' }],
-    });
+    return this.slaConfigRepository.findAll();
   }
 
   async create(data: {
@@ -47,7 +42,12 @@ export class SLAService {
     responseTimeMinutes: number;
     resolutionTimeMinutes: number;
   }) {
-    return this.prisma.sLAConfig.create({ data });
+    return this.slaConfigRepository.create({
+      category: { connect: { id: data.categoryId } },
+      priority: data.priority,
+      responseTimeMinutes: data.responseTimeMinutes,
+      resolutionTimeMinutes: data.resolutionTimeMinutes,
+    });
   }
 
   async update(
@@ -58,7 +58,7 @@ export class SLAService {
       isActive?: boolean;
     },
   ) {
-    return this.prisma.sLAConfig.update({ where: { id }, data });
+    return this.slaConfigRepository.update(id, data);
   }
 
   @Cron('*/5 * * * *')
@@ -89,7 +89,7 @@ export class SLAService {
     let hasMore = true;
 
     while (hasMore) {
-      const batch = await this.prisma.ticket.findMany({
+      const batch = await this.ticketRepository.findMany({
         where: {
           status: {
             notIn: [TicketStatus.Resolved, TicketStatus.Closed],
@@ -120,7 +120,7 @@ export class SLAService {
 
       for (const ticket of batch) {
         const slaConfig = ticket.category.slaConfigs.find(
-          (config) => config.priority === ticket.priority,
+          (config: any) => config.priority === ticket.priority,
         );
 
         if (!slaConfig) continue;
@@ -151,22 +151,22 @@ export class SLAService {
       }
 
       if (onTrack.length > 0) {
-        await this.prisma.ticket.updateMany({
-          where: { id: { in: onTrack } },
-          data: { slaStatus: SLAStatus.OnTrack },
-        });
+        await this.ticketRepository.updateMany(
+          { id: { in: onTrack } },
+          { slaStatus: SLAStatus.OnTrack },
+        );
       }
       if (atRisk.length > 0) {
-        await this.prisma.ticket.updateMany({
-          where: { id: { in: atRisk } },
-          data: { slaStatus: SLAStatus.AtRisk },
-        });
+        await this.ticketRepository.updateMany(
+          { id: { in: atRisk } },
+          { slaStatus: SLAStatus.AtRisk },
+        );
       }
       if (breached.length > 0) {
-        await this.prisma.ticket.updateMany({
-          where: { id: { in: breached } },
-          data: { slaStatus: SLAStatus.Breached },
-        });
+        await this.ticketRepository.updateMany(
+          { id: { in: breached } },
+          { slaStatus: SLAStatus.Breached },
+        );
       }
 
       processed += batch.length;

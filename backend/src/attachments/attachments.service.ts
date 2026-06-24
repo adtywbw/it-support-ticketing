@@ -8,7 +8,8 @@ import {
 import { Role } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Express } from 'express';
-import { PrismaService } from '../prisma/prisma.service';
+import { AttachmentRepository } from '../common/repositories/attachment.repository';
+import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService } from './interfaces/storage-service.interface';
 
 const ALLOWED_MIME_TYPES = [
@@ -33,22 +34,21 @@ const MAX_FILES_PER_TICKET = 5;
 @Injectable()
 export class AttachmentsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly attachmentRepository: AttachmentRepository,
+    private readonly ticketRepository: TicketRepository,
     @Inject('StorageService')
     private readonly storageService: StorageService,
   ) {}
 
   async upload(ticketId: string, file: Express.Multer.File, userId: string) {
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id: ticketId },
-    });
+    const ticket = await this.ticketRepository.findById(ticketId);
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    const attachmentCount = await this.prisma.attachment.count({
-      where: { ticketId },
+    const attachmentCount = await this.attachmentRepository.count({
+      ticketId,
     });
 
     if (attachmentCount >= MAX_FILES_PER_TICKET) {
@@ -73,47 +73,38 @@ export class AttachmentsService {
 
     await this.storageService.save(file, filePath);
 
-    const attachment = await this.prisma.attachment.create({
-      data: {
-        ticketId,
-        userId,
+    const attachment = await this.attachmentRepository.create(
+      {
+        ticket: { connect: { id: ticketId } },
+        user: { connect: { id: userId } },
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
         path: filePath,
       },
-      include: {
+      {
         user: { select: { id: true, name: true } },
       },
-    });
+    );
 
     return attachment;
   }
 
   async findByTicketId(ticketId: string) {
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id: ticketId },
-    });
+    const ticket = await this.ticketRepository.findById(ticketId);
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    return this.prisma.attachment.findMany({
-      where: { ticketId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, name: true } },
-      },
+    return this.attachmentRepository.findByTicketId(ticketId, {
+      user: { select: { id: true, name: true } },
     });
   }
 
   async getDownloadInfo(id: string, userId: string, userRole: string) {
-    const attachment = await this.prisma.attachment.findUnique({
-      where: { id },
-      include: {
-        ticket: { select: { requesterId: true } },
-      },
+    const attachment = await this.attachmentRepository.findById(id, {
+      ticket: { select: { requesterId: true } },
     });
 
     if (!attachment) {

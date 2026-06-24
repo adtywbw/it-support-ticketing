@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
-import LoginForm from '@/components/auth/LoginForm';
+import LoginForm from '@/auth/LoginForm';
 
 export default function LoginPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);

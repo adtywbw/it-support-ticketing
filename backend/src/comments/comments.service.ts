@@ -8,7 +8,9 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { Express } from 'express';
 import { Role, CommentType } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { CommentRepository } from '../common/repositories/comment.repository';
+import { AttachmentRepository } from '../common/repositories/attachment.repository';
+import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService } from '../attachments/interfaces/storage-service.interface';
 
 const ALLOWED_MIME_TYPES = [
@@ -33,7 +35,9 @@ const MAX_FILES_PER_COMMENT = 3;
 @Injectable()
 export class CommentsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly commentRepository: CommentRepository,
+    private readonly attachmentRepository: AttachmentRepository,
+    private readonly ticketRepository: TicketRepository,
     @Inject('StorageService')
     private readonly storageService: StorageService,
   ) {}
@@ -46,9 +50,7 @@ export class CommentsService {
     userId: string,
     userRole: string,
   ) {
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id: ticketId },
-    });
+    const ticket = await this.ticketRepository.findById(ticketId);
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
@@ -83,19 +85,19 @@ export class CommentsService {
     const createdFiles: { path: string }[] = [];
 
     try {
-      const comment = await this.prisma.comment.create({
-        data: {
-          ticketId,
-          userId,
+      const comment = await this.commentRepository.create(
+        {
+          ticket: { connect: { id: ticketId } },
+          user: { connect: { id: userId } },
           content,
           type,
         },
-        include: {
+        {
           user: {
             select: { id: true, name: true, email: true, role: true, avatarUrl: true },
           },
         },
-      });
+      );
 
       for (const file of files) {
         const uniqueName = `${uuidv4()}-${file.originalname}`;
@@ -105,29 +107,24 @@ export class CommentsService {
         await this.storageService.save(file, filePath);
         createdFiles.push({ path: filePath });
 
-        await this.prisma.attachment.create({
-          data: {
-            ticketId,
-            commentId: comment.id,
-            userId,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            size: file.size,
-            path: filePath,
-          },
+        await this.attachmentRepository.create({
+          ticket: { connect: { id: ticketId } },
+          comment: { connect: { id: comment.id } },
+          user: { connect: { id: userId } },
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          path: filePath,
         });
       }
 
-      return this.prisma.comment.findUnique({
-        where: { id: comment.id },
-        include: {
-          user: {
-            select: { id: true, name: true, email: true, role: true, avatarUrl: true },
-          },
-          attachments: {
-            include: {
-              user: { select: { id: true, name: true } },
-            },
+      return this.commentRepository.findById(comment.id, {
+        user: {
+          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+        },
+        attachments: {
+          include: {
+            user: { select: { id: true, name: true } },
           },
         },
       });
@@ -142,7 +139,7 @@ export class CommentsService {
   }
 
   async findByTicketId(ticketId: string, userRole: string, userId: string) {
-    const ticket = await this.prisma.ticket.findUnique({
+    const ticket = await this.ticketRepository.findUnique({
       where: { id: ticketId },
       select: { id: true, requesterId: true },
     });
@@ -156,24 +153,10 @@ export class CommentsService {
     }
 
     const where: Record<string, unknown> = { ticketId };
-
     if (userRole === Role.EndUser) {
       where.type = CommentType.PUBLIC;
     }
 
-    return this.prisma.comment.findMany({
-      where,
-      orderBy: { createdAt: 'asc' },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
-        },
-        attachments: {
-          include: {
-            user: { select: { id: true, name: true } },
-          },
-        },
-      },
-    });
+    return this.commentRepository.findByTicketId(ticketId, where);
   }
 }

@@ -7,7 +7,8 @@ Frontend: React 18 + Vite + TanStack Query + Zustand + Tailwind
 ## Struktur Kunci
 ```
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,health}
-frontend/src/{pages(10),components/{auth,layout,tickets,dashboard,admin,ui},hooks,stores,types,lib}
+backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
+frontend/src/{auth(2),layout(3),pages(9),components/{tickets,dashboard,admin,ui},hooks,stores,types,lib}
 ```
 
 ## Perintah
@@ -289,3 +290,16 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 ### Prisma Indexes
 - User: tambah composite index `(role, isActive)` — percepat query filter role + status aktif
 - TicketHistory: tambah index `(userId)` — percepat query history per user
+
+### Repository Pattern
+- Backend: tambah `common/repositories/` dengan 9 domain repository — abstraction layer di atas PrismaService
+- Backend: semua service sekarang inject repository (e.g., `TicketRepository`) bukan `PrismaService` langsung
+- Backend: `RepositoriesModule` (@Global) — import sekali di `AppModule`, export semua repository
+- Backend: `tickets.service.spec.ts` — update mock dari `PrismaService` ke repository mock
+
+### Frontend Restructuring
+- Auth: pindah dari `components/auth/` → `auth/` (top-level sub-module)
+- Layout: pindah dari `components/layout/` → `layout/` (top-level sub-module)
+- Hapus `ChangePasswordPage.tsx` (unused dead code)
+- Update import paths di `App.tsx` & `LoginPage.tsx`
+- tsconfig: tambah `forceConsistentCasingInFileNames: true`
