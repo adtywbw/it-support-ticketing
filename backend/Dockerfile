@@ -32,4 +32,4 @@ RUN mkdir -p /app/uploads && chown -R node:node /app
 EXPOSE 3000
 USER node
 
-CMD sh -c "npx prisma migrate deploy && node dist/prisma/seed.js && node dist/src/main"
+CMD sh -c "npx prisma migrate deploy && node dist/src/main"

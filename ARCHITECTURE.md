@@ -231,6 +231,8 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 it-support-ticketing/
 ├── docker-compose.yml
 ├── .env.example
+├── scripts/
+│   └── backup.sh              # PostgreSQL + uploads volume backup
 ├── nginx/
 │   ├── nginx.conf
 │   └── certs/               # mkcert SSL cert & key (gitignored)
@@ -430,10 +432,9 @@ it-support-ticketing/
 - Alpine images are not used because newer Alpine versions (≥3.19) dropped OpenSSL 1.1 compat packages, which Prisma engines (compiled against `libssl.so.1.1`) depend on.
 
 ### Database Migration
-- The container's entry point (`CMD`) runs `npx prisma migrate deploy && node dist/prisma/seed.js && node dist/src/main`.
+- The container's entry point (`CMD`) runs `npx prisma migrate deploy && node dist/src/main`.
   - `migrate deploy` applies pending migrations (versioned, rollbackable). Safer than `db push` for production — no accidental data loss.
   - **Initial migration** `20260623000000_init` was generated via `prisma migrate diff --from-empty --to-schema-datamodel` and marked as applied with `prisma migrate resolve --applied`.
-  - `seed.js` populates initial users, categories, SLA configs, and a sample ticket.
 - All migration files are stored in `prisma/migrations/` and tracked in version control.
 - Follow-up migration `20260624000000_add_missing_indexes` adds indexes declared in schema but missing from the initial migration: `users(role, isActive)` and `ticket_history(userId)`.
 - To create new migrations during development: `npx prisma migrate dev --name <description>`.
@@ -441,8 +442,15 @@ it-support-ticketing/
 
 ### Database Seeding
 - `prisma/seed.ts` is compiled to `dist/prisma/seed.js` during the Docker multi-stage build (`npx tsc prisma/seed.ts --outDir dist/prisma`).
-- The compiled JS runs directly with `node` in production — no `ts-node` dependency needed at runtime.
-- Uses `prisma.user.upsert` with `update: { password }` so credentials are refreshed on every container restart.
+- Production containers do not run seed automatically. Run seed manually only when intentionally provisioning dev/demo data.
+- Default Admin/ITSupport users are created only if missing; existing user passwords are not reset by seed.
+- The sample ticket is skipped when `NODE_ENV=production`.
+
+### Backup Operations
+- `scripts/backup.sh` creates a timestamped backup under `backups/` while Compose services are running.
+- The database backup uses `docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip`.
+- The upload backup uses `docker compose run --rm --no-deps api tar -czf ... -C /app/uploads .`, so Compose resolves the `uploads_data` named volume instead of relying on host paths.
+- Backup output contains `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt`; `backups/` is gitignored and should be copied off-host for production retention.
 
 ### Production Deployment
 - All services have `restart: unless-stopped` — containers auto-restart on crash.

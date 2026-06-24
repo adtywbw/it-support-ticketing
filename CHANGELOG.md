@@ -143,6 +143,10 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Telegram: fix create config typo dan clear bot token hanya saat token field diubah
 
 ## Production Readiness
+- Backup: tambah `scripts/backup.sh` untuk membuat `db.sql.gz`, `uploads.tar.gz`, dan `manifest.txt` ke `backups/<timestamp>/`
+- Backup: `backups/` ditambahkan ke `.gitignore`
+- Seed: production Docker CMD tidak lagi menjalankan seed otomatis; restart container tidak mereset credential default
+- Seed: `prisma/seed.ts` tidak lagi update password user default yang sudah ada; sample ticket dilewati saat `NODE_ENV=production`
 - Docker: tambah `restart: unless-stopped` di semua service — auto-restart saat crash
 - Docker: tambah healthcheck di service `api` (`GET /api/health`, interval 30s, start_period 30s)
 - Docker: tambah logging config (`json-file`, max-size 10m, max-file 3) — cegah disk penuh

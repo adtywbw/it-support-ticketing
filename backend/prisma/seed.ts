@@ -4,11 +4,12 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  const isProduction = process.env.NODE_ENV === 'production';
   const adminPassword = await bcrypt.hash('Admin123!', 12);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@company.com' },
-    update: { password: adminPassword },
+    update: {},
     create: {
       email: 'admin@company.com',
       password: adminPassword,
@@ -21,7 +22,7 @@ async function main() {
 
   const itsupport = await prisma.user.upsert({
     where: { email: 'support@company.com' },
-    update: { password: itsupportPassword },
+    update: {},
     create: {
       email: 'support@company.com',
       password: itsupportPassword,
@@ -136,7 +137,7 @@ async function main() {
     },
   });
 
-  const existingTicket = await prisma.ticket.findFirst();
+  const existingTicket = isProduction ? true : await prisma.ticket.findFirst();
 
   if (!existingTicket) {
     await prisma.ticket.create({
@@ -156,8 +157,10 @@ async function main() {
   }
 
   console.log('Seed data created successfully');
-  console.log(`Admin user: admin@company.com / Admin123!`);
-  console.log(`Support user: support@company.com / Support123!`);
+  if (!isProduction) {
+    console.log(`Admin user: admin@company.com / Admin123!`);
+    console.log(`Support user: support@company.com / Support123!`);
+  }
 }
 
 main()

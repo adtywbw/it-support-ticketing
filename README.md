@@ -119,6 +119,8 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 it-support-ticketing/
 ├── docker-compose.yml         # Multi-container setup
 ├── .env.example               # Environment variables template
+├── scripts/
+│   └── backup.sh              # Backup PostgreSQL dump + uploads volume
 ├── nginx/
 │   ├── nginx.conf             # Reverse proxy + rate limiting
 │   └── certs/                 # SSL cert & key placeholder (gitignored, for future HTTPS setup)
@@ -209,7 +211,7 @@ The app will be available at `http://helpdesk.rsmch.internal`.
 > **Note:** The frontend is built automatically during `docker compose build` (`target: builder` stage).
 > At runtime, the `frontend` service copies `/app/dist` to the shared named volume `frontend_dist`.
 > Nginx reads static files from the same volume (`frontend_dist:/usr/share/nginx/html`).
-> For a clean rebuild: `docker compose down -v && docker compose up --build`.
+> For a clean rebuild without deleting data: `docker compose up --build`.
 >
 > **Tips:**
 > - Build specific service only: `docker compose build api` or `docker compose build frontend`
@@ -242,6 +244,8 @@ The seed script creates:
 - **IT Support** user: `support@company.com` / `Support123!`
 - 2 categories (Hardware, Software) with SLA configs
 - 1 sample ticket
+
+Production containers do not run seed automatically. If the seed script is run manually, existing default users keep their current password and the sample ticket is skipped when `NODE_ENV=production`.
 
 ### Default Credentials
 
@@ -359,6 +363,21 @@ The seed script creates:
 | api | `backend/Dockerfile` (node:20-bookworm-slim, non-root) | 127.0.0.1:3000 | unless-stopped | `GET /health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
 | cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |
+
+## Backup
+
+Run a backup while Docker Compose services are up:
+
+```bash
+./scripts/backup.sh
+```
+
+The script creates a timestamped directory under `backups/` containing:
+- `db.sql.gz` — PostgreSQL logical dump from the `db` service
+- `uploads.tar.gz` — archive of the `uploads_data` volume mounted at `/app/uploads`
+- `manifest.txt` — timestamp and backup metadata
+
+`backups/` is gitignored. Store backup copies outside the server as part of production operations.
 
 ## Testing & Lint
 

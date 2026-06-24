@@ -48,6 +48,7 @@ docker compose up --build       # Build & start semua service
 docker compose up -d            # Start tanpa build / setelah build spesifik
 docker compose build api        # Build backend saja
 docker compose build frontend   # Build frontend saja
+./scripts/backup.sh             # Backup DB PostgreSQL + uploads volume ke backups/<timestamp>/
 docker compose logs -f frontend # Debug frontend build
 docker compose logs -f api      # Debug backend
 docker compose logs -f nginx    # Debug nginx (403, 404, dll)
@@ -128,6 +129,7 @@ GET|POST|DELETE|PUT|POST /api/telegram # status, link, unlink, config, test-noti
 - `frontend` service build dari `frontend/Dockerfile` target `builder`; runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu stay running.
 - `nginx` service baca static files dari `frontend_dist:/usr/share/nginx/html`.
 - `api` service port `3000` bind ke `127.0.0.1` untuk debug lokal; traffic normal lewat nginx `/api/`.
+- Backup operasional: jalankan `./scripts/backup.sh` saat Compose services up; output `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` dan folder `backups/` gitignored.
 - Untuk rebuild semua service: `docker compose up --build`.
 
 ## Convention
