@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import apiClient from '@/lib/axios';
+import { getErrorMessage } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 import type { LoginCredentials, AuthResponse } from '@/types';
 
@@ -20,8 +21,7 @@ export function useLogin() {
       navigate('/tickets');
     },
     onError: (error: unknown) => {
-      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Login failed. Please try again.';
-      toast.error(message);
+      toast.error(getErrorMessage(error, 'Login failed. Please try again.'));
     },
   });
 }

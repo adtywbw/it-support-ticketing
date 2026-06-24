@@ -10,7 +10,7 @@ import AttachmentList from './AttachmentList';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { formatDateTime, formatRelativeTime, getSLAColor, getUserInitials, getUserDisplayName } from '@/lib/utils';
+import { formatDateTime, formatRelativeTime, getSLAColor, getUserInitials, getUserDisplayName, getErrorMessage } from '@/lib/utils';
 import type { TicketStatus, Ticket } from '@/types';
 
 interface TicketDetailProps {
@@ -39,8 +39,8 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
     <select
       value={ticket.assignedToId ?? ''}
       onChange={(e) => {
-        const id = e.target.value || undefined;
-        if (id && id !== ticket.assignedToId) {
+        const id = e.target.value || null;
+        if (id !== (ticket.assignedToId ?? null)) {
           assignMutation.mutate({ id: ticket.id, assignedToId: id });
         }
       }}
@@ -62,15 +62,14 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
 export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
-  const { data: users } = useUsers();
-  const updateStatusMutation = useUpdateTicketStatus();
-  const deleteTicketMutation = useDeleteTicket();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
   const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
   const canChangeStatus = user && (user.role === 'ITSupport' || user.role === 'Admin');
   const isAdmin = user?.role === 'Admin';
+  const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
+  const { data: users } = useUsers({ enabled: !!canAssign });
+  const updateStatusMutation = useUpdateTicketStatus();
+  const deleteTicketMutation = useDeleteTicket();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const availableStatuses = ticket ? statusFlows[ticket.status] : [];
 
   if (isLoading) {
@@ -84,7 +83,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   if (isError) {
     return (
       <ErrorMessage
-        message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load ticket'}
+        message={getErrorMessage(error, 'Failed to load ticket')}
         onRetry={() => refetch()}
       />
     );

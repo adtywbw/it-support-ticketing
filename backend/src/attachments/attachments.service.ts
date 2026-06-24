@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { CommentType, Role } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Express } from 'express';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
@@ -40,11 +40,18 @@ export class AttachmentsService {
     private readonly storageService: StorageService,
   ) {}
 
-  async upload(ticketId: string, file: Express.Multer.File, userId: string) {
-    const ticket = await this.ticketRepository.findById(ticketId);
+  async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string) {
+    const ticket = await this.ticketRepository.findUnique({
+      where: { id: ticketId },
+      select: { id: true, requesterId: true },
+    });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
+    }
+
+    if (userRole === Role.EndUser && ticket.requesterId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
 
     const attachmentCount = await this.attachmentRepository.count({
@@ -90,21 +97,39 @@ export class AttachmentsService {
     return attachment;
   }
 
-  async findByTicketId(ticketId: string) {
-    const ticket = await this.ticketRepository.findById(ticketId);
+  async findByTicketId(ticketId: string, userId: string, userRole: string) {
+    const ticket = await this.ticketRepository.findUnique({
+      where: { id: ticketId },
+      select: { id: true, requesterId: true },
+    });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
-    return this.attachmentRepository.findByTicketId(ticketId, {
+    if (userRole === Role.EndUser && ticket.requesterId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const attachments = await this.attachmentRepository.findByTicketId(ticketId, {
       user: { select: { id: true, name: true } },
+      comment: { select: { type: true } },
     });
+
+    if (userRole !== Role.EndUser) {
+      return attachments;
+    }
+
+    return attachments.filter(
+      (attachment: { comment?: { type: CommentType } | null }) =>
+        attachment.comment?.type !== CommentType.INTERNAL,
+    );
   }
 
   async getDownloadInfo(id: string, userId: string, userRole: string) {
     const attachment = await this.attachmentRepository.findById(id, {
       ticket: { select: { requesterId: true } },
+      comment: { select: { type: true } },
     });
 
     if (!attachment) {
@@ -112,6 +137,10 @@ export class AttachmentsService {
     }
 
     if (userRole === Role.EndUser && attachment.ticket.requesterId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (userRole === Role.EndUser && attachment.comment?.type === CommentType.INTERNAL) {
       throw new ForbiddenException('Access denied');
     }
 

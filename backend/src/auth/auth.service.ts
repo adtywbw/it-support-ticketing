@@ -68,6 +68,21 @@ export class AuthService {
     });
   }
 
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    let payload: JwtPayload;
+    try {
+      payload = this.jwtService.verify(refreshToken, {
+        secret: process.env.JWT_SECRET!,
+      });
+    } catch {
+      return;
+    }
+
+    if (payload.sub && payload.jti) {
+      await this.redisService.del(`refresh:${payload.sub}:${payload.jti}`);
+    }
+  }
+
   async changePassword(
     userId: string,
     currentPassword: string,
@@ -148,6 +163,10 @@ export class AuthService {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      return null;
+    }
+
+    if (!user.isActive) {
       return null;
     }
 

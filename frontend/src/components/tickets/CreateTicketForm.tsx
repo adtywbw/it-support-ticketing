@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCreateTicket, useUploadAttachment } from '@/hooks/use-tickets';
 import { useCategories } from '@/hooks/use-categories';
 import type { TicketPriority } from '@/types';
-import { formatFileSize } from '@/lib/utils';
+import { formatFileSize, getErrorMessage } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface FormData {
@@ -96,10 +96,7 @@ export default function CreateTicketForm() {
 
       navigate('/tickets');
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Failed to create ticket';
-      setUploadError(message);
+      setUploadError(getErrorMessage(err, 'Failed to create ticket'));
     }
   };
 

@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
-import { formatRelativeTime, formatFileSize, getUserInitials, getUserDisplayName } from '@/lib/utils';
+import { formatRelativeTime, formatFileSize, getUserInitials, getUserDisplayName, getErrorMessage } from '@/lib/utils';
 
 interface CommentSectionProps {
   ticketId: string;
@@ -88,8 +88,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           setFiles([]);
         },
         onError: (err) => {
-          const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to post comment';
-          setUploadError(message);
+          setUploadError(getErrorMessage(err, 'Failed to post comment'));
         },
       },
     );

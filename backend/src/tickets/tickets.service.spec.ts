@@ -82,6 +82,8 @@ describe('TicketsService', () => {
           ticket: {
             findFirst: (...args: unknown[]) =>
               mockTicketRepository.findFirst(...args),
+            create: (args: { data: unknown; include?: unknown }) =>
+              mockTicketRepository.create(args.data, args.include),
           },
           ticketHistory: {
             create: jest.fn().mockResolvedValue({}),
@@ -121,6 +123,7 @@ describe('TicketsService', () => {
       const mockCategory = {
         id: 'cat-1',
         name: 'Network',
+        isActive: true,
         slaConfigs: [
           {
             id: 'sla-1',
@@ -213,6 +216,7 @@ describe('TicketsService', () => {
       const mockCategory = {
         id: 'cat-1',
         name: 'Network',
+        isActive: true,
         slaConfigs: [],
       };
 
@@ -275,6 +279,7 @@ describe('TicketsService', () => {
       const mockCategory = {
         id: 'cat-1',
         name: 'Network',
+        isActive: true,
         slaConfigs: [
           {
             id: 'sla-1',
@@ -302,6 +307,7 @@ describe('TicketsService', () => {
       const mockCategory = {
         id: 'cat-1',
         name: 'Network',
+        isActive: true,
         slaConfigs: [],
       };
 

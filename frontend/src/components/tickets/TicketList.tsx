@@ -11,7 +11,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import { formatDateTime, getUserDisplayName } from '@/lib/utils';
+import { formatDateTime, getUserDisplayName, getErrorMessage } from '@/lib/utils';
 import TicketFilters, { type FilterValues } from './TicketFilters';
 
 interface TicketListProps {
@@ -24,12 +24,11 @@ interface TicketListProps {
 export default function TicketList({ filters, onFiltersChange, page, onPageChange }: TicketListProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
   const updatePriorityMutation = useUpdateTicketPriority();
   const assignMutation = useAssignTicket();
   const deleteTicketMutation = useDeleteTicket();
-  const { data: users } = useUsers();
-
-  const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
+  const { data: users } = useUsers({ enabled: !!canAssign });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; ticketNumber: string } | null>(null);
 
   const isAdmin = user?.role === 'Admin';
@@ -88,7 +87,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
   if (isError) {
     return (
       <ErrorMessage
-        message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load tickets'}
+        message={getErrorMessage(error, 'Failed to load tickets')}
         onRetry={() => refetch()}
       />
     );
@@ -109,9 +108,11 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
             title="No tickets found"
             description={filters.search ? 'Try adjusting your search or filters.' : 'No tickets have been created yet.'}
             action={
-              <button onClick={() => navigate('/tickets/new')} className="btn-primary">
-                Create Ticket
-              </button>
+              canAssign ? (
+                <button onClick={() => navigate('/tickets/new')} className="btn-primary">
+                  Create Ticket
+                </button>
+              ) : undefined
             }
           />
         </div>
@@ -186,8 +187,8 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                           value={ticket.assignedToId ?? ''}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => {
-                            const id = e.target.value;
-                            if (id !== (ticket.assignedToId ?? '')) {
+                            const id = e.target.value || null;
+                            if (id !== (ticket.assignedToId ?? null)) {
                               assignMutation.mutate({ id: ticket.id, assignedToId: id });
                             }
                           }}

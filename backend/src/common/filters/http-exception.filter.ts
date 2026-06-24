@@ -31,8 +31,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
         code = (resp.error as string) || this.getCodeFromStatus(status);
       }
-    } else if (exception instanceof Error) {
-      message = exception.message;
     }
 
     response.status(status).json({

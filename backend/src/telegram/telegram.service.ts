@@ -190,14 +190,14 @@ export class TelegramService
   }) {
     let config = await this.telegramConfigRepository.findFirst();
     if (!config) {
-      config = await this.telegramConfigRepository.create({ data: {} });
+      config = await this.telegramConfigRepository.create({ settings: {} });
     }
 
     const update: Record<string, unknown> = {};
     if (data.botToken !== undefined) {
       if (data.botToken) {
         update.botToken = data.botToken;
-      } else if (data.botToken === null) {
+      } else {
         update.botToken = null;
       }
     }

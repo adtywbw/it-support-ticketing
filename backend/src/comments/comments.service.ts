@@ -50,7 +50,10 @@ export class CommentsService {
     userId: string,
     userRole: string,
   ) {
-    const ticket = await this.ticketRepository.findById(ticketId);
+    const ticket = await this.ticketRepository.findUnique({
+      where: { id: ticketId },
+      select: { id: true, requesterId: true },
+    });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
@@ -60,6 +63,10 @@ export class CommentsService {
       throw new ForbiddenException(
         'End users cannot create internal comments',
       );
+    }
+
+    if (userRole === Role.EndUser && ticket.requesterId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
 
     if (files.length > MAX_FILES_PER_COMMENT) {

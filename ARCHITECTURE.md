@@ -172,6 +172,7 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ path                       VARCHAR
 │ createdAt                  DateTime
 │ INDEXES: (ticketId), (commentId)
+│ NOTE: EndUser responses exclude attachments from INTERNAL comments
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -434,6 +435,7 @@ it-support-ticketing/
   - **Initial migration** `20260623000000_init` was generated via `prisma migrate diff --from-empty --to-schema-datamodel` and marked as applied with `prisma migrate resolve --applied`.
   - `seed.js` populates initial users, categories, SLA configs, and a sample ticket.
 - All migration files are stored in `prisma/migrations/` and tracked in version control.
+- Follow-up migration `20260624000000_add_missing_indexes` adds indexes declared in schema but missing from the initial migration: `users(role, isActive)` and `ticket_history(userId)`.
 - To create new migrations during development: `npx prisma migrate dev --name <description>`.
 - **Env validation**: `bootstrap()` calls `validateEnv()` which throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is not set, preventing the app from starting with missing configuration.
 
@@ -444,13 +446,25 @@ it-support-ticketing/
 
 ### Production Deployment
 - All services have `restart: unless-stopped` — containers auto-restart on crash.
+- Backend production image installs dependencies with `npm ci --omit=dev` and runs as the non-root `node` user; `/app/uploads` ownership is prepared during image build.
+- Compose binds the API debug port to `127.0.0.1:3000`; normal browser traffic enters through Nginx `/api/`, so Nginx rate limiting and upload body limits are not bypassed remotely.
+- Nginx sets `client_max_body_size 10m`, matching the largest backend ticket attachment upload limit.
 - API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures.
 - Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
 - Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
 - CORS locked down to explicit origins via `CORS_ORIGIN` env var.
-- Global exception filter (`HttpExceptionFilter`) ensures consistent `{ error: { code, message } }` response format for all errors.
+- Global exception filter (`HttpExceptionFilter`) ensures consistent `{ error: { code, message } }` response format for all errors and returns a generic message for unexpected 500 errors.
 - Prisma connection pool configured via `DATABASE_POOL_MAX` env (default 10), set via `connection_limit` query parameter in the connection string.
 - Logging: `json-file` driver with `max-size: 10m` and `max-file: 3` — prevents disk exhaustion from unbounded logs.
+
+### Security Rules
+- Access tokens are short-lived JWTs stored only in frontend memory; refresh tokens are httpOnly cookies backed by Redis and revoked on logout.
+- Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation.
+- EndUser access is ownership-scoped: EndUser can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
+- EndUser cannot create tickets or access `/dashboard`, `/tickets/new`, or admin routes; both backend roles and frontend routes/actions enforce this.
+- INTERNAL comments and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses.
+- File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level checks before persistence.
+- CSV export escapes every field and neutralizes formula injection prefixes before download.
 
 ### Built Artifacts
 - NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.

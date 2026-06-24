@@ -72,8 +72,8 @@ export function getUserInitials(user?: { name?: string; firstName?: string; last
 export function getErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
   if (typeof err === 'string') return err;
   if (err && typeof err === 'object') {
-    const e = err as { response?: { data?: { message?: string } }; message?: string };
-    return e.response?.data?.message || e.message || fallback;
+    const e = err as { response?: { data?: { error?: { message?: string }; message?: string } }; message?: string };
+    return e.response?.data?.error?.message || e.response?.data?.message || e.message || fallback;
   }
   return fallback;
 }

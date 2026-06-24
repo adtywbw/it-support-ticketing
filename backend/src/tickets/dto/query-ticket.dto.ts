@@ -5,6 +5,7 @@ import {
   IsInt,
   Min,
   IsDateString,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TicketStatus, Priority, SLAStatus } from '@prisma/client';
@@ -63,6 +64,6 @@ export class QueryTicketDto {
   sortBy?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
 }

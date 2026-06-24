@@ -34,11 +34,11 @@ docker image prune -f           # Hapus dangling images
 ```
 GET  /api/health
 POST /api/auth/login|refresh|logout|change-password
-GET|POST /api/tickets
+GET|POST /api/tickets                 # POST ITSupport & Admin only
 GET /api/tickets/export/csv           # ITSupport & Admin only
 GET|PATCH|DELETE /api/tickets/:id
 PATCH /api/tickets/:id/status|assign|priority
-GET|POST /api/tickets/:id/comments|attachments
+GET|POST /api/tickets/:id/comments|attachments  # EndUser hanya own ticket; internal attachments disembunyikan
 GET|POST|PATCH|DELETE /api/categories
 GET|POST|PATCH|DELETE /api/categories/:categoryId/sub-categories
 PATCH|DELETE /api/sub-categories/:id     # (deprecated, use full path)
@@ -80,6 +80,7 @@ HTTP only (no SSL/TLS). Nginx listens on port 80. HTTPS was disabled to simplify
 ## Docker Build Flow
 - `frontend` service: build dari `frontend/Dockerfile` (target `builder`) — `npm ci && npm run build` baked ke image, runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu `tail -f /dev/null` (running).
 - `nginx` service: baca static files dari `frontend_dist:/usr/share/nginx/html`.
+- `api` service: port `3000` hanya bind ke `127.0.0.1` untuk debug lokal; traffic aplikasi normal lewat nginx `/api/`.
 - `depends_on: - frontend` (short form) — nginx mulai setelah frontend container running (copy sudah selesai karena cepet).
 - Untuk rebuild: `docker compose up --build`.
 
@@ -130,8 +131,9 @@ User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHisto
 
 ## Constraints
 - **EndUser**: hanya bisa lihat & close own resolved ticket (`Resolved → Closed`) — ownership + role dicek di service
+- **EndUser**: tidak bisa create ticket/comment/upload/list attachment untuk ticket user lain; attachment dari internal comment tidak pernah dikirim ke EndUser
 - **Access token**: memory only (zustand tanpa persist) — tidak ada token di localStorage
-- **Refresh token**: httpOnly cookie (`secure`, `sameSite: strict`, path `/api/auth`)
+- **Refresh token**: httpOnly cookie (`secure`, `sameSite: strict`, path `/api/auth`), disimpan di Redis dan revoke saat logout
 - **JWT_SECRET**: no hardcoded fallback — throw error jika tidak di `.env`
 - **docker compose down -v**: hapus DB + volume → seed ulang otomatis
 - **EndUser**: no Dashboard, no New Ticket, no /admin routes
@@ -347,3 +349,18 @@ User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHisto
 - Hapus `ChangePasswordPage.tsx` (unused dead code)
 - Update import paths di `App.tsx` & `LoginPage.tsx`
 - tsconfig: tambah `forceConsistentCasingInFileNames: true`
+
+### Code Review Hardening — Security & Deployment
+- Backend: `POST /api/tickets` dibatasi ke ITSupport/Admin; frontend route `/tickets/new` dan tombol Create Ticket ikut role-gated
+- Backend: EndUser ownership check ditambahkan untuk create comment, upload/list attachment, dan download attachment
+- Backend: attachment dari internal comment difilter dari ticket detail/list/download untuk EndUser
+- Auth: inactive user ditolak saat login; logout membaca refresh cookie dan revoke token Redis (`refresh:{sub}:{jti}`)
+- Upload: Multer `limits` + MIME `fileFilter` di comment/attachment endpoint; nginx `client_max_body_size 10m`
+- CSV: export quote semua field dan neutralize formula injection (`=`, `+`, `-`, `@`, tab, CR)
+- Error: non-HTTP exception tidak membocorkan internal message ke client
+- Ticket: generate number + create ticket + initial history dalam satu serializable transaction dengan retry; inactive category/sub-category ditolak
+- Assignment: `assignedToId: null` support unassign ticket
+- Telegram: fix create config typo dan clear bot token hanya saat token field diubah
+- Frontend: `getErrorMessage()` support `{ error: { message } }`, `useUsers()` hanya enabled untuk role assign, MyAccount hydration pindah ke `useEffect`
+- Docker: backend image pakai `npm ci`, `npm ci --omit=dev`, `USER node`; API host port bind ke `127.0.0.1:3000`
+- Prisma: migration `20260624000000_add_missing_indexes` menambahkan index `(role, isActive)` dan `ticket_history(userId)`

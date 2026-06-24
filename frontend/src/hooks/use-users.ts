@@ -2,13 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/axios';
 import type { User, CreateUserPayload, UpdateUserPayload, PaginatedResponse } from '@/types';
 
-export function useUsers() {
+export function useUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users'],
     queryFn: async () => {
       const response = await apiClient.get<PaginatedResponse<User>>('/users?includeInactive=true');
       return response.data.data;
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

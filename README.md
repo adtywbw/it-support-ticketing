@@ -45,16 +45,16 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ## Features
 
 ### User & Role Management
-- **EndUser** — create tickets, comment, upload attachments, close resolved tickets
+- **EndUser** — view own tickets, add public comments/attachments to own tickets, close own resolved tickets
 - **ITSupport** — view queue, claim/assign, reply, add internal notes, change status/priority/assignee (inline from ticket list)
-- **Admin** — manage users/roles, categories, sub-categories, SLA configs, delete tickets
+- **Admin** — manage users/roles, categories, sub-categories, SLA configs, create/delete tickets
 
 ### Ticketing
 - Auto-generated ticket number (`TKT-XXX`)
 - Status workflow: `Open → InProgress → Resolved → Closed` (with `OnHold` loop)
 - Priority: Low, Medium, High, Critical
 - Public & internal comments with file attachments (max 3/comment, 5MB each, allowed MIME types, image preview)
-- File attachments (max 3/ticket, 5MB each, allowed MIME types)
+- File attachments (max 5/ticket, 10MB each, allowed MIME types)
 - Full audit trail on status/assignee/priority changes
 - Filter by status, priority, category, assigned to me, date range (dropdown presets: All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
 - Export CSV with current filters (ITSupport & Admin)
@@ -98,13 +98,18 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ### Security
 - Helmet security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.)
 - Global exception filter — consistent `{ error: { code, message } }` error format
+- Unexpected 500 errors return a generic message instead of leaking internal exception details
 - JWT auth with short-lived access tokens (in-memory) + rotating refresh tokens (httpOnly cookie, Redis-backed)
+- Logout revokes the active refresh token from Redis; inactive users are rejected at login/refresh/JWT validation
 - Env validation at startup — app throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is missing
 - WebSocket gateway authenticates connections via JWT verification + checks `isActive` in DB
 - bcrypt password hashing (cost 12)
 - Self-service password change (current password verification)
 - class-validator DTO validation with `whitelist` + `forbidNonWhitelisted`
-- Role-based access control + ownership-based guards (EndUser restricted to own tickets only)
+- Role-based access control + ownership-based guards (EndUser restricted to own tickets/comments/attachments only)
+- Internal comments and attachments attached to internal comments are hidden from EndUser responses/downloads
+- Upload endpoints enforce Multer size/count/MIME limits before service persistence
+- CSV export neutralizes spreadsheet formula injection
 - Nginx + NestJS rate limiting (10 req/s per IP each layer)
 - EndUser status changes restricted to closing own resolved tickets
 
@@ -191,6 +196,7 @@ git clone <repo-url> && cd it-support-ticketing
 # 2. Environment variables
 cp .env.example backend/.env
 # Edit secrets (JWT_SECRET, DATABASE_URL, REDIS_URL) in backend/.env
+# If running via docker compose, keep DATABASE_URL aligned with POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB.
 # Wajib: JWT_SECRET, DATABASE_URL, dan REDIS_URL harus diset — startup akan throw error jika tidak ada
 # Telegram: TELEGRAM_BOT_TOKEN opsional (bisa diisi via Admin UI nanti)
 
@@ -216,7 +222,7 @@ The app will be available at `http://helpdesk.rsmch.internal`.
 # Backend
 cd backend
 cp .env.example .env
-# Ensure REDIS_HOST & REDIS_PORT (or REDIS_URL) are set in .env
+# Ensure REDIS_URL is set in .env
 npm install
 npx prisma generate
 npx prisma migrate dev --name init
@@ -258,7 +264,7 @@ The seed script creates:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/tickets` | List (paginated, filtered, sorted) |
-| POST | `/api/tickets` | Create ticket |
+| POST | `/api/tickets` | Create ticket (ITSupport & Admin) |
 | GET | `/api/tickets/export/csv` | Export CSV (ITSupport & Admin) |
 | GET | `/api/tickets/:id` | Ticket detail |
 | PATCH | `/api/tickets/:id/status` | Update status |
@@ -275,9 +281,9 @@ The seed script creates:
 ### Attachments
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/tickets/:ticketId/attachments` | Upload file |
-| GET | `/api/tickets/:ticketId/attachments` | List attachments |
-| GET | `/api/attachments/:id/download` | Download file |
+| POST | `/api/tickets/:ticketId/attachments` | Upload file (EndUser own ticket only) |
+| GET | `/api/tickets/:ticketId/attachments` | List attachments (EndUser own ticket only; internal attachments hidden) |
+| GET | `/api/attachments/:id/download` | Download file (EndUser own ticket only; internal attachments denied) |
 
 ### Notifications
 | Method | Path | Description |
@@ -350,7 +356,7 @@ The seed script creates:
 |---------|---------------|------|---------|-------------|---------|
 | frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
 | nginx | nginx:1.25-alpine | 80 | unless-stopped | — | 10m x 3 files |
-| api | `backend/Dockerfile` (node:20-bookworm-slim) | 3000 | unless-stopped | `GET /api/health` (30s) | 10m x 3 files |
+| api | `backend/Dockerfile` (node:20-bookworm-slim, non-root) | 127.0.0.1:3000 | unless-stopped | `GET /health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
 | cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |
 

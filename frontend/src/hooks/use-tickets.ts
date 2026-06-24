@@ -66,7 +66,7 @@ export function useAssignTicket() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, assignedToId }: { id: string; assignedToId: string }) => {
+    mutationFn: async ({ id, assignedToId }: { id: string; assignedToId: string | null }) => {
       const response = await apiClient.patch<Ticket>(`/tickets/${id}/assign`, { assignedToId });
       return response.data;
     },
@@ -176,4 +176,3 @@ export function useDeleteTicket() {
     },
   });
 }
-

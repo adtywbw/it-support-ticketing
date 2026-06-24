@@ -38,9 +38,23 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['ITSupport', 'Admin']}>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/tickets" element={<TicketsPage />} />
-          <Route path="/tickets/new" element={<CreateTicketPage />} />
+          <Route
+            path="/tickets/new"
+            element={
+              <ProtectedRoute allowedRoles={['ITSupport', 'Admin']}>
+                <CreateTicketPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/my-account" element={<MyAccountPage />} />

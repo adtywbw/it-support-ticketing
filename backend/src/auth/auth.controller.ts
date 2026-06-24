@@ -81,11 +81,12 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   async logout(
-    @CurrentUser() user: { sub: string; jti?: string },
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (user.jti) {
-      await this.authService.logout(user.sub, user.jti);
+    const token = req.cookies?.[REFRESH_COOKIE];
+    if (token) {
+      await this.authService.revokeRefreshToken(token);
     }
     res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
     return { message: 'Logged out successfully' };

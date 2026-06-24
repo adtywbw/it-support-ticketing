@@ -5,7 +5,7 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY prisma ./prisma
 RUN npx prisma generate
@@ -22,12 +22,14 @@ RUN apt-get update -y && apt-get install -y openssl wget && rm -rf /var/lib/apt/
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY prisma ./prisma
+RUN mkdir -p /app/uploads && chown -R node:node /app
 
 EXPOSE 3000
+USER node
 
 CMD sh -c "npx prisma migrate deploy && node dist/prisma/seed.js && node dist/src/main"

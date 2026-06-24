@@ -95,7 +95,7 @@ export function useUpdateTelegramConfig() {
 
   return useMutation({
     mutationFn: async (data: {
-      botToken?: string;
+      botToken?: string | null;
       settings?: TelegramSettings;
     }) => {
       const res = await apiClient.put<TelegramConfig>('/telegram/config', data);

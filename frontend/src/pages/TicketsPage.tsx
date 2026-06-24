@@ -9,6 +9,7 @@ export default function TicketsPage() {
   const user = useAuthStore((s) => s.user);
   const [exporting, setExporting] = useState(false);
   const canExport = user && (user.role === 'ITSupport' || user.role === 'Admin');
+  const canCreate = canExport;
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FilterValues>({
@@ -69,9 +70,11 @@ export default function TicketsPage() {
               {exporting ? 'Exporting...' : 'Export CSV'}
             </button>
           )}
-          <Link to="/tickets/new" className="btn-primary">
-            Create Ticket
-          </Link>
+          {canCreate && (
+            <Link to="/tickets/new" className="btn-primary">
+              Create Ticket
+            </Link>
+          )}
         </div>
       </div>
       <TicketList filters={filters} onFiltersChange={handleFiltersChange} page={page} onPageChange={setPage} />

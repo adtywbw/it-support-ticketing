@@ -6,7 +6,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import PasswordInput from '@/components/ui/PasswordInput';
-import { getUserDisplayName, getUserInitials } from '@/lib/utils';
+import { getErrorMessage, getUserDisplayName, getUserInitials } from '@/lib/utils';
 import type { User, UserRole, CreateUserPayload, UpdateUserPayload } from '@/types';
 
 type UserFormMode = 'create' | 'edit';
@@ -88,11 +88,7 @@ export default function UserManagement() {
       }
       setIsModalOpen(false);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err as { message?: string })?.message ||
-        'An error occurred';
-      setFormError(msg);
+      setFormError(getErrorMessage(err, 'An error occurred'));
     }
   };
 
@@ -106,11 +102,7 @@ export default function UserManagement() {
       setIsConfirmOpen(false);
       setUserToToggle(null);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err as { message?: string })?.message ||
-        'An error occurred';
-      alert(msg);
+      alert(getErrorMessage(err, 'An error occurred'));
     }
   };
 
@@ -121,11 +113,7 @@ export default function UserManagement() {
       setIsDeleteConfirmOpen(false);
       setUserToDelete(null);
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err as { message?: string })?.message ||
-        'An error occurred';
-      alert(msg);
+      alert(getErrorMessage(err, 'An error occurred'));
     }
   };
 
@@ -140,7 +128,7 @@ export default function UserManagement() {
   if (isError) {
     return (
       <ErrorMessage
-        message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load users'}
+        message={getErrorMessage(error, 'Failed to load users')}
         onRetry={() => refetch()}
       />
     );

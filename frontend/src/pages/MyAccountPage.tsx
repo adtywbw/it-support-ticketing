@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChangePassword } from '@/hooks/use-change-password';
 import {
@@ -14,7 +14,7 @@ import {
 } from '@/hooks/use-telegram';
 import toast from 'react-hot-toast';
 import PasswordInput from '@/components/ui/PasswordInput';
-import { getUserDisplayName, getUserInitials } from '@/lib/utils';
+import { getErrorMessage, getUserDisplayName, getUserInitials } from '@/lib/utils';
 
 const EVENT_LABELS: Record<string, string> = {
   'ticket.created': 'New Ticket Created',
@@ -46,6 +46,7 @@ export default function MyAccountPage() {
   const checkTelegram = useCheckTelegram();
 
   const [botToken, setBotToken] = useState('');
+  const [botTokenTouched, setBotTokenTouched] = useState(false);
   const [enabledEvents, setEnabledEvents] = useState<string[]>([]);
   const [enableGroupChat, setEnableGroupChat] = useState(false);
   const [notifyIndividualsWhenGroupChat, setNotifyIndividualsWhenGroupChat] = useState(false);
@@ -61,7 +62,9 @@ export default function MyAccountPage() {
     templates: Record<string, string>;
   } | null>(null);
 
-  if (telegramConfig.data && !configLoaded) {
+  useEffect(() => {
+    if (!telegramConfig.data || configLoaded) return;
+
     initialConfig.current = {
       enabledEvents: telegramConfig.data.settings.enabledEvents || [],
       enableGroupChat: telegramConfig.data.settings.enableGroupChat || false,
@@ -69,13 +72,14 @@ export default function MyAccountPage() {
       templates: telegramConfig.data.settings.templates || {},
     };
     setBotToken('');
+    setBotTokenTouched(false);
     setEnabledEvents(telegramConfig.data.settings.enabledEvents || []);
     setEnableGroupChat(telegramConfig.data.settings.enableGroupChat || false);
     setNotifyIndividualsWhenGroupChat(telegramConfig.data.settings.notifyIndividualsWhenGroupChat || false);
     setGroupChatId('');
     setTemplates(telegramConfig.data.settings.templates || {});
     setConfigLoaded(true);
-  }
+  }, [configLoaded, telegramConfig.data]);
 
   const handleGenerateCode = async () => {
     const result = await generateCode.mutateAsync();
@@ -105,10 +109,7 @@ export default function MyAccountPage() {
       setConfirmPassword('');
       setSuccess('Password changed successfully.');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Failed to change password';
-      setError(msg);
+      setError(getErrorMessage(err, 'Failed to change password'));
     }
   };
 
@@ -144,7 +145,7 @@ export default function MyAccountPage() {
     if (enableGroupChat) {
       settings.groupChatId = groupChatId || undefined;
     }
-    await updateConfig.mutateAsync({ ...(botToken ? { botToken } : {}), settings });
+    await updateConfig.mutateAsync({ ...(botTokenTouched ? { botToken } : {}), settings });
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 3000);
   };
@@ -155,11 +156,11 @@ export default function MyAccountPage() {
 
   const init = initialConfig.current;
   const hasChanges = init && (
-    botToken !== '' ||
+    botTokenTouched ||
     groupChatId !== '' ||
     enableGroupChat !== init.enableGroupChat ||
     notifyIndividualsWhenGroupChat !== init.notifyIndividualsWhenGroupChat ||
-    JSON.stringify(enabledEvents.sort()) !== JSON.stringify(init.enabledEvents.sort()) ||
+    JSON.stringify([...enabledEvents].sort()) !== JSON.stringify([...init.enabledEvents].sort()) ||
     JSON.stringify(templates) !== JSON.stringify(init.templates)
   );
 
@@ -260,10 +261,7 @@ export default function MyAccountPage() {
                         await sendTestNotification.mutateAsync();
                         toast.success('Test notification sent!');
                       } catch (err: unknown) {
-                        const msg =
-                          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-                          'Failed to send test notification';
-                        toast.error(msg);
+                        toast.error(getErrorMessage(err, 'Failed to send test notification'));
                       }
                     }}
                     className="btn-secondary"
@@ -325,7 +323,7 @@ export default function MyAccountPage() {
                     type="password"
                     className="input flex-1"
                     value={botToken}
-                    onChange={(e) => { setBotToken(e.target.value); setCheckResult(null); }}
+                    onChange={(e) => { setBotToken(e.target.value); setBotTokenTouched(true); setCheckResult(null); }}
                     placeholder={telegramConfig.data?.hasBotToken ? 'Token configured' : 'TELEGRAM_BOT_TOKEN'}
                   />
                   <button

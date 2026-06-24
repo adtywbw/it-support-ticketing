@@ -1,6 +1,7 @@
 import { useDashboardStats } from '@/hooks/use-dashboard';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import ErrorMessage from '@/components/ui/ErrorMessage';
+import { getErrorMessage } from '@/lib/utils';
 
 export default function DashboardStats() {
   const { data: stats, isLoading, isError, error, refetch } = useDashboardStats();
@@ -16,7 +17,7 @@ export default function DashboardStats() {
   if (isError) {
     return (
       <ErrorMessage
-        message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load dashboard stats'}
+        message={getErrorMessage(error, 'Failed to load dashboard stats')}
         onRetry={() => refetch()}
       />
     );

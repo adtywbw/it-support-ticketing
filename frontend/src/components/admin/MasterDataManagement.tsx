@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { getErrorMessage } from '@/lib/utils';
 import type {
   Category,
   SubCategory,
@@ -80,7 +81,7 @@ function CategoryManager() {
       setIsModalOpen(false);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create category';
+      const msg = getErrorMessage(err, 'Failed to create category');
       toast.error(msg);
     },
   });
@@ -95,7 +96,7 @@ function CategoryManager() {
       setIsModalOpen(false);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update category';
+      const msg = getErrorMessage(err, 'Failed to update category');
       toast.error(msg);
     },
   });
@@ -110,7 +111,7 @@ function CategoryManager() {
       setIsDeleteOpen(false);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to delete category';
+      const msg = getErrorMessage(err, 'Failed to delete category');
       toast.error(msg);
     },
   });
@@ -149,7 +150,7 @@ function CategoryManager() {
   const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   if (isLoading) return <div className="card p-12"><LoadingSpinner size="lg" /></div>;
-  if (isError) return <ErrorMessage message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load'} onRetry={() => refetch()} />;
+  if (isError) return <ErrorMessage message={getErrorMessage(error, 'Failed to load')} onRetry={() => refetch()} />;
 
   return (
     <div className="space-y-4">
@@ -272,7 +273,7 @@ function SubCategoryManager() {
       setIsModalOpen(false);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create sub-category';
+      const msg = getErrorMessage(err, 'Failed to create sub-category');
       toast.error(msg);
     },
   });
@@ -287,7 +288,7 @@ function SubCategoryManager() {
       setIsModalOpen(false);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update sub-category';
+      const msg = getErrorMessage(err, 'Failed to update sub-category');
       toast.error(msg);
     },
   });
@@ -302,7 +303,7 @@ function SubCategoryManager() {
       setIsDeleteOpen(false);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to delete sub-category';
+      const msg = getErrorMessage(err, 'Failed to delete sub-category');
       toast.error(msg);
     },
   });
@@ -343,7 +344,7 @@ function SubCategoryManager() {
   const getCategoryName = (id: string) => categories?.find((c) => c.id === id)?.name || 'Unknown';
 
   if (isLoading) return <div className="card p-12"><LoadingSpinner size="lg" /></div>;
-  if (isError) return <ErrorMessage message={(error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to load'} onRetry={() => refetch()} />;
+  if (isError) return <ErrorMessage message={getErrorMessage(error, 'Failed to load')} onRetry={() => refetch()} />;
 
   return (
     <div className="space-y-4">
