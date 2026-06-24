@@ -464,7 +464,7 @@ it-support-ticketing/
 - Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
 - Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
 - Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads via `tar`, then requires the user to log in again.
-- Restore flow: enable maintenance mode → 5-second drain time → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode. `MaintenanceGuard` blocks non-admin API requests during restore while admin can still access `/api/maintenance/*` endpoints.
+- Restore flow: enable maintenance mode → 5-second drain time → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode. `MaintenanceGuard` blocks non-admin API requests during restore while admin can still access `/api/maintenance/*` endpoints. Total maintenance duration is typically 15-60 seconds depending on DB/upload size.
 - Admin must enable maintenance mode from the UI before backup/restore buttons become active.
 - Restore is destructive and should be run during a maintenance window.
 

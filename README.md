@@ -95,7 +95,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - `Uploads` downloads `uploads.tar.gz`, an archive of uploaded attachment files
 - Delete uses the same confirmation dialog pattern as other destructive actions
 - Restore performs a full DB + uploads restore, requires typed backup ID confirmation, creates a pre-restore backup automatically, and forces login again after success
-- **Maintenance Mode**: Admin must enable maintenance mode first before backup/restore buttons become active. During maintenance, non-admin users see an overlay banner and cannot access the system. Restore auto-enables maintenance mode with a 5-second drain time, then auto-disables when complete.
+- **Maintenance Mode**: Admin must enable maintenance mode first before backup/restore buttons become active. During maintenance, non-admin users see an overlay banner and cannot access the system. Restore auto-enables maintenance mode for the entire duration (typically 15-60 seconds), then auto-disables when complete.
 
 ### UI/UX
 - Dark mode toggle (persisted to localStorage, default light)

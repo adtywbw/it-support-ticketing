@@ -289,7 +289,7 @@ docker compose up -d`}
             <span className="font-mono font-semibold">{backupToRestore?.id}</span>. This cannot be undone from the UI.
           </div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-            Restore will automatically enable <span className="font-semibold">maintenance mode</span> for ~5 seconds while data is being restored. All non-admin users will be temporarily blocked.
+            Restore will automatically enable <span className="font-semibold">maintenance mode</span> for the entire duration (typically 15-60 seconds). All non-admin users will be temporarily blocked.
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-300">
             A fresh pre-restore backup will be created automatically before restore starts. Type the backup ID to confirm.
