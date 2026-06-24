@@ -463,7 +463,8 @@ it-support-ticketing/
 - Admin UI backup uses `/api/maintenance/backups`, runs inside the API container, and writes to the same `./backups:/app/backups` mount.
 - Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
 - Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
-- Restore is intentionally manual and should be done during a maintenance window.
+- Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads via `tar`, then requires the user to log in again.
+- Restore is destructive and should be run during a maintenance window.
 
 ### Production Deployment
 - All services have `restart: unless-stopped` — containers auto-restart on crash.

@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useBackups, useCreateBackup, useDeleteBackup, downloadBackupFile } from '@/hooks/use-maintenance';
+import { useBackups, useCreateBackup, useDeleteBackup, useRestoreBackup, downloadBackupFile } from '@/hooks/use-maintenance';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import EmptyState from '@/components/ui/EmptyState';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import Modal from '@/components/ui/Modal';
 import { getErrorMessage } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth-store';
 import type { BackupInfo } from '@/types';
 
 function formatBytes(bytes: number) {
@@ -28,11 +31,17 @@ function formatDate(value: string) {
 }
 
 export default function AdminMaintenancePage() {
+  const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
   const { data: backups, isLoading, isError, error, refetch } = useBackups();
   const createBackupMutation = useCreateBackup();
   const deleteBackupMutation = useDeleteBackup();
+  const restoreBackupMutation = useRestoreBackup();
   const [downloading, setDownloading] = useState<string | null>(null);
   const [backupToDelete, setBackupToDelete] = useState<BackupInfo | null>(null);
+  const [backupToRestore, setBackupToRestore] = useState<BackupInfo | null>(null);
+  const [restoreConfirmation, setRestoreConfirmation] = useState('');
+  const isActionPending = createBackupMutation.isPending || deleteBackupMutation.isPending || restoreBackupMutation.isPending;
 
   const handleCreateBackup = async () => {
     try {
@@ -57,6 +66,16 @@ export default function AdminMaintenancePage() {
     }
   };
 
+  const openRestoreDialog = (backup: BackupInfo) => {
+    setBackupToRestore(backup);
+    setRestoreConfirmation('');
+  };
+
+  const closeRestoreDialog = () => {
+    setBackupToRestore(null);
+    setRestoreConfirmation('');
+  };
+
   const handleDelete = async () => {
     if (!backupToDelete) return;
 
@@ -69,12 +88,28 @@ export default function AdminMaintenancePage() {
     }
   };
 
+  const handleRestore = async () => {
+    if (!backupToRestore) return;
+
+    try {
+      await restoreBackupMutation.mutateAsync({
+        id: backupToRestore.id,
+        confirmation: restoreConfirmation,
+      });
+      toast.success('Backup restored successfully. Please log in again.');
+      logout();
+      navigate('/login', { replace: true });
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to restore backup'));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Admin - Maintenance</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Create and download operational backups. Restore remains a manual maintenance-window task.
+          Create, download, restore, and delete operational backups.
         </p>
       </div>
 
@@ -89,7 +124,7 @@ export default function AdminMaintenancePage() {
           <button
             type="button"
             onClick={handleCreateBackup}
-            disabled={createBackupMutation.isPending}
+            disabled={isActionPending}
             className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             {createBackupMutation.isPending ? 'Creating backup...' : 'Create Backup'}
@@ -138,7 +173,7 @@ export default function AdminMaintenancePage() {
                         <button
                           type="button"
                           onClick={() => handleDownload(backup, 'db')}
-                          disabled={!backup.files.db.exists || downloading === `${backup.id}-db`}
+                          disabled={isActionPending || !backup.files.db.exists || downloading === `${backup.id}-db`}
                           className="text-primary-600 hover:text-primary-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-primary-400 dark:hover:text-primary-300"
                         >
                           DB
@@ -146,15 +181,23 @@ export default function AdminMaintenancePage() {
                         <button
                           type="button"
                           onClick={() => handleDownload(backup, 'uploads')}
-                          disabled={!backup.files.uploads.exists || downloading === `${backup.id}-uploads`}
+                          disabled={isActionPending || !backup.files.uploads.exists || downloading === `${backup.id}-uploads`}
                           className="text-primary-600 hover:text-primary-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-primary-400 dark:hover:text-primary-300"
                         >
                           Uploads
                         </button>
                         <button
                           type="button"
+                          onClick={() => openRestoreDialog(backup)}
+                          disabled={isActionPending || !backup.files.db.exists || !backup.files.uploads.exists}
+                          className="text-amber-600 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-amber-400 dark:hover:text-amber-300"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setBackupToDelete(backup)}
-                          disabled={deleteBackupMutation.isPending}
+                          disabled={isActionPending}
                           className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400 dark:hover:text-red-300"
                         >
                           Delete
@@ -170,19 +213,68 @@ export default function AdminMaintenancePage() {
       </section>
 
       <section className="card p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Restore Instructions</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Restore Notes</h2>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-          Restore is intentionally manual because it is destructive. Run it during a maintenance window after creating one more fresh backup.
+          Restore replaces the current database and uploads with the selected backup. The system creates a fresh pre-restore backup first, then requires you to log in again.
         </p>
         <pre className="mt-4 overflow-x-auto rounded-lg bg-gray-950 p-4 text-xs text-gray-100">
 {`export BACKUP_PATH=backups/<timestamp>
 docker compose stop api nginx frontend
-docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DROP SCHEMA IF EXISTS public CASCADE;"
 gunzip -c "$BACKUP_PATH/db.sql.gz" | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 docker compose run --rm --no-deps -v "$PWD/$BACKUP_PATH:/backup" --entrypoint sh api -c "rm -rf /app/uploads/* && tar -xzf /backup/uploads.tar.gz -C /app/uploads"
 docker compose up -d`}
         </pre>
       </section>
+
+      <Modal
+        isOpen={backupToRestore !== null}
+        onClose={() => {
+          if (!restoreBackupMutation.isPending) closeRestoreDialog();
+        }}
+        title="Restore Backup"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+            Restore will replace the current database and uploaded files with backup{' '}
+            <span className="font-mono font-semibold">{backupToRestore?.id}</span>. This cannot be undone from the UI.
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            A fresh pre-restore backup will be created automatically before restore starts. Type the backup ID to confirm.
+          </p>
+          <div>
+            <label htmlFor="restore-confirmation" className="label">Backup ID</label>
+            <input
+              id="restore-confirmation"
+              type="text"
+              value={restoreConfirmation}
+              onChange={(event) => setRestoreConfirmation(event.target.value)}
+              disabled={restoreBackupMutation.isPending}
+              className="input font-mono"
+              placeholder={backupToRestore?.id}
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={closeRestoreDialog}
+              className="btn-secondary"
+              disabled={restoreBackupMutation.isPending}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleRestore}
+              className="btn-danger"
+              disabled={restoreBackupMutation.isPending || restoreConfirmation !== backupToRestore?.id}
+            >
+              {restoreBackupMutation.isPending ? 'Restoring...' : 'Restore Backup'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <ConfirmDialog
         isOpen={backupToDelete !== null}

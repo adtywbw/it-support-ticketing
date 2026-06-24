@@ -39,6 +39,18 @@ export function useDeleteBackup() {
   });
 }
 
+export function useRestoreBackup() {
+  return useMutation({
+    mutationFn: async ({ id, confirmation }: { id: string; confirmation: string }) => {
+      const response = await apiClient.post<{ message: string; preRestoreBackup: BackupInfo }>(
+        `/maintenance/backups/${id}/restore`,
+        { confirmation },
+      );
+      return response.data;
+    },
+  });
+}
+
 export async function downloadBackupFile(id: string, type: 'db' | 'uploads') {
   const response = await apiClient.get(`/maintenance/backups/${id}/download/${type}`, {
     responseType: 'blob',

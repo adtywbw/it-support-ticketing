@@ -94,7 +94,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - `DB` downloads `db.sql.gz`, a PostgreSQL logical dump
 - `Uploads` downloads `uploads.tar.gz`, an archive of uploaded attachment files
 - Delete uses the same confirmation dialog pattern as other destructive actions
-- Restore remains manual and documented in the UI because it is destructive
+- Restore performs a full DB + uploads restore, requires typed backup ID confirmation, creates a pre-restore backup automatically, and forces login again after success
 
 ### UI/UX
 - Dark mode toggle (persisted to localStorage, default light)
@@ -319,6 +319,7 @@ Production containers do not run seed automatically. If the seed script is run m
 | PATCH | `/api/sla-configs/:id` | Update SLA config |
 | GET/POST | `/api/maintenance/backups` | List / Create operational backups (Admin only) |
 | DELETE | `/api/maintenance/backups/:id` | Delete an operational backup folder (Admin only) |
+| POST | `/api/maintenance/backups/:id/restore` | Full restore database + uploads from a backup (Admin only) |
 | GET | `/api/maintenance/backups/:id/download/db` | Download database backup (Admin only) |
 | GET | `/api/maintenance/backups/:id/download/uploads` | Download uploads backup (Admin only) |
 
@@ -356,7 +357,7 @@ Production containers do not run seed automatically. If the seed script is run m
 | `/my-account` | Profile info (change password for Admin/ITSupport only) | Authenticated |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
-| `/admin/maintenance` | Backup create/list/download/delete + restore instructions | Admin |
+| `/admin/maintenance` | Backup create/list/download/delete/restore + restore instructions | Admin |
 
 ## API Response Format
 
@@ -393,7 +394,7 @@ The script creates a timestamped directory under `backups/` containing:
 
 `backups/` is gitignored. Store backup copies outside the server as part of production operations.
 
-Admins can also create, list, download, and delete backups from `/admin/maintenance`. The UI creates the same `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt` set under `backups/<timestamp>/`. Restore is intentionally manual and documented on that page because it is destructive.
+Admins can also create, list, download, delete, and restore backups from `/admin/maintenance`. The UI creates the same `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt` set under `backups/<timestamp>/`. Restore is destructive, requires typed backup ID confirmation, creates a fresh pre-restore backup automatically, and requires login again after success.
 
 The API image installs `postgresql-client-16` to match the PostgreSQL 16 server. Its entrypoint fixes ownership of mounted `/app/uploads` and `/app/backups`, then drops privileges so the NestJS process still runs as `node`.
 

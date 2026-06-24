@@ -2,6 +2,7 @@ import {
   Controller,
   Delete,
   Get,
+  Body,
   Post,
   Param,
   Res,
@@ -13,6 +14,7 @@ import { MaintenanceService } from './maintenance.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RestoreBackupDto } from './dto/restore-backup.dto';
 
 @Controller('maintenance')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,6 +36,21 @@ export class MaintenanceController {
   async deleteBackup(@Param('id') id: string) {
     await this.maintenanceService.deleteBackup(id);
     return { message: 'Backup deleted successfully' };
+  }
+
+  @Post('backups/:id/restore')
+  async restoreBackup(
+    @Param('id') id: string,
+    @Body() restoreBackupDto: RestoreBackupDto,
+  ) {
+    const preRestoreBackup = await this.maintenanceService.restoreBackup(
+      id,
+      restoreBackupDto.confirmation,
+    );
+    return {
+      message: 'Backup restored successfully. Please log in again.',
+      preRestoreBackup,
+    };
   }
 
   @Get('backups/:id/download/db')

@@ -21,18 +21,23 @@ export interface BackupInfo {
   };
 }
 
+interface PgOptions {
+  env: NodeJS.ProcessEnv;
+  schema: string;
+}
+
 @Injectable()
 export class MaintenanceService {
   private readonly backupDir = process.env.BACKUP_DIR || '/app/backups';
   private readonly uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
 
-  async createBackup(): Promise<BackupInfo> {
+  async createBackup(source = 'admin-ui'): Promise<BackupInfo> {
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {
       throw new BadRequestException('DATABASE_URL is not configured');
     }
 
-    const id = this.createBackupId();
+    const id = await this.createUniqueBackupId();
     const backupPath = this.resolveBackupPath(id);
     const dbSqlPath = path.join(backupPath, 'db.sql');
     const uploadsPath = path.join(backupPath, 'uploads.tar.gz');
@@ -58,7 +63,7 @@ export class MaintenanceService {
         manifestPath,
         [
           `created_at=${id}`,
-          'source=admin-ui',
+          `source=${source}`,
           'files=db.sql.gz uploads.tar.gz',
           '',
         ].join('\n'),
@@ -131,6 +136,37 @@ export class MaintenanceService {
     }
   }
 
+  async restoreBackup(id: string, confirmation: string): Promise<BackupInfo> {
+    if (confirmation !== id) {
+      throw new BadRequestException('Backup confirmation does not match');
+    }
+
+    const backup = await this.getBackup(id);
+    if (!backup.files.db.exists || !backup.files.uploads.exists) {
+      throw new BadRequestException('Backup is missing database or uploads file');
+    }
+
+    const backupPath = this.resolveBackupPath(id);
+    const dbPath = path.join(backupPath, 'db.sql.gz');
+    const uploadsPath = path.join(backupPath, 'uploads.tar.gz');
+
+    await this.validateGzipFile(dbPath, 'Database backup is invalid');
+    await this.validateGzipFile(uploadsPath, 'Uploads backup is invalid');
+
+    const preRestoreBackup = await this.createBackup('pre-restore');
+
+    try {
+      await this.restoreDatabase(dbPath);
+      await this.restoreUploads(uploadsPath);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Restore backup failed',
+      );
+    }
+
+    return preRestoreBackup;
+  }
+
   private async getFileInfo(filePath: string): Promise<BackupFileInfo> {
     try {
       const stat = await fs.stat(filePath);
@@ -154,10 +190,75 @@ export class MaintenanceService {
     ].join('');
   }
 
-  private createPgDumpOptions(
-    databaseUrl: string,
-    outputPath: string,
-  ): { args: string[]; env: NodeJS.ProcessEnv } {
+  private async createUniqueBackupId(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const id = this.createBackupId();
+      try {
+        await fs.access(this.resolveBackupPath(id));
+      } catch {
+        return id;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    throw new BadRequestException('Unable to create unique backup id');
+  }
+
+  private async validateGzipFile(filePath: string, message: string): Promise<void> {
+    try {
+      await execFileAsync('gzip', ['-t', filePath], { maxBuffer: 1024 * 1024 });
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? `${message}: ${error.message}` : message,
+      );
+    }
+  }
+
+  private async restoreDatabase(dbPath: string): Promise<void> {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new BadRequestException('DATABASE_URL is not configured');
+    }
+
+    const pg = this.createPgOptions(databaseUrl);
+    await execFileAsync(
+      'psql',
+      [
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-c',
+        `DROP SCHEMA IF EXISTS ${this.quoteIdentifier(pg.schema)} CASCADE;`,
+      ],
+      { env: { ...process.env, ...pg.env }, maxBuffer: 1024 * 1024 },
+    );
+
+    await execFileAsync(
+      'sh',
+      ['-c', 'gzip -dc "$DB_BACKUP_PATH" | psql -v ON_ERROR_STOP=1'],
+      {
+        env: { ...process.env, ...pg.env, DB_BACKUP_PATH: dbPath },
+        maxBuffer: 1024 * 1024,
+      },
+    );
+  }
+
+  private async restoreUploads(uploadsPath: string): Promise<void> {
+    await fs.mkdir(this.uploadDir, { recursive: true });
+    const entries = await fs.readdir(this.uploadDir);
+    await Promise.all(
+      entries.map((entry) => fs.rm(path.join(this.uploadDir, entry), {
+        recursive: true,
+        force: true,
+      })),
+    );
+
+    await execFileAsync('tar', ['-xzf', uploadsPath, '-C', this.uploadDir], {
+      maxBuffer: 1024 * 1024,
+    });
+  }
+
+  private createPgOptions(databaseUrl: string): PgOptions {
     const url = new URL(databaseUrl);
     const databaseName = decodeURIComponent(url.pathname.replace(/^\//, ''));
     if (!databaseName) {
@@ -175,11 +276,23 @@ export class MaintenanceService {
     const sslMode = url.searchParams.get('sslmode');
     if (sslMode) env.PGSSLMODE = sslMode;
 
-    const args = ['-f', outputPath];
-    const schema = url.searchParams.get('schema');
-    if (schema) args.push('--schema', schema);
+    return { env, schema: url.searchParams.get('schema') || 'public' };
+  }
 
-    return { args, env };
+  private quoteIdentifier(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  private createPgDumpOptions(
+    databaseUrl: string,
+    outputPath: string,
+  ): { args: string[]; env: NodeJS.ProcessEnv } {
+    const pg = this.createPgOptions(databaseUrl);
+
+    const args = ['-f', outputPath];
+    if (pg.schema) args.push('--schema', pg.schema);
+
+    return { args, env: pg.env };
   }
 
   private backupIdToIso(id: string): string {
