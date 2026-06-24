@@ -264,7 +264,7 @@ function SubCategoryManager() {
 
   const createMutation = useMutation({
     mutationFn: async (payload: CreateSubCategoryPayload) => {
-      await apiClient.post(`/categories/${payload.categoryId}/sub-categories`, payload);
+      await apiClient.post(`/categories/${payload.categoryId}/sub-categories`, { name: payload.name, description: payload.description });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subcategories'] });
