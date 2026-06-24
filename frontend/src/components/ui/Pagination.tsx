@@ -18,8 +18,6 @@ const LIMIT_OPTIONS = [
 ];
 
 export default function Pagination({ page, totalPages, onPageChange, limit, onLimitChange, totalItems }: PaginationProps) {
-  if (totalPages <= 1 && limit > 0) return null;
-
   const getPages = () => {
     const pages: (number | '...')[] = [];
     const delta = 2;
@@ -61,7 +59,7 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
           )}
         </div>
 
-        {limit > 0 && (
+        {limit > 0 && totalPages > 1 && (
           <>
             <p className="hidden sm:block text-sm text-gray-700 dark:text-gray-300">
               Page <span className="font-medium">{page}</span> of{' '}
