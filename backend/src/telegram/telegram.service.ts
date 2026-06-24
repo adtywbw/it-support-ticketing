@@ -203,7 +203,7 @@ export class TelegramService
     if (data.botToken !== undefined) {
       if (data.botToken) {
         update.botToken = data.botToken;
-      } else {
+      } else if (data.botToken === null) {
         update.botToken = null;
       }
     }

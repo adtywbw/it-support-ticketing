@@ -144,7 +144,7 @@ export default function MyAccountPage() {
     if (enableGroupChat) {
       settings.groupChatId = groupChatId || undefined;
     }
-    await updateConfig.mutateAsync({ botToken, settings });
+    await updateConfig.mutateAsync({ ...(botToken ? { botToken } : {}), settings });
     setConfigSaved(true);
     setTimeout(() => setConfigSaved(false), 3000);
   };
