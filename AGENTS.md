@@ -49,7 +49,7 @@ GET|POST|DELETE|PUT|POST /api/telegram     # status, link, unlink, config, test-
 ```
 
 ## Telegram
-- Bot polling via `TelegramService.pollLoop()` (non-blocking setTimeout loop)
+- Bot polling via `TelegramService.pollLoop()` (non-blocking setTimeout loop, 30s long-poll timeout, idle delay 30s)
 - Config disimpan di model `TelegramConfig` — botToken, enabledEvents, templates, enableGroupChat, groupChatId
 - Notifikasi dikirim ke grup (jika enableGroupChat=true) + ke semua user ITSupport/Admin yang link
 - Event listener: `ticket.created`, `ticket.assigned`, `ticket.status.updated`
@@ -71,11 +71,10 @@ GET|POST|DELETE|PUT|POST /api/telegram     # status, link, unlink, config, test-
 | Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## HTTPS
-HTTPS belum diimplementasikan. Nginx listen di port 80 (HTTP) tanpa SSL.
+HTTP only (no SSL/TLS). Nginx listens on port 80. HTTPS was disabled to simplify local development.
 - Domain: `helpdesk.rsmch.internal` (resolve via AdGuard Home DNS Rewrite)
-- Cert files: `nginx/certs/` (gitignored) — placeholder untuk future SSL setup
-- Regenerate: `mkcert -cert-file nginx/certs/cert.pem -key-file nginx/certs/key.pem "helpdesk.rsmch.internal"`
-- Untuk enable HTTPS: tambah server block SSL di `nginx.conf`, expose port 443 di `docker-compose.yml`, generate cert.
+- Cert files: `nginx/certs/` (gitignored) — placeholder if SSL is re-enabled
+- To re-enable SSL: uncomment SSL server block in `nginx.conf`, expose port 443 in `docker-compose.yml`, generate certs via `mkcert`
 
 ## Docker Build Flow
 - `frontend` service: build dari `frontend/Dockerfile` (target `builder`) — `npm ci && npm run build` baked ke image, runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu `tail -f /dev/null` (running).
@@ -270,3 +269,23 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Ticket: `PATCH /:id/status` — EndUser hanya bisa close own resolved ticket (`Resolved → Closed`), ownership + role di-service
 - WebSocket: `handleConnection()` cek `user.isActive` di DB (tidak hanya verify JWT) — disconnect jika user dinonaktifkan
 - Env: `backend/.env` — `JWT_SECRET` diganti random 256-bit hex, `CORS_ORIGIN` diisi
+
+### Dashboard Refactoring
+- `getDashboardStats()` dipindah dari TicketsService ke DashboardService — pemisahan concern yang benar
+- Avg resolution time: ganti in-memory loop jadi raw SQL (`$queryRaw`) — lebih cepat untuk dataset besar
+
+### Notifications — Requester Notification
+- `ticket.created`: notifikasi dikirim juga ke requester (jika bukan ITSupport/Admin)
+- `ticket.status.updated`: event selalu di-fire (tidak hanya untuk assigned tickets), notifikasi dikirim ke assignee + requester
+- Payload event ditambah field `subject` dan `requesterId`
+
+### Comments — File Validation Sebelum DB Write
+- Validasi MIME type dan file size dilakukan sebelum comment dibuat (bukan setelah) — rollback jika file gagal
+- Semua file divalidasi dalam batch sebelum satupun diproses
+
+### SLA — Batch Update
+- `performSLACheck()` ganti per-ticket `update` jadi `updateMany` batch — mengurangi jumlah query dari N menjadi max 3 per batch
+
+### Prisma Indexes
+- User: tambah composite index `(role, isActive)` — percepat query filter role + status aktif
+- TicketHistory: tambah index `(userId)` — percepat query history per user

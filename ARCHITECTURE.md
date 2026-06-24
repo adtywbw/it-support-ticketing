@@ -59,7 +59,7 @@
 │ avatarUrl                  VARCHAR? (nullable)
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
-│ INDEXES: (email), (role)
+│ INDEXES: (email), (role), (role, isActive)
 │ 1──< tickets (requesterId)
 │ 1──< tickets (assignedToId)
 │ 1──< comments
@@ -169,7 +169,7 @@
 │ oldValue                   VARCHAR? (nullable)
 │ newValue                   VARCHAR? (nullable)
 │ createdAt                  DateTime
-│ INDEXES: (ticketId), (createdAt)
+│ INDEXES: (ticketId), (createdAt), (userId)
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐

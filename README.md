@@ -77,6 +77,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Mark all as read & Clear all from dropdown and full page
 - Click notification → navigate to ticket
 - Triggers: new ticket, status change, assignment, new comment
+- Requester also notified on ticket creation and status updates (if not ITSupport/Admin)
 - Event-driven design (`@nestjs/event-emitter`) — extensible to email/Slack
 
 ### Telegram Integration (Admin)
@@ -159,13 +160,13 @@ it-support-ticketing/
 
 10 tables with proper indexes and foreign keys:
 
-- **users** — roles: EndUser, ITSupport, Admin
+- **users** — roles: EndUser, ITSupport, Admin; composite index on (role, isActive)
 - **tickets** — status workflow, SLA tracking, indexes on (status, assignedTo, requesterId, createdAt, slaDueAt)
 - **comments** — PUBLIC/INTERNAL types, linked to attachments
 - **attachments** — MIME validation, max size enforcement, optional FK to comments
 - **categories** / **sub_categories** — hierarchical master data
 - **sla_configs** — unique (categoryId, priority)
-- **ticket_history** — audit trail for all state changes
+- **ticket_history** — audit trail for all state changes; indexed on (userId, createdAt)
 - **notifications** — per-user with read/unread status
 - **telegram_config** — global Telegram bot config (token, events, templates) stored as JSON
 
