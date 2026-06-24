@@ -234,18 +234,15 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                             <span className="font-medium text-gray-900 dark:text-gray-100">
                               {entry.user ? getUserDisplayName(entry.user) : 'Unknown'}
                             </span>{' '}
-                            {entry.action}
-                            {entry.field && (
+                            {entry.field === 'status' ? 'changed status' :
+                             entry.field === 'priority' ? 'changed priority' :
+                             entry.field === 'assignedTo' ? 'changed assignment' :
+                             entry.field ? `updated ${entry.field}` : 'updated ticket'}
+                            {entry.oldValue && entry.newValue && (
                               <>
                                 {' '}
-                                <span className="font-medium">{entry.field}</span>
-                                {entry.oldValue && entry.newValue && (
-                                  <>
-                                    {' '}
-                                    from <span className="font-medium text-gray-500 dark:text-gray-400">"{entry.oldValue}"</span> to{' '}
-                                    <span className="font-medium text-gray-900 dark:text-gray-100">"{entry.newValue}"</span>
-                                  </>
-                                )}
+                                from <span className="font-medium text-gray-500 dark:text-gray-400">"{entry.oldValue}"</span> to{' '}
+                                <span className="font-medium text-gray-900 dark:text-gray-100">"{entry.newValue}"</span>
                               </>
                             )}
                           </p>

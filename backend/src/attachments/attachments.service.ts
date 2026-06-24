@@ -3,7 +3,9 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Express } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -106,13 +108,20 @@ export class AttachmentsService {
     });
   }
 
-  async getDownloadInfo(id: string) {
+  async getDownloadInfo(id: string, userId: string, userRole: string) {
     const attachment = await this.prisma.attachment.findUnique({
       where: { id },
+      include: {
+        ticket: { select: { requesterId: true } },
+      },
     });
 
     if (!attachment) {
       throw new NotFoundException('Attachment not found');
+    }
+
+    if (userRole === Role.EndUser && attachment.ticket.requesterId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
 
     return attachment;

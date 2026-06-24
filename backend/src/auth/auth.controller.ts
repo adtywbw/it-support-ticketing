@@ -7,6 +7,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -23,15 +24,17 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async login(
     @Body() loginDto: LoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(loginDto);
+    const isSecure = req.headers['x-forwarded-proto'] === 'https';
     res.cookie(REFRESH_COOKIE, result.refreshToken, {
       httpOnly: true,
-      secure: req.secure,
+      secure: isSecure,
       sameSite: 'strict',
       path: '/api/auth',
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -49,9 +52,10 @@ export class AuthController {
       return { accessToken: null, user: null };
     }
     const result = await this.authService.refresh(token);
+    const isSecure = req.headers['x-forwarded-proto'] === 'https';
     res.cookie(REFRESH_COOKIE, result.refreshToken, {
       httpOnly: true,
-      secure: req.secure,
+      secure: isSecure,
       sameSite: 'strict',
       path: '/api/auth',
       maxAge: 7 * 24 * 60 * 60 * 1000,

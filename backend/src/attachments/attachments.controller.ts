@@ -40,9 +40,10 @@ export class AttachmentsController {
   async download(
     @Param('id') id: string,
     @Query('view') view: string,
+    @CurrentUser() user: { id: string; role: string },
     @Res() res: Response,
   ) {
-    const attachment = await this.attachmentsService.getDownloadInfo(id);
+    const attachment = await this.attachmentsService.getDownloadInfo(id, user.id, user.role);
 
     res.setHeader('Content-Type', attachment.mimeType);
     if (view === '1') {

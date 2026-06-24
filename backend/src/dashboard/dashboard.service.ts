@@ -122,41 +122,29 @@ export class DashboardService {
   }
 
   private async getAvgResolutionTimeByCategory() {
-    const resolvedTickets = await this.prisma.ticket.findMany({
-      where: {
-        resolvedAt: { not: null },
-        status: { in: [TicketStatus.Resolved, TicketStatus.Closed] },
-      },
-      select: {
-        resolvedAt: true,
-        createdAt: true,
-        category: { select: { id: true, name: true } },
-      },
-    });
+    const rows = await this.prisma.$queryRaw<Array<{
+      categoryId: string;
+      categoryName: string;
+      avgResolutionMinutes: number;
+      ticketCount: bigint;
+    }>>`
+      SELECT
+        t."categoryId" AS "categoryId",
+        c.name AS "categoryName",
+        ROUND(AVG(EXTRACT(EPOCH FROM (t."resolvedAt" - t."createdAt")) / 60))::int AS "avgResolutionMinutes",
+        COUNT(*)::int AS "ticketCount"
+      FROM tickets t
+      JOIN categories c ON c.id = t."categoryId"
+      WHERE t."resolvedAt" IS NOT NULL
+        AND t.status IN ('Resolved', 'Closed')
+      GROUP BY t."categoryId", c.name
+    `;
 
-    const categoryTimes: Record<
-      string,
-      { totalMinutes: number; count: number; name: string }
-    > = {};
-
-    for (const ticket of resolvedTickets) {
-      if (!ticket.resolvedAt) continue;
-      const minutes =
-        (ticket.resolvedAt.getTime() - ticket.createdAt.getTime()) /
-        (1000 * 60);
-      const catId = ticket.category.id;
-      if (!categoryTimes[catId]) {
-        categoryTimes[catId] = { totalMinutes: 0, count: 0, name: ticket.category.name };
-      }
-      categoryTimes[catId].totalMinutes += minutes;
-      categoryTimes[catId].count += 1;
-    }
-
-    return Object.entries(categoryTimes).map(([categoryId, data]) => ({
-      categoryId,
-      categoryName: data.name,
-      avgResolutionMinutes: Math.round(data.totalMinutes / data.count),
-      ticketCount: data.count,
+    return rows.map((r) => ({
+      categoryId: r.categoryId,
+      categoryName: r.categoryName,
+      avgResolutionMinutes: r.avgResolutionMinutes,
+      ticketCount: Number(r.ticketCount),
     }));
   }
 }

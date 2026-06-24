@@ -12,7 +12,7 @@ import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
-import { Prisma, TicketStatus, Priority, SLAStatus } from '@prisma/client';
+import { Prisma, TicketStatus, Priority, SLAStatus, CommentType } from '@prisma/client';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
@@ -309,6 +309,7 @@ export class TicketsService {
         category: { select: { id: true, name: true } },
         subCategory: { select: { id: true, name: true } },
         comments: {
+          where: userRole === 'EndUser' ? { type: CommentType.PUBLIC } : undefined,
           orderBy: { createdAt: 'asc' },
           include: {
             user: { select: { id: true, name: true, email: true, role: true } },
@@ -398,16 +399,16 @@ export class TicketsService {
       },
     });
 
-    if (ticket.assignedToId) {
-      this.eventEmitter.emit('ticket.status.updated', {
-        ticketId: id,
-        ticketNumber: ticket.ticketNumber,
-        oldStatus: ticket.status,
-        newStatus: updateStatusDto.status,
-        assignedToId: ticket.assignedToId,
-        updatedBy: userId,
-      });
-    }
+    this.eventEmitter.emit('ticket.status.updated', {
+      ticketId: id,
+      ticketNumber: ticket.ticketNumber,
+      subject: ticket.subject,
+      oldStatus: ticket.status,
+      newStatus: updateStatusDto.status,
+      assignedToId: ticket.assignedToId,
+      requesterId: ticket.requesterId,
+      updatedBy: userId,
+    });
 
     return updatedTicket;
   }
@@ -504,146 +505,21 @@ export class TicketsService {
     ]);
   }
 
-  async getDashboardStats() {
-    const [
-      statusCounts,
-      priorityCounts,
-      slaStats,
-      dailyTrends,
-      categoryResolution,
-    ] = await Promise.all([
-      this.getStatusCounts(),
-      this.getPriorityCounts(),
-      this.getSLAStats(),
-      this.getDailyTrends(7),
-      this.getAvgResolutionTimeByCategory(),
-    ]);
-
-    return {
-      statusCounts,
-      priorityCounts,
-      slaStats,
-      dailyTrends,
-      categoryResolution,
-    };
-  }
-
-  private async getStatusCounts() {
-    const counts = await this.prisma.ticket.groupBy({
-      by: ['status'],
-      _count: { id: true },
-    });
-
-    return counts.reduce(
-      (acc, curr) => {
-        acc[curr.status] = curr._count.id;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-  }
-
-  private async getPriorityCounts() {
-    const counts = await this.prisma.ticket.groupBy({
-      by: ['priority'],
-      _count: { id: true },
-    });
-
-    return counts.reduce(
-      (acc, curr) => {
-        acc[curr.priority] = curr._count.id;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-  }
-
-  private async getSLAStats() {
-    const [total, onTrack, atRisk, breached] = await Promise.all([
-      this.prisma.ticket.count({
-        where: { status: { notIn: [TicketStatus.Closed, TicketStatus.Resolved] } },
-      }),
-      this.prisma.ticket.count({
-        where: { slaStatus: SLAStatus.OnTrack, status: { notIn: [TicketStatus.Closed, TicketStatus.Resolved] } },
-      }),
-      this.prisma.ticket.count({
-        where: { slaStatus: SLAStatus.AtRisk, status: { notIn: [TicketStatus.Closed, TicketStatus.Resolved] } },
-      }),
-      this.prisma.ticket.count({
-        where: { slaStatus: SLAStatus.Breached, status: { notIn: [TicketStatus.Closed, TicketStatus.Resolved] } },
-      }),
-    ]);
-
-    return { total, onTrack, atRisk, breached };
-  }
-
-  private async getDailyTrends(days: number) {
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-
-    const tickets = await this.prisma.ticket.findMany({
-      where: { createdAt: { gte: since } },
-      select: { createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    const trends: Record<string, number> = {};
-    for (const ticket of tickets) {
-      const dateKey = ticket.createdAt.toISOString().split('T')[0];
-      trends[dateKey] = (trends[dateKey] || 0) + 1;
-    }
-
-    return trends;
-  }
-
-  private async getAvgResolutionTimeByCategory() {
-    const resolvedTickets = await this.prisma.ticket.findMany({
-      where: {
-        resolvedAt: { not: null },
-        status: { in: [TicketStatus.Resolved, TicketStatus.Closed] },
-      },
-      select: {
-        resolvedAt: true,
-        createdAt: true,
-        category: { select: { id: true, name: true } },
-      },
-    });
-
-    const categoryTimes: Record<string, { totalMinutes: number; count: number; name: string }> = {};
-
-    for (const ticket of resolvedTickets) {
-      if (!ticket.resolvedAt) continue;
-      const minutes =
-        (ticket.resolvedAt.getTime() - ticket.createdAt.getTime()) / (1000 * 60);
-      const catId = ticket.category.id;
-      if (!categoryTimes[catId]) {
-        categoryTimes[catId] = { totalMinutes: 0, count: 0, name: ticket.category.name };
-      }
-      categoryTimes[catId].totalMinutes += minutes;
-      categoryTimes[catId].count += 1;
-    }
-
-    return Object.entries(categoryTimes).map(([categoryId, data]) => ({
-      categoryId,
-      categoryName: data.name,
-      avgResolutionMinutes: Math.round(data.totalMinutes / data.count),
-      ticketCount: data.count,
-    }));
-  }
-
   private async generateTicketNumber(): Promise<string> {
-    const lastTicket = await this.prisma.ticket.findFirst({
-      orderBy: { ticketNumber: 'desc' },
-      select: { ticketNumber: true },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const lastTicket = await tx.ticket.findFirst({
+        orderBy: { ticketNumber: 'desc' },
+        select: { ticketNumber: true },
+      });
 
-    let nextSeq = 1;
-    if (lastTicket) {
-      const parts = lastTicket.ticketNumber.split('-');
-      const lastSeq = parseInt(parts[parts.length - 1], 10);
-      nextSeq = lastSeq + 1;
-    }
+      let nextSeq = 1;
+      if (lastTicket) {
+        const parts = lastTicket.ticketNumber.split('-');
+        const lastSeq = parseInt(parts[parts.length - 1], 10);
+        nextSeq = lastSeq + 1;
+      }
 
-    return `TKT-${String(nextSeq).padStart(3, '0')}`;
+      return `TKT-${String(nextSeq).padStart(3, '0')}`;
+    }, { isolationLevel: 'Serializable' });
   }
 }

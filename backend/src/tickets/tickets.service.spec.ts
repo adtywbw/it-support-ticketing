@@ -33,6 +33,7 @@ describe('TicketsService', () => {
     ticketHistory: {
       create: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   const mockEventEmitter = {
@@ -76,6 +77,16 @@ describe('TicketsService', () => {
     service = module.get<TicketsService>(TicketsService);
     prisma = module.get(PrismaService);
     eventEmitter = module.get(EventEmitter2);
+
+    mockPrisma.$transaction.mockImplementation(
+      (fn: (tx: Record<string, unknown>) => unknown) =>
+        fn({
+          ticket: {
+            findFirst: (...args: unknown[]) =>
+              mockPrisma.ticket.findFirst(...args),
+          },
+        }),
+    );
   });
 
   afterEach(() => {

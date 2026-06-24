@@ -25,7 +25,7 @@ export class CommentsController {
     @Param('ticketId') ticketId: string,
     @CurrentUser() user: { id: string; role: Role },
   ) {
-    return this.commentsService.findByTicketId(ticketId, user.role);
+    return this.commentsService.findByTicketId(ticketId, user.role, user.id);
   }
 
   @Post()

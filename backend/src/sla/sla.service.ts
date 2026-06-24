@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -113,6 +114,10 @@ export class SLAService {
         break;
       }
 
+      const onTrack: string[] = [];
+      const atRisk: string[] = [];
+      const breached: string[] = [];
+
       for (const ticket of batch) {
         const slaConfig = ticket.category.slaConfigs.find(
           (config) => config.priority === ticket.priority,
@@ -124,7 +129,7 @@ export class SLAService {
         const remainingMs = ticket.slaDueAt.getTime() - now.getTime();
         const remainingRatio = remainingMs / totalWindowMs;
 
-        let newSlaStatus: SLAStatus = ticket.slaStatus;
+        let newSlaStatus: SLAStatus;
 
         if (remainingMs <= 0) {
           newSlaStatus = SLAStatus.Breached;
@@ -135,15 +140,33 @@ export class SLAService {
         }
 
         if (newSlaStatus !== ticket.slaStatus) {
-          await this.prisma.ticket.update({
-            where: { id: ticket.id },
-            data: { slaStatus: newSlaStatus },
-          });
+          if (newSlaStatus === SLAStatus.OnTrack) onTrack.push(ticket.id);
+          else if (newSlaStatus === SLAStatus.AtRisk) atRisk.push(ticket.id);
+          else if (newSlaStatus === SLAStatus.Breached) breached.push(ticket.id);
 
           this.logger.log(
             `Ticket ${ticket.ticketNumber} SLA status changed from ${ticket.slaStatus} to ${newSlaStatus}`,
           );
         }
+      }
+
+      if (onTrack.length > 0) {
+        await this.prisma.ticket.updateMany({
+          where: { id: { in: onTrack } },
+          data: { slaStatus: SLAStatus.OnTrack },
+        });
+      }
+      if (atRisk.length > 0) {
+        await this.prisma.ticket.updateMany({
+          where: { id: { in: atRisk } },
+          data: { slaStatus: SLAStatus.AtRisk },
+        });
+      }
+      if (breached.length > 0) {
+        await this.prisma.ticket.updateMany({
+          where: { id: { in: breached } },
+          data: { slaStatus: SLAStatus.Breached },
+        });
       }
 
       processed += batch.length;

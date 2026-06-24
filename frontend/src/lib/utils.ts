@@ -69,6 +69,15 @@ export function getUserInitials(user?: { name?: string; firstName?: string; last
   return '?';
 }
 
+export function getErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const e = err as { response?: { data?: { message?: string } }; message?: string };
+    return e.response?.data?.message || e.message || fallback;
+  }
+  return fallback;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes == null || isNaN(bytes) || bytes < 0) return '0 B';
   if (bytes === 0) return '0 B';

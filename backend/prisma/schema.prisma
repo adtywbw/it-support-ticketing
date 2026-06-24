@@ -30,6 +30,7 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([role, isActive])
   @@map("users")
 }
 
@@ -203,6 +204,7 @@ model TicketHistory {
   user   User   @relation(fields: [userId], references: [id])
 
   @@index([ticketId])
+  @@index([userId])
   @@index([createdAt])
   @@map("ticket_history")
 }

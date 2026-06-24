@@ -17,9 +17,13 @@ interface NotificationPayload {
   data?: Record<string, unknown>;
 }
 
+const WS_CORS_ORIGIN = (process.env.CORS_ORIGIN || 'https://helpdesk.rsmch.internal')
+  .split(',')
+  .map((o) => o.trim());
+
 @Injectable()
 @WebSocketGateway({
-  cors: { origin: true, credentials: true },
+  cors: { origin: WS_CORS_ORIGIN, credentials: true },
   namespace: '/notifications',
 })
 export class NotificationsGateway

@@ -66,39 +66,44 @@ export class CommentsService {
       );
     }
 
-    const comment = await this.prisma.comment.create({
-      data: {
-        ticketId,
-        userId,
-        content,
-        type,
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+    for (const file of files) {
+      if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+        throw new BadRequestException(
+          `File type ${file.mimetype} is not allowed`,
+        );
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        throw new BadRequestException(
+          `File "${file.originalname}" exceeds 5MB limit`,
+        );
+      }
+    }
+
+    const createdFiles: { path: string }[] = [];
+
+    try {
+      const comment = await this.prisma.comment.create({
+        data: {
+          ticketId,
+          userId,
+          content,
+          type,
         },
-      },
-    });
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+          },
+        },
+      });
 
-    if (files.length > 0) {
       for (const file of files) {
-        if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-          throw new BadRequestException(
-            `File type ${file.mimetype} is not allowed`,
-          );
-        }
-
-        if (file.size > MAX_FILE_SIZE) {
-          throw new BadRequestException(
-            `File "${file.originalname}" exceeds 5MB limit`,
-          );
-        }
-
         const uniqueName = `${uuidv4()}-${file.originalname}`;
         const uploadDir = process.env.UPLOAD_DIR || './uploads';
         const filePath = `${uploadDir}/${uniqueName}`;
 
         await this.storageService.save(file, filePath);
+        createdFiles.push({ path: filePath });
 
         await this.prisma.attachment.create({
           data: {
@@ -112,31 +117,42 @@ export class CommentsService {
           },
         });
       }
-    }
 
-    return this.prisma.comment.findUnique({
-      where: { id: comment.id },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
-        },
-        attachments: {
-          include: {
-            user: { select: { id: true, name: true } },
+      return this.prisma.comment.findUnique({
+        where: { id: comment.id },
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+          },
+          attachments: {
+            include: {
+              user: { select: { id: true, name: true } },
+            },
           },
         },
-      },
-    });
+      });
+    } catch (err) {
+      for (const f of createdFiles) {
+        try {
+          await this.storageService.delete(f.path);
+        } catch { /* ignore cleanup errors */ }
+      }
+      throw err;
+    }
   }
 
-  async findByTicketId(ticketId: string, userRole: string) {
+  async findByTicketId(ticketId: string, userRole: string, userId: string) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
-      select: { id: true },
+      select: { id: true, requesterId: true },
     });
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
+    }
+
+    if (userRole === Role.EndUser && ticket.requesterId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
 
     const where: Record<string, unknown> = { ticketId };

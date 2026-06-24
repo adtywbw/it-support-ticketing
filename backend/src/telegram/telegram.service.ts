@@ -91,9 +91,12 @@ export class TelegramService
   private async pollLoop(token: string, offset: number) {
     if (!this.polling) return;
 
+    const TIMEOUT_SECONDS = 30;
+    let hasUpdates = false;
+
     try {
       const res = await fetch(
-        `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=30`,
+        `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=${TIMEOUT_SECONDS}`,
       );
       const data = await res.json();
 
@@ -101,13 +104,15 @@ export class TelegramService
         for (const update of data.result) {
           offset = update.update_id + 1;
           await this.handleUpdate(token, update);
+          hasUpdates = true;
         }
       }
     } catch (err) {
       this.logger.error('Telegram polling error', err);
     }
 
-    setTimeout(() => this.pollLoop(token, offset), 100);
+    const delay = hasUpdates ? 0 : TIMEOUT_SECONDS * 1000;
+    setTimeout(() => this.pollLoop(token, offset), delay);
   }
 
   private async handleUpdate(token: string, update: any) {

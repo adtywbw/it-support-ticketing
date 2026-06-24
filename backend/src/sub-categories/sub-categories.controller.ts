@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { SubCategoriesService } from './sub-categories.service';
+import { CreateSubCategoryDto } from './dto/create-sub-category.dto';
+import { UpdateSubCategoryDto } from './dto/update-sub-category.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -31,9 +33,9 @@ export class SubCategoriesController {
   @Roles(Role.Admin)
   async create(
     @Param('categoryId') categoryId: string,
-    @Body() body: { name: string; description?: string },
+    @Body() createSubCategoryDto: CreateSubCategoryDto,
   ) {
-    return this.subCategoriesService.create({ ...body, categoryId });
+    return this.subCategoriesService.create({ ...createSubCategoryDto, categoryId });
   }
 
   @Patch(':id')
@@ -41,9 +43,9 @@ export class SubCategoriesController {
   @Roles(Role.Admin)
   async update(
     @Param('id') id: string,
-    @Body() body: { name?: string; description?: string; isActive?: boolean },
+    @Body() updateSubCategoryDto: UpdateSubCategoryDto,
   ) {
-    return this.subCategoriesService.update(id, body);
+    return this.subCategoriesService.update(id, updateSubCategoryDto);
   }
 
   @Delete(':id')

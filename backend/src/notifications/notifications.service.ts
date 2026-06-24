@@ -100,6 +100,18 @@ export class NotificationsService {
         data: { ticketId: payload.ticketId, type: 'ticket_created' },
       });
     }
+
+    const requesterIsNotSupport = !itsupportUsers.some(
+      (u) => u.id === payload.requesterId,
+    );
+    if (requesterIsNotSupport) {
+      await this.create({
+        userId: payload.requesterId,
+        title: 'Ticket Created',
+        message: `Your ticket ${payload.ticketNumber} has been created: ${payload.subject}`,
+        data: { ticketId: payload.ticketId, type: 'ticket_created' },
+      });
+    }
   }
 
   @OnEvent('ticket.assigned')
@@ -123,19 +135,39 @@ export class NotificationsService {
     ticketNumber: string;
     oldStatus: string;
     newStatus: string;
-    assignedToId: string;
+    assignedToId: string | null;
+    requesterId: string;
     updatedBy: string;
   }) {
-    await this.create({
-      userId: payload.assignedToId,
-      title: 'Ticket Status Updated',
-      message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
-      data: {
-        ticketId: payload.ticketId,
-        type: 'ticket_status_updated',
-        oldStatus: payload.oldStatus,
-        newStatus: payload.newStatus,
-      },
-    });
+    const notified = new Set<string>();
+
+    if (payload.assignedToId) {
+      await this.create({
+        userId: payload.assignedToId,
+        title: 'Ticket Status Updated',
+        message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
+        data: {
+          ticketId: payload.ticketId,
+          type: 'ticket_status_updated',
+          oldStatus: payload.oldStatus,
+          newStatus: payload.newStatus,
+        },
+      });
+      notified.add(payload.assignedToId);
+    }
+
+    if (!notified.has(payload.requesterId)) {
+      await this.create({
+        userId: payload.requesterId,
+        title: 'Ticket Status Updated',
+        message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
+        data: {
+          ticketId: payload.ticketId,
+          type: 'ticket_status_updated',
+          oldStatus: payload.oldStatus,
+          newStatus: payload.newStatus,
+        },
+      });
+    }
   }
 }

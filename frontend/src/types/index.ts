@@ -104,8 +104,7 @@ export interface AuditTrailEntry {
   ticketId: string;
   userId: string;
   user?: { id: string; name: string; email: string };
-  action: string;
-  field?: string;
+  field: string;
   oldValue?: string;
   newValue?: string;
   createdAt: string;
