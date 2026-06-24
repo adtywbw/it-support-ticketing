@@ -341,10 +341,22 @@ export class TicketsService {
     return ticket;
   }
 
-  async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string) {
+  async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string, userRole: string) {
     const ticket = await this.prisma.ticket.findUnique({ where: { id } });
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
+    }
+
+    if (userRole === 'EndUser') {
+      if (ticket.requesterId !== userId) {
+        throw new ForbiddenException('Access denied');
+      }
+      if (updateStatusDto.status !== TicketStatus.Closed) {
+        throw new ForbiddenException('End users can only close their own tickets');
+      }
+      if (ticket.status !== TicketStatus.Resolved) {
+        throw new ForbiddenException('End users can only close resolved tickets');
+      }
     }
 
     const validNextStates = VALID_TRANSITIONS[ticket.status as TicketStatus];

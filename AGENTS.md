@@ -16,7 +16,7 @@ cd backend && npm test          # Unit test (14 tests)
 cd backend && npm run build     # NestJS build
 cd frontend && npm run build    # tsc + vite build
 cd frontend && npm run lint     # ESLint zero warnings
-docker compose up --build       # Build & start semua service (https://helpdesk.rsmch.internal)
+docker compose up --build       # Build & start semua service
 docker compose up -d            # Start tanpa build (pakai image yang sudah ada)
 docker compose build api        # Build backend aja
 docker compose build frontend   # Build frontend aja
@@ -71,18 +71,15 @@ GET|POST|DELETE|PUT|POST /api/telegram     # status, link, unlink, config, test-
 | Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## HTTPS
+HTTPS belum diimplementasikan. Nginx listen di port 80 (HTTP) tanpa SSL.
 - Domain: `helpdesk.rsmch.internal` (resolve via AdGuard Home DNS Rewrite)
-- Sertifikat: mkcert (self-signed CA lokal, trusted manual di tiap client)
-- Nginx listen di port 80 (redirect 301 → HTTPS) + 443 (SSL)
-- Cert files: `nginx/certs/{cert.pem,key.pem}` (gitignored)
+- Cert files: `nginx/certs/` (gitignored) — placeholder untuk future SSL setup
 - Regenerate: `mkcert -cert-file nginx/certs/cert.pem -key-file nginx/certs/key.pem "helpdesk.rsmch.internal"`
-- Install CA di client Linux: `sudo cp rootCA.pem /etc/ca-certificates/trust-source/anchors/ && sudo update-ca-trust`
-- `rootCA.pem` lokasi di server: `~/.local/share/mkcert/rootCA.pem`
+- Untuk enable HTTPS: tambah server block SSL di `nginx.conf`, expose port 443 di `docker-compose.yml`, generate cert.
 
 ## Docker Build Flow
 - `frontend` service: build dari `frontend/Dockerfile` (target `builder`) — `npm ci && npm run build` baked ke image, runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu `tail -f /dev/null` (running).
-- `nginx` service: baca static files dari `frontend_dist:/usr/share/nginx/html`, SSL certs dari `./nginx/certs`.
-- `nginx` listen di port 80 (redirect 301 → HTTPS) + 443 (SSL).
+- `nginx` service: baca static files dari `frontend_dist:/usr/share/nginx/html`.
 - `depends_on: - frontend` (short form) — nginx mulai setelah frontend container running (copy sudah selesai karena cepet).
 - Untuk rebuild: `docker compose up --build`.
 
@@ -96,8 +93,10 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 ```
 
 ## Env Requirements
-- `JWT_SECRET` dan `DATABASE_URL` wajib diset — startup throw error jika tidak ada
+- `JWT_SECRET`, `DATABASE_URL`, dan `REDIS_URL` wajib diset — startup throw error jika tidak ada
 - `JWT_SECRET` tidak boleh menggunakan fallback hardcoded; generate unik per-install
+- `CORS_ORIGIN` — daftar origin yang diizinkan (dipisah koma), default `https://helpdesk.rsmch.internal`
+- `DATABASE_POOL_MAX` — max koneksi pool Prisma ke PostgreSQL, default 10
 - `TELEGRAM_BOT_TOKEN` opsional — fallback jika token belum disimpan di DB config
 
 ### Telegram
@@ -258,3 +257,16 @@ docker compose logs -f nginx     # Debug nginx (403, 404, dll)
 - Git: ignore `nginx/certs/` biar private key tidak ter-commit
 - Healthcheck: fix URL dari `/api/health` → `/health` (app tidak pakai global prefix)
 - Backend: fix Dockerfile — tambah `wget` ke apt-get install untuk healthcheck
+
+### Security & Production Readiness
+- Backend: global exception filter (`HttpExceptionFilter`) — semua error terformat konsisten `{ error: { code, message } }`
+- Backend: helmet security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, dll)
+- Backend: morgan request logging (stdout, tertangkap Docker logs)
+- Backend: CORS lockdown via env `CORS_ORIGIN` (dipisah koma untuk multi-origin)
+- Backend: redis-url validation — `REDIS_URL` wajib diset, startup throw jika tidak ada
+- Backend: Prisma connection pool — via `DATABASE_POOL_MAX` env (default 10, `connection_limit` di connection string)
+- Backend: `esModuleInterop: true` di tsconfig + perbaiki import cookieParser jadi default import
+- Backend: packages baru — `helmet@6`, `morgan`, `@types/morgan`
+- Ticket: `PATCH /:id/status` — EndUser hanya bisa close own resolved ticket (`Resolved → Closed`), ownership + role di-service
+- WebSocket: `handleConnection()` cek `user.isActive` di DB (tidak hanya verify JWT) — disconnect jika user dinonaktifkan
+- Env: `backend/.env` — `JWT_SECRET` diganti random 256-bit hex, `CORS_ORIGIN` diisi

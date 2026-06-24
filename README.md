@@ -9,25 +9,26 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
   │  Frontend Builder │──── target: builder ──▶│  frontend_dist  │
   │  (vite build)     │     cp /app/dist/*     │  (named volume) │
   └───────────────────┘     → /export/         └────────┬─────────┘
-                                                         │
-                                                         ▼
-   ┌──────────┐     ┌─────────────────────────┐    ┌──────────────────┐
-   │ Browser  │────▶│  Nginx (:80 → 301, :443)│◀───│ /usr/share/      │
-   │          │     │  reverse proxy + SSL    │    │ nginx/html       │
-   └──────────┘     └────────────┬────────────┘    └──────────────────┘
-                                │ /api/
-                              ▼
-                       ┌──────────────┐
-                       │ NestJS (:3000)│
-                       └───┬──────┬───┘
-                           │      │
-                     ┌─────┘      └──────┐
-                     ▼                    ▼
-              ┌──────────────┐  ┌──────────────────┐
-              │ PostgreSQL   │  │  Redis 7          │
-              │     16       │  │ (tokens, lock,    │
-              └──────────────┘  │  cache, cron)     │
-                                └──────────────────┘
+                                                          │
+                                                          ▼
+   ┌──────────┐     ┌──────────────┐    ┌──────────────────┐
+   │ Browser  │────▶│  Nginx :80   │◀───│ /usr/share/      │
+   │          │     │  reverse     │    │ nginx/html       │
+   └──────────┘     │  proxy       │    └──────────────────┘
+                    └──────┬───────┘
+                           │ /api/
+                         ▼
+                  ┌──────────────┐
+                  │ NestJS (:3000)│
+                  └───┬──────┬───┘
+                      │      │
+                ┌─────┘      └──────┐
+                ▼                    ▼
+         ┌──────────────┐  ┌──────────────────┐
+         │ PostgreSQL   │  │  Redis 7          │
+         │     16       │  │ (tokens, lock,    │
+         └──────────────┘  │  cache, cron)     │
+                           └──────────────────┘
 ```
 
 ## Tech Stack
@@ -38,7 +39,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 | Frontend | React 18 + Vite, TanStack Query v5, Zustand, Tailwind CSS v3 |
 | Database | PostgreSQL 16 |
 | Cache | Redis 7 (refresh tokens httpOnly cookie, cron lock, cache) |
-| Proxy | Nginx (SSL termination, rate limit 10r/s, gzip, reverse proxy, HTTP→HTTPS redirect) |
+| Proxy | Nginx (rate limit 10r/s, gzip, reverse proxy) |
 | Auth | JWT access (15m, in-memory) + refresh token (7d, httpOnly cookie), bcrypt cost 12 |
 
 ## Features
@@ -94,17 +95,17 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Responsive mobile layout with hamburger menu
 
 ### Security
-- HTTPS enforced via Nginx SSL termination (mkcert self-signed CA, domain `helpdesk.rsmch.internal`)
-- HTTP → HTTPS redirect on port 80
+- Helmet security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.)
+- Global exception filter — consistent `{ error: { code, message } }` error format
 - JWT auth with short-lived access tokens (in-memory) + rotating refresh tokens (httpOnly cookie, Redis-backed)
-- Env validation at startup — app throws if `JWT_SECRET` or `DATABASE_URL` is missing (no hardcoded fallback)
-- WebSocket gateway authenticates connections via JWT verification
+- Env validation at startup — app throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is missing
+- WebSocket gateway authenticates connections via JWT verification + checks `isActive` in DB
 - bcrypt password hashing (cost 12)
 - Self-service password change (current password verification)
-- class-validator DTO validation (whitelist + forbidNonWhitelisted)
-- Role-based & ownership-based authorization guards
-- EndUser restricted to own tickets only (findAll + findById)
-- Nginx rate limiting (10 req/s per IP)
+- class-validator DTO validation with `whitelist` + `forbidNonWhitelisted`
+- Role-based access control + ownership-based guards (EndUser restricted to own tickets only)
+- Nginx + NestJS rate limiting (10 req/s per IP each layer)
+- EndUser status changes restricted to closing own resolved tickets
 
 ## Project Structure
 
@@ -113,8 +114,8 @@ it-support-ticketing/
 ├── docker-compose.yml         # Multi-container setup
 ├── .env.example               # Environment variables template
 ├── nginx/
-│   ├── nginx.conf             # Reverse proxy + rate limiting + SSL
-│   └── certs/                 # mkcert SSL cert & key (gitignored)
+│   ├── nginx.conf             # Reverse proxy + rate limiting
+│   └── certs/                 # SSL cert & key placeholder (gitignored, for future HTTPS setup)
 ├── backend/
 │   ├── Dockerfile             # Multi-stage build (Debian bookworm-slim)
 │   ├── prisma/
@@ -182,15 +183,15 @@ git clone <repo-url> && cd it-support-ticketing
 
 # 2. Environment variables
 cp .env.example backend/.env
-# Edit secrets (JWT_SECRET, DATABASE_URL) in backend/.env
-# Wajib: JWT_SECRET dan DATABASE_URL harus diset — startup akan throw error jika tidak ada
+# Edit secrets (JWT_SECRET, DATABASE_URL, REDIS_URL) in backend/.env
+# Wajib: JWT_SECRET, DATABASE_URL, dan REDIS_URL harus diset — startup akan throw error jika tidak ada
 # Telegram: TELEGRAM_BOT_TOKEN opsional (bisa diisi via Admin UI nanti)
 
 # 3. Build and run (database + frontend build automatically on first start)
 docker compose up --build
 ```
 
-The app will be available at `https://helpdesk.rsmch.internal` (HTTP on port 80 redirects to HTTPS).
+The app will be available at `http://helpdesk.rsmch.internal`.
 
 > **Note:** The frontend is built automatically during `docker compose build` (`target: builder` stage).
 > At runtime, the `frontend` service copies `/app/dist` to the shared named volume `frontend_dist`.
@@ -341,7 +342,7 @@ The seed script creates:
 | Service | Image / Build | Port | Restart | Healthcheck | Logging |
 |---------|---------------|------|---------|-------------|---------|
 | frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
-| nginx | nginx:1.25-alpine | 80 → 301, 443 | unless-stopped | — | 10m x 3 files |
+| nginx | nginx:1.25-alpine | 80 | unless-stopped | — | 10m x 3 files |
 | api | `backend/Dockerfile` (node:20-bookworm-slim) | 3000 | unless-stopped | `GET /api/health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
 | cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |

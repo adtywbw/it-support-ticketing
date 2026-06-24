@@ -483,7 +483,7 @@ describe('TicketsService', () => {
         status: TicketStatus.InProgress,
       };
 
-      const result = await service.updateStatus(ticketId, updateStatusDto, userId);
+      const result = await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
 
       expect(mockPrisma.ticket.findUnique).toHaveBeenCalledWith({
         where: { id: ticketId },
@@ -531,7 +531,7 @@ describe('TicketsService', () => {
       };
 
       await expect(
-        service.updateStatus(ticketId, updateStatusDto, userId),
+        service.updateStatus(ticketId, updateStatusDto, userId, 'Admin'),
       ).rejects.toThrow(BadRequestException);
 
       expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
@@ -546,7 +546,7 @@ describe('TicketsService', () => {
       };
 
       await expect(
-        service.updateStatus(ticketId, updateStatusDto, userId),
+        service.updateStatus(ticketId, updateStatusDto, userId, 'Admin'),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
@@ -573,7 +573,7 @@ describe('TicketsService', () => {
         status: TicketStatus.Resolved,
       };
 
-      await service.updateStatus(ticketId, updateStatusDto, userId);
+      await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
 
       expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
         where: { id: ticketId },
@@ -604,7 +604,7 @@ describe('TicketsService', () => {
         status: TicketStatus.Closed,
       };
 
-      await service.updateStatus(ticketId, updateStatusDto, userId);
+      await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
 
       expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
         where: { id: ticketId },

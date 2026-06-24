@@ -8,6 +8,7 @@ import { Server, Socket } from 'socket.io';
 import { OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface NotificationPayload {
   userId: string;
@@ -29,9 +30,12 @@ export class NotificationsGateway
 
   private userSockets: Map<string, Set<string>> = new Map();
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     const token =
       (client.handshake.auth?.token as string) ||
       (client.handshake.query?.token as string);
@@ -44,6 +48,15 @@ export class NotificationsGateway
     try {
       const payload = this.jwtService.verify<{ sub: string }>(token);
       const userId = payload.sub;
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { isActive: true },
+      });
+      if (!user?.isActive) {
+        client.disconnect();
+        return;
+      }
 
       if (!this.userSockets.has(userId)) {
         this.userSockets.set(userId, new Set());

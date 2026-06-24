@@ -72,9 +72,9 @@ export class TicketsController {
   async updateStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateStatusDto,
-    @CurrentUser('id') userId: string,
+    @CurrentUser() user: { id: string; role: Role },
   ) {
-    return this.ticketsService.updateStatus(id, updateStatusDto, userId);
+    return this.ticketsService.updateStatus(id, updateStatusDto, user.id, user.role);
   }
 
   @Patch(':id/assign')

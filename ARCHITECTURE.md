@@ -11,23 +11,24 @@
   └───────────────────┘   → /export/           └────────┬─────────┘
                                                          │
                                                          ▼
-   ┌──────────┐     ┌─────────────────────────┐    ┌──────────────────┐
-   │ Browser  │────▶│  Nginx (:80 → 301, :443)│◀───│ /usr/share/      │
-   │          │     │  reverse proxy + SSL    │    │ nginx/html       │
-   └──────────┘     └────────────┬────────────┘    └──────────────────┘
-                                │  /api/
-                           ▼
-                    ┌──────────────┐
-                    │ NestJS (:3000)│
-                    └───┬──────┬───┘
-                        │      │
-                  ┌─────┘      └──────┐
-                  ▼                    ▼
-           ┌──────────────┐  ┌──────────────────┐
-           │ PostgreSQL   │  │  Redis 7          │
-           │     16       │  │ (tokens, lock,    │
-           └──────────────┘  │  cache, cron)     │
-                             └──────────────────┘
+  ┌──────────┐     ┌──────────────┐    ┌──────────────────┐
+  │ Browser  │────▶│  Nginx :80   │◀───│ /usr/share/      │
+  │          │     │  reverse     │    │ nginx/html       │
+  └──────────┘     │  proxy       │    └──────────────────┘
+                   └──────┬───────┘
+                          │  /api/
+                        ▼
+                 ┌──────────────┐
+                 │ NestJS (:3000)│
+                 └───┬──────┬───┘
+                     │      │
+               ┌─────┘      └──────┐
+               ▼                    ▼
+        ┌──────────────┐  ┌──────────────────┐
+        │ PostgreSQL   │  │  Redis 7          │
+        │     16       │  │ (tokens, lock,    │
+        └──────────────┘  │  cache, cron)     │
+                          └──────────────────┘
 ```
 
 ### Stack Justification
@@ -38,7 +39,7 @@
 | Frontend | React 18 + Vite | Fast dev/build, TanStack Query for server state caching/refetching, Zustand for minimal client state. |
 | Database | PostgreSQL 16 | Mature, JSON support, excellent Prisma integration. |
 | Cache | Redis 7 | Refresh token store, cron job lock for horizontal scaling. |
-| Reverse Proxy | Nginx | Single entry point, rate limiting, static file serving, SSL termination with mkcert (self-signed CA). HTTP → HTTPS redirect on port 443. |
+| Reverse Proxy | Nginx | Single entry point, rate limiting, static file serving, reverse proxy. |
 | Containerization | Docker (Debian bookworm-slim) | Reproducible deployment, identical dev/prod environment. Debian base chosen over Alpine for native OpenSSL 3.x compatibility with Prisma engines. |
 | ORM | Prisma | Type-safe query builder, auto-generated types, migrations. |
 
@@ -396,7 +397,7 @@ it-support-ticketing/
   - `seed.js` populates initial users, categories, SLA configs, and a sample ticket.
 - All migration files are stored in `prisma/migrations/` and tracked in version control.
 - To create new migrations during development: `npx prisma migrate dev --name <description>`.
-- **Env validation**: `bootstrap()` calls `validateEnv()` which throws if `JWT_SECRET` or `DATABASE_URL` is not set, preventing the app from starting with missing configuration.
+- **Env validation**: `bootstrap()` calls `validateEnv()` which throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is not set, preventing the app from starting with missing configuration.
 
 ### Database Seeding
 - `prisma/seed.ts` is compiled to `dist/prisma/seed.js` during the Docker multi-stage build (`npx tsc prisma/seed.ts --outDir dist/prisma`).
@@ -406,7 +407,11 @@ it-support-ticketing/
 ### Production Deployment
 - All services have `restart: unless-stopped` — containers auto-restart on crash.
 - API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures.
-- HTTPS: Nginx terminates SSL on port 443 using mkcert-generated certificates (`nginx/certs/`). Port 80 redirects to HTTPS via 301. All API and frontend traffic is encrypted.
+- Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
+- Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
+- CORS locked down to explicit origins via `CORS_ORIGIN` env var.
+- Global exception filter (`HttpExceptionFilter`) ensures consistent `{ error: { code, message } }` response format for all errors.
+- Prisma connection pool configured via `DATABASE_POOL_MAX` env (default 10), set via `connection_limit` query parameter in the connection string.
 - Logging: `json-file` driver with `max-size: 10m` and `max-file: 3` — prevents disk exhaustion from unbounded logs.
 
 ### Built Artifacts
