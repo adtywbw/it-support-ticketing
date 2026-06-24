@@ -1,191 +1,154 @@
 # IT Support Ticketing
 
-## Stack
-- Backend: NestJS + Prisma + PostgreSQL + Redis
-- Frontend: React 18 + Vite + TanStack Query + Zustand + Tailwind
+## Purpose
+- Compact project memory for agents; read before starting work.
+- If this file conflicts with current code, trust the code and mention/update this file when relevant.
+- Read `CHANGELOG.md` only for regression context, old decisions, or historical reasons.
 
-## Current State
-- Backend memakai repository pattern (`common/repositories/`); service baru sebaiknya inject repository, bukan `PrismaService` langsung.
-- Auth: access token memory-only di Zustand; refresh token httpOnly cookie path `/api/auth`, disimpan/revoke lewat Redis.
-- API error response distandarkan oleh `HttpExceptionFilter`: `{ error: { code, message } }`.
-- Frontend memakai top-level `auth/`, `layout/`, `pages/`, `components/`, `hooks/`, `stores/`, `types`, dan `lib`.
-- Server state frontend memakai TanStack Query; client state memakai Zustand untuk theme/auth/notification count dan React state untuk form/UI lokal.
-- Docker production flow memakai frontend builder service + named volume `frontend_dist`, nginx untuk static files, dan API di belakang nginx.
-- Telegram config disimpan di DB dengan fallback `.env TELEGRAM_BOT_TOKEN`; bot token tidak dikirim ke frontend.
+## Stack Snapshot
+- Backend: NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, Socket.IO notifications.
+- Frontend: React 18, Vite 5, TanStack Query 5, Zustand, Tailwind.
+- API success: `{ data, meta? }`; paginated `meta` is `{ page, limit, total }`.
+- API error: `{ error: { code, message } }` via `HttpExceptionFilter`.
 
-## Active Work
-- `AGENTS.md` adalah project memory ringkas yang harus dibaca dulu sebelum mengerjakan task.
-- Detail riwayat perubahan ada di `CHANGELOG.md`; baca hanya jika butuh konteks historis, alasan keputusan lama, atau konteks regression.
-- Saat mengerjakan task baru, batasi eksplorasi ke scope user dan file terkait agar hemat token.
-- Jika user memberi scope spesifik, jangan melebar ke backend/frontend lain kecuali ada indikasi root cause di sana.
+## Work Style
+- Stay inside the user's scope; if a path/page/endpoint is named, start there.
+- Frontend bug: page -> related hook/component -> API/backend only if evidence points there.
+- API bug: controller -> service -> repository.
+- Backend change: keep service -> repository flow; new services inject repositories, not `PrismaService`.
+- Verify narrowly with relevant test/build/lint only; do not run the whole stack unless needed.
+- Preserve user changes; never revert/reset/checkout files without explicit request.
 
-## Do Not Do
-- Jangan simpan access token di `localStorage` atau storage persisten lain.
-- Jangan tambahkan fallback hardcoded untuk `JWT_SECRET`, `DATABASE_URL`, atau `REDIS_URL`.
-- Jangan bypass repository pattern dengan inject `PrismaService` langsung di service baru.
-- Jangan buka akses EndUser ke Dashboard, `/admin` routes, atau ticket milik user lain.
-- Jangan tampilkan attachment/comment internal ke EndUser.
-- Jangan kirim Telegram bot token ke frontend; frontend hanya boleh menerima flag seperti `hasBotToken`.
-- Jangan menjalankan `docker compose down -v` kecuali diminta eksplisit karena menghapus DB/volume.
-- Jangan revert, reset, atau ubah perubahan user tanpa instruksi eksplisit.
-- Jangan ubah flow Docker/HTTPS kecuali diminta; cek bagian Docker & HTTPS dulu karena riwayatnya pernah berubah.
+## Non-Negotiable Rules
+- Do not persist access tokens in `localStorage`, `sessionStorage`, or other persistent storage.
+- Do not add hardcoded fallbacks for `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL`.
+- Do not expose EndUser to Dashboard, `/admin`, other users' tickets, or internal comments/attachments.
+- Do not send Telegram bot token/group chat secrets to frontend; return flags such as `hasBotToken`/`hasGroupChatId`.
+- Do not run `docker compose down -v` or destructive Git commands unless explicitly requested.
+- Do not change Docker/HTTP/HTTPS flow unless requested; check Docker & HTTP notes first.
+- Maintenance and backup/restore operations remain Admin-only.
 
-## Task Workflow
-- Baca scope user dulu; jangan eksplorasi melebar.
-- Untuk bug frontend, mulai dari page/hook/component terkait sebelum cek backend.
-- Untuk bug API, mulai dari controller/service/repository terkait.
-- Untuk perubahan backend, ikuti controller → service → repository.
-- Run verifikasi yang relevan saja; jangan build/test seluruh stack kecuali perlu.
-- Jangan baca `CHANGELOG.md` kecuali butuh konteks historis atau alasan keputusan lama.
+## Verification Commands
+| Area | Workdir | Command |
+|------|---------|---------|
+| Backend unit tests | `backend` | `npm test` |
+| Backend build | `backend` | `npm run build` |
+| Frontend build | `frontend` | `npm run build` |
+| Frontend lint | `frontend` | `npm run lint` |
+| Full compose rebuild | repo root | `docker compose up --build` |
+| Start existing compose | repo root | `docker compose up -d` |
+| Build API image | repo root | `docker compose build api` |
+| Build frontend image | repo root | `docker compose build frontend` |
+| Operational backup | repo root | `./scripts/backup.sh` |
+| Logs | repo root | `docker compose logs -f SERVICE` where `SERVICE` is `api`, `frontend`, or `nginx` |
 
-## Commands
-```bash
-cd backend && npm test          # Unit tests
-cd backend && npm run build     # NestJS build
-cd frontend && npm run build    # tsc + vite build
-cd frontend && npm run lint     # ESLint zero warnings
-docker compose up --build       # Build & start semua service
-docker compose up -d            # Start tanpa build / setelah build spesifik
-docker compose build api        # Build backend saja
-docker compose build frontend   # Build frontend saja
-./scripts/backup.sh             # Backup DB PostgreSQL + uploads volume ke backups/<timestamp>/
-docker compose logs -f frontend # Debug frontend build
-docker compose logs -f api      # Debug backend
-docker compose logs -f nginx    # Debug nginx (403, 404, dll)
-docker compose down -v          # Hapus container + volume; hanya jika diminta eksplisit
-docker image prune -f           # Hapus dangling images
-```
-
-## Structure
+## Project Structure
 ```
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ```
 
-## Dev Seed Credentials
-- admin@company.com / Admin123!
-- support@company.com / Support123!
-
-## Role & Access
-| Role | Dashboard | New Ticket | My Account | Users | Master Data | Maintenance |
-|------|-----------|------------|------------|-------|-------------|-------------|
-| EndUser | ✗ | ✓ | ✓ | ✗ | ✗ | ✗ |
-| ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
-| Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-
-## Constraints
-- EndUser hanya bisa lihat ticket sendiri dan close own resolved ticket (`Resolved → Closed`).
-- EndUser bisa create ticket sendiri, tapi tidak bisa comment/upload/list attachment untuk ticket user lain.
-- Attachment/comment internal tidak pernah dikirim ke EndUser.
-- Access token memory-only; tidak ada token di `localStorage`.
-- Refresh token httpOnly cookie path `/api/auth`; pastikan setting `secure` sesuai environment agar local HTTP tetap bisa auth.
-- WebSocket disconnect jika user dinonaktifkan (cek `isActive` di DB).
-- Password hash bcrypt cost 12, di-update tiap restart via seed `upsert`.
-
-## Maintenance Mode
-- Flag disimpan di Redis (`maintenance:enabled`, `maintenance:message`), bukan di DB karena Redis tidak ikut di-restore.
-- `MaintenanceGuard` adalah global guard di `app.module.ts` (diproses sebelum `ThrottlerGuard`).
-- Yang diizinkan saat maintenance aktif: `/api/health`, semua `/api/maintenance/*`, semua `/api/auth/*`.
-- Non-admin user yang melakukan API call saat maintenance aktif akan menerima `503 { error: { code: 'MAINTENANCE', message } }`.
-- `MaintenanceGuard` menggunakan `@SkipMaintenance()` decorator untuk skip check pada handler tertentu.
-- Auto-maintenance: restoreBackup() otomatis enable maintenance sebelum DROP SCHEMA, drain 5 detik, lalu disable setelah restore selesai.
-- Frontend `MaintenanceBanner` poll `/api/health` setiap 5 detik; jika `maintenance.enabled === true`, tampilkan overlay banner.
-- Admin wajib enable maintenance mode dulu sebelum bisa backup/restore dari UI.
-- Health endpoint selalu accessible tanpa auth; response termasuk `maintenance: { enabled, message }`.
-
-## Auth & Security
-- `JWT_SECRET`, `DATABASE_URL`, dan `REDIS_URL` wajib diset; startup throw error jika kosong.
-- `JWT_SECRET` tidak boleh memakai fallback hardcoded; generate unik per install.
-- `CORS_ORIGIN` daftar origin yang diizinkan (dipisah koma), default `https://helpdesk.rsmch.internal`.
-- `DATABASE_POOL_MAX` max koneksi pool Prisma ke PostgreSQL, default 10.
-- Logout revoke refresh token Redis (`refresh:{sub}:{jti}`).
-- Non-HTTP exception tidak membocorkan internal message ke client.
-
-## API Summary
-```
-GET  /api/health                               # Includes maintenance status
-POST /api/auth/login|refresh|logout|change-password
-GET|POST /api/tickets                 # POST authenticated users; EndUser creates own ticket; ?limit=0 for all
-GET /api/tickets/export/csv           # ITSupport/Admin only
-GET|PATCH|DELETE /api/tickets/:id
-PATCH /api/tickets/:id/status|assign|priority
-GET|POST /api/tickets/:id/comments|attachments  # EndUser hanya own ticket; internal hidden
-GET|POST|PATCH|DELETE /api/categories
-GET|POST|PATCH|DELETE /api/categories/:categoryId/sub-categories
-PATCH|DELETE /api/sub-categories/:id  # deprecated, use full path
-GET|POST|PATCH /api/sla-configs
-GET /api/dashboard/stats
-GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk inactive users
-GET|PATCH|DELETE /api/notifications   # DELETE clear all, PATCH read-all/:id/read
-GET|POST|DELETE|PUT|POST /api/telegram # status, link, unlink, config, test-notification, check
-GET  /api/maintenance/mode            # Public; returns maintenance status
-PATCH /api/maintenance/mode           # Admin only; toggle maintenance on/off
-GET|POST /api/maintenance/backups       # Admin only; list/create backup
-DELETE /api/maintenance/backups/:id      # Admin only; delete backup folder
-POST /api/maintenance/backups/:id/restore # Admin only; full restore DB + uploads (auto maintenance mode)
-GET /api/maintenance/backups/:id/download/db|uploads  # Admin only
-```
-
-## Telegram
-- Backend module `telegram/`: service (polling bot, kirim pesan), controller (link, config CRUD), listener (event-driven).
-- Bot polling via `TelegramService.pollLoop()` non-blocking setTimeout loop, 30s long-poll timeout, idle delay 30s.
-- Config disimpan di model `TelegramConfig`: botToken, enabledEvents, templates, enableGroupChat, groupChatId.
-- Bot token fallback: DB config → `.env TELEGRAM_BOT_TOKEN`.
-- Notifikasi dikirim ke grup jika `enableGroupChat=true` + ke semua user ITSupport/Admin yang link.
-- Event listener: `ticket.created`, `ticket.assigned`, `ticket.status.updated`.
-- Frontend My Account: Link/Unlink Telegram (Admin only), Bot Settings, Test Notification, Check Config.
-- Template variable: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`.
-- Bot token tidak pernah dikirim ke frontend; frontend hanya menerima flag seperti `hasBotToken`.
-
-## Docker & HTTPS
-- HTTP only (no SSL/TLS). Nginx listens on port 80. HTTPS disabled untuk local development.
-- Domain: `helpdesk.rsmch.internal` (resolve via AdGuard Home DNS Rewrite).
-- Cert files: `nginx/certs/` gitignored; placeholder jika SSL diaktifkan lagi.
-- Untuk re-enable SSL: uncomment SSL server block di `nginx.conf`, expose port 443 di `docker-compose.yml`, generate cert via `mkcert`.
-- `frontend` service build dari `frontend/Dockerfile` target `builder`; runtime copy `/app/dist` ke shared volume `frontend_dist`, lalu stay running.
-- `nginx` service baca static files dari `frontend_dist:/usr/share/nginx/html`.
-- `api` service port `3000` bind ke `127.0.0.1` untuk debug lokal; traffic normal lewat nginx `/api/`.
-- Backup operasional: jalankan `./scripts/backup.sh` saat Compose services up; output `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` dan folder `backups/` gitignored. `db.sql.gz` berisi semua tabel public schema (users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config). Redis tidak di-backup.
-- Admin UI Maintenance: `/admin/maintenance` bisa create/list/download/delete/restore backup; restore penuh DB + uploads, wajib typed confirmation, dan membuat pre-restore backup otomatis.
-- Backup UI: tombol `DB` download `db.sql.gz` (dump PostgreSQL), tombol `Uploads` download `uploads.tar.gz` (attachment files).
-- API image memasang `postgresql-client-16`, `gzip`, `tar`, `gosu`; entrypoint chown `/app/uploads` dan `/app/backups`, lalu menjalankan app sebagai user `node`.
-- Untuk rebuild semua service: `docker compose up --build`.
-
-## Convention
-- Backend: service → repository → controller, DTO validation via `class-validator` (`whitelist` + `forbidNonWhitelisted`). Maintenance module boleh pakai filesystem/child process untuk operasi backup, tetap Admin-only.
-- Frontend: functional components + hooks, named exports (no default), Tailwind utility classes.
-- File naming: `kebab-case` files, `PascalCase` components/classes, `camelCase` variables/functions.
-- Error: throw `BadRequestException`/`NotFoundException` on backend, `toast.error()` on frontend.
-- No CSS modules or styled-components; Tailwind only.
-- Import: `@/` alias for frontend, relative paths for backend within module.
+## File Placement & Conventions
+- Backend module files live in `backend/src/{module}/` with `module.ts`, `controller.ts`, `service.ts`, and `dto/`.
+- Backend repositories live in `backend/src/common/repositories/`.
+- Frontend pages: `frontend/src/pages/`.
+- Frontend components: `frontend/src/components/{domain}/`.
+- Frontend hooks: `frontend/src/hooks/` for TanStack Query hooks.
+- Frontend stores: `frontend/src/stores/` for Zustand.
+- Frontend `types/` and `lib/` hold shared types, axios client, and utilities.
+- Use `kebab-case` files, `PascalCase` components/classes, and `camelCase` variables/functions.
+- Frontend uses functional components, named exports, Tailwind utilities, and `@/` alias.
+- Do not add CSS modules or styled-components.
+- Backend imports are relative within modules.
+- DTO validation uses `class-validator` with `whitelist` and `forbidNonWhitelisted`.
+- Throw `BadRequestException`/`NotFoundException` on backend; use `toast.error()` on frontend.
 
 ## State Management
-- Zustand persist: theme (dark/light) in localStorage.
-- Zustand no persist: auth (user, accessToken memory-only), notification count.
-- TanStack Query: tickets, users, categories, notifications, dashboard stats.
-- React state: form input and component-local UI state.
+- TanStack Query owns server state: tickets, users, categories, notifications, dashboard stats.
+- Zustand persisted state: theme only.
+- Zustand non-persisted state: auth user/accessToken and notification count.
+- React state owns form and component-local UI state.
+
+## Auth & Security
+- Access token is memory-only in Zustand auth state.
+- Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`.
+- Cookie `secure` must match environment so local HTTP auth still works.
+- `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup.
+- `CORS_ORIGIN` is comma-separated. Code currently defaults to `https://helpdesk.rsmch.internal`; Docker local is HTTP-only, so set env explicitly when using an HTTP origin.
+- Non-HTTP exceptions must not leak internal messages to clients.
+- Password hash cost is bcrypt 12; seed uses `upsert` on restart.
+- WebSocket clients disconnect when user is inactive (`isActive=false`).
+
+## Roles & Access
+| Role | Dashboard | New Ticket | My Account | Users | Master Data | Maintenance |
+|------|-----------|------------|------------|-------|-------------|-------------|
+| EndUser | No | Yes | Yes | No | No | No |
+| ITSupport | Yes | Yes | Yes | No | No | No |
+| Admin | Yes | Yes | Yes | Yes | Yes | Yes |
+
+## Ticket Rules
+- EndUser can create own tickets, view only own tickets, and close own `Resolved -> Closed` tickets.
+- EndUser cannot comment, upload, or list attachments for tickets owned by another user.
+- Internal comments and attachments are never returned/displayed to EndUser.
+- ITSupport/Admin can access dashboard and operational ticket workflows.
+
+## Maintenance Mode
+- Flags live in Redis: `maintenance:enabled`, `maintenance:message`; Redis is not restored from backups.
+- `MaintenanceGuard` is a global guard in `app.module.ts` and runs before `ThrottlerGuard`.
+- Always allowed during maintenance: `/api/health`, `/api/maintenance/*`, `/api/auth/*`.
+- Non-admin API calls during maintenance return `503 { error: { code: 'MAINTENANCE', message } }`.
+- Use `@SkipMaintenance()` to skip checks on specific handlers.
+- `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore.
+- Frontend `MaintenanceBanner` polls `/api/health` every 5 seconds.
+- Admin must enable maintenance mode before backup/restore from UI.
+- `GET /api/health` is public and includes `maintenance: { enabled, message }`.
+
+## Telegram
+- Backend module `telegram/` handles polling bot, config CRUD, linking, checks, test notifications, and event-driven sends.
+- Config is stored in `TelegramConfig`: `botToken`, `enabledEvents`, templates, `enableGroupChat`, `groupChatId`, `notifyIndividualsWhenGroupChat`.
+- Bot token fallback order: DB config -> `.env TELEGRAM_BOT_TOKEN`.
+- Bot polling uses `TelegramService.pollLoop()` with non-blocking `setTimeout`, 30s long-poll timeout, and 30s idle delay.
+- Event listener sends `ticket.created`, `ticket.assigned`, and `ticket.status.updated` notifications.
+- If group chat is enabled, messages go to group first; individual linked-user sends happen only when `notifyIndividualsWhenGroupChat=true`.
+- Frontend Telegram section in My Account is Admin-only.
+- Frontend receives secret presence flags only, such as `hasBotToken` and `hasGroupChatId`.
+- Template variables: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`.
+
+## Docker & HTTP Notes
+- Docker local is HTTP only; nginx listens on port 80 and HTTPS is disabled for local development.
+- Domain: `helpdesk.rsmch.internal` via AdGuard Home DNS rewrite.
+- Cert files under `nginx/certs/` are gitignored placeholders if SSL is re-enabled later.
+- To re-enable SSL, update `nginx.conf`, expose port 443 in `docker-compose.yml`, and generate certs with `mkcert`.
+- `frontend` service builds `frontend/Dockerfile` target `builder`, copies `/app/dist` to `frontend_dist`, then stays running.
+- `nginx` serves static files from `frontend_dist:/usr/share/nginx/html` and proxies API traffic.
+- `api` binds port `3000` to `127.0.0.1` for local debug; normal traffic goes through nginx `/api/`.
+- Backup output lives in `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` and `backups/` is gitignored.
+- `db.sql.gz` covers public schema tables; Redis is not backed up.
+- Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
+- API image includes `postgresql-client-16`, `gzip`, `tar`, and `gosu`; entrypoint chowns `/app/uploads` and `/app/backups`, then runs as `node`.
+
+## API Map
+- Health: `GET /api/health` includes maintenance status.
+- Auth: `POST /api/auth/login|refresh|logout|change-password`.
+- Tickets: `GET|POST /api/tickets`, `GET|PATCH|DELETE /api/tickets/:id`, `PATCH /api/tickets/:id/status|assign|priority`, `GET /api/tickets/export/csv`.
+- Ticket children: `GET|POST /api/tickets/:id/comments|attachments`; EndUser sees only own visible resources.
+- Categories: `GET|POST|PATCH|DELETE /api/categories` and `/api/categories/:categoryId/sub-categories`.
+- Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path.
+- SLA: `GET|POST|PATCH /api/sla-configs`.
+- Dashboard: `GET /api/dashboard/stats`.
+- Users: `GET|POST|PATCH|DELETE /api/users`; `GET ?includeInactive=true` includes inactive users.
+- Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, and mark-read operations.
+- Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
+- Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
 
 ## Models
-User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig
-- Ticket → User (requesterId, assignedToId), Category, SubCategory.
-- Comment → Ticket + User.
-- Attachment → Ticket + User + optional Comment.
-- SLAConfig unique on `(categoryId, priority)`.
+- Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig.
+- Ticket relates to requester user, assignee user, category, and sub-category.
+- Comment relates to ticket and user.
+- Attachment relates to ticket, user, and optional comment.
+- `SLAConfig` is unique on `(categoryId, priority)`.
 
-## File Placement
-- Pages: `frontend/src/pages/`.
-- Components: `frontend/src/components/{domain}/` (tickets, dashboard, admin, ui).
-- Hooks: `frontend/src/hooks/` for TanStack Query hooks.
-- Stores: `frontend/src/stores/` for Zustand.
-- Types: `frontend/src/types/`.
-- Lib: `frontend/src/lib/` for axios client and utils.
-- Backend module: `backend/src/{module}/` with `module.ts`, `controller.ts`, `service.ts`, `dto/`.
-- Backend repositories: `backend/src/common/repositories/`.
-
-## API Response
-- Success: `{ data, meta? }`; meta berisi `{ page, limit, total }` untuk paginated.
-- Error: `{ error: { code, message } }`; global `HttpExceptionFilter` applies to all endpoints.
-
-## Changelog
-Detail histori ada di `CHANGELOG.md`. Baca hanya jika butuh alasan keputusan lama atau konteks regression.
+## Dev Seed Credentials
+- `admin@company.com / Admin123!`
+- `support@company.com / Support123!`
