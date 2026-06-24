@@ -12,6 +12,7 @@ import NotificationsPage from '@/pages/NotificationsPage';
 import MyAccountPage from '@/pages/MyAccountPage';
 import AdminUsersPage from '@/pages/AdminUsersPage';
 import AdminMasterDataPage from '@/pages/AdminMasterDataPage';
+import AdminMaintenancePage from '@/pages/AdminMaintenancePage';
 
 export default function App() {
   return (
@@ -71,6 +72,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['Admin']}>
                 <AdminMasterDataPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/maintenance"
+            element={
+              <ProtectedRoute allowedRoles={['Admin']}>
+                <AdminMaintenancePage />
               </ProtectedRoute>
             }
           />

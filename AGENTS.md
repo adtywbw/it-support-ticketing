@@ -58,7 +58,7 @@ docker image prune -f           # Hapus dangling images
 
 ## Structure
 ```
-backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,health}
+backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ```
@@ -68,11 +68,11 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - support@company.com / Support123!
 
 ## Role & Access
-| Role | Dashboard | New Ticket | My Account | Users | Master Data |
-|------|-----------|------------|------------|-------|-------------|
-| EndUser | ✗ | ✗ | ✓ | ✗ | ✗ |
-| ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ |
-| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Role | Dashboard | New Ticket | My Account | Users | Master Data | Maintenance |
+|------|-----------|------------|------------|-------|-------------|-------------|
+| EndUser | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
+| ITSupport | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## Constraints
 - EndUser hanya bisa lihat ticket sendiri dan close own resolved ticket (`Resolved → Closed`).
@@ -108,6 +108,9 @@ GET /api/dashboard/stats
 GET|POST|PATCH|DELETE /api/users      # GET ?includeInactive=true untuk inactive users
 GET|PATCH|DELETE /api/notifications   # DELETE clear all, PATCH read-all/:id/read
 GET|POST|DELETE|PUT|POST /api/telegram # status, link, unlink, config, test-notification, check
+GET|POST /api/maintenance/backups       # Admin only; list/create backup
+DELETE /api/maintenance/backups/:id      # Admin only; delete backup folder
+GET /api/maintenance/backups/:id/download/db|uploads  # Admin only
 ```
 
 ## Telegram
@@ -130,10 +133,13 @@ GET|POST|DELETE|PUT|POST /api/telegram # status, link, unlink, config, test-noti
 - `nginx` service baca static files dari `frontend_dist:/usr/share/nginx/html`.
 - `api` service port `3000` bind ke `127.0.0.1` untuk debug lokal; traffic normal lewat nginx `/api/`.
 - Backup operasional: jalankan `./scripts/backup.sh` saat Compose services up; output `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` dan folder `backups/` gitignored.
+- Admin UI Maintenance: `/admin/maintenance` bisa create/list/download/delete backup; restore tetap manual via command, bukan tombol UI.
+- Backup UI: tombol `DB` download `db.sql.gz` (dump PostgreSQL), tombol `Uploads` download `uploads.tar.gz` (attachment files).
+- API image memasang `postgresql-client-16`, `gzip`, `tar`, `gosu`; entrypoint chown `/app/uploads` dan `/app/backups`, lalu menjalankan app sebagai user `node`.
 - Untuk rebuild semua service: `docker compose up --build`.
 
 ## Convention
-- Backend: service → repository → controller, DTO validation via `class-validator` (`whitelist` + `forbidNonWhitelisted`).
+- Backend: service → repository → controller, DTO validation via `class-validator` (`whitelist` + `forbidNonWhitelisted`). Maintenance module boleh pakai filesystem/child process untuk operasi backup, tetap Admin-only.
 - Frontend: functional components + hooks, named exports (no default), Tailwind utility classes.
 - File naming: `kebab-case` files, `PascalCase` components/classes, `camelCase` variables/functions.
 - Error: throw `BadRequestException`/`NotFoundException` on backend, `toast.error()` on frontend.

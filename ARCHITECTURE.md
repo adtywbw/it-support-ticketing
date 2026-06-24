@@ -68,6 +68,8 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
 
+The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users.
+
 All repositories are exported from `RepositoriesModule` (marked `@Global()`) and registered once in `AppModule` — no per-module imports needed, mirroring the pattern used by `PrismaModule`.
 
 ---
@@ -238,6 +240,7 @@ it-support-ticketing/
 │   └── certs/               # mkcert SSL cert & key (gitignored)
 ├── backend/
 │   ├── Dockerfile
+│   ├── docker-entrypoint.sh
 │   ├── .dockerignore
 │   ├── package.json
 │   ├── tsconfig.json
@@ -340,6 +343,10 @@ it-support-ticketing/
 │       │   ├── telegram.controller.ts
 │       │   ├── telegram.service.ts
 │       │   └── telegram.listener.ts
+│       ├── maintenance/
+│       │   ├── maintenance.module.ts
+│       │   ├── maintenance.controller.ts
+│       │   └── maintenance.service.ts
 │       ├── dashboard/
 │       │   ├── dashboard.module.ts
 │       │   ├── dashboard.controller.ts
@@ -378,6 +385,7 @@ it-support-ticketing/
 │       │   ├── use-dashboard.ts
 │       │   ├── use-notifications.ts
 │       │   ├── use-telegram.ts
+│       │   ├── use-maintenance.ts
 │       │   └── use-change-password.ts
 │       ├── auth/
 │       │   ├── LoginForm.tsx
@@ -419,7 +427,8 @@ it-support-ticketing/
 │           ├── NotificationsPage.tsx
 │           ├── MyAccountPage.tsx
 │           ├── AdminUsersPage.tsx
-│           └── AdminMasterDataPage.tsx
+│           ├── AdminMasterDataPage.tsx
+│           └── AdminMaintenancePage.tsx
 └── uploads/ (mounted volume)
 ```
 
@@ -451,10 +460,14 @@ it-support-ticketing/
 - The database backup uses `docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip`.
 - The upload backup uses `docker compose run --rm --no-deps api tar -czf ... -C /app/uploads .`, so Compose resolves the `uploads_data` named volume instead of relying on host paths.
 - Backup output contains `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt`; `backups/` is gitignored and should be copied off-host for production retention.
+- Admin UI backup uses `/api/maintenance/backups`, runs inside the API container, and writes to the same `./backups:/app/backups` mount.
+- Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
+- Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
+- Restore is intentionally manual and should be done during a maintenance window.
 
 ### Production Deployment
 - All services have `restart: unless-stopped` — containers auto-restart on crash.
-- Backend production image installs dependencies with `npm ci --omit=dev` and runs as the non-root `node` user; `/app/uploads` ownership is prepared during image build.
+- Backend production image installs dependencies with `npm ci --omit=dev`; `docker-entrypoint.sh` chowns `/app/uploads` and `/app/backups`, then uses `gosu` so the app still runs as the non-root `node` user.
 - Compose binds the API debug port to `127.0.0.1:3000`; normal browser traffic enters through Nginx `/api/`, so Nginx rate limiting and upload body limits are not bypassed remotely.
 - Nginx sets `client_max_body_size 10m`, matching the largest backend ticket attachment upload limit.
 - API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures.

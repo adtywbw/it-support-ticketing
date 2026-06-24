@@ -17,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthModule } from './health/health.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 import { RepositoriesModule } from './common/repositories/repositories.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { RepositoriesModule } from './common/repositories/repositories.module';
     DashboardModule,
     HealthModule,
     TelegramModule,
+    MaintenanceModule,
   ],
   providers: [
     {

@@ -89,6 +89,13 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Template variables: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`
 - Token stored in DB, never sent to frontend (masked with `hasBotToken` flag)
 
+### Maintenance Backups (Admin)
+- Create, list, download, and delete operational backups from `/admin/maintenance`
+- `DB` downloads `db.sql.gz`, a PostgreSQL logical dump
+- `Uploads` downloads `uploads.tar.gz`, an archive of uploaded attachment files
+- Delete uses the same confirmation dialog pattern as other destructive actions
+- Restore remains manual and documented in the UI because it is destructive
+
 ### UI/UX
 - Dark mode toggle (persisted to localStorage, default light)
 - Sidebar minimize/expand with icon-only mode
@@ -126,6 +133,7 @@ it-support-ticketing/
 │   └── certs/                 # SSL cert & key placeholder (gitignored, for future HTTPS setup)
 ├── backend/
 │   ├── Dockerfile             # Multi-stage build (Debian bookworm-slim)
+│   ├── docker-entrypoint.sh    # chown mounted uploads/backups, then run as node
 │   ├── prisma/
 │   │   ├── schema.prisma      # 10 models + 5 enums + indexes
 │   │   └── seed.ts            # Admin user, categories, sample ticket
@@ -139,6 +147,7 @@ it-support-ticketing/
 │       ├── sla/               # Config + cron breach checker
 │       ├── notifications/     # Event-driven + WebSocket gateway
 │       ├── telegram/          # Bot polling, sendMessage, link/unlink, config CRUD
+│       ├── maintenance/       # Admin backup API
 │       ├── dashboard/         # Statistics & analytics
 │       ├── users/             # Admin user management
 │       ├── health/            # DB + Redis health check
@@ -151,7 +160,7 @@ it-support-ticketing/
 │       ├── lib/               # Axios client, utility functions
 │       ├── types/             # TypeScript type definitions
 │       ├── stores/            # Zustand stores (auth, notifications)
-│       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, etc.)
+│       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, useMaintenance, etc.)
 │       ├── auth/              # LoginForm, ProtectedRoute
 │       ├── layout/            # Sidebar, Navbar, Layout
 │       ├── components/
@@ -308,6 +317,10 @@ Production containers do not run seed automatically. If the seed script is run m
 | PATCH/DELETE | `/api/categories/:categoryId/sub-categories/:id` | Update / Delete sub-category |
 | GET/POST | `/api/sla-configs` | List / Create SLA configs |
 | PATCH | `/api/sla-configs/:id` | Update SLA config |
+| GET/POST | `/api/maintenance/backups` | List / Create operational backups (Admin only) |
+| DELETE | `/api/maintenance/backups/:id` | Delete an operational backup folder (Admin only) |
+| GET | `/api/maintenance/backups/:id/download/db` | Download database backup (Admin only) |
+| GET | `/api/maintenance/backups/:id/download/uploads` | Download uploads backup (Admin only) |
 
 ### Dashboard
 | Method | Path | Description |
@@ -343,6 +356,7 @@ Production containers do not run seed automatically. If the seed script is run m
 | `/my-account` | Profile info (change password for Admin/ITSupport only) | Authenticated |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
+| `/admin/maintenance` | Backup create/list/download/delete + restore instructions | Admin |
 
 ## API Response Format
 
@@ -360,7 +374,7 @@ Production containers do not run seed automatically. If the seed script is run m
 |---------|---------------|------|---------|-------------|---------|
 | frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
 | nginx | nginx:1.25-alpine | 80 | unless-stopped | — | 10m x 3 files |
-| api | `backend/Dockerfile` (node:20-bookworm-slim, non-root) | 127.0.0.1:3000 | unless-stopped | `GET /health` (30s) | 10m x 3 files |
+| api | `backend/Dockerfile` (node:20-bookworm-slim, non-root via entrypoint) | 127.0.0.1:3000 | unless-stopped | `GET /health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
 | cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |
 
@@ -378,6 +392,10 @@ The script creates a timestamped directory under `backups/` containing:
 - `manifest.txt` — timestamp and backup metadata
 
 `backups/` is gitignored. Store backup copies outside the server as part of production operations.
+
+Admins can also create, list, download, and delete backups from `/admin/maintenance`. The UI creates the same `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt` set under `backups/<timestamp>/`. Restore is intentionally manual and documented on that page because it is destructive.
+
+The API image installs `postgresql-client-16` to match the PostgreSQL 16 server. Its entrypoint fixes ownership of mounted `/app/uploads` and `/app/backups`, then drops privileges so the NestJS process still runs as `node`.
 
 ## Testing & Lint
 

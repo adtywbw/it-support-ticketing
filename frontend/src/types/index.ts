@@ -99,6 +99,15 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface BackupInfo {
+  id: string;
+  createdAt: string;
+  files: {
+    db: { exists: boolean; size: number };
+    uploads: { exists: boolean; size: number };
+  };
+}
+
 export interface AuditTrailEntry {
   id: string;
   ticketId: string;

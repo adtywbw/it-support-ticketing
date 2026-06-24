@@ -48,6 +48,7 @@ services:
       start_period: 30s
     volumes:
       - uploads_data:/app/uploads
+      - ./backups:/app/backups
     depends_on:
       db:
         condition: service_healthy
