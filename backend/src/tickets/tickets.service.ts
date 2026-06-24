@@ -136,8 +136,8 @@ export class TicketsService {
     const [tickets, total] = await Promise.all([
       this.ticketRepository.findMany({
         where: where as any,
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: limit > 0 ? (page - 1) * limit : 0,
+        take: limit > 0 ? limit : undefined,
         orderBy,
         include: {
           requester: { select: { id: true, name: true, email: true } },
@@ -150,7 +150,7 @@ export class TicketsService {
       this.ticketRepository.count(where as any),
     ]);
 
-    return { data: tickets, meta: { page, limit, total } };
+    return { data: tickets, meta: { page: limit > 0 ? page : 1, limit, total } };
   }
 
   async exportCsv(queryTicketDto: QueryTicketDto, userRole: string, userId: string) {

@@ -106,7 +106,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ```
 GET  /api/health                               # Includes maintenance status
 POST /api/auth/login|refresh|logout|change-password
-GET|POST /api/tickets                 # POST authenticated users; EndUser creates own ticket
+GET|POST /api/tickets                 # POST authenticated users; EndUser creates own ticket; ?limit=0 for all
 GET /api/tickets/export/csv           # ITSupport/Admin only
 GET|PATCH|DELETE /api/tickets/:id
 PATCH /api/tickets/:id/status|assign|priority

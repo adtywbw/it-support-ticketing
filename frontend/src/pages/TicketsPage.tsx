@@ -23,10 +23,16 @@ export default function TicketsPage() {
     endDate: '',
     sortBy: 'createdAt',
     sortOrder: 'desc',
+    limit: 10,
   });
 
   const handleFiltersChange = (newFilters: FilterValues) => {
     setFilters(newFilters);
+    setPage(1);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setFilters((prev) => ({ ...prev, limit: newLimit }));
     setPage(1);
   };
 
@@ -77,7 +83,7 @@ export default function TicketsPage() {
           )}
         </div>
       </div>
-      <TicketList filters={filters} onFiltersChange={handleFiltersChange} page={page} onPageChange={setPage} />
+      <TicketList filters={filters} onFiltersChange={handleFiltersChange} page={page} onPageChange={setPage} onLimitChange={handleLimitChange} />
     </div>
   );
 }

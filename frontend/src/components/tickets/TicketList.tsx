@@ -19,9 +19,10 @@ interface TicketListProps {
   onFiltersChange: (filters: FilterValues) => void;
   page: number;
   onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
 }
 
-export default function TicketList({ filters, onFiltersChange, page, onPageChange }: TicketListProps) {
+export default function TicketList({ filters, onFiltersChange, page, onPageChange, onLimitChange }: TicketListProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const canAssign = user && (user.role === 'ITSupport' || user.role === 'Admin');
@@ -33,10 +34,11 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; ticketNumber: string } | null>(null);
 
   const isAdmin = user?.role === 'Admin';
+  const limit = filters.limit;
 
   const queryFilters = {
     page,
-    limit: 10,
+    limit: filters.limit,
     ...(filters.status && { status: filters.status }),
     ...(filters.priority && { priority: filters.priority }),
     ...(filters.search && { search: filters.search }),
@@ -238,9 +240,12 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
 
           {meta && (
             <Pagination
-              page={meta.page}
-              totalPages={meta.totalPages || Math.ceil(meta.total / (meta.limit || 10))}
+              page={limit > 0 ? meta.page : 1}
+              totalPages={limit > 0 ? (meta.totalPages || Math.ceil(meta.total / (meta.limit || 10))) : 1}
               onPageChange={onPageChange}
+              limit={limit}
+              onLimitChange={onLimitChange}
+              totalItems={meta.total}
             />
           )}
         </div>

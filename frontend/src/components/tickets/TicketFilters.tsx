@@ -16,6 +16,7 @@ export interface FilterValues {
   endDate: string;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
+  limit: number;
 }
 
 interface TicketFiltersProps {

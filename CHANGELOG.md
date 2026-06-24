@@ -81,6 +81,12 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Sort state (`sortBy`/`sortOrder`) di `FilterValues`, berubah via `onFiltersChange` → reset page ke 1
 - Backend `sortBy` whitelist: `createdAt`, `updatedAt`, `slaDueAt`, `priority`, `ticketNumber`, `subject`, `status`
 
+## Items Per Page
+- Frontend: dropdown "Items per page" (10, 25, 50, 100, All) di pagination area, applies immediately tanpa tombol Apply
+- Backend: `limit=0` support untuk "All" (return semua data tanpa pagination)
+- Frontend: `limit` ditambahkan ke `FilterValues`, reset page ke 1 saat berubah
+- Pagination component: tampilkan items per page dropdown + total items count, hide page buttons saat "All"
+
 ## Security
 - Env: `validateEnv()` di startup — throw jika `JWT_SECRET`/`DATABASE_URL` tidak diset
 - JWT: hapus hardcoded `'super-secret-key'` fallback di 3 file (auth.module, jwt.strategy, auth.service)

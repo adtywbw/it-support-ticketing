@@ -20,7 +20,7 @@ export class QueryTicketDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   limit?: number;
 
   @IsOptional()
