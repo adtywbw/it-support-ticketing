@@ -215,6 +215,9 @@ cp .env.example backend/.env
 
 # 3. Build and run (database + frontend build automatically on first start)
 docker compose up --build
+
+# 4. Seed default admin/support users once for a fresh install
+docker compose exec api node dist/prisma/seed.js
 ```
 
 The app will be available at `http://helpdesk.rsmch.internal`.
@@ -222,6 +225,7 @@ The app will be available at `http://helpdesk.rsmch.internal`.
 > **Note:** The frontend is built automatically during `docker compose build` (`target: builder` stage).
 > At runtime, the `frontend` service copies `/app/dist` to the shared named volume `frontend_dist`.
 > Nginx reads static files from the same volume (`frontend_dist:/usr/share/nginx/html`).
+> Docker production containers do not run seed automatically; run the seed command once when provisioning a fresh install.
 > For a clean rebuild without deleting data: `docker compose up --build`.
 >
 > **Tips:**
