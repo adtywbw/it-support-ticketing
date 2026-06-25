@@ -5,7 +5,21 @@ const prisma = new PrismaClient();
 
 async function main() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const adminPassword = await bcrypt.hash('Admin123!', 12);
+
+  const adminPasswordRaw = isProduction
+    ? process.env.SEED_ADMIN_PASSWORD
+    : 'Admin123!';
+  const itsupportPasswordRaw = isProduction
+    ? process.env.SEED_SUPPORT_PASSWORD
+    : 'Support123!';
+
+  if (isProduction && (!adminPasswordRaw || !itsupportPasswordRaw)) {
+    throw new Error(
+      'Production seed requires SEED_ADMIN_PASSWORD and SEED_SUPPORT_PASSWORD environment variables.',
+    );
+  }
+
+  const adminPassword = await bcrypt.hash(adminPasswordRaw!, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@company.com' },
@@ -18,7 +32,7 @@ async function main() {
     },
   });
 
-  const itsupportPassword = await bcrypt.hash('Support123!', 12);
+  const itsupportPassword = await bcrypt.hash(itsupportPasswordRaw!, 12);
 
   const itsupport = await prisma.user.upsert({
     where: { email: 'support@company.com' },
@@ -160,6 +174,9 @@ async function main() {
   if (!isProduction) {
     console.log(`Admin user: admin@company.com / Admin123!`);
     console.log(`Support user: support@company.com / Support123!`);
+  } else {
+    console.log('Admin user: admin@company.com (password set via SEED_ADMIN_PASSWORD)');
+    console.log('Support user: support@company.com (password set via SEED_SUPPORT_PASSWORD)');
   }
 }
 

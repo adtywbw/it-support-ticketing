@@ -71,6 +71,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const deleteTicketMutation = useDeleteTicket();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const availableStatuses = ticket ? statusFlows[ticket.status] : [];
+  const canCloseOwnResolved = user?.role === 'EndUser' && ticket?.requesterId === user?.id && ticket?.status === 'Resolved';
 
   if (isLoading) {
     return (
@@ -121,6 +122,17 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                     Mark {status === 'InProgress' ? 'In Progress' : status === 'OnHold' ? 'On Hold' : status}
                   </button>
                 ))}
+              {canCloseOwnResolved && (
+                <button
+                  onClick={() =>
+                    updateStatusMutation.mutate({ id: ticket.id, status: 'Closed' })
+                  }
+                  className="btn-secondary btn-sm"
+                  disabled={updateStatusMutation.isPending}
+                >
+                  Close Ticket
+                </button>
+              )}
               {isAdmin && (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}

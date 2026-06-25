@@ -176,11 +176,12 @@ export class TelegramService
       config = await this.telegramConfigRepository.create({ settings: {} });
     }
     const settings = config.settings as unknown as TelegramSettings;
+    const { groupChatId: _, ...safeSettings } = settings;
     return {
       botToken: '',
       hasBotToken: !!config.botToken,
       hasGroupChatId: !!settings.groupChatId,
-      settings,
+      settings: safeSettings,
     };
   }
 

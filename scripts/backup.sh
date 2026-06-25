@@ -6,19 +6,17 @@ BACKUP_ROOT="${BACKUP_DIR:-$ROOT_DIR/backups}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_PATH="$BACKUP_ROOT/$TIMESTAMP"
 
-POSTGRES_USER="${POSTGRES_USER:-ticketing}"
-POSTGRES_DB="${POSTGRES_DB:-ticketing}"
-
 cd "$ROOT_DIR"
 
-if [ -f "$ROOT_DIR/.env" ]; then
+if [ -f "$ROOT_DIR/backend/.env" ]; then
   set -a
   # shellcheck disable=SC1091
-  . "$ROOT_DIR/.env"
+  . "$ROOT_DIR/backend/.env"
   set +a
-  POSTGRES_USER="${POSTGRES_USER:-ticketing}"
-  POSTGRES_DB="${POSTGRES_DB:-ticketing}"
 fi
+
+POSTGRES_USER="${POSTGRES_USER:-ticketing}"
+POSTGRES_DB="${POSTGRES_DB:-ticketing}"
 
 mkdir -p "$BACKUP_PATH"
 

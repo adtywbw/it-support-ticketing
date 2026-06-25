@@ -34,7 +34,7 @@
 - Jika verifikasi tidak relevan atau tidak bisa dijalankan, laporkan alasannya.
 - Jika test/lint/build gagal, baca error, analisis, perbaiki, lalu ulangi verifikasi.
 - Jangan deklarasikan selesai sebelum verifikasi relevan hijau atau keterbatasannya dijelaskan.
-- Fase 5 - Reporting: ringkas file yang diubah, alasan perubahan, dan verifikasi yang dijalankan.
+- Fase 5 - Reporting: ringkas file yang diubah, alasan perubahan, dan verifikasi yang dijalankan, serta bukti verifikasi yang berhasil.
 - Flag perubahan behavior secara eksplisit jika ada yang perlu diketahui manusia.
 
 ## Non-Negotiable Rules

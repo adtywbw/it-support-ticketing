@@ -67,12 +67,9 @@ services:
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ticketing}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticketing123}
-      POSTGRES_DB: ${POSTGRES_DB:-ticketing}
+    env_file: ./backend/.env
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ticketing} -d ${POSTGRES_DB:-ticketing}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-ticketing} -d $${POSTGRES_DB:-ticketing}"]
       interval: 10s
       timeout: 5s
       retries: 5

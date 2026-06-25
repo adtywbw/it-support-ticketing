@@ -150,6 +150,21 @@ export class TicketsService {
       this.ticketRepository.count(where as any),
     ]);
 
+    if (userRole === 'EndUser') {
+      for (const ticket of tickets) {
+        const visibleComments = await this.ticketRepository.findUnique({
+          where: { id: ticket.id },
+          select: { _count: { select: { comments: { where: { type: CommentType.PUBLIC } } } } },
+        });
+        const visibleAttachments = await this.ticketRepository.findUnique({
+          where: { id: ticket.id },
+          select: { _count: { select: { attachments: { where: { OR: [{ commentId: null }, { comment: { type: CommentType.PUBLIC } }] } } } } },
+        });
+        ticket._count.comments = visibleComments?._count.comments ?? 0;
+        ticket._count.attachments = visibleAttachments?._count.attachments ?? 0;
+      }
+    }
+
     return { data: tickets, meta: { page: limit > 0 ? page : 1, limit, total } };
   }
 
@@ -267,6 +282,22 @@ export class TicketsService {
 
     if (userRole === 'EndUser' && ticket.requesterId !== userId) {
       throw new ForbiddenException('Access denied');
+    }
+
+    if (userRole === 'EndUser') {
+      const visibleCounts = await this.ticketRepository.findUnique({
+        where: { id: ticket.id },
+        select: {
+          _count: {
+            select: {
+              comments: { where: { type: CommentType.PUBLIC } },
+              attachments: { where: { OR: [{ commentId: null }, { comment: { type: CommentType.PUBLIC } }] } },
+            },
+          },
+        },
+      });
+      ticket._count.comments = visibleCounts?._count.comments ?? 0;
+      ticket._count.attachments = visibleCounts?._count.attachments ?? 0;
     }
 
     return ticket;
@@ -497,18 +528,12 @@ export class TicketsService {
   }
 
   private async generateTicketNumber(tx: Prisma.TransactionClient): Promise<string> {
-    const lastTicket = await tx.ticket.findFirst({
-      orderBy: { ticketNumber: 'desc' },
-      select: { ticketNumber: true },
-    });
+    const result = await tx.$queryRaw<{ max_seq: bigint }[]>`
+      SELECT COALESCE(MAX(CAST(SUBSTRING("ticketNumber" FROM 5) AS INTEGER)), 0) as max_seq
+      FROM "tickets"
+    `;
 
-    let nextSeq = 1;
-    if (lastTicket) {
-      const parts = lastTicket.ticketNumber.split('-');
-      const lastSeq = parseInt(parts[parts.length - 1], 10);
-      nextSeq = lastSeq + 1;
-    }
-
+    const nextSeq = Number(result[0].max_seq) + 1;
     return `TKT-${String(nextSeq).padStart(3, '0')}`;
   }
 }

@@ -179,22 +179,26 @@ export class MaintenanceService {
     await this.validateGzipFile(dbPath, 'Database backup is invalid');
     await this.validateGzipFile(uploadsPath, 'Uploads backup is invalid');
 
-    const preRestoreBackup = await this.createBackup('pre-restore');
+    await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
+    await new Promise((resolve) => setTimeout(resolve, DRAIN_TIME_MS));
+
+    let restoreSucceeded = false;
 
     try {
-      await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
-      await new Promise((resolve) => setTimeout(resolve, DRAIN_TIME_MS));
+      const preRestoreBackup = await this.createBackup('pre-restore');
       await this.restoreDatabase(dbPath);
       await this.restoreUploads(uploadsPath);
+      restoreSucceeded = true;
+      return preRestoreBackup;
     } catch (error) {
       throw new BadRequestException(
         error instanceof Error ? error.message : 'Restore backup failed',
       );
     } finally {
-      await this.setMaintenanceMode(false);
+      if (restoreSucceeded) {
+        await this.setMaintenanceMode(false);
+      }
     }
-
-    return preRestoreBackup;
   }
 
   private async getFileInfo(filePath: string): Promise<BackupFileInfo> {

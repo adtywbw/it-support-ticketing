@@ -61,9 +61,11 @@ apiClient.interceptors.response.use(
         const { accessToken } = response.data;
 
         if (!accessToken) {
+          const authError = new Error('No access token received');
+          processQueue(authError, null);
           useAuthStore.getState().logout();
           window.location.href = '/login';
-          return Promise.reject(error);
+          return Promise.reject(authError);
         }
 
         useAuthStore.getState().setAccessToken(accessToken);

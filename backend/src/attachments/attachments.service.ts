@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { CommentType, Role } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
 import { Express } from 'express';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
@@ -30,6 +31,17 @@ const ALLOWED_MIME_TYPES = [
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES_PER_TICKET = 5;
+
+function buildSafeUploadPath(uploadDir: string, originalName: string): string {
+  const uploadRoot = path.resolve(uploadDir);
+  const ext = path.extname(path.basename(originalName)) || '';
+  const safeName = `${uuidv4()}${ext}`;
+  const resolvedPath = path.resolve(path.join(uploadRoot, safeName));
+  if (!resolvedPath.startsWith(uploadRoot + path.sep) && resolvedPath !== uploadRoot) {
+    throw new BadRequestException('Invalid file path');
+  }
+  return resolvedPath;
+}
 
 @Injectable()
 export class AttachmentsService {
@@ -74,9 +86,8 @@ export class AttachmentsService {
       throw new BadRequestException('File size exceeds 10MB limit');
     }
 
-    const uniqueName = `${uuidv4()}-${file.originalname}`;
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    const filePath = `${uploadDir}/${uniqueName}`;
+    const filePath = buildSafeUploadPath(uploadDir, file.originalname);
 
     await this.storageService.save(file, filePath);
 

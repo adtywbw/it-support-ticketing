@@ -7,11 +7,13 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { Role, Priority } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { SLAService } from './sla.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CreateSlaConfigDto } from './dto/create-sla-config.dto';
+import { UpdateSlaConfigDto } from './dto/update-sla-config.dto';
 
 @Controller('sla-configs')
 @UseGuards(JwtAuthGuard)
@@ -26,15 +28,7 @@ export class SLAController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Role.Admin)
-  async create(
-    @Body()
-    body: {
-      categoryId: string;
-      priority: Priority;
-      responseTimeMinutes: number;
-      resolutionTimeMinutes: number;
-    },
-  ) {
+  async create(@Body() body: CreateSlaConfigDto) {
     return this.slaService.create(body);
   }
 
@@ -43,12 +37,7 @@ export class SLAController {
   @Roles(Role.Admin)
   async update(
     @Param('id') id: string,
-    @Body()
-    body: {
-      responseTimeMinutes?: number;
-      resolutionTimeMinutes?: number;
-      isActive?: boolean;
-    },
+    @Body() body: UpdateSlaConfigDto,
   ) {
     return this.slaService.update(id, body);
   }
