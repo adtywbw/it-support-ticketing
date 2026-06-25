@@ -152,7 +152,6 @@ export interface LoginCredentials {
 export interface AuthResponse {
   user: User & { firstName?: string; lastName?: string };
   accessToken: string;
-  refreshToken: string;
 }
 
 export interface TicketFilters {

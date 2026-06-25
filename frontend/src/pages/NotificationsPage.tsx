@@ -18,7 +18,7 @@ export default function NotificationsPage() {
     );
   }
 
-  const notifications = data?.data ?? [];
+  const notifications = data ?? [];
 
   return (
     <div className="space-y-4">

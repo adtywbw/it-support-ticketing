@@ -1,13 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
-import type { User, CreateUserPayload, UpdateUserPayload, PaginatedResponse } from '@/types';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
+import type { User, CreateUserPayload, UpdateUserPayload } from '@/types';
 
 export function useUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const response = await apiClient.get<PaginatedResponse<User>>('/users?includeInactive=true');
-      return response.data.data;
+      const response = await apiClient.get<ApiEnvelope<User[]>>('/users?includeInactive=true');
+      return unwrapData(response);
     },
     enabled: options?.enabled ?? true,
   });
@@ -17,8 +17,8 @@ export function useAssignableUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users', 'assignable'],
     queryFn: async () => {
-      const response = await apiClient.get<Array<{ id: string; name: string; email: string; role: string }>>('/users/assignable');
-      return response.data;
+      const response = await apiClient.get<ApiEnvelope<Array<{ id: string; name: string; email: string; role: string }>>>('/users/assignable');
+      return unwrapData(response);
     },
     enabled: options?.enabled ?? true,
   });
@@ -29,8 +29,8 @@ export function useCreateUser() {
 
   return useMutation({
     mutationFn: async (payload: CreateUserPayload) => {
-      const response = await apiClient.post<User>('/users', payload);
-      return response.data;
+      const response = await apiClient.post<ApiEnvelope<User>>('/users', payload);
+      return unwrapData(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -43,8 +43,8 @@ export function useUpdateUser() {
 
   return useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: UpdateUserPayload }) => {
-      const response = await apiClient.patch<User>(`/users/${id}`, payload);
-      return response.data;
+      const response = await apiClient.patch<ApiEnvelope<User>>(`/users/${id}`, payload);
+      return unwrapData(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -57,8 +57,8 @@ export function useDeleteUser() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiClient.delete(`/users/${id}`);
-      return response.data;
+      const response = await apiClient.delete<ApiEnvelope<void>>(`/users/${id}`);
+      return unwrapData(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });

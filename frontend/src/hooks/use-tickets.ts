@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
-import type { Ticket, TicketFilters, CreateTicketPayload, PaginatedResponse, TicketStatus, TicketPriority } from '@/types';
+import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
+import type { Ticket, TicketFilters, CreateTicketPayload, Comment, Attachment, TicketStatus, TicketPriority } from '@/types';
 
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
@@ -13,8 +13,8 @@ export function useTickets(filters: TicketFilters) {
   return useQuery({
     queryKey: ['tickets', filters],
     queryFn: async () => {
-      const response = await apiClient.get<PaginatedResponse<Ticket>>(`/tickets?${params.toString()}`);
-      return response.data;
+      const response = await apiClient.get<ApiEnvelope<Ticket[]>>(`/tickets?${params.toString()}`);
+      return unwrapPage(response);
     },
     placeholderData: (prev) => prev,
   });
@@ -24,8 +24,8 @@ export function useTicket(id: string) {
   return useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
-      const response = await apiClient.get<Ticket>(`/tickets/${id}`);
-      return response.data;
+      const response = await apiClient.get<ApiEnvelope<Ticket>>(`/tickets/${id}`);
+      return unwrapData(response);
     },
     enabled: !!id,
   });
@@ -36,8 +36,8 @@ export function useCreateTicket() {
 
   return useMutation({
     mutationFn: async (payload: CreateTicketPayload) => {
-      const response = await apiClient.post<Ticket>('/tickets', payload);
-      return response.data;
+      const response = await apiClient.post<ApiEnvelope<Ticket>>('/tickets', payload);
+      return unwrapData(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
@@ -51,8 +51,8 @@ export function useUpdateTicketStatus() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TicketStatus }) => {
-      const response = await apiClient.patch<Ticket>(`/tickets/${id}/status`, { status });
-      return response.data;
+      const response = await apiClient.patch<ApiEnvelope<Ticket>>(`/tickets/${id}/status`, { status });
+      return unwrapData(response);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
@@ -67,8 +67,8 @@ export function useAssignTicket() {
 
   return useMutation({
     mutationFn: async ({ id, assignedToId }: { id: string; assignedToId: string | null }) => {
-      const response = await apiClient.patch<Ticket>(`/tickets/${id}/assign`, { assignedToId });
-      return response.data;
+      const response = await apiClient.patch<ApiEnvelope<Ticket>>(`/tickets/${id}/assign`, { assignedToId });
+      return unwrapData(response);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
@@ -81,8 +81,8 @@ export function useTicketComments(ticketId: string) {
   return useQuery({
     queryKey: ['ticket', ticketId, 'comments'],
     queryFn: async () => {
-      const response = await apiClient.get(`/tickets/${ticketId}/comments`);
-      return response.data;
+      const response = await apiClient.get<ApiEnvelope<Comment[]>>(`/tickets/${ticketId}/comments`);
+      return unwrapData(response);
     },
     enabled: !!ticketId,
   });
@@ -109,10 +109,10 @@ export function useAddComment() {
       if (files) {
         files.forEach((file) => formData.append('files', file));
       }
-      const response = await apiClient.post(`/tickets/${ticketId}/comments`, formData, {
+      const response = await apiClient.post<ApiEnvelope<Comment>>(`/tickets/${ticketId}/comments`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      return response.data;
+      return unwrapData(response);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'comments'] });
@@ -124,8 +124,8 @@ export function useTicketAttachments(ticketId: string) {
   return useQuery({
     queryKey: ['ticket', ticketId, 'attachments'],
     queryFn: async () => {
-      const response = await apiClient.get(`/tickets/${ticketId}/attachments`);
-      return response.data;
+      const response = await apiClient.get<ApiEnvelope<Attachment[]>>(`/tickets/${ticketId}/attachments`);
+      return unwrapData(response);
     },
     enabled: !!ticketId,
   });
@@ -139,8 +139,8 @@ export function useUploadAttachment() {
       const formData = new FormData();
       formData.append('file', file);
       if (visibility) formData.append('visibility', visibility);
-      const response = await apiClient.post(`/tickets/${ticketId}/attachments`, formData);
-      return response.data;
+      const response = await apiClient.post<ApiEnvelope<Attachment>>(`/tickets/${ticketId}/attachments`, formData);
+      return unwrapData(response);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'attachments'] });
@@ -153,8 +153,8 @@ export function useUpdateTicketPriority() {
 
   return useMutation({
     mutationFn: async ({ id, priority }: { id: string; priority: TicketPriority }) => {
-      const response = await apiClient.patch<Ticket>(`/tickets/${id}/priority`, { priority });
-      return response.data;
+      const response = await apiClient.patch<ApiEnvelope<Ticket>>(`/tickets/${id}/priority`, { priority });
+      return unwrapData(response);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });

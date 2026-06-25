@@ -1,10 +1,36 @@
 import axios from 'axios';
-import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { getAccessToken, useAuthStore } from '@/stores/auth-store';
+import type { User } from '@/types';
 
 const apiClient = axios.create({
   baseURL: '/api',
 });
+
+export interface ApiEnvelope<T> {
+  data: T;
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages?: number;
+  };
+}
+
+export function unwrapData<T>(response: AxiosResponse<ApiEnvelope<T>>): T {
+  return response.data.data;
+}
+
+export function unwrapPage<T>(response: AxiosResponse<ApiEnvelope<T[]>>): { data: T[]; meta: ApiEnvelope<T[]>['meta'] } {
+  return {
+    data: response.data.data,
+    meta: response.data.meta,
+  };
+}
+
+export function unwrapBlob(response: AxiosResponse<Blob>): Blob {
+  return response.data;
+}
 
 interface FailedRequest {
   resolve: (token: string) => void;
@@ -57,8 +83,8 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
-        const { accessToken, user } = response.data;
+        const response = await axios.post<{ data: { accessToken: string; user: User } }>('/api/auth/refresh', {}, { withCredentials: true });
+        const { accessToken, user } = response.data.data;
 
         if (!accessToken) {
           const authError = new Error('No access token received');

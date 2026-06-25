@@ -12,6 +12,7 @@ import { Express } from 'express';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService } from './interfaces/storage-service.interface';
+import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -165,15 +166,13 @@ export class AttachmentsService {
       comment: { select: { type: true } },
     });
 
-    if (userRole !== Role.EndUser) {
-      return attachments;
+    if (userRole === Role.EndUser) {
+      return attachments.filter((attachment: any) =>
+        AttachmentVisibilityPolicy.isAttachmentVisible(attachment, userRole as UserRole),
+      );
     }
 
-    return attachments.filter(
-      (attachment: { comment?: { type: CommentType } | null; visibility?: AttachmentVisibility }) =>
-        attachment.comment?.type !== CommentType.INTERNAL &&
-        attachment.visibility !== AttachmentVisibility.INTERNAL,
-    );
+    return attachments;
   }
 
   async getDownloadInfo(id: string, userId: string, userRole: string) {
@@ -190,11 +189,7 @@ export class AttachmentsService {
       throw new ForbiddenException('Access denied');
     }
 
-    if (userRole === Role.EndUser && attachment.comment?.type === CommentType.INTERNAL) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    if (userRole === Role.EndUser && (attachment as any).visibility === AttachmentVisibility.INTERNAL) {
+    if (userRole === Role.EndUser && !AttachmentVisibilityPolicy.isAttachmentVisible(attachment, userRole as UserRole)) {
       throw new ForbiddenException('Access denied');
     }
 

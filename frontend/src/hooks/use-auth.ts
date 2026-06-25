@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { getErrorMessage } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 import type { LoginCredentials, AuthResponse } from '@/types';
@@ -12,8 +12,8 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
-      const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
-      return response.data;
+      const response = await apiClient.post<ApiEnvelope<AuthResponse>>('/auth/login', credentials);
+      return unwrapData(response);
     },
     onSuccess: (data) => {
       const user = { ...data.user, name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() };

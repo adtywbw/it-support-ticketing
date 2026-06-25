@@ -1,25 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { useNotificationStore } from '@/stores/notification-store';
-import type { Notification, PaginatedResponse } from '@/types';
+import type { Notification } from '@/types';
 import { useEffect } from 'react';
 
 export function useNotifications(page = 1, limit = 20) {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
 
   const query = useQuery({
-    queryKey: ['notifications', page],
+    queryKey: ['notifications', page, limit],
     queryFn: async () => {
-      const response = await apiClient.get<PaginatedResponse<Notification>>(
+      const response = await apiClient.get<ApiEnvelope<Notification[]>>(
         `/notifications?page=${page}&limit=${limit}`,
       );
-      return response.data;
+      return unwrapData(response);
     },
   });
 
   useEffect(() => {
     if (query.data) {
-      const unread = query.data.data.filter((n) => !n.isRead).length;
+      const unread = query.data.filter((n) => !n.isRead).length;
       setUnreadCount(unread);
     }
   }, [query.data, setUnreadCount]);

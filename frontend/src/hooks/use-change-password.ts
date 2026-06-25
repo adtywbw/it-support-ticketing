@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 
 interface ChangePasswordPayload {
   currentPassword: string;
@@ -9,8 +9,8 @@ interface ChangePasswordPayload {
 export function useChangePassword() {
   return useMutation({
     mutationFn: async (payload: ChangePasswordPayload) => {
-      const response = await apiClient.post('/auth/change-password', payload);
-      return response.data;
+      const response = await apiClient.post<ApiEnvelope<void>>('/auth/change-password', payload);
+      return unwrapData(response);
     },
   });
 }

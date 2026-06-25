@@ -34,9 +34,16 @@ export class MaintenanceGuard implements CanActivate {
     if (this.isAllowedDuringMaintenance(req)) return true;
 
     const message = await this.redis.get(MAINTENANCE_MESSAGE_KEY);
-    throw new ServiceUnavailableException(
+    const exception = new ServiceUnavailableException(
       message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
     );
+    exception.getResponse = () => ({
+      statusCode: 503,
+      message: message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
+      error: 'Service Unavailable',
+      code: 'MAINTENANCE',
+    });
+    throw exception;
   }
 
   private isAllowedDuringMaintenance(req: Request): boolean {

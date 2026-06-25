@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, unwrapBlob, type ApiEnvelope } from '@/lib/axios';
 import type { BackupInfo, MaintenanceStatus } from '@/types';
 
 export function useMaintenanceMode() {
   return useQuery({
     queryKey: ['maintenance', 'mode'],
     queryFn: async () => {
-      const response = await apiClient.get<MaintenanceStatus>('/maintenance/mode');
-      return response.data;
+      const response = await apiClient.get<ApiEnvelope<MaintenanceStatus>>('/maintenance/mode');
+      return unwrapData(response);
     },
     refetchInterval: 5000,
   });
@@ -18,11 +18,11 @@ export function useSetMaintenanceMode() {
 
   return useMutation({
     mutationFn: async ({ enabled, message }: { enabled: boolean; message?: string }) => {
-      const response = await apiClient.patch<MaintenanceStatus>('/maintenance/mode', {
+      const response = await apiClient.patch<ApiEnvelope<MaintenanceStatus>>('/maintenance/mode', {
         enabled,
         message,
       });
-      return response.data;
+      return unwrapData(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'mode'] });
@@ -34,8 +34,8 @@ export function useBackups() {
   return useQuery({
     queryKey: ['maintenance', 'backups'],
     queryFn: async () => {
-      const response = await apiClient.get<BackupInfo[]>('/maintenance/backups');
-      return response.data;
+      const response = await apiClient.get<ApiEnvelope<BackupInfo[]>>('/maintenance/backups');
+      return unwrapData(response);
     },
   });
 }
@@ -45,8 +45,8 @@ export function useCreateBackup() {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await apiClient.post<BackupInfo>('/maintenance/backups');
-      return response.data;
+      const response = await apiClient.post<ApiEnvelope<BackupInfo>>('/maintenance/backups');
+      return unwrapData(response);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'backups'] });
@@ -70,11 +70,11 @@ export function useDeleteBackup() {
 export function useRestoreBackup() {
   return useMutation({
     mutationFn: async ({ id, confirmation }: { id: string; confirmation: string }) => {
-      const response = await apiClient.post<{ message: string; preRestoreBackup: BackupInfo }>(
+      const response = await apiClient.post<ApiEnvelope<{ message: string; preRestoreBackup: BackupInfo }>>(
         `/maintenance/backups/${id}/restore`,
         { confirmation },
       );
-      return response.data;
+      return unwrapData(response);
     },
   });
 }
@@ -83,7 +83,8 @@ export async function downloadBackupFile(id: string, type: 'db' | 'uploads') {
   const response = await apiClient.get(`/maintenance/backups/${id}/download/${type}`, {
     responseType: 'blob',
   });
-  const url = window.URL.createObjectURL(response.data);
+  const blob = unwrapBlob(response as unknown as import('axios').AxiosResponse<Blob>);
+  const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = `${id}-${type === 'db' ? 'db.sql.gz' : 'uploads.tar.gz'}`;

@@ -17,6 +17,7 @@ import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
 import { TicketStatus, Priority, SLAStatus, CommentType, Prisma } from '@prisma/client';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
+import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Open]: [TicketStatus.InProgress],
@@ -151,6 +152,7 @@ export class TicketsService {
     ]);
 
     if (userRole === 'EndUser') {
+      const visibleAttachmentWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere();
       for (const ticket of tickets) {
         const visibleComments = await this.ticketRepository.findUnique({
           where: { id: ticket.id },
@@ -158,7 +160,7 @@ export class TicketsService {
         });
         const visibleAttachments = await this.ticketRepository.findUnique({
           where: { id: ticket.id },
-          select: { _count: { select: { attachments: { where: { OR: [{ commentId: null }, { comment: { type: CommentType.PUBLIC } }] } } } } },
+          select: { _count: { select: { attachments: { where: visibleAttachmentWhere } } } },
         });
         ticket._count.comments = visibleComments?._count.comments ?? 0;
         ticket._count.attachments = visibleAttachments?._count.attachments ?? 0;
@@ -260,7 +262,7 @@ export class TicketsService {
       },
       attachments: {
         where: userRole === 'EndUser'
-          ? { OR: [{ commentId: null }, { comment: { type: CommentType.PUBLIC } }] }
+          ? AttachmentVisibilityPolicy.buildVisibleAttachmentWhere(userRole as UserRole)
           : undefined,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -290,13 +292,14 @@ export class TicketsService {
     }
 
     if (userRole === 'EndUser') {
+      const visibleAttachmentWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere();
       const visibleCounts = await this.ticketRepository.findUnique({
         where: { id: ticket.id },
         select: {
           _count: {
             select: {
               comments: { where: { type: CommentType.PUBLIC } },
-              attachments: { where: { OR: [{ commentId: null }, { comment: { type: CommentType.PUBLIC } }] } },
+              attachments: { where: visibleAttachmentWhere },
             },
           },
         },

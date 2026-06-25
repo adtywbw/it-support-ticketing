@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 
 export interface TelegramSettings {
   enabledEvents: string[];
@@ -20,8 +20,8 @@ export function useTelegramStatus() {
   return useQuery({
     queryKey: ['telegram-status'],
     queryFn: async () => {
-      const res = await apiClient.get<{ linked: boolean }>('/telegram/status');
-      return res.data;
+      const res = await apiClient.get<ApiEnvelope<{ linked: boolean }>>('/telegram/status');
+      return unwrapData(res);
     },
   });
 }
@@ -31,10 +31,10 @@ export function useGenerateTelegramCode() {
 
   return useMutation({
     mutationFn: async () => {
-      const res = await apiClient.post<{ code: string; expiresIn: number }>(
+      const res = await apiClient.post<ApiEnvelope<{ code: string; expiresIn: number }>>(
         '/telegram/link',
       );
-      return res.data;
+      return unwrapData(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-status'] });
@@ -55,13 +55,14 @@ export function useUnlinkTelegram() {
   });
 }
 
-export function useTelegramConfig() {
+export function useTelegramConfig(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['telegram-config'],
     queryFn: async () => {
-      const res = await apiClient.get<TelegramConfig>('/telegram/config');
-      return res.data;
+      const res = await apiClient.get<ApiEnvelope<TelegramConfig>>('/telegram/config');
+      return unwrapData(res);
     },
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -73,8 +74,8 @@ export interface CheckResult {
 export function useCheckTelegram() {
   return useMutation({
     mutationFn: async (data: { botToken?: string; groupChatId?: string }) => {
-      const res = await apiClient.post<CheckResult>('/telegram/check', data);
-      return res.data;
+      const res = await apiClient.post<ApiEnvelope<CheckResult>>('/telegram/check', data);
+      return unwrapData(res);
     },
   });
 }
@@ -82,10 +83,10 @@ export function useCheckTelegram() {
 export function useSendTestNotification() {
   return useMutation({
     mutationFn: async () => {
-      const res = await apiClient.post<{ message: string }>(
+      const res = await apiClient.post<ApiEnvelope<{ message: string }>>(
         '/telegram/test-notification',
       );
-      return res.data;
+      return unwrapData(res);
     },
   });
 }
@@ -98,8 +99,8 @@ export function useUpdateTelegramConfig() {
       botToken?: string | null;
       settings?: TelegramSettings;
     }) => {
-      const res = await apiClient.put<TelegramConfig>('/telegram/config', data);
-      return res.data;
+      const res = await apiClient.put<ApiEnvelope<TelegramConfig>>('/telegram/config', data);
+      return unwrapData(res);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-config'] });

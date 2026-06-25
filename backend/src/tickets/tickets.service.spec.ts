@@ -22,6 +22,7 @@ describe('TicketsService', () => {
   const mockTicketRepository = {
     create: jest.fn(),
     findById: jest.fn(),
+    findUnique: jest.fn(),
     findMany: jest.fn(),
     findFirst: jest.fn(),
     count: jest.fn(),
@@ -79,6 +80,7 @@ describe('TicketsService', () => {
     mockTicketRepository.transaction.mockImplementation(
       (fn: (tx: Record<string, unknown>) => unknown) =>
         fn({
+          $queryRaw: jest.fn().mockResolvedValue([{ max_seq: 0 }]),
           ticket: {
             findFirst: (...args: unknown[]) =>
               mockTicketRepository.findFirst(...args),
@@ -223,8 +225,23 @@ describe('TicketsService', () => {
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
-      mockTicketRepository.findFirst.mockResolvedValueOnce(null);
-      mockTicketRepository.create.mockResolvedValue({
+
+      // First call: no existing tickets, max_seq = 0, so ticket number = TKT-001
+      mockTicketRepository.transaction.mockImplementationOnce(
+        (fn: (tx: Record<string, unknown>) => unknown) =>
+          fn({
+            $queryRaw: jest.fn().mockResolvedValueOnce([{ max_seq: 0 }]),
+            ticket: {
+              create: (args: { data: unknown; include?: unknown }) =>
+                mockTicketRepository.create(args.data, args.include),
+            },
+            ticketHistory: {
+              create: jest.fn().mockResolvedValue({}),
+            },
+          }),
+      );
+
+      mockTicketRepository.create.mockResolvedValueOnce({
         id: 'ticket-2',
         ticketNumber: 'TKT-001',
         subject: createTicketDto.subject,
@@ -248,10 +265,22 @@ describe('TicketsService', () => {
         expect.any(Object),
       );
 
-      mockTicketRepository.findFirst.mockResolvedValueOnce({
-        ticketNumber: 'TKT-005',
-      });
-      mockTicketRepository.create.mockResolvedValue({
+      // Second call: 5 existing tickets, max_seq = 5, so ticket number = TKT-006
+      mockTicketRepository.transaction.mockImplementationOnce(
+        (fn: (tx: Record<string, unknown>) => unknown) =>
+          fn({
+            $queryRaw: jest.fn().mockResolvedValueOnce([{ max_seq: 5 }]),
+            ticket: {
+              create: (args: { data: unknown; include?: unknown }) =>
+                mockTicketRepository.create(args.data, args.include),
+            },
+            ticketHistory: {
+              create: jest.fn().mockResolvedValue({}),
+            },
+          }),
+      );
+
+      mockTicketRepository.create.mockResolvedValueOnce({
         id: 'ticket-3',
         ticketNumber: 'TKT-006',
         subject: createTicketDto.subject,
@@ -430,6 +459,9 @@ describe('TicketsService', () => {
     it('should restrict to requester tickets for EndUser role', async () => {
       mockTicketRepository.findMany.mockResolvedValue(mockTickets);
       mockTicketRepository.count.mockResolvedValue(1);
+      mockTicketRepository.findUnique.mockResolvedValue({
+        _count: { comments: 0, attachments: 0 },
+      });
 
       const queryTicketDto: QueryTicketDto = {};
       await service.findAll(queryTicketDto, 'EndUser', 'user-1');

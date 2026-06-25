@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { Reflector } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -21,6 +21,7 @@ import { TelegramModule } from './telegram/telegram.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { RepositoriesModule } from './common/repositories/repositories.module';
 import { MaintenanceGuard } from './common/guards/maintenance.guard';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { RedisService } from './redis/redis.service';
 
 @Module({
@@ -57,6 +58,10 @@ import { RedisService } from './redis/redis.service';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
     },
   ],
 })

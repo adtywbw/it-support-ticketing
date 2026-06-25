@@ -23,13 +23,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
+        code = this.getCodeFromStatus(status);
       } else if (typeof exceptionResponse === 'object') {
         const resp = exceptionResponse as Record<string, unknown>;
         message = (resp.message as string) || exception.message;
         if (Array.isArray(resp.message)) {
           message = (resp.message as string[]).join(', ');
         }
-        code = (resp.error as string) || this.getCodeFromStatus(status);
+        if (resp.code) {
+          code = resp.code as string;
+        } else {
+          code = this.getCodeFromStatus(status);
+        }
       }
     }
 
