@@ -45,8 +45,8 @@ Infra:
 
 ## Tracking Checklist Global
 
-- [ ] F-01 Tutup gap visibility attachment internal untuk EndUser.
-- [ ] F-02 Satukan kontrak success/error API dan update frontend adapter.
+- [x] F-01 Tutup gap visibility attachment internal untuk EndUser.
+- [x] F-02 Satukan kontrak success/error API dan update frontend adapter.
 - [ ] F-03 Rapikan module/repository boundary dan akses Prisma langsung.
 - [ ] F-04 Pecah service/komponen yang terlalu gemuk setelah kontrak aman.
 - [ ] F-05 Benahi readiness multi-instance untuk WebSocket, Telegram, dan cron SLA.
@@ -66,7 +66,7 @@ Infra:
 
 ### F-01 - P0 - Visibility attachment internal tidak terpusat untuk EndUser
 
-Status: Open
+Status: Done
 Area: Backend authorization, data visibility, ticket domain
 
 Bukti:
@@ -105,7 +105,7 @@ Verifikasi:
 
 ### F-02 - P1 - Kontrak success/error API drift dan belum enforced global
 
-Status: Open
+Status: Done
 Area: Backend API contract, frontend API client, error handling
 
 Bukti:

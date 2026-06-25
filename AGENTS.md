@@ -8,8 +8,8 @@
 ## Stack Snapshot
 - Backend: NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, Socket.IO notifications.
 - Frontend: React 18, Vite 5, TanStack Query 5, Zustand, Tailwind.
-- API success: `{ data, meta? }`; paginated `meta` is `{ page, limit, total }`.
-- API error: `{ error: { code, message } }` via `HttpExceptionFilter`.
+- API success: `{ data, meta? }` (enforced globally via `TransformInterceptor`); paginated `meta` is `{ page, limit, total, totalPages? }`.
+- API error: `{ error: { code, message } }` via `HttpExceptionFilter` (stable codes: `BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.).
 
 ## Work Style
 - Stay inside the user's scope; if a path/page/endpoint is named, start there.
@@ -64,12 +64,14 @@
 ```
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
+backend/src/common/policies/attachment-visibility.policy.ts
 frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ```
 
 ## File Placement & Conventions
 - Backend module files live in `backend/src/{module}/` with `module.ts`, `controller.ts`, `service.ts`, and `dto/`.
 - Backend repositories live in `backend/src/common/repositories/`.
+- Backend policies live in `backend/src/common/policies/` (e.g., `AttachmentVisibilityPolicy`).
 - Frontend pages: `frontend/src/pages/`.
 - Frontend components: `frontend/src/components/{domain}/`.
 - Frontend hooks: `frontend/src/hooks/` for TanStack Query hooks.
@@ -111,6 +113,8 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - EndUser can create own tickets, view only own tickets, and close own `Resolved -> Closed` tickets.
 - EndUser cannot comment, upload, or list attachments for tickets owned by another user.
 - Internal comments and internal attachments are never returned/displayed to EndUser.
+- Attachment visibility is centralized via `AttachmentVisibilityPolicy` in `backend/src/common/policies/`.
+- EndUser sees only PUBLIC direct attachments and attachments from PUBLIC comments.
 - ITSupport/Admin can access dashboard and operational ticket workflows.
 
 ## Maintenance Mode

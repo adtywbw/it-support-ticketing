@@ -248,3 +248,13 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Deployment: Redis compose service memakai `REDIS_PASSWORD`/`requirepass`, API startup production mewajibkan `REDIS_PASSWORD`, dan nginx menambahkan security headers.
 - Frontend: React Query Devtools hanya dirender saat development; EndUser dapat change password sendiri.
 - Env/seed: production menolak weak `JWT_SECRET` placeholder dan seed production tetap wajib `SEED_ADMIN_PASSWORD`/`SEED_SUPPORT_PASSWORD`.
+
+## Code Review Fixes — F-01 & F-02 (Phase 0)
+- F-01 (P0): Centralized attachment visibility policy (`AttachmentVisibilityPolicy`) — EndUser hanya bisa melihat PUBLIC direct attachments dan attachments dari PUBLIC comments. Policy diterapkan di `TicketsService.findAll`, `TicketsService.findById` (count), `AttachmentsService.findByTicketId`, dan `AttachmentsService.getDownloadInfo`. Sebelumnya: direct attachment INTERNAL bocor karena filter hanya mengecek `commentId: null OR comment.type: PUBLIC` tanpa cek `visibility`.
+- F-01: Tambah 12 unit test untuk visibility boundary (EndUser/ITSupport/Admin).
+- F-02 (P1): Register `TransformInterceptor` global via `APP_INTERCEPTOR` — semua success response di-wrap `{ data, meta? }` secara konsisten. Stream/CSV/blob responses di-skip.
+- F-02: `HttpExceptionFilter` gunakan `resp.code` jika ada, fallback ke `getCodeFromStatus(status)` — menghasilkan code stabil (`BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, dll) bukan `resp.error` Nest default.
+- F-02: `MaintenanceGuard` throw exception dengan `code: 'MAINTENANCE'` eksplisit.
+- F-02: Frontend tambah `ApiEnvelope<T>`, `unwrapData<T>()`, `unwrapPage<T>()`, `unwrapBlob()` helpers. Semua hooks di-update untuk gunakan adapters.
+- F-02: Hapus `refreshToken` dari `AuthResponse` type (drift fix — frontend tidak menerima refresh token di body, hanya httpOnly cookie).
+- F-02: `NotificationsPage` fix `data.data` → `data` (sudah unwrap oleh interceptor).

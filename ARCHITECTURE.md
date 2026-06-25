@@ -268,11 +268,13 @@ it-support-ticketing/
 │       │   │   ├── jwt-auth.guard.ts
 │       │   │   └── roles.guard.ts
 │       │   ├── interceptors/
-│       │   │   └── response-envelope.interceptor.ts
+│       │   │   └── transform.interceptor.ts
 │       │   ├── interfaces/
 │       │   │   └── storage-service.interface.ts
 │       │   ├── pipes/
 │       │   │   └── uuid-validation.pipe.ts
+│       │   ├── policies/
+│       │   │   └── attachment-visibility.policy.ts
 │       │   └── repositories/
 │       │       ├── repositories.module.ts
 │       │       ├── user.repository.ts
@@ -494,12 +496,14 @@ it-support-ticketing/
 - Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation.
 - EndUser access is ownership-scoped: EndUser can create tickets as requester, can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
 - EndUser cannot access `/dashboard` or admin routes; both backend roles and frontend routes/actions enforce this.
-- INTERNAL comments, INTERNAL standalone attachments, and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses.
+- INTERNAL comments, INTERNAL standalone attachments, and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses. Visibility is centralized via `AttachmentVisibilityPolicy` in `backend/src/common/policies/`.
 - EndUser ticket `_count` reflects only visible comments/attachments (public + direct), not internal counts.
 - File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level magic-byte checks before persistence.
 - Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only. `LocalStorageService` validates path containment as defense-in-depth.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.
 - `MaintenanceGuard` (global `APP_GUARD`) blocks all non-essential API requests when maintenance mode is enabled. Allowed during maintenance: `/health`, `/maintenance/*` (all methods), `/auth/*` (all methods). Non-admin users receive `503 { error: { code: 'MAINTENANCE', message } }`.
+- `TransformInterceptor` (global `APP_INTERCEPTOR`) wraps all success responses in `{ data, meta? }` envelope. Skips wrap for stream/CSV/blob responses. Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers to extract data from the envelope.
+- `HttpExceptionFilter` returns stable error codes (`BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.) via `resp.code` or `getCodeFromStatus()` fallback.
 - Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.
 - Health endpoint always accessible (no auth required) and includes `maintenance: { enabled, message }` in its response for frontend polling.
 - Restore does not disable maintenance mode on failure — `restoreSucceeded` flag ensures maintenance stays active until restore completes successfully.

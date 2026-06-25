@@ -377,13 +377,17 @@ Production containers do not run seed automatically. If the seed script is run m
 
 ## API Response Format
 
+All success responses are wrapped in `{ data, meta? }` envelope by `TransformInterceptor` (global). Stream/CSV/blob responses are excluded.
+
 ```json
 // Success
-{ "data": ..., "meta": { "page": 1, "limit": 20, "total": 150 } }
+{ "data": ..., "meta": { "page": 1, "limit": 20, "total": 150, "totalPages": 8 } }
 
 // Error
-{ "error": { "code": "TICKET_NOT_FOUND", "message": "Ticket not found" } }
+{ "error": { "code": "BAD_REQUEST", "message": "Validation failed" } }
 ```
+
+Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers from `frontend/src/lib/axios.ts` to extract data from the envelope.
 
 ## Docker Services
 
@@ -432,6 +436,11 @@ Unit test for TicketsService covers:
 - `create()` — happy path, category not found error, ticket number format, SLA calculation
 - `findAll()` — pagination, search filtering
 - `updateStatus()` — valid transitions, invalid transitions (BadRequestException), not found
+
+Unit test for AttachmentVisibilityPolicy covers:
+- `buildVisibleAttachmentWhere` — returns undefined for ITSupport/Admin, returns visibility=PUBLIC filter for EndUser
+- `buildVisibleAttachmentCountWhere` — returns filter requiring PUBLIC visibility
+- `isAttachmentVisible` — EndUser sees only PUBLIC direct attachments and PUBLIC comment attachments; ITSupport/Admin see all
 
 ## Scaling
 
