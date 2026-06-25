@@ -19,6 +19,24 @@
 - Verify narrowly with relevant test/build/lint only; do not run the whole stack unless needed.
 - Preserve user changes; never revert/reset/checkout files without explicit request.
 
+## Agentic Loop Wajib
+- Fase 1 - Context Gathering: sebelum edit atau eksekusi perubahan, baca struktur direktori project, identifikasi file relevan, dan pahami naming, pattern, serta arsitektur yang sudah ada.
+- Jangan langsung edit file sebelum context gathering selesai.
+- Fase 2 - Planning: untuk task yang menyentuh lebih dari 1 file, tulis rencana perubahan sebelum eksekusi.
+- Planning harus mencantumkan file yang akan diubah, apa yang diubah, dan kenapa.
+- Untuk bug, identifikasi root cause terlebih dahulu, baru susun plan fix.
+- Tanya konfirmasi manusia jika tujuan ambigu, ada beberapa opsi valid, atau ada risiko perubahan behavior.
+- Fase 3 - Execution: buat perubahan sesempit mungkin sesuai scope task.
+- Jangan tambah fitur, refactor, atau improvement yang tidak diminta.
+- Prefer reversible actions dan hindari operasi destruktif tanpa konfirmasi eksplisit.
+- Jika diminta commit, satu perubahan logis = satu commit; jangan batch perubahan tidak terkait.
+- Fase 4 - Verification: setelah edit, jalankan test/lint/build yang relevan sesuai area perubahan.
+- Jika verifikasi tidak relevan atau tidak bisa dijalankan, laporkan alasannya.
+- Jika test/lint/build gagal, baca error, analisis, perbaiki, lalu ulangi verifikasi.
+- Jangan deklarasikan selesai sebelum verifikasi relevan hijau atau keterbatasannya dijelaskan.
+- Fase 5 - Reporting: ringkas file yang diubah, alasan perubahan, dan verifikasi yang dijalankan.
+- Flag perubahan behavior secara eksplisit jika ada yang perlu diketahui manusia.
+
 ## Non-Negotiable Rules
 - Do not persist access tokens in `localStorage`, `sessionStorage`, or other persistent storage.
 - Do not add hardcoded fallbacks for `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL`.
