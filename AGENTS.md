@@ -97,6 +97,8 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Non-HTTP exceptions must not leak internal messages to clients.
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
 - WebSocket clients disconnect when user is inactive (`isActive=false`).
+- Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only.
+- Telegram config API response strips `groupChatId`; only `hasBotToken`/`hasGroupChatId` flags returned to frontend.
 
 ## Roles & Access
 | Role | Dashboard | New Ticket | My Account | Users | Master Data | Maintenance |
@@ -117,7 +119,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Always allowed during maintenance: `/api/health`, `/api/maintenance/*`, `/api/auth/*`.
 - Non-admin API calls during maintenance return `503 { error: { code: 'MAINTENANCE', message } }`.
 - Use `@SkipMaintenance()` to skip checks on specific handlers.
-- `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore.
+- `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded.
 - Frontend `MaintenanceBanner` polls `/api/health` every 5 seconds.
 - Admin must enable maintenance mode before backup/restore from UI.
 - `GET /api/health` is public and includes `maintenance: { enabled, message }`.
@@ -140,7 +142,9 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - To re-enable SSL, update `nginx.conf`, expose port 443 in `docker-compose.yml`, and generate certs with `mkcert`.
 - `frontend` service builds `frontend/Dockerfile` target `builder`, copies `/app/dist` to `frontend_dist`, then stays running.
 - `nginx` serves static files from `frontend_dist:/usr/share/nginx/html` and proxies API traffic.
+- `nginx` also proxies `/socket.io/` with WebSocket upgrade headers for realtime notifications.
 - `api` binds port `3000` to `127.0.0.1` for local debug; normal traffic goes through nginx `/api/`.
+- `api` and `db` services both read from `backend/.env` via `env_file`; `backup.sh` also reads from `backend/.env`.
 - Backup output lives in `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` and `backups/` is gitignored.
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
@@ -170,3 +174,4 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`
 - `support@company.com / Support123!`
+- Production seed requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` env vars.

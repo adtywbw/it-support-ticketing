@@ -333,6 +333,8 @@ it-support-ticketing/
 │       │   ├── sla.controller.ts
 │       │   ├── sla.service.ts
 │       │   └── dto/
+│       │       ├── create-sla-config.dto.ts
+│       │       └── update-sla-config.dto.ts
 │       ├── notifications/
 │       │   ├── notifications.module.ts
 │       │   ├── notifications.controller.ts
@@ -441,8 +443,9 @@ it-support-ticketing/
 - Alpine images are not used because newer Alpine versions (≥3.19) dropped OpenSSL 1.1 compat packages, which Prisma engines (compiled against `libssl.so.1.1`) depend on.
 
 ### Database Migration
-- The container's entry point (`CMD`) runs `npx prisma migrate deploy && node dist/src/main`.
+- The container's entry point (`CMD`) runs `npx --no-install prisma migrate deploy && node dist/src/main`.
   - `migrate deploy` applies pending migrations (versioned, rollbackable). Safer than `db push` for production — no accidental data loss.
+  - `--no-install` ensures the CLI is not downloaded at runtime; `prisma` is a runtime dependency in `package.json`.
   - **Initial migration** `20260623000000_init` was generated via `prisma migrate diff --from-empty --to-schema-datamodel` and marked as applied with `prisma migrate resolve --applied`.
 - All migration files are stored in `prisma/migrations/` and tracked in version control.
 - Follow-up migration `20260624000000_add_missing_indexes` adds indexes declared in schema but missing from the initial migration: `users(role, isActive)` and `ticket_history(userId)`.
@@ -454,9 +457,11 @@ it-support-ticketing/
 - Production containers do not run seed automatically. Run seed manually only when intentionally provisioning dev/demo data.
 - Default Admin/ITSupport users are created only if missing; existing user passwords are not reset by seed.
 - The sample ticket is skipped when `NODE_ENV=production`.
+- **Production seed**: requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` environment variables. If either is missing, seed throws an error with an explicit message. Production credentials are never logged to stdout.
 
 ### Backup Operations
 - `scripts/backup.sh` creates a timestamped backup under `backups/` while Compose services are running.
+- `backup.sh` reads environment variables from `backend/.env` (canonical source), matching the API and DB services.
 - The database backup uses `docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip`.
 - The upload backup uses `docker compose run --rm --no-deps api tar -czf ... -C /app/uploads .`, so Compose resolves the `uploads_data` named volume instead of relying on host paths.
 - Backup output contains `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt`; `backups/` is gitignored and should be copied off-host for production retention.
@@ -465,7 +470,7 @@ it-support-ticketing/
 - Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
 - Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
 - Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads via `tar`, then requires the user to log in again.
-- Restore flow: enable maintenance mode → 5-second drain time → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode. `MaintenanceGuard` blocks non-admin API requests during restore while admin can still access `/api/maintenance/*` endpoints. Total maintenance duration is typically 15-60 seconds depending on DB/upload size.
+- Restore flow: enable maintenance mode → 5-second drain time → create pre-restore backup → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode (only on success). `MaintenanceGuard` blocks non-admin API requests during restore while admin can still access `/api/maintenance/*` endpoints. Total maintenance duration is typically 15-60 seconds depending on DB/upload size. If restore fails, maintenance mode remains active.
 - Admin must enable maintenance mode from the UI before backup/restore buttons become active.
 - Restore is destructive and should be run during a maintenance window.
 
@@ -488,11 +493,15 @@ it-support-ticketing/
 - EndUser access is ownership-scoped: EndUser can create tickets as requester, can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
 - EndUser cannot access `/dashboard` or admin routes; both backend roles and frontend routes/actions enforce this.
 - INTERNAL comments and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses.
+- EndUser ticket `_count` reflects only visible comments/attachments (public + direct), not internal counts.
 - File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level checks before persistence.
+- Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only. `LocalStorageService` validates path containment as defense-in-depth.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.
 - `MaintenanceGuard` (global `APP_GUARD`) blocks all non-essential API requests when maintenance mode is enabled. Allowed during maintenance: `/health`, `/maintenance/*` (all methods), `/auth/*` (all methods). Non-admin users receive `503 { error: { code: 'MAINTENANCE', message } }`.
 - Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.
 - Health endpoint always accessible (no auth required) and includes `maintenance: { enabled, message }` in its response for frontend polling.
+- Restore does not disable maintenance mode on failure — `restoreSucceeded` flag ensures maintenance stays active until restore completes successfully.
+- Telegram config API response strips `groupChatId`; only `hasBotToken`/`hasGroupChatId` flags returned to frontend.
 
 ### Built Artifacts
 - NestJS compiles TypeScript into `/app/dist/src/` (not `/app/dist/`), so the entry point is `node dist/src/main`.

@@ -50,11 +50,11 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - **Admin** — manage users/roles, categories, sub-categories, SLA configs, create/delete tickets
 
 ### Ticketing
-- Auto-generated ticket number (`TKT-XXX`)
+- Auto-generated ticket number (`TKT-XXX`, numeric sequence via raw SQL)
 - Status workflow: `Open → InProgress → Resolved → Closed` (with `OnHold` loop)
 - Priority: Low, Medium, High, Critical
 - Public & internal comments with file attachments (max 3/comment, 5MB each, allowed MIME types, image preview)
-- File attachments (max 5/ticket, 10MB each, allowed MIME types)
+- File attachments (max 5/ticket, 10MB each, allowed MIME types, safe filenames)
 - Full audit trail on status/assignee/priority changes
 - Filter by status, priority, category, assigned to me, date range (dropdown presets: All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
 - Export CSV with current filters (ITSupport & Admin)
@@ -116,11 +116,15 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - class-validator DTO validation with `whitelist` + `forbidNonWhitelisted`
 - Role-based access control + ownership-based guards (EndUser restricted to own tickets/comments/attachments only)
 - Internal comments and attachments attached to internal comments are hidden from EndUser responses/downloads
+- EndUser ticket `_count` reflects only visible comments/attachments, not internal counts
+- Upload filenames generated server-side (`uuid + safe extension`); `LocalStorageService` validates path containment
 - Upload endpoints enforce Multer size/count/MIME limits before service persistence
 - CSV export neutralizes spreadsheet formula injection
 - Nginx + NestJS rate limiting (10 req/s per IP each layer)
 - EndUser status changes restricted to closing own resolved tickets
 - `MaintenanceGuard` global guard blocks non-admin requests during maintenance mode (stored in Redis)
+- Restore does not disable maintenance mode on failure — stays active until restore completes
+- Telegram config API response strips secrets; only `hasBotToken`/`hasGroupChatId` flags returned to frontend
 
 ## Project Structure
 
@@ -209,7 +213,7 @@ git clone <repo-url> && cd it-support-ticketing
 # 2. Environment variables
 cp .env.example backend/.env
 # Edit secrets (JWT_SECRET, DATABASE_URL, REDIS_URL) in backend/.env
-# If running via docker compose, keep DATABASE_URL aligned with POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB.
+# If running via docker compose, backend/.env is the canonical source for API, DB, and backup.sh.
 # Wajib: JWT_SECRET, DATABASE_URL, dan REDIS_URL harus diset — startup akan throw error jika tidak ada
 # Telegram: TELEGRAM_BOT_TOKEN opsional (bisa diisi via Admin UI nanti)
 
@@ -262,12 +266,16 @@ The seed script creates:
 
 Production containers do not run seed automatically. If the seed script is run manually, existing default users keep their current password and the sample ticket is skipped when `NODE_ENV=production`.
 
+**Production seed**: requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` environment variables. If either is missing, seed throws an error. Production credentials are never logged to stdout.
+
 ### Default Credentials
 
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | admin@company.com | Admin123! |
 | ITSupport | support@company.com | Support123! |
+
+> **Production**: Default credentials above are for development only. In production, set `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` env vars before running seed.
 
 ## API Endpoints
 
@@ -395,7 +403,7 @@ Run a backup while Docker Compose services are up:
 ./scripts/backup.sh
 ```
 
-The script creates a timestamped directory under `backups/` containing:
+The script reads environment variables from `backend/.env` (canonical source) and creates a timestamped directory under `backups/` containing:
 - `db.sql.gz` — PostgreSQL logical dump (`pg_dump --schema public`) containing all tables: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config
 - `uploads.tar.gz` — archive of the `uploads_data` volume mounted at `/app/uploads` (all attachment files)
 - `manifest.txt` — timestamp and backup metadata
