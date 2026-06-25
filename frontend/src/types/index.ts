@@ -64,6 +64,7 @@ export interface Attachment {
   originalName: string;
   size: number;
   mimeType: string;
+  visibility?: 'PUBLIC' | 'INTERNAL';
   createdAt: string;
 }
 

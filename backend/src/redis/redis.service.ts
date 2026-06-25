@@ -6,8 +6,11 @@ export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
 
   constructor() {
-    const url = process.env.REDIS_URL;
+    let url = process.env.REDIS_URL;
     if (url) {
+      if (process.env.REDIS_PASSWORD && !url.includes('@')) {
+        url = url.replace('redis://', `redis://:${process.env.REDIS_PASSWORD}@`);
+      }
       this.client = new Redis(url, {
         retryStrategy: (times) => Math.min(times * 50, 2000),
       });
@@ -39,6 +42,25 @@ export class RedisService implements OnModuleDestroy {
 
   async del(key: string): Promise<void> {
     await this.client.del(key);
+  }
+
+  async deleteByPattern(pattern: string): Promise<number> {
+    let cursor = '0';
+    let deleted = 0;
+    do {
+      const [nextCursor, keys] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100,
+      );
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        deleted += await this.client.del(...keys);
+      }
+    } while (cursor !== '0');
+    return deleted;
   }
 
   async exists(key: string): Promise<boolean> {

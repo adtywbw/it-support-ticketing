@@ -21,18 +21,24 @@ export class TelegramController {
   constructor(private readonly telegramService: TelegramService) {}
 
   @Post('link')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
   async generateCode(@CurrentUser('id') userId: string) {
     const code = await this.telegramService.generateLinkCode(userId);
     return { code, expiresIn: 300 };
   }
 
   @Delete('link')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
   async unlink(@CurrentUser('id') userId: string) {
     await this.telegramService.unlink(userId);
     return { message: 'Telegram unlinked' };
   }
 
   @Get('status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
   async status(@CurrentUser('id') userId: string) {
     return this.telegramService.getStatus(userId);
   }

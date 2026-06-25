@@ -58,7 +58,7 @@ apiClient.interceptors.response.use(
 
       try {
         const response = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
-        const { accessToken } = response.data;
+        const { accessToken, user } = response.data;
 
         if (!accessToken) {
           const authError = new Error('No access token received');
@@ -69,6 +69,9 @@ apiClient.interceptors.response.use(
         }
 
         useAuthStore.getState().setAccessToken(accessToken);
+        if (user) {
+          useAuthStore.getState().setUser(user);
+        }
         processQueue(null, accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);

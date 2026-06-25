@@ -101,6 +101,17 @@ export class UserRepository {
     });
   }
 
+  async findAssignable() {
+    return this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        role: { in: ['ITSupport', 'Admin'] } as any,
+      },
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findTelegramLinkedUsers() {
     return this.prisma.user.findMany({
       where: {

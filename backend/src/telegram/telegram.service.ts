@@ -5,6 +5,7 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { TelegramConfigRepository } from '../common/repositories/telegram-config.repository';
 import { UserRepository } from '../common/repositories/user.repository';
 
@@ -24,6 +25,14 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
   'ticket.status.updated':
     '\uD83D\uDD04 Status Updated\n{ticketNumber}: {subject}\n{oldStatus} \u2192 {newStatus}\n{url}',
 };
+
+function escapeTelegramHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 @Injectable()
 export class TelegramService
@@ -233,7 +242,7 @@ export class TelegramService
       settings.templates?.[event] || DEFAULT_TEMPLATES[event] || '';
     let msg = template;
     for (const [key, val] of Object.entries(vars)) {
-      msg = msg.replace(new RegExp(`\\{${key}\\}`, 'g'), val || '');
+      msg = msg.replace(new RegExp(`\\{${key}\\}`, 'g'), escapeTelegramHtml(val || ''));
     }
     return msg;
   }
@@ -407,7 +416,8 @@ export class TelegramService
   }
 
   async generateLinkCode(userId: string): Promise<string> {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const bytes = crypto.randomBytes(5);
+    const code = bytes.toString('base64url').substring(0, 10).toUpperCase();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.userRepository.update(userId, {

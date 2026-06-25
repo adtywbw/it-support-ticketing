@@ -92,7 +92,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Access token is memory-only in Zustand auth state.
 - Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`.
 - Cookie `secure` must match environment so local HTTP auth still works.
-- `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup.
+- `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production also requires `REDIS_PASSWORD`.
 - `CORS_ORIGIN` is comma-separated. Code currently defaults to `https://helpdesk.rsmch.internal`; Docker local is HTTP-only, so set env explicitly when using an HTTP origin.
 - Non-HTTP exceptions must not leak internal messages to clients.
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
@@ -110,7 +110,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ## Ticket Rules
 - EndUser can create own tickets, view only own tickets, and close own `Resolved -> Closed` tickets.
 - EndUser cannot comment, upload, or list attachments for tickets owned by another user.
-- Internal comments and attachments are never returned/displayed to EndUser.
+- Internal comments and internal attachments are never returned/displayed to EndUser.
 - ITSupport/Admin can access dashboard and operational ticket workflows.
 
 ## Maintenance Mode
@@ -144,7 +144,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - `nginx` serves static files from `frontend_dist:/usr/share/nginx/html` and proxies API traffic.
 - `nginx` also proxies `/socket.io/` with WebSocket upgrade headers for realtime notifications.
 - `api` binds port `3000` to `127.0.0.1` for local debug; normal traffic goes through nginx `/api/`.
-- `api` and `db` services both read from `backend/.env` via `env_file`; `backup.sh` also reads from `backend/.env`.
+- `api`, `db`, and `cache` services read from `backend/.env` via `env_file`; `cache` requires `REDIS_PASSWORD` and starts Redis with `requirepass`.
 - Backup output lives in `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` and `backups/` is gitignored.
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
@@ -168,7 +168,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig.
 - Ticket relates to requester user, assignee user, category, and sub-category.
 - Comment relates to ticket and user.
-- Attachment relates to ticket, user, and optional comment.
+- Attachment relates to ticket, user, optional comment, and has `visibility` (`PUBLIC`/`INTERNAL`).
 - `SLAConfig` is unique on `(categoryId, priority)`.
 
 ## Dev Seed Credentials

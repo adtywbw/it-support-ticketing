@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
 import { UserRepository } from '../common/repositories/user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -10,7 +11,10 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async findByEmail(email: string) {
     return this.userRepository.findByEmail(email);
@@ -40,6 +44,10 @@ export class UsersService {
     includeInactive?: boolean;
   }) {
     return this.userRepository.findAll(params);
+  }
+
+  async findAssignable() {
+    return this.userRepository.findAssignable();
   }
 
   async create(createUserDto: CreateUserDto) {
@@ -85,7 +93,13 @@ export class UsersService {
       data.password = await bcrypt.hash(updateUserDto.password, 12);
     }
 
-    return this.userRepository.update(id, data);
+    const result = await this.userRepository.update(id, data);
+
+    if (updateUserDto.password) {
+      this.eventEmitter.emit('user.password_changed', { userId: id });
+    }
+
+    return result;
   }
 
   async delete(id: string): Promise<void> {
@@ -96,6 +110,7 @@ export class UsersService {
 
     try {
       await this.userRepository.transactionDelete(id);
+      this.eventEmitter.emit('user.deleted', { userId: id });
     } catch {
       throw new ConflictException(
         'Cannot delete user with existing tickets, comments, or attachments. Deactivate the user instead.',

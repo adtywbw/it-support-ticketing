@@ -14,6 +14,21 @@ function validateEnv() {
       `Missing required environment variables: ${missing.join(', ')}`,
     );
   }
+
+  if (process.env.NODE_ENV === 'production') {
+    const jwtSecret = process.env.JWT_SECRET || '';
+    const weakSecrets = ['your-super-secret-jwt-key-change-in-production', 'secret', 'changeme', 'password'];
+    if (weakSecrets.includes(jwtSecret.toLowerCase().trim())) {
+      throw new Error(
+        'JWT_SECRET is too weak for production. Please set a strong, unique secret.',
+      );
+    }
+    if (!process.env.REDIS_PASSWORD) {
+      throw new Error(
+        'REDIS_PASSWORD is required in production.',
+      );
+    }
+  }
 }
 
 async function bootstrap() {

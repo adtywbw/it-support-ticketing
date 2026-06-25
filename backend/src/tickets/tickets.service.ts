@@ -246,7 +246,7 @@ export class TicketsService {
   }
 
   async findById(id: string, userRole?: string, userId?: string) {
-    const ticket = await this.ticketRepository.findById(id, {
+    const include: Record<string, unknown> = {
       requester: { select: { id: true, name: true, email: true, avatarUrl: true } },
       assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
       category: { select: { id: true, name: true } },
@@ -267,14 +267,19 @@ export class TicketsService {
           user: { select: { id: true, name: true } },
         },
       },
-      histories: {
+      _count: { select: { comments: true, attachments: true } },
+    };
+
+    if (userRole !== 'EndUser') {
+      include.histories = {
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { id: true, name: true } },
         },
-      },
-      _count: { select: { comments: true, attachments: true } },
-    });
+      };
+    }
+
+    const ticket = await this.ticketRepository.findById(id, include);
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
@@ -345,18 +350,20 @@ export class TicketsService {
       updateData.resolvedAt = null;
     }
 
-    const updatedTicket = await this.ticketRepository.update(id, updateData as any);
+    const oldStatus = ticket.status;
 
-    await this.ticketRepository.transaction(async (tx) => {
+    const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
+      const updated = await tx.ticket.update({ where: { id }, data: updateData as any });
       await tx.ticketHistory.create({
         data: {
           ticketId: id,
           userId,
           field: 'status',
-          oldValue: ticket.status,
+          oldValue: oldStatus,
           newValue: updateStatusDto.status,
         },
       });
+      return updated;
     });
 
     this.eventEmitter.emit('ticket.status.updated', {
@@ -381,20 +388,22 @@ export class TicketsService {
 
     if (assignTicketDto.assignedToId) {
       const assignedUser = await this.userRepository.getForValidation(assignTicketDto.assignedToId);
-      if (!assignedUser || assignedUser.role === 'EndUser') {
+      if (!assignedUser || assignedUser.role === 'EndUser' || !assignedUser.isActive) {
         throw new BadRequestException('Cannot assign ticket to this user');
       }
     }
 
     const oldAssigneeId = ticket.assignedToId;
 
-    const updatedTicket = await this.ticketRepository.update(id, {
-      assignedTo: assignTicketDto.assignedToId
-        ? { connect: { id: assignTicketDto.assignedToId } }
-        : { disconnect: true },
-    } as any);
-
-    await this.ticketRepository.transaction(async (tx) => {
+    const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
+      const updated = await tx.ticket.update({
+        where: { id },
+        data: {
+          assignedTo: assignTicketDto.assignedToId
+            ? { connect: { id: assignTicketDto.assignedToId } }
+            : { disconnect: true },
+        },
+      });
       await tx.ticketHistory.create({
         data: {
           ticketId: id,
@@ -404,6 +413,7 @@ export class TicketsService {
           newValue: assignTicketDto.assignedToId || null,
         },
       });
+      return updated;
     });
 
     if (assignTicketDto.assignedToId) {
@@ -424,20 +434,23 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
-    const updatedTicket = await this.ticketRepository.update(id, {
-      priority: updatePriorityDto.priority,
-    });
+    const oldPriority = ticket.priority;
 
-    await this.ticketRepository.transaction(async (tx) => {
+    const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
+      const updated = await tx.ticket.update({
+        where: { id },
+        data: { priority: updatePriorityDto.priority },
+      });
       await tx.ticketHistory.create({
         data: {
           ticketId: id,
           userId,
           field: 'priority',
-          oldValue: ticket.priority,
+          oldValue: oldPriority,
           newValue: updatePriorityDto.priority,
         },
       });
+      return updated;
     });
 
     return updatedTicket;

@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { OnEvent } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
@@ -102,6 +103,21 @@ export class AuthService {
     }
 
     await this.usersService.update(userId, { password: newPassword });
+    await this.revokeAllRefreshTokens(userId);
+  }
+
+  async revokeAllRefreshTokens(userId: string): Promise<void> {
+    await this.redisService.deleteByPattern(`refresh:${userId}:*`);
+  }
+
+  @OnEvent('user.password_changed')
+  async handlePasswordChanged(payload: { userId: string }) {
+    await this.revokeAllRefreshTokens(payload.userId);
+  }
+
+  @OnEvent('user.deleted')
+  async handleUserDeleted(payload: { userId: string }) {
+    await this.revokeAllRefreshTokens(payload.userId);
   }
 
   async logout(userId: string, tokenId: string): Promise<void> {

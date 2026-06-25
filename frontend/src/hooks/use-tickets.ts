@@ -135,9 +135,10 @@ export function useUploadAttachment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ ticketId, file }: { ticketId: string; file: File }) => {
+    mutationFn: async ({ ticketId, file, visibility }: { ticketId: string; file: File; visibility?: string }) => {
       const formData = new FormData();
       formData.append('file', file);
+      if (visibility) formData.append('visibility', visibility);
       const response = await apiClient.post(`/tickets/${ticketId}/attachments`, formData);
       return response.data;
     },

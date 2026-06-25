@@ -4,6 +4,7 @@ import {
   Post,
   Param,
   Query,
+  Body,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -11,8 +12,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { Response } from 'express';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -55,11 +58,12 @@ export class AttachmentsController {
     @Param('ticketId') ticketId: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: { id: string; role: string },
+    @Body('visibility') visibility?: string,
   ) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
-    return this.attachmentsService.upload(ticketId, file, user.id, user.role);
+    return this.attachmentsService.upload(ticketId, file, user.id, user.role, visibility);
   }
 
   @Get('tickets/:ticketId/attachments')
@@ -79,20 +83,30 @@ export class AttachmentsController {
   ) {
     const attachment = await this.attachmentsService.getDownloadInfo(id, user.id, user.role);
 
-    res.setHeader('Content-Type', attachment.mimeType);
-    if (view === '1') {
-      res.setHeader(
-        'Content-Disposition',
-        `inline; filename="${attachment.originalName}"`,
-      );
-    } else {
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${attachment.originalName}"`,
-      );
+    try {
+      await fs.access(attachment.path);
+    } catch {
+      throw new BadRequestException('File not found on disk');
     }
 
-    const fileStream = fs.createReadStream(attachment.path);
+    const safeName = attachment.originalName
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/_{2,}/g, '_')
+      .substring(0, 200);
+
+    res.setHeader('Content-Type', attachment.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `${view === '1' ? 'inline' : 'attachment'}; filename="${safeName}"`,
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    const fileStream = (await import('fs')).createReadStream(attachment.path);
+    fileStream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(500).json({ error: { code: 'STREAM_ERROR', message: 'Failed to read file' } });
+      }
+    });
     fileStream.pipe(res);
   }
 }

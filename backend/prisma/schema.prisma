@@ -124,6 +124,11 @@ enum CommentType {
   INTERNAL
 }
 
+enum AttachmentVisibility {
+  PUBLIC
+  INTERNAL
+}
+
 model Attachment {
   id           String   @id @default(uuid())
   ticketId     String
@@ -133,6 +138,7 @@ model Attachment {
   mimeType     String
   size         Int
   path         String
+  visibility   AttachmentVisibility @default(PUBLIC)
   createdAt    DateTime @default(now())
 
   ticket  Ticket   @relation(fields: [ticketId], references: [id])

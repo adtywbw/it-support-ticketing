@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { execFile } from 'child_process';
+import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -10,6 +11,8 @@ const BACKUP_ID_PATTERN = /^\d{8}-\d{6}$/;
 const MAINTENANCE_KEY = 'maintenance:enabled';
 const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
 const DRAIN_TIME_MS = 5000;
+const BACKUP_LOCK_KEY = 'maintenance:backup:lock';
+const BACKUP_LOCK_TTL = 600;
 
 export interface BackupFileInfo {
   exists: boolean;
@@ -63,6 +66,24 @@ export class MaintenanceService {
       throw new BadRequestException('DATABASE_URL is not configured');
     }
 
+    if (source !== 'pre-restore') {
+      const { enabled } = await this.getMaintenanceMode();
+      if (!enabled) {
+        throw new BadRequestException('Maintenance mode must be enabled before creating a backup');
+      }
+    }
+
+    const lockAcquired = await this.redis.getClient().set(
+      BACKUP_LOCK_KEY,
+      '1',
+      'EX',
+      BACKUP_LOCK_TTL,
+      'NX',
+    );
+    if (!lockAcquired) {
+      throw new BadRequestException('A backup operation is already in progress');
+    }
+
     const id = await this.createUniqueBackupId();
     const backupPath = this.resolveBackupPath(id);
     const dbSqlPath = path.join(backupPath, 'db.sql');
@@ -99,6 +120,8 @@ export class MaintenanceService {
       throw new BadRequestException(
         error instanceof Error ? error.message : 'Backup failed',
       );
+    } finally {
+      await this.redis.del(BACKUP_LOCK_KEY).catch(() => {});
     }
 
     return this.getBackup(id);
@@ -278,18 +301,76 @@ export class MaintenanceService {
   }
 
   private async restoreUploads(uploadsPath: string): Promise<void> {
-    await fs.mkdir(this.uploadDir, { recursive: true });
-    const entries = await fs.readdir(this.uploadDir);
-    await Promise.all(
-      entries.map((entry) => fs.rm(path.join(this.uploadDir, entry), {
-        recursive: true,
-        force: true,
-      })),
+    await this.assertSafeTarArchive(uploadsPath);
+
+    const tempDir = path.join(
+      path.dirname(this.uploadDir),
+      `.upload-restore-${crypto.randomBytes(8).toString('hex')}`,
     );
 
-    await execFileAsync('tar', ['-xzf', uploadsPath, '-C', this.uploadDir], {
-      maxBuffer: 1024 * 1024,
-    });
+    try {
+      await fs.mkdir(tempDir, { recursive: true });
+      await execFileAsync('tar', ['-xzf', uploadsPath, '-C', tempDir, '--no-same-owner', '--no-same-permissions'], {
+        maxBuffer: 1024 * 1024,
+      });
+
+      await fs.mkdir(this.uploadDir, { recursive: true });
+      const entries = await fs.readdir(this.uploadDir);
+      await Promise.all(
+        entries.map((entry) => fs.rm(path.join(this.uploadDir, entry), {
+          recursive: true,
+          force: true,
+        })),
+      );
+
+      const extractedEntries = await fs.readdir(tempDir);
+      for (const entry of extractedEntries) {
+        await fs.rename(path.join(tempDir, entry), path.join(this.uploadDir, entry));
+      }
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  private async assertSafeTarArchive(uploadsPath: string): Promise<void> {
+    let output: string;
+    try {
+      const result = await execFileAsync('tar', ['-tzf', uploadsPath], {
+        maxBuffer: 1024 * 1024,
+      });
+      output = result.stdout;
+    } catch (error) {
+      throw new BadRequestException(
+        `Uploads backup is invalid: ${error instanceof Error ? error.message : 'tar listing failed'}`,
+      );
+    }
+
+    const entries = output.split('\n').filter((line) => line.length > 0);
+    const uploadDirResolved = path.resolve(this.uploadDir);
+
+    for (const entry of entries) {
+      this.assertSafeTarEntry(entry, uploadDirResolved);
+    }
+  }
+
+  private assertSafeTarEntry(entryName: string, uploadDirResolved: string): void {
+    if (!entryName || entryName.includes('\0')) {
+      throw new BadRequestException('Uploads backup contains unsafe path');
+    }
+
+    if (path.isAbsolute(entryName)) {
+      throw new BadRequestException('Uploads backup contains absolute path');
+    }
+
+    const normalized = path.posix.normalize(entryName);
+    if (normalized === '..' || normalized.startsWith('../') || normalized.includes('/../')) {
+      throw new BadRequestException('Uploads backup contains path traversal');
+    }
+
+    const resolvedEntry = path.resolve(uploadDirResolved, entryName);
+    if (!resolvedEntry.startsWith(uploadDirResolved + path.sep) && resolvedEntry !== uploadDirResolved) {
+      throw new BadRequestException('Uploads backup contains path traversal');
+    }
   }
 
   private createPgOptions(databaseUrl: string): PgOptions {

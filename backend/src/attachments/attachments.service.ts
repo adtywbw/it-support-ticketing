@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { CommentType, Role } from '@prisma/client';
+import { CommentType, Role, AttachmentVisibility } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import { Express } from 'express';
@@ -28,6 +28,35 @@ const ALLOWED_MIME_TYPES = [
   'application/zip',
   'application/x-rar-compressed',
 ];
+
+const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> = [
+  { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff], offset: 0 },
+  { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 },
+  { mime: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38], offset: 0 },
+  { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46], offset: 0 },
+  { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 },
+  { mime: 'application/zip', bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 },
+  { mime: 'application/x-rar-compressed', bytes: [0x52, 0x61, 0x72, 0x21], offset: 0 },
+];
+
+function detectMimeFromMagicBytes(buffer: Buffer): string | null {
+  for (const sig of MIME_SIGNATURES) {
+    if (buffer.length >= sig.offset + sig.bytes.length) {
+      const match = sig.bytes.every((b, i) => buffer[sig.offset + i] === b);
+      if (match) return sig.mime;
+    }
+  }
+  return null;
+}
+
+function assertMimeTypeIntegrity(file: Express.Multer.File): void {
+  const detected = detectMimeFromMagicBytes(file.buffer);
+  if (detected && detected !== file.mimetype) {
+    throw new BadRequestException(
+      `File content does not match declared type ${file.mimetype}`,
+    );
+  }
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES_PER_TICKET = 5;
@@ -52,7 +81,7 @@ export class AttachmentsService {
     private readonly storageService: StorageService,
   ) {}
 
-  async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string) {
+  async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string, visibility?: string) {
     const ticket = await this.ticketRepository.findUnique({
       where: { id: ticketId },
       select: { id: true, requesterId: true },
@@ -82,6 +111,10 @@ export class AttachmentsService {
       );
     }
 
+    if (file.buffer) {
+      assertMimeTypeIntegrity(file);
+    }
+
     if (file.size > MAX_FILE_SIZE) {
       throw new BadRequestException('File size exceeds 10MB limit');
     }
@@ -91,6 +124,10 @@ export class AttachmentsService {
 
     await this.storageService.save(file, filePath);
 
+    const resolvedVisibility = userRole === Role.EndUser
+      ? AttachmentVisibility.PUBLIC
+      : (visibility === 'INTERNAL' ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC);
+
     const attachment = await this.attachmentRepository.create(
       {
         ticket: { connect: { id: ticketId } },
@@ -99,6 +136,7 @@ export class AttachmentsService {
         mimeType: file.mimetype,
         size: file.size,
         path: filePath,
+        visibility: resolvedVisibility,
       },
       {
         user: { select: { id: true, name: true } },
@@ -132,8 +170,9 @@ export class AttachmentsService {
     }
 
     return attachments.filter(
-      (attachment: { comment?: { type: CommentType } | null }) =>
-        attachment.comment?.type !== CommentType.INTERNAL,
+      (attachment: { comment?: { type: CommentType } | null; visibility?: AttachmentVisibility }) =>
+        attachment.comment?.type !== CommentType.INTERNAL &&
+        attachment.visibility !== AttachmentVisibility.INTERNAL,
     );
   }
 
@@ -152,6 +191,10 @@ export class AttachmentsService {
     }
 
     if (userRole === Role.EndUser && attachment.comment?.type === CommentType.INTERNAL) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (userRole === Role.EndUser && (attachment as any).visibility === AttachmentVisibility.INTERNAL) {
       throw new ForbiddenException('Access denied');
     }
 

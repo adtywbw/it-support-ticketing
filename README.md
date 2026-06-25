@@ -38,8 +38,8 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 | Backend | NestJS + TypeScript (strict), Prisma ORM |
 | Frontend | React 18 + Vite, TanStack Query v5, Zustand, Tailwind CSS v3 |
 | Database | PostgreSQL 16 |
-| Cache | Redis 7 (refresh tokens httpOnly cookie, cron lock, cache) |
-| Proxy | Nginx (rate limit 10r/s, gzip, reverse proxy) |
+| Cache | Redis 7 (password-protected; refresh tokens httpOnly cookie, cron/backup locks, maintenance flags) |
+| Proxy | Nginx (rate limit 10r/s, gzip, reverse proxy, security headers) |
 | Auth | JWT access (15m, in-memory) + refresh token (7d, httpOnly cookie), bcrypt cost 12 |
 
 ## Features
@@ -54,7 +54,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Status workflow: `Open → InProgress → Resolved → Closed` (with `OnHold` loop)
 - Priority: Low, Medium, High, Critical
 - Public & internal comments with file attachments (max 3/comment, 5MB each, allowed MIME types, image preview)
-- File attachments (max 5/ticket, 10MB each, allowed MIME types, safe filenames)
+- File attachments (max 5/ticket, 10MB each, magic-byte validation, safe filenames, public/internal visibility)
 - Full audit trail on status/assignee/priority changes
 - Filter by status, priority, category, assigned to me, date range (dropdown presets: All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
 - Export CSV with current filters (ITSupport & Admin)
@@ -94,7 +94,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - `DB` downloads `db.sql.gz`, a PostgreSQL logical dump
 - `Uploads` downloads `uploads.tar.gz`, an archive of uploaded attachment files
 - Delete uses the same confirmation dialog pattern as other destructive actions
-- Restore performs a full DB + uploads restore, requires typed backup ID confirmation, creates a pre-restore backup automatically, and forces login again after success
+- Restore performs a full DB + uploads restore, validates safe upload archives, requires typed backup ID confirmation, creates a pre-restore backup automatically, clears frontend cache, and forces login again after success
 - **Maintenance Mode**: Admin must enable maintenance mode first before backup/restore buttons become active. During maintenance, non-admin users see an overlay banner and cannot access the system. Restore auto-enables maintenance mode for the entire duration (typically 15-60 seconds), then auto-disables when complete.
 
 ### UI/UX
@@ -109,15 +109,15 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Unexpected 500 errors return a generic message instead of leaking internal exception details
 - JWT auth with short-lived access tokens (in-memory) + rotating refresh tokens (httpOnly cookie, Redis-backed)
 - Logout revokes the active refresh token from Redis; inactive users are rejected at login/refresh/JWT validation
-- Env validation at startup — app throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is missing
+- Env validation at startup — app throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is missing; production also requires `REDIS_PASSWORD` and rejects known weak `JWT_SECRET` placeholders
 - WebSocket gateway authenticates connections via JWT verification + checks `isActive` in DB
 - bcrypt password hashing (cost 12)
 - Self-service password change (current password verification)
 - class-validator DTO validation with `whitelist` + `forbidNonWhitelisted`
 - Role-based access control + ownership-based guards (EndUser restricted to own tickets/comments/attachments only)
-- Internal comments and attachments attached to internal comments are hidden from EndUser responses/downloads
+- Internal comments and internal attachments are hidden from EndUser responses/downloads
 - EndUser ticket `_count` reflects only visible comments/attachments, not internal counts
-- Upload filenames generated server-side (`uuid + safe extension`); `LocalStorageService` validates path containment
+- Upload filenames generated server-side (`uuid + safe extension`); download filenames are sanitized and `LocalStorageService` validates path containment
 - Upload endpoints enforce Multer size/count/MIME limits before service persistence
 - CSV export neutralizes spreadsheet formula injection
 - Nginx + NestJS rate limiting (10 req/s per IP each layer)
@@ -191,7 +191,7 @@ it-support-ticketing/
 - **users** — roles: EndUser, ITSupport, Admin; composite index on (role, isActive)
 - **tickets** — status workflow, SLA tracking, indexes on (status, assignedTo, requesterId, createdAt, slaDueAt)
 - **comments** — PUBLIC/INTERNAL types, linked to attachments
-- **attachments** — MIME validation, max size enforcement, optional FK to comments
+- **attachments** — magic-byte/MIME validation, max size enforcement, optional FK to comments, `visibility` (`PUBLIC`/`INTERNAL`)
 - **categories** / **sub_categories** — hierarchical master data
 - **sla_configs** — unique (categoryId, priority)
 - **ticket_history** — audit trail for all state changes; indexed on (userId, createdAt)
@@ -370,7 +370,7 @@ Production containers do not run seed automatically. If the seed script is run m
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
 | `/dashboard` | Statistics & charts | ITSupport, Admin |
 | `/notifications` | In-app notifications | Authenticated |
-| `/my-account` | Profile info (change password for Admin/ITSupport only) | Authenticated |
+| `/my-account` | Profile info and self-service password change | Authenticated |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
 | `/admin/maintenance` | Backup create/list/download/delete/restore + restore instructions | Admin |

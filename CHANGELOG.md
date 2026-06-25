@@ -233,3 +233,18 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - CR-11 (Medium): EndUser `_count` hanya hitung visible comments/attachments (public + direct), bukan semua
 - CR-12 (Medium): SLA controller pakai DTO classes (`CreateSlaConfigDto`, `UpdateSlaConfigDto`) dengan `class-validator` decorators
 - Bug fix: raw SQL `generateTicketNumber()` koreksi nama tabel dari `"Ticket"` ke `"tickets"` (Prisma PostgreSQL default snake_case plural)
+
+## Security Review Fixes (SEC-001 to SEC-016, SEC-019, SEC-020)
+- WebSocket: access token hanya diterima dari Socket.IO `auth`, bukan query string.
+- Auth: refresh token user direvoke saat password berubah/reset/deactivate; frontend refresh interceptor sekarang update `user` state.
+- Restore: validasi archive upload backup terhadap path traversal/symlink/hardlink dan restore via temporary directory swap.
+- Dependencies: override `tar` ke versi fixed; `multer` high masih butuh migrasi NestJS 11.
+- Users/RBAC: `/users` dibatasi Admin-only, assignment memakai endpoint minimal `/users/assignable`.
+- Tickets: EndUser tidak menerima audit trail; status/assign/priority update dan history insert dibuat atomic; assignment ke inactive user ditolak.
+- Attachments: tambah `Attachment.visibility` (`PUBLIC`/`INTERNAL`), magic-byte upload validation, safe `Content-Disposition`, stream error handling, dan UI selector/badge visibility.
+- Pagination: DTO pagination bounded (`limit` min 1 max 100) untuk menghindari query unbounded.
+- Telegram: link/unlink/status Admin-only, link code memakai `crypto.randomBytes()`, dan template variables di-escape untuk Telegram HTML.
+- Backup: create backup wajib maintenance mode, dilindungi Redis lock, dan restore/logout flow clear React Query cache.
+- Deployment: Redis compose service memakai `REDIS_PASSWORD`/`requirepass`, API startup production mewajibkan `REDIS_PASSWORD`, dan nginx menambahkan security headers.
+- Frontend: React Query Devtools hanya dirender saat development; EndUser dapat change password sendiri.
+- Env/seed: production menolak weak `JWT_SECRET` placeholder dan seed production tetap wajib `SEED_ADMIN_PASSWORD`/`SEED_SUPPORT_PASSWORD`.

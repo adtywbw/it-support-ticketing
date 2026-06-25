@@ -13,6 +13,17 @@ export function useUsers(options?: { enabled?: boolean }) {
   });
 }
 
+export function useAssignableUsers(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['users', 'assignable'],
+    queryFn: async () => {
+      const response = await apiClient.get<Array<{ id: string; name: string; email: string; role: string }>>('/users/assignable');
+      return response.data;
+    },
+    enabled: options?.enabled ?? true,
+  });
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient();
 

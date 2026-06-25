@@ -38,8 +38,8 @@
 | Backend | NestJS + TypeScript | Opinionated, modular, built-in DI, guards, pipes, interceptors. Natural fit for enterprise-grade REST API. |
 | Frontend | React 18 + Vite | Fast dev/build, TanStack Query for server state caching/refetching, Zustand for minimal client state. |
 | Database | PostgreSQL 16 | Mature, JSON support, excellent Prisma integration. |
-| Cache | Redis 7 | Refresh token store, cron job lock for horizontal scaling. |
-| Reverse Proxy | Nginx | Single entry point, rate limiting, static file serving, reverse proxy. |
+| Cache | Redis 7 | Password-protected refresh token store, maintenance flags, backup lock, cron job lock for horizontal scaling. |
+| Reverse Proxy | Nginx | Single entry point, rate limiting, security headers, static file serving, reverse proxy. |
 | Containerization | Docker (Debian bookworm-slim) | Reproducible deployment, identical dev/prod environment. Debian base chosen over Alpine for native OpenSSL 3.x compatibility with Prisma engines. |
 | ORM | Prisma | Type-safe query builder, auto-generated types, migrations. |
 | Repository Pattern | Domain Repositories | Abstraction layer over PrismaService — services depend on repositories instead of ORM directly. Enables testability and DB-agnostic business logic. |
@@ -172,9 +172,10 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ mimeType                   VARCHAR
 │ size                       Int
 │ path                       VARCHAR
+│ visibility                 AttachmentVisibility (PUBLIC|INTERNAL)
 │ createdAt                  DateTime
 │ INDEXES: (ticketId), (commentId)
-│ NOTE: EndUser responses exclude attachments from INTERNAL comments
+│ NOTE: EndUser responses exclude INTERNAL attachments and attachments from INTERNAL comments
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -469,7 +470,7 @@ it-support-ticketing/
 - Admin UI backup uses `/api/maintenance/backups`, runs inside the API container, and writes to the same `./backups:/app/backups` mount.
 - Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
 - Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
-- Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads via `tar`, then requires the user to log in again.
+- Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, validates upload archive entries against path traversal/symlink/hardlink abuse, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads through a temporary directory swap, then requires the user to log in again.
 - Restore flow: enable maintenance mode → 5-second drain time → create pre-restore backup → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode (only on success). `MaintenanceGuard` blocks non-admin API requests during restore while admin can still access `/api/maintenance/*` endpoints. Total maintenance duration is typically 15-60 seconds depending on DB/upload size. If restore fails, maintenance mode remains active.
 - Admin must enable maintenance mode from the UI before backup/restore buttons become active.
 - Restore is destructive and should be run during a maintenance window.
@@ -483,6 +484,7 @@ it-support-ticketing/
 - Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
 - Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
 - CORS locked down to explicit origins via `CORS_ORIGIN` env var.
+- Redis requires `REDIS_PASSWORD` in production; Compose `cache` reads `backend/.env` and starts Redis with `requirepass`.
 - Global exception filter (`HttpExceptionFilter`) ensures consistent `{ error: { code, message } }` response format for all errors and returns a generic message for unexpected 500 errors.
 - Prisma connection pool configured via `DATABASE_POOL_MAX` env (default 10), set via `connection_limit` query parameter in the connection string.
 - Logging: `json-file` driver with `max-size: 10m` and `max-file: 3` — prevents disk exhaustion from unbounded logs.
@@ -492,9 +494,9 @@ it-support-ticketing/
 - Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation.
 - EndUser access is ownership-scoped: EndUser can create tickets as requester, can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
 - EndUser cannot access `/dashboard` or admin routes; both backend roles and frontend routes/actions enforce this.
-- INTERNAL comments and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses.
+- INTERNAL comments, INTERNAL standalone attachments, and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses.
 - EndUser ticket `_count` reflects only visible comments/attachments (public + direct), not internal counts.
-- File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level checks before persistence.
+- File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level magic-byte checks before persistence.
 - Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only. `LocalStorageService` validates path containment as defense-in-depth.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.
 - `MaintenanceGuard` (global `APP_GUARD`) blocks all non-essential API requests when maintenance mode is enabled. Allowed during maintenance: `/health`, `/maintenance/*` (all methods), `/auth/*` (all methods). Non-admin users receive `503 { error: { code: 'MAINTENANCE', message } }`.

@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { UsersService } from './users.service';
@@ -16,6 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,21 +25,23 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles(Role.ITSupport, Role.Admin)
+  @Roles(Role.Admin)
   async findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('role') role?: string,
-    @Query('search') search?: string,
-    @Query('includeInactive') includeInactive?: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true })) query: PaginationQueryDto & { role?: string; search?: string; includeInactive?: string },
   ) {
     return this.usersService.findAll({
-      page: page ? parseInt(page, 10) : undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      role,
-      search,
-      includeInactive: includeInactive === 'true',
+      page: query.page,
+      limit: query.limit,
+      role: query.role,
+      search: query.search,
+      includeInactive: query.includeInactive === 'true',
     });
+  }
+
+  @Get('assignable')
+  @Roles(Role.ITSupport, Role.Admin)
+  async findAssignable() {
+    return this.usersService.findAssignable();
   }
 
   @Get(':id')

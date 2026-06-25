@@ -84,8 +84,10 @@ services:
   cache:
     image: redis:7-alpine
     restart: unless-stopped
+    env_file: ./backend/.env
+    command: sh -c 'redis-server --requirepass "$$REDIS_PASSWORD"'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping"]
       interval: 10s
       timeout: 5s
       retries: 5

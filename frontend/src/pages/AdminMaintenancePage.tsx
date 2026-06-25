@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useBackups, useCreateBackup, useDeleteBackup, useRestoreBackup, useMaintenanceMode, useSetMaintenanceMode, downloadBackupFile } from '@/hooks/use-maintenance';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -32,6 +33,7 @@ function formatDate(value: string) {
 
 export default function AdminMaintenancePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const logout = useAuthStore((s) => s.logout);
   const { data: backups, isLoading, isError, error, refetch } = useBackups();
   const createBackupMutation = useCreateBackup();
@@ -99,6 +101,7 @@ export default function AdminMaintenancePage() {
         confirmation: restoreConfirmation,
       });
       toast.success('Backup restored successfully. Please log in again.');
+      queryClient.clear();
       logout();
       navigate('/login', { replace: true });
     } catch (err) {

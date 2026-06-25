@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/use-tickets';
+import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -41,7 +42,10 @@ interface AttachmentListProps {
 
 export default function AttachmentList({ ticketId }: AttachmentListProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const user = useAuthStore((s) => s.user);
+  const isStaff = user && (user.role === 'ITSupport' || user.role === 'Admin');
   const [uploading, setUploading] = useState(false);
+  const [uploadVisibility, setUploadVisibility] = useState<'PUBLIC' | 'INTERNAL'>('PUBLIC');
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
@@ -60,7 +64,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
     if (!file) return;
     setUploading(true);
     try {
-      await uploadMutation.mutateAsync({ ticketId, file });
+      await uploadMutation.mutateAsync({ ticketId, file, visibility: uploadVisibility });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -121,6 +125,16 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
         <button onClick={() => fileInputRef.current?.click()} className="btn-secondary btn-sm" disabled={uploading}>
           {uploading ? 'Uploading...' : 'Upload File'}
         </button>
+        {isStaff && (
+          <select
+            value={uploadVisibility}
+            onChange={(e) => setUploadVisibility(e.target.value as 'PUBLIC' | 'INTERNAL')}
+            className="input text-xs py-1 px-2"
+          >
+            <option value="PUBLIC">Public</option>
+            <option value="INTERNAL">Internal</option>
+          </select>
+        )}
         <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
       </div>
 
@@ -134,7 +148,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
         <div className="space-y-2">
           {(attachments as Array<{
             id: string; originalName: string; size: number; mimeType: string;
-            user?: { id: string; name: string }; createdAt: string;
+            user?: { id: string; name: string }; visibility?: string; createdAt: string;
           }>).map((attachment) => {
             const isImage = attachment.mimeType?.startsWith('image/');
             return (
@@ -148,15 +162,22 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
                     </svg>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">
-                      {isImage ? (
-                        <button onClick={() => openPreview(attachment)} className="hover:underline text-left">
-                          {attachment.originalName}
-                        </button>
-                      ) : (
-                        attachment.originalName
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">
+                        {isImage ? (
+                          <button onClick={() => openPreview(attachment)} className="hover:underline text-left">
+                            {attachment.originalName}
+                          </button>
+                        ) : (
+                          attachment.originalName
+                        )}
+                      </p>
+                      {attachment.visibility === 'INTERNAL' && (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                          Internal
+                        </span>
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {formatFileSize(attachment.size)} &middot;{' '}
                       {attachment.user ? getUserDisplayName(attachment.user) : 'Unknown'}{' '}

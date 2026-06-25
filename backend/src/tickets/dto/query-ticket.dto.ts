@@ -4,6 +4,7 @@ import {
   IsString,
   IsInt,
   Min,
+  Max,
   IsDateString,
   IsIn,
 } from 'class-validator';
@@ -20,7 +21,8 @@ export class QueryTicketDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(0)
+  @Min(1)
+  @Max(100)
   limit?: number;
 
   @IsOptional()

@@ -40,11 +40,9 @@ export class NotificationsGateway
   ) {}
 
   async handleConnection(client: Socket) {
-    const token =
-      (client.handshake.auth?.token as string) ||
-      (client.handshake.query?.token as string);
+    const token = client.handshake.auth?.token;
 
-    if (!token) {
+    if (typeof token !== 'string' || !token.trim()) {
       client.disconnect();
       return;
     }

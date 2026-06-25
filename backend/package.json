@@ -62,6 +62,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
+  "overrides": {
+    "tar": "^7.5.16"
+  },
   "jest": {
     "moduleFileExtensions": [
       "js",

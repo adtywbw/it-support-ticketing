@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTicket, useUpdateTicketStatus, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
-import { useUsers } from '@/hooks/use-users';
+import { useAssignableUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
@@ -33,7 +33,7 @@ function AssignedToDisplay({ ticket }: { ticket: Ticket }) {
   );
 }
 
-function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: string; name: string; role: string; isActive: boolean }[] }) {
+function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: string; name: string }[] }) {
   const assignMutation = useAssignTicket();
   return (
     <select
@@ -48,9 +48,7 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
       disabled={assignMutation.isPending}
     >
       <option value="">Unassigned</option>
-      {users
-        ?.filter((u) => u.isActive && (u.role === 'ITSupport' || u.role === 'Admin'))
-        .map((u) => (
+      {users?.map((u) => (
           <option key={u.id} value={u.id}>
             {u.name}
           </option>
@@ -66,7 +64,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
   const canChangeStatus = user && (user.role === 'ITSupport' || user.role === 'Admin');
   const isAdmin = user?.role === 'Admin';
   const { data: ticket, isLoading, isError, error, refetch } = useTicket(ticketId);
-  const { data: users } = useUsers({ enabled: !!canAssign });
+  const { data: assignableUsers } = useAssignableUsers({ enabled: !!canAssign });
   const updateStatusMutation = useUpdateTicketStatus();
   const deleteTicketMutation = useDeleteTicket();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -158,8 +156,8 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
             <div>
               <label className="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Assigned To</label>
-              {canAssign && users ? (
-                <AssignedToSelect ticket={ticket} users={users} />
+              {canAssign && assignableUsers ? (
+                <AssignedToSelect ticket={ticket} users={assignableUsers} />
               ) : (
                 <AssignedToDisplay ticket={ticket} />
               )}

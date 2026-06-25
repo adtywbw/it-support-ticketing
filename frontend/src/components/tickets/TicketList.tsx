@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTickets, useUpdateTicketPriority, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
-import { useUsers } from '@/hooks/use-users';
+import { useAssignableUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
 import type { TicketPriority } from '@/types';
 import StatusBadge from './StatusBadge';
@@ -30,7 +30,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
   const updatePriorityMutation = useUpdateTicketPriority();
   const assignMutation = useAssignTicket();
   const deleteTicketMutation = useDeleteTicket();
-  const { data: users } = useUsers({ enabled: !!canAssign });
+  const { data: assignableUsers } = useAssignableUsers({ enabled: !!canAssign });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; ticketNumber: string } | null>(null);
 
   const isAdmin = user?.role === 'Admin';
@@ -198,9 +198,8 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                           className="input text-xs py-1 px-2"
                         >
                           <option value="">Unassigned</option>
-                          {users
-                            ?.filter((u: { isActive: boolean; role: string }) => u.isActive && (u.role === 'ITSupport' || u.role === 'Admin'))
-                            .map((u: { id: string; name: string }) => (
+                          {assignableUsers
+                            ?.map((u) => (
                               <option key={u.id} value={u.id}>
                                 {u.name}
                               </option>
