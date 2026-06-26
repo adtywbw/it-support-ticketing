@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth-store';
-import type { UserRole } from '@/types';
+import type { UserRole, RefreshResponse } from '@/types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,8 +20,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     axios
       .post('/api/auth/refresh', {}, { withCredentials: true })
       .then((res) => {
-        if (res.data.accessToken) {
-          login(res.data.user, res.data.accessToken);
+        const data = res.data.data as RefreshResponse | undefined;
+        if (data?.accessToken) {
+          login(data.user!, data.accessToken);
         }
       })
       .catch(() => {})

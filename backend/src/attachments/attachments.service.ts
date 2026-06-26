@@ -30,6 +30,18 @@ const ALLOWED_MIME_TYPES = [
   'application/x-rar-compressed',
 ];
 
+const ATTACHMENT_SAFE_SELECT = {
+  id: true,
+  ticketId: true,
+  commentId: true,
+  userId: true,
+  originalName: true,
+  mimeType: true,
+  size: true,
+  visibility: true,
+  createdAt: true,
+};
+
 const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> = [
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff], offset: 0 },
   { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 },
@@ -162,8 +174,11 @@ export class AttachmentsService {
     }
 
     const attachments = await this.attachmentRepository.findByTicketId(ticketId, {
-      user: { select: { id: true, name: true } },
-      comment: { select: { type: true } },
+      select: {
+        ...ATTACHMENT_SAFE_SELECT,
+        user: { select: { id: true, name: true } },
+        comment: { select: { type: true } },
+      },
     });
 
     if (userRole === Role.EndUser) {

@@ -14,7 +14,6 @@ const LIMIT_OPTIONS = [
   { label: '25', value: 25 },
   { label: '50', value: 50 },
   { label: '100', value: 100 },
-  { label: 'All', value: 0 },
 ];
 
 export default function Pagination({ page, totalPages, onPageChange, limit, onLimitChange, totalItems }: PaginationProps) {
@@ -65,6 +64,27 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
               Page <span className="font-medium">{page}</span> of{' '}
               <span className="font-medium">{totalPages}</span>
             </p>
+
+            <div className="flex items-center gap-1 sm:hidden">
+              <button
+                onClick={() => onPageChange(page - 1)}
+                disabled={page <= 1}
+                className="btn-secondary btn-sm"
+              >
+                Prev
+              </button>
+              <span className="text-sm text-gray-700 dark:text-gray-300 px-2">
+                {page}/{totalPages}
+              </span>
+              <button
+                onClick={() => onPageChange(page + 1)}
+                disabled={page >= totalPages}
+                className="btn-secondary btn-sm"
+              >
+                Next
+              </button>
+            </div>
+
             <div className="hidden sm:flex items-center gap-1">
               <button
                 onClick={() => onPageChange(page - 1)}

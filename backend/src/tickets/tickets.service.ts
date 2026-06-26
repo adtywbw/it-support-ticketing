@@ -171,6 +171,7 @@ export class TicketsService {
   }
 
   async exportCsv(queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
+    const MAX_EXPORT_ROWS = 10000;
     const {
       status, priority, categoryId, assignedToId, requesterId,
       slaStatus, dateFrom, dateTo, search,
@@ -215,6 +216,7 @@ export class TicketsService {
     const tickets = await this.ticketRepository.findMany({
       where: where as any,
       orderBy,
+      take: MAX_EXPORT_ROWS,
       include: {
         requester: { select: { id: true, name: true, email: true } },
         assignedTo: { select: { id: true, name: true, email: true } },
@@ -432,17 +434,51 @@ export class TicketsService {
   }
 
   async updatePriority(id: string, updatePriorityDto: UpdatePriorityDto, userId: string) {
-    const ticket = await this.ticketRepository.findById(id);
+    const ticket = await this.ticketRepository.findById(id, {
+      category: {
+        include: {
+          slaConfigs: { where: { isActive: true } },
+        },
+      },
+    });
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
     const oldPriority = ticket.priority;
+    const newPriority = updatePriorityDto.priority;
+
+    const slaConfig = ticket.category.slaConfigs.find(
+      (c: any) => c.priority === newPriority,
+    );
+
+    const createdAt = new Date(ticket.createdAt).getTime();
+    const slaDueAt = slaConfig
+      ? new Date(createdAt + slaConfig.resolutionTimeMinutes * 60 * 1000)
+      : new Date(createdAt + 24 * 60 * 60 * 1000);
+
+    const now = Date.now();
+    const remainingMs = slaDueAt.getTime() - now;
+    const totalWindowMs = slaConfig ? slaConfig.resolutionTimeMinutes * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const remainingRatio = remainingMs / totalWindowMs;
+
+    let slaStatus: SLAStatus;
+    if (remainingMs <= 0) {
+      slaStatus = SLAStatus.Breached;
+    } else if (remainingRatio <= 0.2) {
+      slaStatus = SLAStatus.AtRisk;
+    } else {
+      slaStatus = SLAStatus.OnTrack;
+    }
 
     const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
       const updated = await tx.ticket.update({
         where: { id },
-        data: { priority: updatePriorityDto.priority },
+        data: {
+          priority: newPriority,
+          slaDueAt,
+          slaStatus,
+        },
       });
       await tx.ticketHistory.create({
         data: {
@@ -450,7 +486,7 @@ export class TicketsService {
           userId,
           field: 'priority',
           oldValue: oldPriority,
-          newValue: updatePriorityDto.priority,
+          newValue: newPriority,
         },
       });
       return updated;
@@ -468,20 +504,20 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
-    for (const attachment of ticket.attachments || []) {
-      try {
-        await this.storageService.delete(attachment.path);
-      } catch {
-        // Ignore file deletion errors
-      }
-    }
-
     await this.ticketRepository.transaction(async (tx) => {
       await tx.ticketHistory.deleteMany({ where: { ticketId: id } });
       await tx.comment.deleteMany({ where: { ticketId: id } });
       await tx.attachment.deleteMany({ where: { ticketId: id } });
       await tx.ticket.delete({ where: { id } });
     });
+
+    for (const attachment of ticket.attachments || []) {
+      try {
+        await this.storageService.delete(attachment.path);
+      } catch {
+        // Best-effort file cleanup after DB commit
+      }
+    }
   }
 
   private async createTicketWithNumber(

@@ -10,11 +10,11 @@ export class AttachmentRepository {
     return this.prisma.attachment.create({ data, include }) as any;
   }
 
-  async findByTicketId(ticketId: string, include?: Prisma.AttachmentInclude) {
+  async findByTicketId(ticketId: string, args?: { include?: Prisma.AttachmentInclude; select?: Prisma.AttachmentSelect }) {
     return this.prisma.attachment.findMany({
       where: { ticketId },
       orderBy: { createdAt: 'desc' },
-      include,
+      ...args,
     }) as any;
   }
 

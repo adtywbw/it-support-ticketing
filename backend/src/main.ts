@@ -17,10 +17,21 @@ function validateEnv() {
 
   if (process.env.NODE_ENV === 'production') {
     const jwtSecret = process.env.JWT_SECRET || '';
-    const weakSecrets = ['your-super-secret-jwt-key-change-in-production', 'secret', 'changeme', 'password'];
+    const weakSecrets = [
+      'your-super-secret-jwt-key-change-in-production',
+      'change-this-to-random-secret',
+      'secret',
+      'changeme',
+      'password',
+    ];
     if (weakSecrets.includes(jwtSecret.toLowerCase().trim())) {
       throw new Error(
         'JWT_SECRET is too weak for production. Please set a strong, unique secret.',
+      );
+    }
+    if (jwtSecret.length < 32) {
+      throw new Error(
+        'JWT_SECRET must be at least 32 characters in production.',
       );
     }
     if (!process.env.REDIS_PASSWORD) {

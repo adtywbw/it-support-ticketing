@@ -5,7 +5,7 @@ import type { Ticket, TicketFilters, CreateTicketPayload, Comment, Attachment, T
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== '' && value !== null) {
+    if (value !== undefined && value !== '' && value !== null && value !== 0) {
       params.append(key, String(value));
     }
   });
@@ -116,6 +116,9 @@ export function useAddComment() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'comments'] });
+      if (variables.files && variables.files.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'attachments'] });
+      }
     },
   });
 }

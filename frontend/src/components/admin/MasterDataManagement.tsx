@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { getErrorMessage } from '@/lib/utils';
+import { useCategories } from '@/hooks/use-categories';
 import type {
   Category,
   SubCategory,
@@ -56,13 +57,7 @@ export default function MasterDataManagement() {
 
 function CategoryManager() {
   const queryClient = useQueryClient();
-  const { data: categories, isLoading, isError, error, refetch } = useQuery<Category[]>({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const response = await apiClient.get('/categories');
-      return response.data;
-    },
-  });
+  const { data: categories, isLoading, isError, error, refetch } = useCategories();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Category | null>(null);
@@ -232,22 +227,20 @@ function CategoryManager() {
 
 function SubCategoryManager() {
   const queryClient = useQueryClient();
-  const { data: categories } = useQuery<Category[]>({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const response = await apiClient.get('/categories');
-      return response.data;
-    },
-  });
+  const { data: categories } = useCategories();
 
   const { data: subCategories, isLoading, isError, error, refetch } = useQuery<SubCategory[]>({
     queryKey: ['subcategories'],
     queryFn: async () => {
       const allSubs: SubCategory[] = [];
       if (categories) {
-        for (const cat of categories) {
-          const res = await apiClient.get(`/categories/${cat.id}/sub-categories`);
-          allSubs.push(...res.data);
+        const results = await Promise.all(
+          categories.map((cat) =>
+            apiClient.get<ApiEnvelope<SubCategory[]>>(`/categories/${cat.id}/sub-categories`)
+          )
+        );
+        for (const res of results) {
+          allSubs.push(...unwrapData(res));
         }
       }
       return allSubs;

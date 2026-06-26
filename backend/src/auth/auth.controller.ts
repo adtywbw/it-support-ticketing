@@ -12,12 +12,26 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 const REFRESH_COOKIE = 'refresh_token';
+
+function getCookieSecure(req: Request): boolean {
+  if (process.env.COOKIE_SECURE !== undefined) {
+    return process.env.COOKIE_SECURE === 'true';
+  }
+  return req.headers['x-forwarded-proto'] === 'https';
+}
+
+function getRefreshCookieOptions(req: Request, maxAge?: number) {
+  return {
+    httpOnly: true,
+    secure: getCookieSecure(req),
+    sameSite: 'strict' as const,
+    path: '/api/auth',
+    ...(maxAge !== undefined ? { maxAge } : {}),
+  };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -31,14 +45,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(loginDto);
-    const isSecure = req.headers['x-forwarded-proto'] === 'https';
-    res.cookie(REFRESH_COOKIE, result.refreshToken, {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: 'strict',
-      path: '/api/auth',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie(REFRESH_COOKIE, result.refreshToken, getRefreshCookieOptions(req, 7 * 24 * 60 * 60 * 1000));
     return { accessToken: result.accessToken, user: result.user };
   }
 
@@ -52,14 +59,7 @@ export class AuthController {
       return { accessToken: null, user: null };
     }
     const result = await this.authService.refresh(token);
-    const isSecure = req.headers['x-forwarded-proto'] === 'https';
-    res.cookie(REFRESH_COOKIE, result.refreshToken, {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: 'strict',
-      path: '/api/auth',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie(REFRESH_COOKIE, result.refreshToken, getRefreshCookieOptions(req, 7 * 24 * 60 * 60 * 1000));
     return { accessToken: result.accessToken, user: result.user };
   }
 
@@ -78,7 +78,6 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
   async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -87,7 +86,7 @@ export class AuthController {
     if (token) {
       await this.authService.revokeRefreshToken(token);
     }
-    res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
+    res.clearCookie(REFRESH_COOKIE, getRefreshCookieOptions(req));
     return { message: 'Logged out successfully' };
   }
 }

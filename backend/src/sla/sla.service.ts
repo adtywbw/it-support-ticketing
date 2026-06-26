@@ -64,14 +64,13 @@ export class SLAService {
   @Cron('*/5 * * * *')
   async checkSLA() {
     const lockKey = 'sla:check:lock';
-    const lockExists = await this.redisService.exists(lockKey);
+    const lockToken = `lock:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const acquired = await this.redisService.setNx(lockKey, lockToken, 300);
 
-    if (lockExists) {
+    if (!acquired) {
       this.logger.log('SLA check already running, skipping');
       return;
     }
-
-    await this.redisService.set(lockKey, '1', 300);
 
     try {
       await this.performSLACheck();

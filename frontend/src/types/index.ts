@@ -154,6 +154,11 @@ export interface AuthResponse {
   accessToken: string;
 }
 
+export interface RefreshResponse {
+  accessToken: string | null;
+  user: (User & { firstName?: string; lastName?: string }) | null;
+}
+
 export interface TicketFilters {
   status?: TicketStatus;
   priority?: TicketPriority;

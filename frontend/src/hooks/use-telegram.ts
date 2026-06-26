@@ -16,13 +16,14 @@ export interface TelegramConfig {
   settings: TelegramSettings;
 }
 
-export function useTelegramStatus() {
+export function useTelegramStatus(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['telegram-status'],
     queryFn: async () => {
       const res = await apiClient.get<ApiEnvelope<{ linked: boolean }>>('/telegram/status');
       return unwrapData(res);
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

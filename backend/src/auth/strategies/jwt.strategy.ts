@@ -14,6 +14,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    if (payload.tokenType && payload.tokenType !== 'access') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
     const user = await this.userRepository.findById(payload.sub);
 
     if (!user || !user.isActive) {

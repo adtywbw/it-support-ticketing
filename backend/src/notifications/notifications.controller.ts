@@ -11,7 +11,7 @@ import {
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginationQueryDto, QueryNotificationsDto } from '../common/dto/pagination-query.dto';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -23,13 +23,12 @@ export class NotificationsController {
   @Get()
   async findAll(
     @CurrentUser('id') userId: string,
-    @Query(new ValidationPipe({ transform: true, whitelist: true })) query: PaginationQueryDto & { unreadOnly?: string },
-    @Query('unreadOnly') unreadOnly?: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true })) query: QueryNotificationsDto,
   ) {
     return this.notificationsService.findByUserId(userId, {
       page: query.page,
       limit: query.limit,
-      unreadOnly: unreadOnly === 'true',
+      unreadOnly: query.unreadOnly === 'true',
     });
   }
 

@@ -45,10 +45,17 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    if (payload.tokenType !== 'refresh' || !payload.jti) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
     const storedToken = await this.redisService.get(
       `refresh:${payload.sub}:${payload.jti}`,
     );
-    if (!storedToken) {
+    if (!storedToken || storedToken !== refreshToken) {
+      await this.redisService.del(
+        `refresh:${payload.sub}:${payload.jti}`,
+      );
       throw new UnauthorizedException('Refresh token has been revoked');
     }
 
@@ -79,7 +86,7 @@ export class AuthService {
       return;
     }
 
-    if (payload.sub && payload.jti) {
+    if (payload.tokenType === 'refresh' && payload.sub && payload.jti) {
       await this.redisService.del(`refresh:${payload.sub}:${payload.jti}`);
     }
   }
@@ -132,15 +139,23 @@ export class AuthService {
   }): Promise<AuthResponse> {
     const tokenId = uuidv4();
 
-    const payload: JwtPayload = {
+    const basePayload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role as JwtPayload['role'],
     };
 
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign({
+      ...basePayload,
+      tokenType: 'access' as const,
+    });
+
     const refreshToken = this.jwtService.sign(
-      { ...payload, jti: tokenId },
+      {
+        ...basePayload,
+        tokenType: 'refresh' as const,
+        jti: tokenId,
+      },
       {
         secret: process.env.JWT_SECRET!,
         expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d',

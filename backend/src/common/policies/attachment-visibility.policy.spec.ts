@@ -110,5 +110,46 @@ describe('AttachmentVisibilityPolicy', () => {
     it('should hide null attachment from EndUser', () => {
       expect(AttachmentVisibilityPolicy.isAttachmentVisible(null, 'EndUser')).toBe(false);
     });
+
+    it('should allow EndUser to see PUBLIC attachments on PUBLIC comments', () => {
+      const publicCommentPublicVisibility = {
+        commentId: 'comment-2',
+        comment: { type: CommentType.PUBLIC },
+        visibility: AttachmentVisibility.PUBLIC,
+      };
+      expect(AttachmentVisibilityPolicy.isAttachmentVisible(publicCommentPublicVisibility, 'EndUser')).toBe(true);
+    });
+
+    it('should hide INTERNAL attachments even on PUBLIC comments from EndUser', () => {
+      const publicCommentInternalVisibility = {
+        commentId: 'comment-3',
+        comment: { type: CommentType.PUBLIC },
+        visibility: AttachmentVisibility.INTERNAL,
+      };
+      expect(AttachmentVisibilityPolicy.isAttachmentVisible(publicCommentInternalVisibility, 'EndUser')).toBe(false);
+    });
+
+    it('should hide PUBLIC attachments on INTERNAL comments from EndUser (ATT-01 regression)', () => {
+      const internalCommentPublicVisibility = {
+        commentId: 'comment-4',
+        comment: { type: CommentType.INTERNAL },
+        visibility: AttachmentVisibility.PUBLIC,
+      };
+      expect(AttachmentVisibilityPolicy.isAttachmentVisible(internalCommentPublicVisibility, 'EndUser')).toBe(false);
+    });
+
+    it('should allow ITSupport to see PUBLIC attachments on INTERNAL comments', () => {
+      const internalCommentPublicVisibility = {
+        commentId: 'comment-5',
+        comment: { type: CommentType.INTERNAL },
+        visibility: AttachmentVisibility.PUBLIC,
+      };
+      expect(AttachmentVisibilityPolicy.isAttachmentVisible(internalCommentPublicVisibility, 'ITSupport')).toBe(true);
+    });
+
+    it('should allow ITSupport/Admin to see any attachment (including null)', () => {
+      expect(AttachmentVisibilityPolicy.isAttachmentVisible(null, 'ITSupport')).toBe(true);
+      expect(AttachmentVisibilityPolicy.isAttachmentVisible(null, 'Admin')).toBe(true);
+    });
   });
 });

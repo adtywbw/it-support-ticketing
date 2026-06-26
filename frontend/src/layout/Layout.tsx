@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { useNotifications } from '@/hooks/use-notifications';
+import { useUnreadNotificationCount } from '@/hooks/use-notifications';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 export default function Layout() {
-  useNotifications();
+  useUnreadNotificationCount();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 

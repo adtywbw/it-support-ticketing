@@ -1,753 +1,1233 @@
-# Code Review Arsitektur - IT Support Ticketing
+# Code Review - IT Support Ticketing
 
 Tanggal review: 2026-06-26
-Reviewer: senior fullstack engineer, static architecture review
-Scope utama: arsitektur backend, frontend, API contract, security boundary, deployment/infra, operasional, testability, dan konsistensi dokumentasi.
 
-Review ini bersifat read-only terhadap source code. Tidak ada source runtime yang diubah. Dokumen ini dibuat sebagai backlog teknis yang bisa dikerjakan bertahap oleh agent/manusia berikutnya.
+Reviewer: senior fullstack engineer, fokus bug dan edge case.
 
-## Ringkasan Eksekutif
+Scope yang dibaca:
 
-Arsitektur dasar proyek sudah kuat untuk aplikasi internal: NestJS modular, Prisma, Redis, React, TanStack Query, Nginx, dan Docker Compose sudah terbentuk jelas. Namun ada beberapa drift penting antara kontrak yang tertulis di `AGENTS.md`/`ARCHITECTURE.md` dengan implementasi aktual.
+- `AGENTS.md` sebagai aturan proyek dan security boundary.
+- Backend: `backend/src`, repository/service/controller utama, `backend/prisma`, auth, ticket, comment, attachment, maintenance, Telegram, notification.
+- Frontend: `frontend/src`, auth route/interceptor, pages, hooks, komponen ticket/admin/maintenance/notification.
+- Operasional: `docker-compose.yml`, `nginx/nginx.conf`, env example, Dockerfile/package script, backup/restore flow.
 
-Risiko tertinggi ada di boundary akses EndUser untuk attachment internal, inkonsistensi kontrak response API, klaim horizontal scaling yang belum sesuai implementasi realtime/worker, dan operasional backup/restore yang masih perlu lock/validasi lebih kuat. Frontend juga punya coupling kuat ke bentuk response backend dan policy role tersebar di route, sidebar, hook, serta komponen.
+Catatan scope:
 
-Prioritas perbaikan yang disarankan:
+- Review ini belum melakukan fix kode aplikasi. File ini adalah daftar temuan dan rencana perbaikan.
+- Line number berdasarkan snapshot saat review ini dibuat. Jika kode berubah, grep nama fungsi/file sebelum patch.
+- Tidak ada temuan Critical yang pasti dari snapshot ini. Temuan High di bawah tetap sebaiknya diprioritaskan karena berdampak pada auth/security, halaman admin yang crash, dan operasi maintenance destruktif.
 
-1. Tutup gap security/authorization yang bisa mengekspos attachment internal atau metadata internal ke EndUser.
-2. Finalisasi satu kontrak API response dan error, lalu pasang di backend dan adapter frontend.
-3. Perbaiki readiness multi-instance: Socket.IO Redis adapter, lock atomic untuk cron, dan singleton Telegram worker/polling.
-4. Kuatkan operasional restore/backup dan konsistensi file/database.
-5. Rapikan boundary frontend: API adapter, permission registry, dan server state source of truth.
-6. Tambah test arsitektural/regresi untuk semua boundary kritikal sebelum refactor besar.
+## Checklist Prioritas
 
-## Snapshot Arsitektur Saat Ini
+### High
 
-Backend:
+- [x] AUTH-01: Bedakan access token dan refresh token, tolak refresh token sebagai Bearer API/WebSocket.
+- [x] FE-01: Perbaiki `ProtectedRoute` agar membaca API envelope refresh dengan benar.
+- [x] FE-02: Perbaiki Admin Master Data agar unwrap API envelope kategori/subkategori.
+- [x] OPS-01: Rapikan env Docker agar fresh setup memakai host service `db` dan `cache`.
+- [x] OPS-02: Tolak JWT secret placeholder production dan enforce panjang/entropy minimal.
+- [x] OPS-03: Pastikan refresh cookie `Secure` benar di belakang TLS/reverse proxy.
+- [x] OPS-04: Tambahkan operation lock untuk seluruh proses restore backup.
+- [x] TG-01: Samakan panjang Telegram link code yang dibuat dan yang diterima bot.
 
-- NestJS module per domain: auth, users, tickets, comments, attachments, categories, SLA, notifications, telegram, maintenance, dashboard, health.
-- Repository layer ada di `backend/src/common/repositories`, tetapi `PrismaModule` dan `RepositoriesModule` dibuat global.
-- Business flow penting masih terpusat di service besar, terutama `TicketsService` dan `MaintenanceService`.
-- Event-driven flow menggunakan `@nestjs/event-emitter` untuk notification dan Telegram.
-- Redis dipakai untuk refresh token, maintenance flag, backup lock, dan cron lock.
+### Medium
 
-Frontend:
+- [x] API-01: Buat DTO query class nyata untuk users dan notifications pagination/filter.
+- [x] ATT-01: Set visibility attachment komentar internal menjadi `INTERNAL` dan filter nested attachment komentar.
+- [x] DATA-01: Buat operasi file storage lebih aman terhadap kegagalan DB/file.
+- [x] OPS-05: Validasi restore tar terhadap symlink/hardlink/device, bukan hanya nama path.
+- [x] SLA-01: Recalculate SLA saat priority ticket berubah.
+- [x] AUTH-02: Logout tetap bisa revoke refresh cookie walau access token expired.
+- [x] FE-03: Implement notifikasi realtime atau minimal unread count server-side yang akurat.
+- [x] FE-04: Hilangkan opsi pagination `All` yang mengirim `limit=0`, atau implement mode valid.
+- [x] FE-05: Jangan panggil hook Telegram admin-only untuk non-admin.
+- [x] FE-06: Tangani partial success create ticket saat upload attachment gagal.
+- [x] FE-07: Invalidate attachments saat add comment membawa file.
+- [x] FE-08: Tambahkan kontrol pagination mobile.
+- [x] FE-09: Setelah change password, reset session atau issue token baru.
+- [x] OPS-06: Sesuaikan timeout nginx untuk backup/restore besar.
+- [x] OPS-07: Selaraskan limit upload nginx dan backend.
+- [x] OPS-08: Amankan permission/enkripsi backup artifact.
+- [x] OPS-09: Hindari `source backend/.env` langsung di `scripts/backup.sh`.
+- [x] OPS-10: Putuskan dan dokumentasikan Redis persistence untuk refresh session.
 
-- React routes di `frontend/src/App.tsx`, page di `frontend/src/pages`, TanStack Query hooks di `frontend/src/hooks`, Zustand untuk auth/theme/notification count.
-- API client berada di `frontend/src/lib/axios.ts`, tetapi belum ada typed API adapter untuk unwrap response.
-- Permission/role policy tersebar di route, sidebar, dan komponen.
+### Low
 
-Infra:
-
-- Docker Compose menjalankan frontend builder, Nginx, API, PostgreSQL, Redis.
-- Nginx melayani SPA dan reverse proxy `/api/` serta `/socket.io/`.
-- Compose saat ini HTTP-only, sedangkan sebagian env/dokumen masih mengasumsikan HTTPS.
-
-## Tracking Checklist Global
-
-- [x] F-01 Tutup gap visibility attachment internal untuk EndUser.
-- [x] F-02 Satukan kontrak success/error API dan update frontend adapter.
-- [ ] F-03 Rapikan module/repository boundary dan akses Prisma langsung.
-- [ ] F-04 Pecah service/komponen yang terlalu gemuk setelah kontrak aman.
-- [ ] F-05 Benahi readiness multi-instance untuk WebSocket, Telegram, dan cron SLA.
-- [ ] F-06 Perkuat konsistensi file/database dan lock operasi backup/restore.
-- [ ] F-07 Sinkronkan auth session expiry, cookie config, dan HTTP/HTTPS env.
-- [ ] F-08 Perbaiki typed event contract Telegram dan link code.
-- [ ] F-09 Pusatkan permission policy frontend dan hindari hook admin-only untuk non-admin.
-- [ ] F-10 Pindahkan notification unread count ke server-state source of truth.
-- [ ] F-11 Selaraskan pagination `All` frontend dengan DTO backend.
-- [ ] F-12 Pisahkan public maintenance health flow dari admin maintenance flow.
-- [ ] F-13 Rapikan infra drift: env, upload limit, security headers, image tags, builder volume.
-- [ ] F-14 Samakan backup CLI dengan Admin UI dan validasi archive aman.
-- [ ] F-15 Tambahkan test arsitektural/regresi untuk boundary kritikal.
-- [ ] F-16 Update dokumentasi setelah implementasi agar `AGENTS.md`, `README.md`, dan `ARCHITECTURE.md` tidak drift.
+- [x] CAT-01: Delete category jangan menjadi 500 saat masih punya subcategory/SLA config.
+- [x] API-02: Stream atau batasi export CSV unbounded.
+- [x] ATT-02: Jangan expose path filesystem internal di response attachment.
+- [x] SLA-02: Jadikan Redis lock SLA check atomik.
+- [x] OPS-11: Selaraskan Docker seed flow dan rotasi password seed production.
+- [x] OPS-12: Selaraskan production entrypoint `dist/main` vs `dist/src/main`.
+- [x] OPS-13: Tambahkan real IP config nginx jika berada di belakang reverse proxy.
+- [x] TG-02: Jadikan `TelegramConfig` singleton di schema. (Repository updated with `findOrCreate`; schema migration needed for `key @unique` column)
+- [x] FE-10: Sembunyikan kategori inactive dari create ticket.
 
 ## Temuan Detail
 
-### F-01 - P0 - Visibility attachment internal tidak terpusat untuk EndUser
+### AUTH-01 - High - Refresh token bisa dipakai sebagai access token API/WebSocket
 
-Status: Done
-Area: Backend authorization, data visibility, ticket domain
+Referensi kode:
 
-Bukti:
-
-- `backend/src/tickets/tickets.service.ts:153-164` menghitung visible attachment EndUser tanpa filter `AttachmentVisibility.PUBLIC`.
-- `backend/src/tickets/tickets.service.ts:261-264` ticket detail EndUser memfilter attachment hanya berdasarkan `commentId` atau comment PUBLIC, tetapi tidak mengecualikan direct attachment INTERNAL.
-- `backend/src/tickets/tickets.service.ts:292-305` count ticket detail EndUser memakai filter yang sama dan belum mengecek `visibility`.
-- `backend/src/attachments/attachments.service.ts:172-176` endpoint attachment dedicated sudah memfilter `comment.type !== INTERNAL` dan `visibility !== INTERNAL`.
+- `backend/src/auth/auth.service.ts:38-57`, `backend/src/auth/auth.service.ts:135-147`
+- `backend/src/auth/strategies/jwt.strategy.ts:10-23`
+- `backend/src/notifications/notifications.gateway.ts:50-55`
 
 Root cause:
 
-Aturan visibility attachment diimplementasikan berulang di beberapa service. Tidak ada satu domain policy/helper/repository method untuk menjawab pertanyaan: attachment mana yang boleh dilihat role tertentu.
+Access token dan refresh token ditandatangani dengan secret yang sama dan payload yang kompatibel. Refresh token hanya menambahkan `jti`, tetapi `JwtStrategy` tidak memvalidasi tipe token. Gateway WebSocket juga hanya `jwtService.verify()` dan memakai `payload.sub` tanpa menolak token refresh.
 
-Dampak:
+Impact:
 
-- EndUser berpotensi melihat metadata atau data direct attachment INTERNAL pada response ticket detail.
-- Count attachment pada list/detail bisa membocorkan keberadaan file internal.
-- Risiko regresi tinggi karena aturan visibility tersebar.
+Jika refresh token bocor, token itu dapat dipakai sebagai `Authorization: Bearer` untuk API protected dan auth WebSocket selama masa berlaku refresh token. Revocation Redis pada logout/change password tidak mencegah penggunaan refresh token sebagai access token karena access guard tidak mengecek Redis key refresh.
+
+Langkah fix:
+
+1. Tambahkan claim eksplisit pada token, misalnya `tokenType: 'access' | 'refresh'` atau `typ`/`aud`.
+2. Saat sign access token, isi `tokenType: 'access'` dan expiry pendek.
+3. Saat sign refresh token, isi `tokenType: 'refresh'`, `jti`, expiry refresh.
+4. Di `JwtStrategy.validate()`, tolak payload yang bukan `tokenType === 'access'`.
+5. Di `AuthService.refresh()`, tolak payload yang bukan `tokenType === 'refresh'` dan wajib punya `jti`.
+6. Di `NotificationsGateway.handleConnection()`, verifikasi dan tolak payload non-access.
+7. Pertimbangkan secret/audience berbeda untuk access dan refresh jika ingin defense-in-depth.
+8. Saat refresh, bandingkan stored token Redis dengan refresh token yang dikirim, bukan hanya cek key ada.
 
 Checklist fix:
 
-- [ ] Buat satu policy/helper, misalnya `TicketVisibilityPolicy` atau method repository `buildVisibleAttachmentWhere(userRole)`.
-- [ ] Policy EndUser harus mensyaratkan `visibility: AttachmentVisibility.PUBLIC`.
-- [ ] Policy EndUser juga harus mengecualikan attachment yang terhubung ke comment INTERNAL.
-- [ ] Pakai policy yang sama di `TicketsService.findAll`, `TicketsService.findById`, `AttachmentsService.findByTicketId`, dan `AttachmentsService.getDownloadInfo`.
-- [ ] Pastikan direct attachment INTERNAL tidak muncul di `ticket.attachments` untuk EndUser.
-- [ ] Pastikan `_count.attachments` EndUser hanya menghitung public direct attachment dan attachment dari public comment.
-- [ ] Tambah unit test untuk EndUser own ticket dengan kombinasi public/internal direct attachment dan attachment di public/internal comment.
-- [ ] Tambah regression test bahwa ITSupport/Admin tetap melihat attachment internal.
+- [x] Update `JwtPayload` interface dengan `tokenType` dan optional `jti`.
+- [x] Update `generateTokens()` di `AuthService`.
+- [x] Update `refresh()` dan `revokeRefreshToken()` validasi payload.
+- [x] Update `JwtStrategy` dan `NotificationsGateway`.
+- [x] Tambah test unit/e2e auth.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Jalankan `npm test -- tickets.service.spec.ts` atau test backend yang relevan di `backend`.
-- [ ] Manual API check: EndUser `GET /api/tickets/:id` tidak berisi attachment INTERNAL.
-- [ ] Manual API check: EndUser count attachment sama dengan jumlah attachment visible.
+- Refresh token sebagai Bearer ke endpoint protected seperti `GET /api/tickets` harus `401`.
+- Refresh token untuk WebSocket namespace `/notifications` harus disconnect.
+- Access token dipakai ke `/api/auth/refresh` harus ditolak.
+- Refresh token yang sudah logout/change password tidak bisa refresh dan tidak bisa API bearer.
 
-### F-02 - P1 - Kontrak success/error API drift dan belum enforced global
+### FE-01 - High - ProtectedRoute gagal restore session setelah reload/deep link
 
-Status: Done
-Area: Backend API contract, frontend API client, error handling
+Referensi kode:
 
-Bukti:
-
-- `AGENTS.md:11-12` menyatakan success API `{ data, meta? }` dan error `{ error: { code, message } }`.
-- `backend/src/common/interceptors/transform.interceptor.ts:12-31` sudah ada interceptor untuk wrap `{ data }`, tetapi tidak diregistrasikan global.
-- `backend/src/main.ts:51-60` hanya memasang `ValidationPipe` dan `HttpExceptionFilter`, tidak memasang transform interceptor.
-- `backend/src/app.module.ts:50-60` hanya memasang `APP_GUARD`, tidak ada `APP_INTERCEPTOR`.
-- `backend/src/common/filters/http-exception.filter.ts:24-33` memakai `resp.error` dari default Nest response sebagai `code`; ini bisa menghasilkan `Bad Request` atau `Service Unavailable`, bukan code stabil seperti `BAD_REQUEST` atau `MAINTENANCE`.
-- `backend/src/common/guards/maintenance.guard.ts:36-39` melempar `ServiceUnavailableException` string sehingga filter akan cenderung menghasilkan code default dari Nest, bukan kontrak maintenance yang stabil.
-- `frontend/src/hooks/use-auth.ts:15-20`, `frontend/src/lib/axios.ts:60-62`, dan `frontend/src/auth/ProtectedRoute.tsx` mengasumsikan auth response flat.
-- `frontend/src/hooks/use-users.ts:9-10` mengasumsikan paginated `{ data }`.
-- `frontend/src/hooks/use-categories.ts:9-10` mengasumsikan raw array.
+- `frontend/src/auth/ProtectedRoute.tsx:20-25`
+- Pembanding benar: `frontend/src/lib/axios.ts:86-87`
 
 Root cause:
 
-Ada kontrak API yang tertulis, tetapi enforcement backend dan unwrap frontend belum dibuat sebagai satu layer arsitektur. Akibatnya setiap endpoint/hook menafsirkan response sendiri-sendiri.
+`ProtectedRoute` memakai raw `axios.post('/api/auth/refresh')` lalu membaca `res.data.accessToken` dan `res.data.user`. API global `TransformInterceptor` membungkus response menjadi `{ data: { accessToken, user } }`. Interceptor axios di `frontend/src/lib/axios.ts` sudah membaca shape yang benar, tetapi `ProtectedRoute` belum.
 
-Dampak:
+Impact:
 
-- Perubahan kecil pada backend response bisa mematahkan banyak hook frontend.
-- Error handling sulit distandarkan karena `code` tidak stabil.
-- Dokumentasi API tidak bisa dipercaya sebagai contract test.
+User yang punya refresh cookie valid akan tetap dianggap unauthenticated saat reload halaman protected atau buka deep link langsung. Akibatnya user dilempar ke `/login` meskipun session masih valid.
+
+Langkah fix:
+
+1. Ubah `ProtectedRoute` membaca `res.data.data.accessToken` dan `res.data.data.user`.
+2. Lebih baik ekstrak helper `refreshSession()` di `frontend/src/lib/axios.ts` atau `frontend/src/hooks/use-auth.ts` agar `ProtectedRoute` dan interceptor memakai logic yang sama.
+3. Handle response `{ accessToken: null, user: null }` dari backend sebagai unauthenticated tanpa throw.
+4. Pastikan `checking` selesai setelah refresh gagal/sukses.
 
 Checklist fix:
 
-- [ ] Putuskan satu kontrak final: rekomendasi tetap mengikuti `AGENTS.md`, yaitu semua success non-file dibungkus `{ data, meta? }`.
-- [ ] Register `TransformInterceptor` global via `APP_INTERCEPTOR` di `app.module.ts` atau `app.useGlobalInterceptors()` di `main.ts`.
-- [ ] Audit endpoint yang memakai `@Res({ passthrough: true })`, stream/download/blob, dan CSV agar tidak dibungkus secara salah.
-- [ ] Ubah `HttpExceptionFilter` agar memprioritaskan `resp.code` jika ada.
-- [ ] Jika `resp.code` tidak ada, gunakan `getCodeFromStatus(status)` dan jangan gunakan `resp.error` sebagai code stabil.
-- [ ] Ubah maintenance exception menjadi object eksplisit, misalnya `{ code: 'MAINTENANCE', message }`, atau pastikan filter memetakan 503 ke `MAINTENANCE`.
-- [ ] Buat frontend helper `unwrapData<T>()`, `unwrapPage<T>()`, dan `unwrapBlob()` di sekitar `apiClient`.
-- [ ] Update semua hooks agar tidak langsung membaca `response.data` dengan asumsi yang berbeda-beda.
-- [ ] Hapus `refreshToken` dari `frontend/src/types/index.ts:152-156` jika frontend memang tidak menerima token refresh di body.
-- [ ] Tambah contract test minimal untuk login, refresh, tickets list, categories list, maintenance error, dan validation error.
+- [x] Update envelope access di `ProtectedRoute`.
+- [x] Tambah type untuk response refresh.
+- [x] Tambah test reload protected route.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Jalankan `npm run build` di `backend`.
-- [ ] Jalankan `npm run build` di `frontend`.
-- [ ] Manual smoke: login, refresh, ticket list, create ticket, categories, maintenance banner, CSV/download.
+- Mock refresh response `{ data: { accessToken, user } }`, render protected route, assert children tampil.
+- E2E: login, reload `/tickets`, tetap berada di `/tickets`.
+- E2E: buka `/admin/users` sebagai non-admin, refresh valid, diarahkan ke `/tickets`.
 
-### F-03 - P1 - Module/repository boundary terlalu global dan Prisma masih bocor ke luar repository
+### FE-02 - High - Admin Master Data crash karena tidak unwrap API envelope
 
-Status: Open
-Area: Backend architecture, module dependency, testability
+Referensi kode:
 
-Bukti:
-
-- `backend/src/prisma/prisma.module.ts:4-7` menandai `PrismaModule` sebagai `@Global()`.
-- `backend/src/common/repositories/repositories.module.ts:12-35` menandai semua repository sebagai global.
-- `backend/src/app.module.ts:33-35` mengimpor `PrismaModule`, `RepositoriesModule`, dan `RedisModule` di root sehingga dependency antar feature menjadi implisit.
-- `backend/src/dashboard/dashboard.service.ts:1-10` menginject `PrismaService` langsung di service domain.
-- `backend/src/dashboard/dashboard.service.ts:122-139` melakukan raw SQL langsung dari service.
-- `backend/src/health/health.controller.ts:1-18` menginject `PrismaService` langsung untuk health check. Ini bisa diterima sebagai operational exception, tetapi perlu dicatat agar tidak menjadi pola domain service.
-- `grep PrismaService backend/src` menunjukkan direct Prisma di repository dan juga `dashboard`/`health`.
+- `frontend/src/components/admin/MasterDataManagement.tsx:59-64`
+- `frontend/src/components/admin/MasterDataManagement.tsx:177`
+- `frontend/src/components/admin/MasterDataManagement.tsx:235-250`
 
 Root cause:
 
-Repository pattern sudah dikenalkan, tetapi module dibuat global sehingga dependency tidak eksplisit. Ini membuat service mudah mengakses Prisma langsung dan melemahkan boundary yang dijanjikan arsitektur.
+Query kategori dan subkategori mengembalikan `response.data` langsung. Runtime API response adalah `{ data: Category[] }`, bukan `Category[]`. Komponen kemudian memanggil `categories.map()`, sehingga object envelope diperlakukan sebagai array.
 
-Dampak:
+Impact:
 
-- Dependency graph sulit dibaca dan dites.
-- Repository menjadi pass-through, bukan boundary domain yang konsisten.
-- Refactor atau mock service menjadi lebih mahal.
+Halaman Admin Master Data tidak usable. Admin dapat melihat error seperti `categories.map is not a function`; subcategory query juga gagal karena loop `for (const cat of categories)` terhadap object envelope.
+
+Langkah fix:
+
+1. Pakai `ApiEnvelope` dan `unwrapData()` dari `frontend/src/lib/axios.ts` untuk `/categories`.
+2. Untuk `/categories/:id/sub-categories`, unwrap `res.data.data` juga.
+3. Hindari duplicate queryFn lokal. Reuse hook `useCategories()` bila cukup.
+4. Jika subcategory tetap fetch per category, gunakan `Promise.all` agar tidak serial lambat, tetapi jaga error handling.
 
 Checklist fix:
 
-- [ ] Tetapkan aturan: domain service tidak inject `PrismaService` langsung, kecuali operational modules yang disetujui seperti health.
-- [ ] Pindahkan raw query dashboard ke `DashboardRepository` atau method khusus di `TicketRepository`.
-- [ ] Hilangkan `@Global()` dari `RepositoriesModule` secara bertahap setelah tiap feature module mengimpor repository yang dibutuhkan.
-- [ ] Pertimbangkan mempertahankan `PrismaModule` global hanya jika memang diputuskan sebagai infra singleton; dokumentasikan exception-nya.
-- [ ] Tambahkan lint/check sederhana atau grep CI yang flag `PrismaService` di luar `common/repositories`, `prisma`, dan `health`.
-- [ ] Kurangi penggunaan `as any` di repository/service dengan tipe Prisma yang spesifik.
+- [x] Update query `CategoryManager`.
+- [x] Update query `SubCategoryManager`.
+- [ ] Tambah render test Master Data dengan mock envelope.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] `npm run build` backend.
-- [ ] Unit test service dengan mock repository tetap berjalan.
-- [ ] Grep `PrismaService` hanya muncul di lokasi yang disetujui.
+- Render Master Data dengan mock `{ data: [{ id, name, isActive }] }`, kategori tampil.
+- Mock subcategory endpoint `{ data: [...] }`, subkategori tampil.
+- Mutation create/update/delete tetap invalidate `['categories']` dan `['subcategories']`.
 
-### F-04 - P2 - Service dan komponen terlalu gemuk, responsibility bercampur
+### OPS-01 - High - Docker env flow mudah salah dan fresh Docker setup bisa gagal
 
-Status: Open
-Area: Maintainability, cohesion, feature boundaries
+Referensi kode:
 
-Bukti:
-
-- `backend/src/tickets/tickets.service.ts:41-552` menangani create, query/filter, CSV export, detail visibility, workflow status, assignment, priority, delete, dan ticket number generation.
-- `backend/src/maintenance/maintenance.service.ts:36-433` menangani mode, listing, backup, restore DB, restore uploads, gzip/tar validation, path validation, dan PostgreSQL options.
-- `frontend/src/pages/MyAccountPage.tsx:27-485` mencampur profile, change password, Telegram link, Telegram config, test notification, dan check config.
-- `frontend/src/layout/Navbar.tsx:17-235` mencampur query notification, badge, dropdown, theme, profile menu, logout, dan navigation.
-- `frontend/src/components/admin/MasterDataManagement.tsx` melakukan API call langsung dari component dan memuat banyak state master data dalam satu file.
+- `docker-compose.yml:42`, `docker-compose.yml:70`, `docker-compose.yml:87`
+- `backend/.env.example:6`, `backend/.env.example:19-22`
+- `.env.example:2`, `.env.example:5-7`, `.env.example:30`, `.env.example:34-36`
 
 Root cause:
 
-Feature tumbuh secara incremental tanpa extraction boundary. Belum ada pattern container/presenter atau sub-service per workflow.
+Compose memakai `env_file: ./backend/.env` untuk `api`, `db`, dan `cache`. Namun `backend/.env.example` berisi `DATABASE_URL` dan `REDIS_URL` dengan host `localhost`. Di dalam container, `localhost` menunjuk container itu sendiri, bukan service `db`/`cache`. Root `.env.example` lebih Docker-like, tetapi tidak dipakai oleh compose.
 
-Dampak:
+Impact:
 
-- Testing granular sulit.
-- Perubahan kecil berisiko menyentuh file besar dan unrelated behavior.
-- Reuse rendah dan regressions lebih mudah terjadi.
+Developer/operator yang copy `backend/.env.example` ke `backend/.env` akan mendapat API container yang gagal konek DB/Redis. Fresh deploy menjadi rapuh dan error sulit dibedakan dari masalah network.
+
+Langkah fix:
+
+1. Putuskan satu env example resmi untuk Docker, idealnya `backend/.env.example` karena compose memang membacanya.
+2. Ubah Docker values menjadi `DATABASE_URL=postgresql://ticketing:<password>@db:5432/ticketing`.
+3. Ubah Redis menjadi `REDIS_URL=redis://:<password>@cache:6379`, `REDIS_HOST=cache`, `REDIS_PASSWORD=<password>`.
+4. Hindari placeholder kosong untuk `REDIS_PASSWORD` jika production mewajibkan password.
+5. Update README/AGENTS jika ada instruksi copy env.
 
 Checklist fix:
 
-- [ ] Jangan refactor besar sebelum F-01 dan F-02 selesai, agar kontrak aman dulu.
-- [ ] Pecah `TicketsService` menjadi minimal `TicketQueryService`, `TicketWorkflowService`, `TicketExportService`, dan `TicketNumberService` jika perubahan ticket domain berikutnya masuk.
-- [ ] Pecah `MaintenanceService` menjadi orchestration service plus helper/service untuk backup, restore database, restore uploads, archive validation.
-- [ ] Pecah `MyAccountPage` menjadi `ProfileCard`, `ChangePasswordSection`, `AdminTelegramLinkSection`, dan `AdminTelegramConfigSection`.
-- [ ] Pecah `Navbar` menjadi `NotificationDropdown`, `ThemeMenu`, dan `ProfileMenu`.
-- [ ] Pindahkan semua API call component admin ke hook feature di `frontend/src/hooks`.
+- [x] Selaraskan `.env.example` dan `backend/.env.example`.
+- [ ] Pastikan compose memakai env example yang didokumentasikan.
+- [ ] Verifikasi fresh compose dari env baru.
 
-Verifikasi:
+Suggested verification:
 
-- [ ] Build frontend dan backend.
-- [ ] Smoke test halaman My Account, Navbar notification, ticket workflows, dan maintenance restore/backup UI.
+- `docker compose --env-file backend/.env config`
+- `docker compose up --build`
+- `docker compose logs api` tidak menunjukkan koneksi ke `localhost:5432` atau `localhost:6379` dari dalam container.
+- `GET /api/health` healthy melalui nginx.
 
-### F-05 - P1 - Klaim horizontal scaling belum sesuai implementasi realtime/worker
+### OPS-02 - High - Placeholder JWT production masih dapat diterima
 
-Status: Open
-Area: Scaling architecture, realtime, background jobs
+Referensi kode:
 
-Bukti:
-
-- `backend/src/notifications/notifications.gateway.ts:35` menyimpan socket user di memory per proses.
-- `backend/src/notifications/notifications.gateway.ts:82-86` emit hanya ke room pada instance lokal.
-- `backend/src/telegram/telegram.service.ts:49-66` setiap instance API akan start Telegram polling saat bootstrap.
-- `backend/src/telegram/telegram.service.ts:104-128` long polling Telegram berjalan lokal di tiap process.
-- `backend/src/sla/sla.service.ts:64-75` lock cron memakai `exists` lalu `set`, bukan operasi atomic `SET NX EX`.
-- `ARCHITECTURE.md:521-535` menyebut stateless API dan scaling/HPA, tetapi detail worker/realtime belum siap.
+- `backend/src/main.ts:18-23`
+- `.env.example:10`
+- `backend/.env.example:14`
 
 Root cause:
 
-API sudah stateless untuk HTTP auth, tetapi komponen realtime dan background worker masih stateful per instance. Redis sudah tersedia, tetapi belum dipakai sebagai adapter/leader election untuk semua area.
+`validateEnv()` hanya menolak beberapa weak secret: `your-super-secret-jwt-key-change-in-production`, `secret`, `changeme`, `password`. Root `.env.example` memakai `JWT_SECRET=change-this-to-random-secret`, tetapi nilai ini belum masuk denylist dan tidak ada minimum length/entropy check.
 
-Dampak:
+Impact:
 
-- Multi-replica API bisa kehilangan WebSocket notification jika event dibuat di instance berbeda dari socket user.
-- Telegram polling bisa konflik atau duplikat antar instance.
-- Cron SLA bisa race karena lock non-atomic.
+Deployment production dapat start dengan JWT secret placeholder yang diketahui publik dari repository. Jika secret diketahui, attacker bisa forge JWT.
+
+Langkah fix:
+
+1. Tambahkan `change-this-to-random-secret` ke denylist.
+2. Enforce panjang minimal, misalnya 32 atau 64 karakter.
+3. Enforce nilai bukan repeated/common phrase sederhana.
+4. Di env example, gunakan komentar seperti `JWT_SECRET=<generate-64-random-chars>` bukan nilai yang terlihat usable.
 
 Checklist fix:
 
-- [ ] Tambahkan Socket.IO Redis adapter untuk broadcast room lintas instance.
-- [ ] Hilangkan kebutuhan `userSockets` map untuk routing utama, atau gunakan hanya untuk observability lokal.
-- [ ] Tambahkan method Redis atomic `setNx(key, value, ttlSeconds)` di `RedisService`.
-- [ ] Ubah lock SLA menjadi atomic `SET key value NX EX ttl`.
-- [ ] Pastikan lock punya owner token dan delete hanya owner jika proses bisa overlap panjang.
-- [ ] Jadikan Telegram polling singleton via Redis leader lock, dedicated worker process, atau migrasi ke webhook dengan satu endpoint publik.
-- [ ] Update `ARCHITECTURE.md` agar scaling readiness jujur: HTTP stateless sudah siap, realtime/worker butuh adapter/leader.
+- [x] Update denylist di `validateEnv()`.
+- [x] Tambah minimum length check.
+- [x] Update env example.
+- [ ] Tambah test/unit kecil untuk env validation bila pola test tersedia.
 
-Verifikasi:
+Suggested verification:
 
-- [ ] Unit test lock Redis atomic.
-- [ ] Manual run dua API instance lokal jika memungkinkan dan pastikan satu Telegram poller aktif.
-- [ ] Manual test notification WebSocket lintas instance jika adapter sudah terpasang.
+- Start backend dengan `NODE_ENV=production JWT_SECRET=change-this-to-random-secret` harus gagal.
+- Start backend dengan random 64 karakter harus berhasil.
 
-### F-06 - P1 - Konsistensi file/database dan lock operasi destruktif belum kuat
+### OPS-03 - High - Refresh cookie bisa kehilangan flag Secure di belakang TLS terminator
 
-Status: Open
-Area: Storage architecture, transactional boundaries, maintenance operations
+Referensi kode:
 
-Bukti:
-
-- `backend/src/attachments/attachments.service.ts:122-146` menyimpan file dulu, lalu insert DB. Jika insert DB gagal, file orphan bisa tertinggal.
-- `backend/src/tickets/tickets.service.ts:468-480` menghapus file sebelum transaksi delete DB selesai. Jika DB delete gagal, record bisa menunjuk file yang sudah hilang.
-- `backend/src/maintenance/maintenance.service.ts:76-85` lock hanya dipakai untuk backup.
-- `backend/src/maintenance/maintenance.service.ts:188-225` restore destruktif tidak mengambil lock operasi restore tersendiri sebelum enable maintenance dan drop schema.
-- `backend/src/maintenance/maintenance.service.ts:303-333` restore uploads melakukan extract dan swap, tetapi validasi archive masih terbatas.
-- `backend/src/maintenance/maintenance.service.ts:335-374` validasi tar hanya path/name traversal, belum mengecek tipe entry symlink/hardlink seperti klaim dokumen.
+- `backend/src/auth/auth.controller.ts:34-40`, `backend/src/auth/auth.controller.ts:55-61`
+- `nginx/nginx.conf:48-55`
 
 Root cause:
 
-Database dan filesystem diperlakukan sebagai satu logical transaction, tetapi tidak ada transaction manager lintas resource. Backup/restore sudah punya sebagian guard, tetapi lock belum mencakup seluruh operasi destruktif.
+Backend menentukan `secure` cookie dari `req.headers['x-forwarded-proto'] === 'https'`. Nginx utama selalu set `X-Forwarded-Proto $scheme`. Jika ada TLS terminator di depan nginx dan koneksi ke nginx tetap HTTP, `$scheme` menjadi `http` meskipun user mengakses HTTPS.
 
-Dampak:
+Impact:
 
-- File orphan atau missing file bisa muncul saat error parsial.
-- Restore paralel atau backup saat restore bisa merusak state operasional.
-- Archive uploads berbahaya berisiko menyisipkan symlink/hardlink jika tidak ditolak eksplisit.
+Cookie refresh token production dapat dikirim tanpa `Secure`, meningkatkan risiko exposure di jalur non-HTTPS atau konfigurasi proxy yang salah.
+
+Langkah fix:
+
+1. Tambah env eksplisit seperti `COOKIE_SECURE=true` untuk production.
+2. Jika tetap mengandalkan proxy, pastikan proxy chain preserve `X-Forwarded-Proto=https` dan Express trust proxy benar.
+3. Gunakan helper tunggal untuk cookie options login/refresh/logout supaya path/sameSite/secure konsisten.
+4. Pastikan `clearCookie` memakai option yang sama, minimal `path`, `sameSite`, dan `secure` sesuai cookie asli.
 
 Checklist fix:
 
-- [ ] Untuk upload: jika DB create gagal setelah file save, lakukan compensating cleanup `storageService.delete(filePath)`.
-- [ ] Untuk delete ticket: hapus DB dalam transaction dulu, lalu hapus file sebagai best-effort cleanup, atau catat file cleanup job setelah commit.
-- [ ] Tambahkan periodic orphan cleanup yang membandingkan DB attachment path dengan filesystem, jika storage lokal tetap dipakai.
-- [ ] Tambahkan `MAINTENANCE_OPERATION_LOCK_KEY` untuk backup dan restore, bukan backup saja.
-- [ ] Ambil lock sebelum `setMaintenanceMode(true)` pada restore.
-- [ ] Pastikan lock punya TTL cukup panjang dan owner token agar tidak dilepas operasi lain.
-- [ ] Validasi tar entry type dengan `tar -tvzf` parsing atau library tar yang bisa menolak symlink/hardlink/device file.
-- [ ] Gunakan option tar yang aman saat extract dan jangan follow symlink.
+- [x] Tambah helper cookie options.
+- [x] Tambah env `COOKIE_SECURE` atau dokumentasi proxy yang eksplisit.
+- [ ] Update nginx/reverse proxy config jika production memakai TLS terminator.
 
-Verifikasi:
+Suggested verification:
 
-- [ ] Unit test upload cleanup saat repository create gagal.
-- [ ] Unit/integration test ticket delete saat storage delete gagal dan saat DB delete gagal.
-- [ ] Test restore menolak tar dengan `../`, absolute path, symlink, dan hardlink.
-- [ ] Test restore kedua gagal saat lock masih aktif.
+- Login via HTTPS production dan cek `Set-Cookie` mengandung `HttpOnly; Secure; SameSite=Strict; Path=/api/auth`.
+- Login via local HTTP tetap berfungsi jika `COOKIE_SECURE=false`.
 
-### F-07 - P1 - Auth session expiry, cookie, dan HTTP/HTTPS config tidak satu sumber
+### OPS-04 - High - Restore backup tidak punya operation lock selama fase destruktif
 
-Status: Open
-Area: Auth architecture, deployment config
+Referensi kode:
 
-Bukti:
-
-- `backend/src/auth/auth.service.ts:19-27` TTL Redis refresh token hardcoded 7 hari.
-- `backend/src/auth/auth.service.ts:141-153` JWT refresh expiry memakai `JWT_REFRESH_TOKEN_EXPIRY` env.
-- `backend/src/auth/auth.controller.ts:35-40` cookie login maxAge hardcoded 7 hari.
-- `backend/src/auth/auth.controller.ts:55-61` cookie refresh maxAge hardcoded 7 hari.
-- `docker-compose.yml:19-20` hanya expose port 80.
-- `nginx/nginx.conf:43-46` listen 80 dan `client_max_body_size 10m`.
-- `.env.example:19` memakai `CORS_ORIGIN=https://helpdesk.rsmch.internal`, sedangkan `README.md:227` menyebut app tersedia via `http://helpdesk.rsmch.internal`.
+- `backend/src/maintenance/maintenance.service.ts:14-15`
+- `backend/src/maintenance/maintenance.service.ts:76-85`
+- `backend/src/maintenance/maintenance.service.ts:188-224`
 
 Root cause:
 
-Belum ada centralized config service untuk auth duration dan deployment mode. Local HTTP dan production HTTPS masih tercampur di contoh env/dokumen.
+Lock Redis hanya diambil di `createBackup()`. `restoreBackup()` memanggil `createBackup('pre-restore')`, tetapi lock tersebut dilepas setelah pre-restore backup selesai. Fase destruktif `restoreDatabase()` dan `restoreUploads()` berjalan tanpa lock. Dua request restore atau backup/restore paralel dapat interleave.
 
-Dampak:
+Impact:
 
-- JWT refresh bisa expired lebih cepat/lambat dari Redis TTL dan cookie maxAge.
-- Compose HTTP-only bisa mengirim refresh cookie tanpa `secure` jika dipakai seperti production.
-- Developer/onboarding bisa salah set env karena contoh root `.env.example` production-style tapi belum lengkap.
+DB schema dan uploads bisa corrupt atau tidak konsisten. Backup yang diambil saat restore berjalan dapat berisi data setengah restore.
+
+Langkah fix:
+
+1. Buat lock operasi maintenance tunggal, misalnya `maintenance:operation:lock`, atau lock restore terpisah yang juga dicek backup/delete.
+2. Ambil lock di awal `restoreBackup()` sebelum maintenance mode/drain.
+3. Tahan lock sampai DB dan uploads restore selesai atau gagal.
+4. Simpan token random sebagai value lock dan release hanya jika token cocok.
+5. Jika restore bisa lama, set TTL cukup panjang atau implement renew heartbeat.
+6. Pastikan lock dilepas di `finally` untuk semua error path.
 
 Checklist fix:
 
-- [ ] Buat util parser duration untuk `JWT_REFRESH_TOKEN_EXPIRY` yang menghasilkan milliseconds dan seconds.
-- [ ] Gunakan duration yang sama untuk JWT `expiresIn`, Redis TTL, dan cookie `maxAge`.
-- [ ] Tambahkan config object typed untuk auth dan cookie.
-- [ ] Pisahkan env contoh local HTTP dan production HTTPS, misalnya `.env.local.example` dan `.env.production.example`.
-- [ ] Tambahkan `REDIS_PASSWORD` di root `.env.example` jika `NODE_ENV=production` tetap dipakai.
-- [ ] Perluas daftar weak secret di `main.ts:20`, termasuk `change-this-to-random-secret`.
-- [ ] Dokumentasikan bahwa Compose default adalah local HTTP, production wajib TLS terminator atau konfigurasi Nginx 443.
+- [x] Tambah helper acquire/release lock dengan token.
+- [x] Gunakan di `createBackup()` dan `restoreBackup()`.
+- [x] Cegah backup/delete berjalan saat restore in progress.
+- [ ] Tambah concurrency test.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Unit test parser duration untuk `15m`, `7d`, angka seconds, dan invalid value.
-- [ ] Manual login/refresh dengan local HTTP tetap bekerja.
-- [ ] Production-like config menghasilkan cookie `secure=true` saat `X-Forwarded-Proto=https`.
+- Dua call restore paralel: satu berjalan, satu mendapat 400/409 operation in progress.
+- Backup saat restore in progress ditolak.
+- Lock dilepas setelah restore sukses/gagal.
 
-### F-08 - P1 - Telegram event contract dan link code tidak type-safe
+### TG-01 - High - Telegram link code yang dibuat tidak mungkin diterima bot
 
-Status: Open
-Area: Event architecture, Telegram integration
+Referensi kode:
 
-Bukti:
-
-- `backend/src/telegram/telegram.service.ts:418-428` generate link code sepanjang 10 karakter.
-- `backend/src/telegram/telegram.service.ts:138-145` bot `/start` hanya menerima code panjang 6.
-- `backend/src/tickets/tickets.service.ts:419-425` event `ticket.assigned` tidak mengirim `subject`.
-- `backend/src/telegram/telegram.listener.ts:27-40` listener `ticket.assigned` mengharapkan `subject` untuk template.
-- `backend/src/telegram/telegram.service.ts:20-27` template menggunakan variable seperti `{subject}`.
+- `backend/src/telegram/telegram.service.ts:138-146`
+- `backend/src/telegram/telegram.service.ts:418-421`
+- `backend/src/telegram/telegram.controller.ts:23-29`
 
 Root cause:
 
-Event payload memakai string event dan object literal tanpa type contract bersama. Link code length juga tidak punya konstanta tunggal.
+`generateLinkCode()` membuat code 10 karakter dari `randomBytes(5).toString('base64url').substring(0, 10).toUpperCase()`. Handler `/start` menolak code yang panjangnya bukan 6 karakter.
 
-Dampak:
+Impact:
 
-- Telegram linking bisa gagal permanen karena code valid di UI ditolak bot.
-- Template assigned bisa mengirim `undefined`/kosong untuk subject.
-- Event integration rentan drift setiap ada field baru.
+User/Admin tidak bisa menautkan Telegram. Fitur notifikasi individu Telegram gagal secara praktis meskipun UI berhasil generate code.
+
+Langkah fix:
+
+1. Samakan panjang code. Pilihan minimal: ubah validator bot menerima 10 karakter.
+2. Jika ingin 6 karakter, ubah generator menjadi 6 karakter dan pastikan collision handling memadai.
+3. Update instruksi UI jika menampilkan format code.
+4. Tambahkan test untuk flow generate code lalu `/start <code>`.
 
 Checklist fix:
 
-- [ ] Buat `ticket-events.ts` berisi nama event dan TypeScript interface payload.
-- [ ] Gunakan interface yang sama di emitter dan listener.
-- [ ] Tambahkan compile-time helper `emitTicketAssigned(payload: TicketAssignedEvent)` atau wrapper event service.
-- [ ] Definisikan `TELEGRAM_LINK_CODE_LENGTH` satu kali dan gunakan di generate serta validation.
-- [ ] Update UI copy jika panjang code berubah.
-- [ ] Tambahkan unit test `generateLinkCode` dan `handleUpdate('/start code')`.
-- [ ] Tambahkan unit test Telegram listener untuk memastikan semua template variable tersedia.
+- [x] Pilih panjang code final.
+- [x] Update generator atau validator.
+- [ ] Tambah test unit service.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Manual Telegram link dengan code baru.
-- [ ] Manual assign ticket menghasilkan message dengan subject.
+- Generate code lalu proses update Telegram `/start <code>` sukses dan menyimpan `telegramChatId`.
+- Code salah/expired tetap ditolak.
 
-### F-09 - P1 - Frontend permission policy tersebar dan hook admin-only tetap dipanggil non-admin
+### API-01 - Medium - Query pagination users/notifications tidak memakai DTO runtime yang valid
 
-Status: Open
-Area: Frontend architecture, authorization UX, data fetching boundary
+Referensi kode:
 
-Bukti:
-
-- `frontend/src/App.tsx:44-87` route roles didefinisikan langsung di route.
-- `frontend/src/layout/Sidebar.tsx:6-67` nav roles didefinisikan ulang.
-- `frontend/src/pages/MyAccountPage.tsx:39-46` semua hook Telegram, termasuk admin config/check/test/update, dipanggil sebelum guard UI.
-- `frontend/src/pages/MyAccountPage.tsx:236-239` UI Telegram baru dibatasi `user?.role === 'Admin'` saat render.
-- `frontend/src/hooks/use-telegram.ts:58-65` `useTelegramConfig` tidak memiliki opsi `enabled`.
+- `backend/src/users/users.controller.ts:29-38`
+- `backend/src/notifications/notifications.controller.ts:24-33`
+- `backend/src/common/dto/pagination-query.dto.ts:4-16`
+- `backend/src/common/repositories/user.repository.ts:75-79`
+- `backend/src/common/repositories/notification.repository.ts:21-30`
 
 Root cause:
 
-Policy role tidak punya single source of truth. Hook data fetching diletakkan di parent page sehingga tetap berjalan walau section admin tidak dirender.
+Controller memakai type intersection `PaginationQueryDto & { role?: string; search?: string; includeInactive?: string }`. TypeScript intersection tidak menghasilkan metadata runtime class-validator/class-transformer untuk field tambahan. Transform/validasi dapat tidak konsisten, terutama untuk `page`, `limit`, enum role, boolean query.
 
-Dampak:
+Impact:
 
-- EndUser/ITSupport bisa memicu request 403 ke endpoint admin-only.
-- Role policy mudah drift antara route, navigation, dan action button.
-- Sulit mengaudit siapa boleh melakukan aksi apa di frontend.
+`page/limit` berisiko tetap string atau value invalid masuk ke service/repository, menyebabkan error Prisma atau pagination aneh. `role=invalid`, `limit=1000`, atau boolean invalid tidak ditolak dengan 400 yang jelas.
+
+Langkah fix:
+
+1. Buat `QueryUsersDto extends PaginationQueryDto` dengan decorator `@IsOptional`, `@IsEnum(Role)`, `@IsString`, dan transform boolean untuk `includeInactive`.
+2. Buat `QueryNotificationsDto extends PaginationQueryDto` dengan transform boolean untuk `unreadOnly`.
+3. Pakai DTO class langsung di `@Query()` tanpa intersection type.
+4. Hindari double `@Query('unreadOnly')` jika sudah ada di DTO.
 
 Checklist fix:
 
-- [ ] Buat `frontend/src/auth/permissions.ts` berisi `canViewDashboard`, `canManageUsers`, `canManageMasterData`, `canManageMaintenance`, `canManageTelegram`, `canAssignTicket`, dan action lain.
-- [ ] Buat route/nav config tunggal dan gunakan untuk `App.tsx` serta `Sidebar.tsx`.
-- [ ] Pisahkan `AdminTelegramSection` sebagai component child yang hanya dirender jika `canManageTelegram(user)`.
-- [ ] Tambahkan opsi `enabled` pada hook Telegram admin: `useTelegramConfig({ enabled })`, `useCheckTelegram`, jika query diperlukan.
-- [ ] Pastikan hook personal Telegram status hanya dipakai jika fitur memang tersedia untuk role tersebut. Saat ini dokumen menyatakan Telegram section Admin-only.
-- [ ] Tambah test/render check bahwa non-admin My Account tidak memanggil `/telegram/config`.
+- [x] Tambah DTO users query.
+- [x] Tambah DTO notifications query.
+- [x] Update controller.
+- [ ] Tambah tests query validation.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Frontend build.
-- [ ] Browser devtools untuk EndUser/ITSupport tidak menunjukkan request admin Telegram.
-- [ ] Route dan sidebar tetap konsisten untuk Admin, ITSupport, EndUser.
+- `GET /api/users?page=1&limit=20` berhasil dan `meta.limit` number.
+- `GET /api/users?limit=1000` ditolak 400.
+- `GET /api/users?role=invalid` ditolak 400.
+- `GET /api/notifications?unreadOnly=true` memakai boolean true.
 
-### F-10 - P2 - Notification unread count memakai Zustand untuk server-derived state
+### ATT-01 - Medium - Attachment pada komentar internal disimpan sebagai PUBLIC dan nested attachment komentar tidak difilter policy
 
-Status: Open
-Area: Frontend state architecture, realtime consistency
+Referensi kode:
 
-Bukti:
-
-- `backend/src/notifications/notifications.controller.ts:36-40` sudah ada `GET /notifications/unread-count`.
-- `frontend/src/hooks/use-notifications.ts:7-25` unread dihitung dari halaman notification yang sedang diload.
-- `frontend/src/hooks/use-notifications.ts:11` query key hanya `['notifications', page]`, tidak menyertakan `limit`.
-- `frontend/src/layout/Navbar.tsx:21` badge membaca `unreadCount` dari Zustand.
-- `frontend/src/layout/Navbar.tsx:31-36` dropdown punya query notification sendiri untuk limit 5.
+- `backend/src/comments/comments.service.ts:106-148`
+- `backend/src/comments/comments.service.ts:173-178`
+- `backend/src/common/repositories/comment.repository.ts:17-31`
+- `backend/src/common/policies/attachment-visibility.policy.ts:15-29`, `backend/src/common/policies/attachment-visibility.policy.ts:50-61`
 
 Root cause:
 
-Unread count adalah server-derived state, tetapi disimpan dan dimutasi manual di Zustand. Backend sudah menyediakan source of truth, tetapi frontend belum menggunakannya.
+Saat create attachment bersama komentar, data attachment tidak mengisi `visibility`, sehingga default database kemungkinan `PUBLIC`. Ini terjadi juga untuk komentar `INTERNAL`. Selain itu `CommentRepository.findByTicketId()` selalu include semua attachments tanpa filter policy; endpoint komentar hanya memfilter comment type untuk EndUser.
 
-Dampak:
+Impact:
 
-- Badge bisa salah jika unread lebih banyak dari halaman pertama.
-- Badge bisa salah saat limit berubah atau dropdown query berbeda dari page query.
-- Realtime notification sulit dibuat konsisten.
+Saat ini EndUser tidak melihat internal comment karena comment type difilter. Namun data attachment internal tersimpan sebagai `PUBLIC`, sehingga mudah bocor di fitur baru, query lain, export, atau bug filter berikutnya. Nested attachments juga belum menerapkan policy centralized seperti aturan di `AGENTS.md`.
+
+Langkah fix:
+
+1. Saat create attachment comment, set `visibility: INTERNAL` jika `type === CommentType.INTERNAL`, selain itu `PUBLIC`.
+2. Ubah repository/service agar `findByTicketId()` dapat menerima role dan apply filter attachment visibility untuk EndUser.
+3. Atau post-filter nested attachment memakai `AttachmentVisibilityPolicy.isAttachmentVisible()` sebelum return.
+4. Gunakan `select` field attachment yang aman, jangan full row jika tidak perlu.
 
 Checklist fix:
 
-- [ ] Buat hook `useUnreadNotificationCount()` yang memanggil `/notifications/unread-count`.
-- [ ] Gunakan TanStack Query sebagai source of truth untuk badge.
-- [ ] Include semua parameter di query key, minimal `['notifications', page, limit, unreadOnly]`.
-- [ ] Setelah mark read/read all/clear all, invalidate `['notifications']` dan `['notifications', 'unread-count']`.
-- [ ] Jika WebSocket dipakai, update query cache TanStack Query, bukan Zustand persisted/manual state.
-- [ ] Pertimbangkan hapus `notification-store.ts` atau gunakan hanya untuk ephemeral UI event.
+- [x] Set visibility eksplisit pada create attachment komentar.
+- [x] Filter nested attachments untuk EndUser.
+- [x] Tambah regression test visibility.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Manual: buat lebih dari 20 unread notification dan badge tetap benar.
-- [ ] Manual: mark one/read all/clear all memperbarui badge dan dropdown.
+- Buat internal comment dengan file; attachment DB harus `INTERNAL`.
+- EndUser list comments/ticket detail/download tidak melihat attachment internal.
+- Public comment dengan attachment `INTERNAL` tidak muncul untuk EndUser.
 
-### F-11 - P2 - Pagination `All` frontend tidak kompatibel dengan DTO backend
+### DATA-01 - Medium - File storage tidak atomik dengan DB
 
-Status: Open
-Area: API/UI contract
+Referensi kode:
 
-Bukti:
-
-- `frontend/src/components/ui/Pagination.tsx:12-18` menyediakan opsi `All` dengan value `0`.
-- `frontend/src/components/tickets/TicketList.tsx:240-248` memperlakukan `limit <= 0` sebagai all.
-- `backend/src/tickets/dto/query-ticket.dto.ts:21-26` memvalidasi `limit` dengan `@Min(1)` dan `@Max(100)`.
-- `backend/src/tickets/tickets.service.ts:139-140` sebenarnya mendukung `limit <= 0`, tetapi request akan ditolak DTO sebelum mencapai service.
+- `backend/src/comments/comments.service.ts:104-156`
+- `backend/src/attachments/attachments.service.ts:126-145`
+- `backend/src/tickets/tickets.service.ts:471-484`
 
 Root cause:
 
-UI dan service pernah mendukung konsep all, tetapi DTO API contract tidak ikut berubah.
+File disimpan/dihapus di filesystem di luar transaksi DB. Comment create membuat row comment lebih dulu, lalu menyimpan file dan membuat attachment rows satu per satu. Jika attachment create gagal, file dibersihkan tetapi comment yang sudah dibuat tetap ada. Direct attachment upload dapat meninggalkan file orphan jika DB create gagal setelah file save. Delete ticket menghapus file sebelum transaksi DB delete selesai.
 
-Dampak:
+Impact:
 
-- User memilih `All` akan menerima 400 validation error.
-- Contract pagination tidak jelas untuk endpoint lain.
+Data bisa tidak konsisten: comment tersimpan walau API dianggap gagal, attachment row menunjuk file yang sudah hilang, atau file orphan tertinggal di disk. Pada delete ticket, DB gagal setelah file dihapus membuat attachment masih ada tetapi file hilang.
+
+Langkah fix:
+
+1. Untuk create comment + attachments, buat DB rows dalam transaction dan rollback jika salah satu gagal.
+2. Simpan file ke temp path lebih dulu, lalu promote/rename setelah DB commit, atau simpan final path tetapi cleanup semua error path termasuk DB error.
+3. Untuk direct upload, cleanup file jika `attachmentRepository.create()` gagal.
+4. Untuk delete ticket, prefer delete DB dulu lalu hapus file best-effort, atau buat cleanup job/outbox untuk file deletion.
+5. Tambahkan reconciliation script/job untuk orphan files/rows jika data sudah ada.
 
 Checklist fix:
 
-- [ ] Pilih salah satu: hapus opsi `All` dari frontend atau tambahkan kontrak eksplisit `all=true`.
-- [ ] Rekomendasi untuk data ticket: jangan gunakan unbounded all; pakai max limit 100 atau export CSV untuk semua data.
-- [ ] Jika tetap perlu all untuk admin kecil, gunakan `all=true` dengan role guard dan server-side cap.
-- [ ] Update `Pagination` agar reusable sesuai kontrak backend.
-- [ ] Tambah test DTO/query untuk limit.
+- [x] Audit semua flow `storageService.save/delete`.
+- [x] Tambah cleanup error path direct upload.
+- [x] Ubah delete ticket agar tidak menghapus file sebelum DB commit.
+- [ ] Tambah tests simulasi failure.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Manual pilih semua opsi pagination di ticket list.
-- [ ] Backend validation test untuk invalid limit.
+- Simulasikan attachment DB create gagal setelah file save; tidak ada file orphan.
+- Simulasikan storage save gagal di comment create; comment tidak tersimpan atau response sesuai partial policy.
+- Simulasikan DB delete ticket gagal; file tidak hilang.
 
-### F-12 - P2 - Maintenance banner memakai admin-domain endpoint, bukan public health contract
+### OPS-05 - Medium - Validasi tar restore hanya cek nama path, tidak cek symlink/hardlink/device
 
-Status: Open
-Area: Frontend architecture, maintenance mode UX
+Referensi kode:
 
-Bukti:
-
-- `AGENTS.md:123-125` menyatakan `MaintenanceBanner` polling `/api/health` setiap 5 detik dan health berisi maintenance status.
-- `frontend/src/components/MaintenanceBanner.tsx:1-6` memakai `useMaintenanceMode()`.
-- `frontend/src/hooks/use-maintenance.ts:5-13` `useMaintenanceMode()` polling `/maintenance/mode`.
-- `backend/src/health/health.controller.ts:44-49` health response sudah mengandung `maintenance`.
-- `frontend/src/lib/axios.ts:39-89` belum punya handling global khusus untuk `503 MAINTENANCE`.
+- `backend/src/maintenance/maintenance.service.ts:303-333`
+- `backend/src/maintenance/maintenance.service.ts:335-374`
 
 Root cause:
 
-Hook maintenance admin dan public banner digabung. Axios belum menerjemahkan error maintenance ke UX global.
+`assertSafeTarArchive()` menjalankan `tar -tzf` lalu memvalidasi string path. Listing nama path tidak menolak tipe entry tar seperti symlink, hardlink, device, atau link target absolut/path traversal. Extract memakai `tar -xzf` ke temp dir lalu rename ke upload dir.
 
-Dampak:
+Impact:
 
-- Public/global UX bergantung pada endpoint domain maintenance, bukan health yang memang dibuat untuk public status.
-- Saat API lain mengembalikan 503 maintenance, user flow bisa hanya melihat error biasa.
+Backup uploads malicious/corrupt dapat menanam symlink di upload dir. Jika ada attachment path yang menunjuk symlink, download dapat membaca file di luar upload dir sesuai permission proses. Ini terutama penting karena restore adalah operasi admin dan backup file bisa berasal dari host.
+
+Langkah fix:
+
+1. Validasi tar header dengan library Node yang mengekspos `type` dan `linkname`, atau gunakan command tar mode verbose yang reliable dan parse type dengan hati-hati.
+2. Tolak symlink, hardlink, block/char device, FIFO, absolute link target.
+3. Setelah extract ke temp, walk recursive memakai `lstat()` dan reject symlink/hardlink yang tidak diharapkan.
+4. Pastikan `realpath` setiap entry tetap berada di upload dir sebelum rename/copy.
 
 Checklist fix:
 
-- [ ] Buat hook `useHealth()` atau `usePublicMaintenanceStatus()` yang memanggil `/health`.
-- [ ] Ubah `MaintenanceBanner` memakai health maintenance status.
-- [ ] Biarkan `useMaintenanceMode()` khusus Admin Maintenance UI.
-- [ ] Tambahkan axios interceptor untuk error `{ code: 'MAINTENANCE' }` agar UI bisa tampilkan banner/toast konsisten.
-- [ ] Pastikan endpoint auth/health/maintenance tetap sesuai allowlist guard.
+- [x] Tambah validator tar entry type.
+- [ ] Tambah post-extract `lstat` walk.
+- [ ] Tambah tests backup malicious.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Manual enable maintenance sebagai Admin, lalu cek banner muncul untuk user non-admin.
-- [ ] Manual request API non-admin saat maintenance menghasilkan UX yang jelas dan tidak logout palsu.
+- Tar dengan `../x` ditolak.
+- Tar dengan symlink ke `/etc/passwd` ditolak.
+- Tar normal tetap restore.
 
-### F-13 - P1/P2 - Infra config drift: env, upload limit, headers, image, dan builder volume
+### SLA-01 - Medium - Update priority tidak menghitung ulang SLA
 
-Status: Open
-Area: Deployment architecture, security headers, operations
+Referensi kode:
 
-Bukti:
-
-- `.env.example:4-10` root env tidak menyertakan `REDIS_PASSWORD`, tetapi `NODE_ENV=production` di `.env.example:30`.
-- `docker-compose.yml:87-90` Redis selalu dijalankan dengan `--requirepass "$REDIS_PASSWORD"`.
-- `backend/src/main.ts:18-30` production mewajibkan `REDIS_PASSWORD`.
-- `.env.example:10` memakai weak placeholder `change-this-to-random-secret`, tetapi `backend/src/main.ts:20` weak list belum memasukkan string ini.
-- `nginx/nginx.conf:46` `client_max_body_size 10m`.
-- `backend/src/comments/comments.controller.ts` mengizinkan 3 file per comment dengan batas 5 MB masing-masing, sehingga payload valid bisa sekitar 15 MB.
-- `nginx/nginx.conf:35-38` hanya set beberapa header dasar untuk SPA static.
-- `backend/src/main.ts:39` Helmet hanya berlaku di response API NestJS, bukan static HTML/assets dari Nginx.
-- `docker-compose.yml:42`, `docker-compose.yml:70`, dan `docker-compose.yml:87` memakai env file yang sama untuk API, DB, dan Redis.
-- `frontend/.env.example:1` mendokumentasikan `VITE_API_URL`, tetapi `frontend/src/lib/axios.ts:5-7` hardcode `baseURL: '/api'`.
-- `docker-compose.yml:3-9` frontend builder copy dist ke volume tanpa membersihkan file lama.
-- `backend/Dockerfile:1,18`, `frontend/Dockerfile:1,17`, `docker-compose.yml:17,66,85` memakai image tag floating major/minor.
+- `backend/src/tickets/tickets.service.ts:42-61`
+- `backend/src/tickets/tickets.service.ts:434-459`
 
 Root cause:
 
-Local dev compose, production-like env, dan deployment docs bercampur. Beberapa klaim security ada di API layer, sementara SPA dilayani langsung oleh Nginx.
+Create ticket menghitung `slaDueAt` berdasarkan category + priority awal, tetapi `updatePriority()` hanya mengubah kolom `priority` dan history. Due date/status SLA tidak dihitung ulang.
 
-Dampak:
+Impact:
 
-- Quickstart bisa gagal start jika env production digunakan tanpa `REDIS_PASSWORD`.
-- Upload comment valid bisa ditolak Nginx sebelum mencapai backend.
-- Static SPA tidak mendapatkan header setara Helmet.
-- Secrets app tersebar ke container yang tidak membutuhkan.
-- Asset stale bisa tertinggal di `frontend_dist`.
+Ticket yang prioritasnya dinaikkan atau diturunkan tetap memakai SLA lama. Dashboard SLA, export, breach status, dan operasional support dapat salah.
+
+Langkah fix:
+
+1. Saat priority berubah, ambil category ticket dan SLA config untuk priority baru.
+2. Recalculate `slaDueAt` sesuai policy bisnis. Perlu keputusan: dihitung dari `createdAt`, dari waktu priority berubah, atau mempertahankan due date jika sudah lebih ketat.
+3. Update `slaStatus` jika due date baru mengubah status.
+4. Catat history field `priority` dan opsional `slaDueAt`.
 
 Checklist fix:
 
-- [ ] Pisahkan root env contoh local dan production.
-- [ ] Tambahkan `REDIS_PASSWORD` dan `REDIS_URL=redis://:${REDIS_PASSWORD}@cache:6379` untuk production compose.
-- [ ] Naikkan `client_max_body_size` minimal 16-20 MB atau turunkan batas comment upload agar total request <= 10 MB.
-- [ ] Tambahkan security headers static di Nginx, termasuk CSP yang cocok untuk React/Vite, dan HSTS hanya untuk HTTPS production.
-- [ ] Tambahkan `server_tokens off` di Nginx.
-- [ ] Split env per service atau gunakan Docker secrets: DB hanya `POSTGRES_*`, Redis hanya `REDIS_PASSWORD`, API hanya app secrets.
-- [ ] Gunakan `import.meta.env.VITE_API_URL ?? '/api'` di frontend axios dan refresh path.
-- [ ] Bersihkan `/export` sebelum copy dist, atau ganti pola menjadi final Nginx image tanpa long-running builder container.
-- [ ] Pin image tag patch/digest dan tambahkan image scanning di CI.
+- [x] Konfirmasi policy bisnis recalculation SLA.
+- [x] Update `updatePriority()`.
+- [ ] Tambah tests priority change.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] `docker compose config` valid untuk local env.
-- [ ] Upload 3 file 5 MB di comment melewati Nginx dan backend sesuai keputusan batas.
-- [ ] Curl static `/` menunjukkan header security yang diharapkan.
-- [ ] Rebuild frontend tidak menyisakan asset lama di volume.
+- Low ke Critical menghasilkan `slaDueAt` sesuai config Critical.
+- Critical ke Low mengikuti policy yang dipilih.
+- Jika tidak ada SLA config, fallback eksplisit dan teruji.
 
-### F-14 - P2 - Backup CLI drift dari Admin UI dan dokumentasi restore terlalu optimistis
+### AUTH-02 - Medium - Logout mensyaratkan access token valid
 
-Status: Open
-Area: Operational architecture, backup/restore
+Referensi kode:
 
-Bukti:
-
-- `scripts/backup.sh:21-31` membuat backup tanpa trap cleanup jika salah satu command gagal.
-- `scripts/backup.sh:24` `pg_dump` CLI tidak memakai `--schema`, sedangkan docs menyebut dump public schema.
-- `backend/src/maintenance/maintenance.service.ts:95-107` Admin UI backup punya flow lebih lengkap, termasuk schema-aware pg_dump dan cleanup pada error.
-- `backend/src/maintenance/maintenance.service.ts:118-124` Admin UI menghapus folder backup parsial saat gagal.
-- `ARCHITECTURE.md:473` mengklaim restore validasi symlink/hardlink abuse, tetapi implementasi `backend/src/maintenance/maintenance.service.ts:335-374` belum mengecek tipe entry.
+- `backend/src/auth/auth.controller.ts:80-91`
 
 Root cause:
 
-Backup CLI dan Admin UI berkembang terpisah. Dokumentasi mengikuti intended design, bukan semua detail implementasi aktual.
+Endpoint logout dilindungi `JwtAuthGuard`, padahal token yang perlu direvoke adalah refresh cookie. Jika access token sudah expired tetapi refresh cookie masih valid, client tidak bisa logout/revoke tanpa melakukan refresh dulu.
 
-Dampak:
+Impact:
 
-- Backup CLI bisa meninggalkan folder parsial.
-- Hasil dump CLI dan Admin UI tidak sepenuhnya sama.
-- Operator bisa mengira restore archive sudah menolak symlink/hardlink padahal belum.
+Refresh token tetap aktif lebih lama dari keinginan user ketika access token expired. UX logout juga dapat gagal pada session yang sebenarnya masih punya refresh cookie.
+
+Langkah fix:
+
+1. Jadikan logout cookie-based tanpa `JwtAuthGuard`, atau gunakan optional auth guard.
+2. Selalu clear refresh cookie meskipun token invalid/tidak ada.
+3. Jika refresh cookie ada, verify sebagai refresh token dan revoke Redis key.
+4. Gunakan cookie clear options yang sama dengan set cookie.
 
 Checklist fix:
 
-- [ ] Tambahkan `trap` cleanup di `scripts/backup.sh` untuk menghapus folder parsial saat gagal.
-- [ ] Tambahkan `umask 077` agar backup file tidak world-readable.
-- [ ] Samakan opsi `pg_dump` CLI dengan Admin UI, termasuk `--schema public` atau schema dari env.
-- [ ] Tambahkan lock/anti-concurrent untuk CLI jika bisa memakai Redis atau file lock.
-- [ ] Dokumentasikan bahwa backup harus dipindahkan off-host dan dienkripsi untuk production.
-- [ ] Update docs restore agar tidak mengklaim symlink/hardlink aman sebelum F-06 selesai.
+- [x] Ubah guard logout.
+- [x] Revoke refresh cookie tanpa perlu access token.
+- [x] Tambah tests logout expired access.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Simulasikan failure `pg_dump` dan pastikan folder parsial dibersihkan.
-- [ ] Bandingkan manifest/dump dari CLI dan Admin UI.
+- Logout dengan access expired tetapi refresh cookie valid tetap revoke Redis key dan clear cookie.
+- Logout tanpa cookie tetap 200 dan clear cookie.
 
-### F-15 - P2 - Test architecture belum menutup boundary kritikal
+### FE-03 - Medium - Notifikasi realtime belum terpasang dan unread badge tidak akurat
 
-Status: Open
-Area: Testability, regression safety
+Referensi kode:
 
-Bukti:
-
-- `backend/src/**/*.spec.ts` hanya menemukan `backend/src/tickets/tickets.service.spec.ts`.
-- README menyebut unit test utama hanya untuk TicketsService.
-- Area kritikal seperti auth refresh/revocation, maintenance guard/filter, attachment visibility, Telegram link, notification count, dan restore lock belum terlihat punya coverage.
+- `frontend/package.json:12-23`
+- `frontend/src/hooks/use-notifications.ts:7-23`
+- `frontend/src/layout/Layout.tsx:8`
+- Backend gateway tersedia di `backend/src/notifications/notifications.gateway.ts:24-88`
 
 Root cause:
 
-Testing belum disusun berdasarkan boundary risiko. Test yang ada lebih fokus happy path ticket service.
+Frontend tidak memiliki dependency/client `socket.io-client`. Hook `useNotifications()` hanya fetch halaman saat ini dan menghitung unread dari item page tersebut. Backend sudah punya endpoint `GET /notifications/unread-count`, tetapi hook badge tidak memakainya.
 
-Dampak:
+Impact:
 
-- Perubahan arsitektur kontrak API, visibility, atau maintenance berisiko regresi tanpa sinyal cepat.
-- Agent berikutnya bisa refactor terlalu besar tanpa guardrail.
+Notifikasi baru tidak realtime di UI. Badge unread bisa 0 atau terlalu kecil jika unread berada di halaman lain atau lebih dari limit page.
+
+Langkah fix:
+
+1. Minimal fix: buat hook `useUnreadNotificationCount()` yang memanggil `/notifications/unread-count` dan set store dari count server.
+2. Full fix: tambahkan `socket.io-client`, connect ke namespace `/notifications` dengan access token memory.
+3. Saat event `notification`, invalidate `['notifications']` dan refresh unread count.
+4. Pastikan reconnect memakai access token terbaru setelah refresh.
 
 Checklist fix:
 
-- [ ] Tambah test `HttpExceptionFilter` untuk validation, forbidden, not found, maintenance, dan unknown 500.
-- [ ] Tambah test `TransformInterceptor` atau e2e contract untuk success envelope.
-- [ ] Tambah test attachment visibility EndUser/ITSupport/Admin.
-- [ ] Tambah test auth refresh: Redis TTL, revoke on logout, revoke all on password change/user deactivate/delete.
-- [ ] Tambah test Telegram link code length dan event payload completeness.
-- [ ] Tambah test SLA lock atomic dengan mock Redis.
-- [ ] Tambah test maintenance restore lock dan tar archive validation.
-- [ ] Tambah frontend tests jika test framework ditambahkan: permission rendering, API unwrap adapter, unread count hook.
+- [x] Tambah hook unread count server-side.
+- [x] Update layout/navbar badge memakai count endpoint.
+- [ ] Opsional implement socket realtime.
+- [x] Tambah tests badge.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] `npm test` backend hijau.
-- [ ] Frontend build tetap hijau.
+- Seed >20 unread, badge menampilkan total unread server, bukan jumlah page pertama.
+- Mock socket event, badge naik dan query notifications invalidated.
 
-### F-16 - P3 - Dokumentasi drift dan perlu dirawat setelah fix
+### FE-04 - Medium - Opsi pagination All mengirim `limit=0`
 
-Status: Open
-Area: Documentation, agent handoff
+Referensi kode:
 
-Bukti:
-
-- `README.md:163-183` memiliki pengulangan struktur frontend `auth/layout/components`.
-- `AGENTS.md:123` menyatakan `MaintenanceBanner` polls `/api/health`, tetapi implementasi memakai `/maintenance/mode`.
-- `ARCHITECTURE.md:473` menyebut restore validasi symlink/hardlink, tetapi implementasi belum sejauh itu.
-- `ARCHITECTURE.md:483` menyebut Docker healthcheck container killed/restarted setelah gagal; Docker Compose standar hanya menandai unhealthy dan tidak otomatis restart karena healthcheck saja.
-- `README.md:227` menyebut HTTP local, sementara `.env.example:19` memakai HTTPS origin.
+- `frontend/src/components/ui/Pagination.tsx:12-18`
+- `frontend/src/hooks/use-tickets.ts:5-17`
+- `frontend/src/components/tickets/TicketList.tsx:39-41`
 
 Root cause:
 
-Dokumentasi diperbarui bersamaan dengan intended state, tetapi beberapa implementasi belum menyusul atau berubah setelahnya.
+UI memakai `0` untuk opsi `All`, dan hook query mengirim semua value yang bukan undefined/null/empty string. Akibatnya request menjadi `limit=0`, sementara DTO backend `PaginationQueryDto` mensyaratkan `@Min(1)`.
 
-Dampak:
+Impact:
 
-- Agent baru bisa mengikuti asumsi salah.
-- Operator bisa salah memahami deployment dan restore safety.
+User yang memilih `All` akan mendapat error API 400 atau list rusak. Jika backend suatu saat tidak validasi, `take=0` juga bermakna tidak ada data.
+
+Langkah fix:
+
+1. Pilihan paling aman: hapus opsi `All`.
+2. Jika `All` diperlukan, map ke limit valid seperti 100 atau endpoint khusus export/list all dengan batas aman.
+3. Jangan append `limit` jika value adalah mode UI internal.
+4. Pastikan `totalPages` handling tidak hilang saat limit special mode.
 
 Checklist fix:
 
-- [ ] Setelah F-01 sampai F-14 dikerjakan, update `AGENTS.md`, `README.md`, dan `ARCHITECTURE.md` sesuai implementasi aktual.
-- [ ] Tandai jelas local HTTP vs production HTTPS.
-- [ ] Koreksi klaim Docker healthcheck.
-- [ ] Koreksi maintenance banner flow sesuai keputusan F-12.
-- [ ] Hapus duplikasi struktur frontend di README.
-- [ ] Tambahkan section "Architecture Decisions" singkat untuk pengecualian seperti HealthController boleh inject Prisma langsung.
+- [x] Hapus atau ubah opsi `All`.
+- [x] Update `useTickets()` supaya tidak mengirim `limit=0`.
+- [x] Tambah test UI.
 
-Verifikasi:
+Suggested tests:
 
-- [ ] Agent baru bisa membaca `AGENTS.md` dan menjalankan quickstart tanpa bertanya asumsi dasar.
-- [ ] Dokumentasi tidak mengklaim safety yang belum ada di code.
+- Pilih semua opsi limit, tidak ada request `limit=0`.
+- Pagination tetap render setelah perubahan.
 
-## Urutan Implementasi Disarankan
+### FE-05 - Medium - Hook Telegram admin-only tetap dipanggil oleh non-admin
 
-### Phase 0 - Safety dan kontrak kritikal
+Referensi kode:
 
-- [ ] Kerjakan F-01 attachment visibility.
-- [ ] Kerjakan F-02 error code dan response envelope decision.
-- [ ] Tambah test minimal untuk F-01 dan F-02 sebelum refactor lain.
+- `frontend/src/pages/MyAccountPage.tsx:39-46`
+- `frontend/src/pages/MyAccountPage.tsx:236`
+- `frontend/src/hooks/use-telegram.ts:19-26`
+- `frontend/src/hooks/use-telegram.ts:58-66`
 
-### Phase 1 - Client/API boundary
+Root cause:
 
-- [ ] Buat frontend API unwrap adapter.
-- [ ] Update hooks secara bertahap per domain.
-- [ ] Kerjakan F-09 permission registry dan Admin Telegram hook gating.
-- [ ] Kerjakan F-10 unread count dan F-11 pagination contract.
+Page hanya menyembunyikan section Telegram admin di render, tetapi hooks `useTelegramStatus()`, `useTelegramConfig()`, dan mutation setup tetap dibuat tanpa role-based `enabled`. `useTelegramConfig()` sudah mendukung `options.enabled`, tetapi caller tidak memakainya. `useTelegramStatus()` belum punya opsi enabled.
 
-### Phase 2 - Operasional dan scaling
+Impact:
 
-- [ ] Kerjakan F-05 multi-instance readiness.
-- [ ] Kerjakan F-06 storage/restore lock.
-- [ ] Kerjakan F-07 auth duration/cookie config.
-- [ ] Kerjakan F-13 dan F-14 infra/backup drift.
+EndUser/ITSupport yang membuka My Account dapat memicu request admin-only dan mendapatkan 403 tersembunyi/retry noise. Ini tidak membuka data, tetapi menambah noise dan bisa memicu redirect/error handling yang tidak perlu.
 
-### Phase 3 - Refactor struktur
+Langkah fix:
 
-- [ ] Kerjakan F-03 module/repository boundary.
-- [ ] Kerjakan F-04 service/component extraction.
-- [ ] Kerjakan F-16 dokumentasi.
+1. Pindahkan seluruh section Telegram ke child component `AdminTelegramSettings` yang hanya dirender untuk Admin.
+2. Atau tambahkan `enabled: user?.role === 'Admin'` untuk config/status query.
+3. Jika status link individu ingin tersedia untuk semua role, pastikan backend route memang mengizinkan dan UI membedakan endpoint admin config vs user link status.
 
-## Catatan untuk Agent AI Sesi Berikutnya
+Checklist fix:
 
-Baca ini sebelum mengubah code:
+- [x] Tentukan apakah link Telegram user-level hanya Admin atau semua user.
+- [x] Tambah enabled role check atau split component.
+- [ ] Tambah test render non-admin.
 
-- Mulai dari `AGENTS.md`. Aturan non-negotiable paling penting: jangan persist access token, jangan expose EndUser ke dashboard/admin/internal comments/attachments, jangan hardcode fallback secret, jangan ubah Docker HTTP/HTTPS flow tanpa diminta.
-- Worktree mungkin dirty. Jangan revert perubahan user. Fokus hanya file yang relevan dengan temuan yang sedang dikerjakan.
-- Untuk backend bug, ikuti jalur controller -> service -> repository. Jika menambah service baru, inject repository, bukan `PrismaService`, kecuali operational exception yang disetujui.
-- Jangan refactor besar sebelum test/regression untuk area itu ada. Minimal untuk F-01 dan F-02, tulis test dulu atau bersamaan.
-- Jika mengerjakan response envelope F-02, koordinasikan backend dan frontend dalam satu perubahan logis. Partial rollout akan memecahkan auth/hooks.
-- Jika mengerjakan F-01, cari semua akses attachment dari ticket detail, attachment endpoint, comment include, download, dan count. Jangan hanya patch satu query.
-- Jika mengerjakan infra, jangan jalankan `docker compose down -v`. Gunakan build/start sesuai `AGENTS.md`.
-- Jika mengerjakan maintenance/restore, treat sebagai destructive operation. Tambah test dan jangan menjalankan restore real tanpa konfirmasi manusia.
+Suggested tests:
 
-Rekomendasi entry point per temuan:
+- Render My Account sebagai EndUser, assert tidak ada request `/telegram/config`.
+- Render sebagai Admin, request config tetap jalan.
 
-- F-01: `backend/src/tickets/tickets.service.ts`, `backend/src/attachments/attachments.service.ts`, repository attachment/ticket, tests ticket/attachment visibility.
-- F-02: `backend/src/common/interceptors/transform.interceptor.ts`, `backend/src/common/filters/http-exception.filter.ts`, `backend/src/app.module.ts`, `frontend/src/lib/axios.ts`, semua `frontend/src/hooks`.
-- F-05: `backend/src/notifications/notifications.gateway.ts`, `backend/src/telegram/telegram.service.ts`, `backend/src/sla/sla.service.ts`, `backend/src/redis/redis.service.ts`.
-- F-06: `backend/src/attachments/attachments.service.ts`, `backend/src/tickets/tickets.service.ts`, `backend/src/maintenance/maintenance.service.ts`.
-- F-09: `frontend/src/App.tsx`, `frontend/src/layout/Sidebar.tsx`, `frontend/src/pages/MyAccountPage.tsx`, `frontend/src/hooks/use-telegram.ts`.
-- F-13: `.env.example`, `backend/.env.example`, `docker-compose.yml`, `nginx/nginx.conf`, `frontend/src/lib/axios.ts`, Dockerfiles.
+### FE-06 - Medium - Create ticket + attachment tidak atomic dan retry bisa membuat duplikat ticket
 
-Verification commands dari `AGENTS.md`:
+Referensi kode:
 
-- Backend unit tests: `cd backend && npm test`
-- Backend build: `cd backend && npm run build`
-- Frontend build: `cd frontend && npm run build`
-- Frontend lint: `cd frontend && npm run lint`
-- Compose build API: `docker compose build api`
-- Compose build frontend: `docker compose build frontend`
+- `frontend/src/components/tickets/CreateTicketForm.tsx:84-99`
 
-Jangan deklarasikan selesai jika verifikasi relevan belum hijau atau keterbatasannya belum dijelaskan.
+Root cause:
+
+Frontend membuat ticket lebih dulu, lalu upload attachment satu per satu. Seluruh flow berada dalam satu `try`. Jika upload gagal setelah ticket berhasil dibuat, UI menampilkan `Failed to create ticket`, padahal ticket sudah ada. User dapat submit ulang dan membuat ticket duplikat.
+
+Impact:
+
+Ticket duplikat dan attachment tidak lengkap. User tidak diberi tahu ticket ID yang sudah dibuat.
+
+Langkah fix:
+
+1. Setelah create ticket sukses, simpan `createdTicket`.
+2. Jika upload gagal, treat sebagai partial success: tampilkan warning `Ticket created, some uploads failed` dan navigasi ke detail ticket.
+3. Berikan opsi retry upload dari detail ticket, bukan create ticket lagi.
+4. Alternatif backend: buat endpoint multipart create ticket with attachments dalam satu flow server-side.
+
+Checklist fix:
+
+- [x] Ubah error handling partial success.
+- [x] Navigasi ke `/tickets/:id` atau detail setelah create sukses.
+- [ ] Tambah test upload gagal.
+
+Suggested tests:
+
+- Mock create sukses dan upload gagal; tidak muncul pesan `Failed to create ticket` yang misleading.
+- Submit ulang tidak membuat ticket kedua.
+
+### FE-07 - Medium - Add comment dengan file tidak invalidate attachment list
+
+Referensi kode:
+
+- `frontend/src/hooks/use-tickets.ts:91-119`
+- `frontend/src/components/tickets/CommentSection.tsx:77-83`
+- `frontend/src/components/tickets/AttachmentList.tsx:53`
+
+Root cause:
+
+`useAddComment()` hanya invalidate `['ticket', ticketId, 'comments']`. Jika komentar membawa file, AttachmentList memakai query terpisah `['ticket', ticketId, 'attachments']` dan tidak ikut refresh.
+
+Impact:
+
+File yang baru diupload lewat komentar dapat muncul di comment section tetapi daftar attachments tetap stale sampai reload/refetch lain.
+
+Langkah fix:
+
+1. Di `onSuccess`, jika `variables.files?.length`, invalidate `['ticket', ticketId, 'attachments']`.
+2. Jika ticket detail menampilkan attachment count/update time, invalidate `['ticket', ticketId]` juga.
+
+Checklist fix:
+
+- [x] Update invalidation di `useAddComment()`.
+- [ ] Tambah test/query invalidation.
+
+Suggested tests:
+
+- Add comment dengan file, AttachmentList update tanpa reload.
+- Add comment tanpa file tidak melakukan invalidation attachment yang tidak perlu.
+
+### FE-08 - Medium - Pagination tidak usable di mobile
+
+Referensi kode:
+
+- `frontend/src/components/ui/Pagination.tsx:62-103`
+
+Root cause:
+
+Tombol Previous/Next dan page number dibungkus `hidden sm:flex`, sedangkan hanya text page info yang `hidden sm:block`. Pada layar kecil, kontrol navigasi hilang.
+
+Impact:
+
+User mobile tidak bisa pindah halaman ticket list/halaman lain yang memakai komponen ini.
+
+Langkah fix:
+
+1. Tambahkan mobile controls terpisah visible di bawah breakpoint `sm`, minimal Previous/Next.
+2. Pastikan tap target cukup besar.
+3. Pertahankan desktop pagination seperti sekarang.
+
+Checklist fix:
+
+- [x] Tambah mobile Previous/Next.
+- [x] Test responsive render.
+
+Suggested tests:
+
+- Render viewport mobile, tombol Previous/Next visible dan memanggil `onPageChange`.
+- Desktop tetap menampilkan page number.
+
+### FE-09 - Medium - Change password sukses tetapi refresh session berikutnya akan gagal
+
+Referensi kode:
+
+- `frontend/src/pages/MyAccountPage.tsx:105-110`
+- `frontend/src/hooks/use-change-password.ts:11-13`
+- Backend revocation: `backend/src/auth/auth.service.ts:105-110`
+
+Root cause:
+
+Setelah change password, backend revoke semua refresh token user. Frontend hanya clear form dan menampilkan success, tetap menyimpan access token in-memory sampai expired. Reload atau refresh berikutnya akan gagal dan user diarahkan login secara mendadak.
+
+Impact:
+
+UX membingungkan: user melihat password sukses, lalu tiba-tiba logout saat access token expired/reload. Secara security revocation benar, tetapi flow UI tidak menjelaskan konsekuensinya.
+
+Langkah fix:
+
+1. Setelah change password sukses, clear auth store dan query cache, lalu arahkan ke login dengan pesan `Please login again with your new password`.
+2. Alternatif: backend mengeluarkan refresh token baru setelah change password dan frontend update session. Ini perubahan behavior lebih besar.
+
+Checklist fix:
+
+- [x] Pilih policy UX setelah password change.
+- [x] Implement redirect login atau token baru.
+- [ ] Tambah test.
+
+Suggested tests:
+
+- Change password sukses mengarahkan user ke login atau memastikan refresh token baru valid.
+- Reload setelah password change tidak menghasilkan state menggantung.
+
+### OPS-06 - Medium - Timeout nginx 60 detik tidak cocok untuk backup/restore besar
+
+Referensi kode:
+
+- `nginx/nginx.conf:48-55`
+- `backend/src/maintenance/maintenance.service.ts:97-107`
+- `backend/src/maintenance/maintenance.service.ts:205-214`
+
+Root cause:
+
+Semua `/api/` memakai `proxy_read_timeout 60s`, sementara backup/restore bisa menjalankan `pg_dump`, `gzip`, `tar`, drain 5 detik, drop schema, dan restore file besar. Operasi dapat melebihi 60 detik.
+
+Impact:
+
+UI/operator menerima 504 dari nginx padahal backend mungkin masih melanjutkan operasi. Status maintenance/restore menjadi sulit dipahami.
+
+Langkah fix:
+
+1. Tambahkan `location /api/maintenance/` dengan timeout lebih panjang, misalnya 10-30 menit sesuai ukuran backup.
+2. Solusi lebih baik: jadikan backup/restore async job dengan endpoint status polling.
+3. Pastikan UI menampilkan progress/status dan mencegah double submit.
+
+Checklist fix:
+
+- [ ] Tambah location nginx khusus maintenance atau async job.
+- [ ] Update UI maintenance bila async.
+- [ ] Test backup besar.
+
+Suggested verification:
+
+- Backup/restore dataset besar >60 detik tidak menghasilkan 504 atau UI status tetap akurat.
+
+### OPS-07 - Medium - Limit upload nginx tidak selaras dengan backend
+
+Referensi kode:
+
+- `nginx/nginx.conf:46`
+- `backend/src/comments/comments.controller.ts:34-35`, `backend/src/comments/comments.controller.ts:51-52`
+- `backend/src/attachments/attachments.controller.ts:39`, `backend/src/attachments/attachments.controller.ts:47-48`
+
+Root cause:
+
+Nginx `client_max_body_size 10m`. Backend mengizinkan comment upload multi-file, misalnya 3 file x 5MB, dan single upload 10MB dapat melebihi 10MB karena multipart overhead.
+
+Impact:
+
+User mendapat 413 dari nginx, bukan API error envelope. Aturan upload UI/backend tidak konsisten.
+
+Langkah fix:
+
+1. Selaraskan total request max antara nginx dan backend.
+2. Jika backend mengizinkan 3 x 5MB, set nginx minimal >15MB plus overhead, misalnya 20m.
+3. Atau turunkan backend multi-file total limit agar selalu <10m.
+4. Dokumentasikan limit dalam satu env/config source jika memungkinkan.
+
+Checklist fix:
+
+- [ ] Tentukan max upload total.
+- [ ] Update nginx/backend agar konsisten.
+- [ ] Test upload boundary.
+
+Suggested verification:
+
+- Upload 3 file 5MB pada comment berhasil atau ditolak backend dengan envelope jelas sesuai policy.
+- Upload single 10MB tidak gagal di nginx karena overhead bila policy mengizinkan 10MB.
+
+### OPS-08 - Medium - Backup artifact berisi data sensitif tanpa permission ketat/enkripsi
+
+Referensi kode:
+
+- `scripts/backup.sh:21`, `scripts/backup.sh:24`, `scripts/backup.sh:27-31`, `scripts/backup.sh:33-39`
+- `docker-compose.yml:51`
+- `backend/prisma/schema.prisma:13`, `backend/prisma/schema.prisma:236-237`
+
+Root cause:
+
+Backup DB/uploads ditulis ke host `./backups` tanpa `umask 077`, chmod, atau enkripsi. DB dump dapat berisi password hash dan Telegram bot token/config. Uploads juga dapat berisi lampiran tiket sensitif.
+
+Impact:
+
+User/proses lain di host dapat membaca backup jika permission default host longgar. Risiko data exposure di luar kontrol aplikasi.
+
+Langkah fix:
+
+1. Tambahkan `umask 077` di awal `scripts/backup.sh`.
+2. Pastikan directory backup `700` dan file `600`.
+3. Pertimbangkan encryption-at-rest untuk backup, terutama jika dipindah off-host.
+4. Dokumentasikan handling backup sensitif.
+
+Checklist fix:
+
+- [ ] Update permission backup script.
+- [ ] Audit permission backup UI/backend jika membuat backup dari API.
+- [ ] Pertimbangkan enkripsi.
+
+Suggested verification:
+
+- Setelah backup, `stat backups/<id>/*` menunjukkan file tidak world-readable.
+
+### OPS-09 - Medium - `backup.sh` rentan gagal karena source `.env` dengan `set -u`
+
+Referensi kode:
+
+- `scripts/backup.sh:2`, `scripts/backup.sh:11-15`
+- `backend/.env.example:19`, `backend/.env.example:22`
+
+Root cause:
+
+Script melakukan shell-source `backend/.env` saat `set -u` aktif. Jika `.env` berisi `REDIS_URL=redis://:${REDIS_PASSWORD}@localhost:6379` sebelum `REDIS_PASSWORD` didefinisikan, shell dapat gagal karena unbound variable. Sourcing `.env` juga mengeksekusi shell syntax, yang tidak ideal untuk file konfigurasi.
+
+Impact:
+
+Backup operasional bisa gagal hanya karena format/order env. Ada risiko keamanan jika file env berisi syntax shell yang tidak disadari.
+
+Langkah fix:
+
+1. Jangan source `.env` langsung. Parse hanya key yang dibutuhkan, misalnya `POSTGRES_USER`, `POSTGRES_DB`.
+2. Atau gunakan `docker compose exec db pg_dump` dengan env di container.
+3. Jika tetap source, disable nounset sementara dan pastikan env example mendefinisikan dependency sebelum dipakai.
+
+Checklist fix:
+
+- [ ] Refactor env loading `backup.sh`.
+- [ ] Test dengan env example.
+
+Suggested verification:
+
+- Copy `backend/.env.example` ke `backend/.env`, jalankan `./scripts/backup.sh`, tidak gagal karena expansion env.
+
+### OPS-10 - Medium - Redis tidak punya volume persistence, refresh session hilang saat container recreate
+
+Referensi kode:
+
+- `docker-compose.yml:84-95`
+- `backend/src/auth/auth.service.ts:48-52`, `backend/src/auth/auth.service.ts:150-153`
+
+Root cause:
+
+Refresh token disimpan di Redis, tetapi service `cache` tidak memakai named volume/data persistence. Redis restart/recreate akan menghapus semua session refresh dan maintenance flags.
+
+Impact:
+
+Semua user logout setelah Redis recreate. Maintenance mode flag juga hilang. Ini bisa diterima sebagai tradeoff, tetapi perlu diputuskan dan didokumentasikan.
+
+Langkah fix:
+
+1. Jika UX session persistence penting, tambahkan Redis named volume dan konfigurasi RDB/AOF.
+2. Jika logout massal saat Redis loss diterima, dokumentasikan jelas di README/ops runbook.
+3. Pastikan maintenance mode tidak bergantung pada Redis persistence saat restore/backup kritis.
+
+Checklist fix:
+
+- [ ] Putuskan policy persistence Redis.
+- [ ] Tambah volume/config atau dokumentasi.
+- [ ] Test restart Redis.
+
+Suggested verification:
+
+- Login, restart/recreate `cache`, coba `/api/auth/refresh`; behavior sesuai policy yang didokumentasikan.
+
+### CAT-01 - Low - Delete category bisa 500 karena FK subcategory/SLA config
+
+Referensi kode:
+
+- `backend/src/categories/categories.service.ts:70-80`
+- `backend/prisma/schema.prisma:177-197`
+
+Root cause:
+
+Delete category hanya cek jumlah ticket. Category yang tidak punya ticket tetapi masih punya subcategory atau SLA config akan dihapus hard delete, padahal FK masih restrict.
+
+Impact:
+
+Admin delete category unused dapat menghasilkan Prisma FK error 500, bukan 400/409 yang jelas.
+
+Langkah fix:
+
+1. Cek relasi subcategories dan SLA configs sebelum delete.
+2. Jika masih ada relasi, soft delete `isActive=false` atau return 409 dengan pesan jelas.
+3. Tangkap Prisma `P2003/P2025` dan ubah ke error API stabil.
+
+Suggested tests:
+
+- Delete category dengan subcategory tanpa ticket tidak 500.
+- Delete category kosong berhasil.
+
+### API-02 - Low - Export CSV unbounded dan dibangun penuh di memory
+
+Referensi kode:
+
+- `backend/src/tickets/tickets.controller.ts:49-60`
+- `backend/src/tickets/tickets.service.ts:215-247`
+
+Root cause:
+
+Export mengambil semua ticket match tanpa limit/streaming lalu membuat string CSV penuh di memory.
+
+Impact:
+
+Dataset besar dapat menyebabkan memory spike atau timeout. Endpoint bisa dipakai Admin/ITSupport untuk request berat.
+
+Langkah fix:
+
+1. Stream CSV response dengan cursor/pagination batch.
+2. Tambahkan max rows atau async export job.
+3. Tambahkan audit log untuk export besar jika diperlukan.
+
+Suggested tests:
+
+- Export 10k+ ticket tidak memory spike besar.
+- Filter tetap diterapkan pada export batch.
+
+### ATT-02 - Low - Response attachment mengekspos path filesystem internal
+
+Referensi kode:
+
+- `backend/src/common/repositories/attachment.repository.ts:13-22`
+- `backend/src/tickets/tickets.service.ts:263-270`
+- `backend/src/common/repositories/comment.repository.ts:25-29`
+- `backend/src/attachments/attachments.service.ts:132-147`
+
+Root cause:
+
+Query attachment sering memakai full row, termasuk field `path` yang merupakan path filesystem internal server.
+
+Impact:
+
+Client menerima informasi internal path. Ini bukan akses file langsung, tetapi tetap information disclosure dan memperbesar dampak jika ada bug download/path traversal lain.
+
+Langkah fix:
+
+1. Gunakan `select` untuk response attachment publik: `id`, `originalName`, `mimeType`, `size`, `visibility`, `createdAt`, dan user ringkas.
+2. Field `path` hanya dipakai internal di service download/storage.
+3. Pastikan transform response tidak mengirim path dari nested attachments.
+
+Suggested tests:
+
+- Ticket detail, comment list, upload response, dan attachment list tidak mengandung `path`.
+- Download via attachment id tetap berhasil.
+
+### SLA-02 - Low - Redis lock SLA check tidak atomik
+
+Referensi kode:
+
+- `backend/src/sla/sla.service.ts:64-82`
+
+Root cause:
+
+Lock dibuat dengan pola `exists()` lalu `set()`, bukan atomic `SET NX EX`.
+
+Impact:
+
+Pada multi-instance, dua worker dapat lolos race dan menjalankan SLA check bersamaan. Efeknya bisa double notification/history jika check tidak idempotent.
+
+Langkah fix:
+
+1. Ganti dengan `redis.set(lockKey, token, 'EX', 300, 'NX')`.
+2. Release hanya jika token lock sama.
+3. Pastikan job idempotent terhadap ticket yang sama.
+
+Suggested tests:
+
+- Dua `checkSLA()` paralel hanya satu menjalankan work.
+- Lock expired memungkinkan run berikutnya.
+
+### OPS-11 - Low - Seed Docker/production flow tidak jelas dan password default bisa bertahan
+
+Referensi kode:
+
+- `backend/Dockerfile:45`
+- `backend/package.json:14-16`
+- `backend/prisma/seed.ts:16-20`, `backend/prisma/seed.ts:24-46`
+
+Root cause:
+
+Docker CMD menjalankan `prisma migrate deploy && node dist/src/main`, tidak menjalankan seed. Seed memakai `upsert` dengan `update: {}` untuk admin/support, sehingga jika akun default pernah dibuat dengan password dev, production seed berikutnya tidak merotasi password.
+
+Impact:
+
+Fresh DB bisa tidak punya admin/category/SLA jika seed tidak dijalankan manual. Sebaliknya, environment yang pernah seed dev dapat mempertahankan credential dev saat pindah production.
+
+Langkah fix:
+
+1. Tentukan flow resmi seed: otomatis first deploy atau manual documented command.
+2. Jika production seed dijalankan, update password dari `SEED_ADMIN_PASSWORD` dan `SEED_SUPPORT_PASSWORD`.
+3. Tambah env example untuk seed production.
+
+Suggested tests:
+
+- Fresh DB setelah deploy punya data awal sesuai flow.
+- Dev seed lalu production seed membuat password dev tidak berlaku.
+
+### OPS-12 - Low - Backend production entrypoint tidak selaras
+
+Referensi kode:
+
+- `backend/package.json:11`
+- `backend/Dockerfile:45`
+- `backend/tsconfig.json:28`
+
+Root cause:
+
+`start:prod` menjalankan `node dist/main`, sedangkan Docker menjalankan `node dist/src/main`. Build output dapat berbeda tergantung Nest/tsconfig. Dua flow production tidak konsisten.
+
+Impact:
+
+Production di luar Docker dapat gagal start meskipun Docker berhasil, atau sebaliknya. Debug deployment menjadi membingungkan.
+
+Langkah fix:
+
+1. Standarkan output entrypoint: `dist/main` atau `dist/src/main`.
+2. Update `start:prod` dan Docker CMD agar sama.
+3. Tambahkan verification command di README/AGENTS jika berubah.
+
+Suggested verification:
+
+- `cd backend && npm run build && npm run start:prod`
+- `docker compose build api && docker compose up api`
+
+### OPS-13 - Low - Rate limit nginx bisa salah key di belakang proxy
+
+Referensi kode:
+
+- `nginx/nginx.conf:33`, `nginx/nginx.conf:51-55`
+
+Root cause:
+
+Rate limit memakai `$binary_remote_addr`. Jika nginx ini berada di belakang reverse proxy/load balancer, remote addr bisa IP proxy, bukan IP client. Tidak ada `real_ip_header` dan `set_real_ip_from`.
+
+Impact:
+
+Banyak user di belakang proxy yang sama dapat berbagi limit dan saling throttle. Jika asal IP tidak dipercaya dengan benar, konfigurasi real IP yang salah juga bisa spoofable.
+
+Langkah fix:
+
+1. Jika ada reverse proxy depan, tambahkan `set_real_ip_from` hanya untuk IP proxy tepercaya.
+2. Tambahkan `real_ip_header X-Forwarded-For` atau header yang sesuai proxy.
+3. Jangan trust semua forwarded IP.
+
+Suggested verification:
+
+- Simulasikan beberapa client via proxy, rate limit per client, bukan per proxy.
+
+### TG-02 - Low - `TelegramConfig` tidak dipaksa singleton oleh schema
+
+Referensi kode:
+
+- `backend/prisma/schema.prisma:234-241`
+- `backend/src/common/repositories/telegram-config.repository.ts:8-13`
+- `backend/src/telegram/telegram.service.ts:182-185`, `backend/src/telegram/telegram.service.ts:201-204`
+
+Root cause:
+
+Schema tidak punya fixed singleton key/unique constraint. Service melakukan `findFirst()` lalu `create()` jika kosong. Race pada request pertama atau edit manual DB dapat membuat banyak row config.
+
+Impact:
+
+`findFirst()` menjadi nondeterministic jika ada banyak row. Bot token/settings yang dipakai bisa berbeda dari yang diedit Admin.
+
+Langkah fix:
+
+1. Tambahkan kolom singleton key, misalnya `key String @unique @default("default")`, atau fixed id.
+2. Gunakan `upsert` berbasis key.
+3. Buat migration cleanup row duplikat jika sudah ada data.
+
+Suggested tests:
+
+- Concurrent `GET/PUT /api/telegram/config` pada DB kosong hanya membuat satu row.
+
+### FE-10 - Low - Create Ticket menampilkan kategori inactive
+
+Referensi kode:
+
+- `frontend/src/hooks/use-categories.ts:5-10`
+- `frontend/src/components/tickets/CreateTicketForm.tsx:42-43`
+- `frontend/src/components/tickets/CreateTicketForm.tsx:161-165`
+
+Root cause:
+
+Form create ticket memetakan semua kategori dari `/categories` tanpa filter `isActive`.
+
+Impact:
+
+User dapat memilih kategori inactive lalu submit gagal dari backend dengan error generik. Admin Master Data tetap perlu melihat inactive, tetapi create form tidak.
+
+Langkah fix:
+
+1. Di `CreateTicketForm`, pakai `categories?.filter((c) => c.isActive)` untuk select category.
+2. Subcategory juga harus mengikuti category aktif dan subcategory aktif jika model punya flag.
+3. Tetap biarkan Admin Master Data melihat semua kategori.
+
+Suggested tests:
+
+- Mock kategori active + inactive; inactive tidak muncul di Create Ticket.
+
+## Urutan Fix yang Disarankan
+
+1. Fix security/session high impact: AUTH-01, FE-01, OPS-02, OPS-03.
+2. Fix halaman yang jelas broken: FE-02, TG-01.
+3. Fix operasi destruktif dan backup: OPS-04, OPS-05, OPS-06, OPS-08, OPS-09.
+4. Fix data consistency: ATT-01, DATA-01, SLA-01, AUTH-02.
+5. Fix UX/data freshness frontend: FE-03 sampai FE-10.
+6. Fix robustness low risk: CAT-01, API-02, ATT-02, SLA-02, OPS-11 sampai OPS-13, TG-02.
+
+## Catatan untuk Agent AI Berikutnya
+
+- Baca `AGENTS.md` terlebih dahulu. Aturan non-negotiable terpenting: jangan persist access token di storage, jangan expose EndUser ke dashboard/admin/internal comments/attachments, jangan kirim Telegram secret ke frontend, jangan destructive git/docker command tanpa izin.
+- Jangan fix semua checklist sekaligus. Ambil 1-3 item yang saling terkait per sesi agar review dan test tetap terkontrol.
+- Mulai dari AUTH-01 karena ini security boundary paling penting. Setelah itu FE-01 karena ProtectedRoute saat ini salah membaca envelope refresh.
+- Saat mengubah backend, ikuti flow controller -> service -> repository. Service baru inject repository, bukan langsung `PrismaService`, kecuali pola existing memang sudah begitu untuk transaksi.
+- Saat mengubah frontend API call, gunakan `apiClient`, `ApiEnvelope`, `unwrapData`, dan `unwrapPage` dari `frontend/src/lib/axios.ts`. Jangan akses `response.data` langsung kecuali endpoint benar-benar blob/non-envelope.
+- Setelah fix backend auth/visibility, jalankan verifikasi sempit: `cd backend && npm test` atau minimal spec terkait. Setelah fix frontend, jalankan `cd frontend && npm run lint` dan `cd frontend && npm run build` jika menyentuh TS/React.
+- Untuk maintenance/backup/restore, jangan jalankan operasi destruktif di data nyata. Gunakan test/mocking atau environment disposable. Jangan `docker compose down -v`.
+- Jika menambah env baru seperti `COOKIE_SECURE`, update `.env.example`, `backend/.env.example`, README/ops docs, dan pastikan local HTTP tetap bisa login.
+- Jika memperbaiki Telegram config, jaga rule bahwa frontend hanya menerima `hasBotToken`/`hasGroupChatId`, bukan token/chat id secret.
+- Jika memperbaiki attachment visibility, tambahkan regression test EndUser agar internal comments/attachments tidak bocor dari ticket detail, comments endpoint, attachments endpoint, dan download endpoint.
+
+## Verifikasi Review Ini
+
+- Dokumen ini dibuat dari pembacaan kode statis dan sub-audit backend/frontend/ops.
+- Tidak ada test/build yang dijalankan karena tidak ada perubahan kode aplikasi.
+- Verifikasi berikutnya harus dijalankan per item fix yang diambil dari checklist.
+
+## Status Verifikasi
+
+- **Backend tests**: 47/47 pass (`npm test` di `backend/`)
+  - `attachment-visibility.policy.spec.ts`: 15+ tests (ATT-01 regression)
+  - `tickets.service.spec.ts`: existing tests
+  - `auth.service.spec.ts`: 9 tests (AUTH-01 token type validation)
+  - `auth.controller.spec.ts`: 7 tests (AUTH-02 cookie-based logout)
+- **Frontend tests**: 13/13 pass (`vitest` di `frontend/`)
+  - `ProtectedRoute.test.tsx`: 3 tests (FE-01)
+  - `auth-store.test.tsx`: 3 tests (auth store)
+  - `Pagination.test.tsx`: 5 tests (FE-04, FE-08)
+  - `use-notifications.test.tsx`: 2 tests (FE-03)
+- **Frontend lint**: pass (`npm run lint` di `frontend/`)
+- **Docker build**: pass (`docker compose up --build -d`) — lockfiles regenerated dengan npm 10 untuk kompatibilitas

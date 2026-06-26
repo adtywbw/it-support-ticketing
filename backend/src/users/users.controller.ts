@@ -17,7 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { PaginationQueryDto, QueryUsersDto } from '../common/dto/pagination-query.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,7 +27,7 @@ export class UsersController {
   @Get()
   @Roles(Role.Admin)
   async findAll(
-    @Query(new ValidationPipe({ transform: true, whitelist: true })) query: PaginationQueryDto & { role?: string; search?: string; includeInactive?: string },
+    @Query(new ValidationPipe({ transform: true, whitelist: true })) query: QueryUsersDto,
   ) {
     return this.usersService.findAll({
       page: query.page,

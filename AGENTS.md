@@ -53,6 +53,7 @@
 | Backend build | `backend` | `npm run build` |
 | Frontend build | `frontend` | `npm run build` |
 | Frontend lint | `frontend` | `npm run lint` |
+| Frontend tests | `frontend` | `vitest` |
 | Full compose rebuild | repo root | `docker compose up --build` |
 | Start existing compose | repo root | `docker compose up -d` |
 | Build API image | repo root | `docker compose build api` |
@@ -92,9 +93,11 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 
 ## Auth & Security
 - Access token is memory-only in Zustand auth state.
+- Access token has `tokenType: 'access'` claim; refresh token has `tokenType: 'refresh'`.
 - Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`.
-- Cookie `secure` must match environment so local HTTP auth still works.
-- `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production also requires `REDIS_PASSWORD`.
+- Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
+- Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
+- `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.
 - `CORS_ORIGIN` is comma-separated. Code currently defaults to `https://helpdesk.rsmch.internal`; Docker local is HTTP-only, so set env explicitly when using an HTTP origin.
 - Non-HTTP exceptions must not leak internal messages to clients.
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
@@ -144,6 +147,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Domain: `helpdesk.rsmch.internal` via AdGuard Home DNS rewrite.
 - Cert files under `nginx/certs/` are gitignored placeholders if SSL is re-enabled later.
 - To re-enable SSL, update `nginx.conf`, expose port 443 in `docker-compose.yml`, and generate certs with `mkcert`.
+- **Lockfile compatibility**: after running `npm install` or `npm update` locally, regenerate lockfiles with the Docker node version to prevent `npm ci` failures: `docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine npm install --package-lock-only` and `docker run --rm -v "$(pwd)/backend":/app -w /app node:20-bookworm-slim npm install --package-lock-only`.
 - `frontend` service builds `frontend/Dockerfile` target `builder`, copies `/app/dist` to `frontend_dist`, then stays running.
 - `nginx` serves static files from `frontend_dist:/usr/share/nginx/html` and proxies API traffic.
 - `nginx` also proxies `/socket.io/` with WebSocket upgrade headers for realtime notifications.
@@ -153,6 +157,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
 - API image includes `postgresql-client-16`, `gzip`, `tar`, and `gosu`; entrypoint chowns `/app/uploads` and `/app/backups`, then runs as `node`.
+- Redis has no persistence volume. Refresh tokens and maintenance flags are lost on `cache` container recreate. This is an intentional tradeoff: logout massal on Redis restart is acceptable for this deployment.
 
 ## API Map
 - Health: `GET /api/health` includes maintenance status.
@@ -174,6 +179,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Comment relates to ticket and user.
 - Attachment relates to ticket, user, optional comment, and has `visibility` (`PUBLIC`/`INTERNAL`).
 - `SLAConfig` is unique on `(categoryId, priority)`.
+- `TelegramConfig` is singleton enforced by `key` column (`@unique @default("default")`); repository uses `findOrCreate()` on the fixed key.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`

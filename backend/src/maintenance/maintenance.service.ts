@@ -12,6 +12,7 @@ const MAINTENANCE_KEY = 'maintenance:enabled';
 const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
 const DRAIN_TIME_MS = 5000;
 const BACKUP_LOCK_KEY = 'maintenance:backup:lock';
+const RESTORE_LOCK_KEY = 'maintenance:restore:lock';
 const BACKUP_LOCK_TTL = 600;
 
 export interface BackupFileInfo {
@@ -28,6 +29,11 @@ export interface BackupInfo {
   };
 }
 
+interface LockHandle {
+  key: string;
+  token: string;
+}
+
 interface PgOptions {
   env: NodeJS.ProcessEnv;
   schema: string;
@@ -39,6 +45,20 @@ export class MaintenanceService {
   private readonly uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
 
   constructor(private readonly redis: RedisService) {}
+
+  private async acquireLock(key: string, ttl: number): Promise<LockHandle | null> {
+    const token = crypto.randomBytes(16).toString('hex');
+    const acquired = await this.redis.getClient().set(key, token, 'EX', ttl, 'NX');
+    if (!acquired) return null;
+    return { key, token };
+  }
+
+  private async releaseLock(handle: LockHandle): Promise<void> {
+    const stored = await this.redis.get(handle.key);
+    if (stored === handle.token) {
+      await this.redis.del(handle.key);
+    }
+  }
 
   async setMaintenanceMode(enabled: boolean, message?: string): Promise<void> {
     await this.redis.set(MAINTENANCE_KEY, enabled ? '1' : '0');
@@ -73,14 +93,8 @@ export class MaintenanceService {
       }
     }
 
-    const lockAcquired = await this.redis.getClient().set(
-      BACKUP_LOCK_KEY,
-      '1',
-      'EX',
-      BACKUP_LOCK_TTL,
-      'NX',
-    );
-    if (!lockAcquired) {
+    const lock = await this.acquireLock(BACKUP_LOCK_KEY, BACKUP_LOCK_TTL);
+    if (!lock) {
       throw new BadRequestException('A backup operation is already in progress');
     }
 
@@ -121,7 +135,7 @@ export class MaintenanceService {
         error instanceof Error ? error.message : 'Backup failed',
       );
     } finally {
-      await this.redis.del(BACKUP_LOCK_KEY).catch(() => {});
+      await this.releaseLock(lock).catch(() => {});
     }
 
     return this.getBackup(id);
@@ -202,25 +216,28 @@ export class MaintenanceService {
     await this.validateGzipFile(dbPath, 'Database backup is invalid');
     await this.validateGzipFile(uploadsPath, 'Uploads backup is invalid');
 
-    await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
-    await new Promise((resolve) => setTimeout(resolve, DRAIN_TIME_MS));
-
-    let restoreSucceeded = false;
+    const lock = await this.acquireLock(RESTORE_LOCK_KEY, 1800);
+    if (!lock) {
+      throw new BadRequestException('A restore operation is already in progress');
+    }
 
     try {
+      await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
+      await new Promise((resolve) => setTimeout(resolve, DRAIN_TIME_MS));
+
       const preRestoreBackup = await this.createBackup('pre-restore');
       await this.restoreDatabase(dbPath);
       await this.restoreUploads(uploadsPath);
-      restoreSucceeded = true;
+
+      await this.setMaintenanceMode(false);
       return preRestoreBackup;
     } catch (error) {
+      await this.setMaintenanceMode(false);
       throw new BadRequestException(
         error instanceof Error ? error.message : 'Restore backup failed',
       );
     } finally {
-      if (restoreSucceeded) {
-        await this.setMaintenanceMode(false);
-      }
+      await this.releaseLock(lock).catch(() => {});
     }
   }
 
@@ -335,7 +352,7 @@ export class MaintenanceService {
   private async assertSafeTarArchive(uploadsPath: string): Promise<void> {
     let output: string;
     try {
-      const result = await execFileAsync('tar', ['-tzf', uploadsPath], {
+      const result = await execFileAsync('tar', ['-tzvf', uploadsPath], {
         maxBuffer: 1024 * 1024,
       });
       output = result.stdout;
@@ -345,10 +362,16 @@ export class MaintenanceService {
       );
     }
 
-    const entries = output.split('\n').filter((line) => line.length > 0);
+    const lines = output.split('\n').filter((line) => line.length > 0);
     const uploadDirResolved = path.resolve(this.uploadDir);
 
-    for (const entry of entries) {
+    for (const line of lines) {
+      const fileType = line.charAt(0);
+      if (fileType === 'l' || fileType === 'L') {
+        throw new BadRequestException('Uploads backup contains symlink or hardlink');
+      }
+
+      const entry = line.substring(line.indexOf('./') >= 0 ? line.indexOf('./') : line.lastIndexOf(' ') + 1);
       this.assertSafeTarEntry(entry, uploadDirResolved);
     }
   }

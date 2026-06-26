@@ -9,6 +9,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { Injectable } from '@nestjs/common';
 import { UserRepository } from '../common/repositories/user.repository';
+import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 
 interface NotificationPayload {
   userId: string;
@@ -48,7 +49,13 @@ export class NotificationsGateway
     }
 
     try {
-      const payload = this.jwtService.verify<{ sub: string }>(token);
+      const payload = this.jwtService.verify<JwtPayload>(token);
+
+      if (payload.tokenType && payload.tokenType !== 'access') {
+        client.disconnect();
+        return;
+      }
+
       const userId = payload.sub;
 
       const user = await this.userRepository.getForValidation(userId);

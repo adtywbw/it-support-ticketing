@@ -23,7 +23,8 @@ interface FormErrors {
 
 export default function CreateTicketForm() {
   const navigate = useNavigate();
-  const { data: categories } = useCategories();
+  const { data: allCategories } = useCategories();
+  const categories = allCategories?.filter((c) => c.isActive);
   const createMutation = useCreateTicket();
   const uploadMutation = useUploadAttachment();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,11 +91,20 @@ export default function CreateTicketForm() {
         priority: formData.priority as TicketPriority,
       });
 
+      const uploadErrors: string[] = [];
       for (const file of files) {
-        await uploadMutation.mutateAsync({ ticketId: ticket.id, file });
+        try {
+          await uploadMutation.mutateAsync({ ticketId: ticket.id, file });
+        } catch (err) {
+          uploadErrors.push(file.name);
+        }
       }
 
-      navigate('/tickets');
+      if (uploadErrors.length > 0) {
+        setUploadError(`Ticket created, but failed to upload: ${uploadErrors.join(', ')}`);
+      }
+
+      navigate(`/tickets/${ticket.id}`);
     } catch (err) {
       setUploadError(getErrorMessage(err, 'Failed to create ticket'));
     }

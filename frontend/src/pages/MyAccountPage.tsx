@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChangePassword } from '@/hooks/use-change-password';
 import {
@@ -26,22 +28,25 @@ const EVENT_KEYS = Object.keys(EVENT_LABELS);
 
 export default function MyAccountPage() {
   const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const changePasswordMutation = useChangePassword();
 
   const [showCode, setShowCode] = useState(false);
   const [linkCode, setLinkCode] = useState('');
-  const telegramStatus = useTelegramStatus();
+  const isAdmin = user?.role === 'Admin';
+  const telegramStatus = useTelegramStatus({ enabled: isAdmin });
   const generateCode = useGenerateTelegramCode();
   const unlinkTelegram = useUnlinkTelegram();
   const sendTestNotification = useSendTestNotification();
 
-  const telegramConfig = useTelegramConfig();
+  const telegramConfig = useTelegramConfig({ enabled: isAdmin });
   const updateConfig = useUpdateTelegramConfig();
   const checkTelegram = useCheckTelegram();
 
@@ -90,7 +95,6 @@ export default function MyAccountPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (newPassword.length < 8) {
       setError('New password must be at least 8 characters');
@@ -104,10 +108,9 @@ export default function MyAccountPage() {
 
     try {
       await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setSuccess('Password changed successfully.');
+      logout();
+      queryClient.clear();
+      navigate('/login', { state: { message: 'Password changed successfully. Please login again with your new password.' } });
     } catch (err: unknown) {
       setError(getErrorMessage(err, 'Failed to change password'));
     }
@@ -190,9 +193,6 @@ export default function MyAccountPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">{error}</div>
-          )}
-          {success && (
-            <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">{success}</div>
           )}
 
           <div>

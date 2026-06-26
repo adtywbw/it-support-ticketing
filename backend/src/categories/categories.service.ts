@@ -68,12 +68,17 @@ export class CategoriesService {
   }
 
   async delete(id: string): Promise<void> {
-    const category = await this.categoryRepository.findWithTicketCount(id);
+    const category = await this.categoryRepository.findById(id);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
-    if (category._count.tickets > 0) {
+    const hasRelations =
+      (category._count?.tickets ?? 0) > 0 ||
+      (category._count?.subCategories ?? 0) > 0 ||
+      (category._count?.slaConfigs ?? 0) > 0;
+
+    if (hasRelations) {
       await this.categoryRepository.update(id, { isActive: false });
     } else {
       await this.categoryRepository.delete(id);

@@ -9,6 +9,12 @@ export class TelegramConfigRepository {
     return this.prisma.telegramConfig.findFirst();
   }
 
+  async findOrCreate(defaults?: Record<string, unknown>) {
+    const existing = await this.findFirst();
+    if (existing) return existing;
+    return this.create(defaults || {});
+  }
+
   async create(data: Record<string, unknown>) {
     return this.prisma.telegramConfig.create({ data } as any);
   }

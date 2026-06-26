@@ -416,8 +416,8 @@ export class TelegramService
   }
 
   async generateLinkCode(userId: string): Promise<string> {
-    const bytes = crypto.randomBytes(5);
-    const code = bytes.toString('base64url').substring(0, 10).toUpperCase();
+    const bytes = crypto.randomBytes(4);
+    const code = bytes.toString('base64url').substring(0, 6).toUpperCase();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.userRepository.update(userId, {

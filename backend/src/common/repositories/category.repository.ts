@@ -28,7 +28,7 @@ export class CategoryRepository {
           orderBy: { name: 'asc' },
         },
         slaConfigs: true,
-        _count: { select: { tickets: true } },
+        _count: { select: { tickets: true, subCategories: true, slaConfigs: true } },
       },
     }) as any;
   }
@@ -47,12 +47,5 @@ export class CategoryRepository {
 
   async delete(id: string) {
     return this.prisma.category.delete({ where: { id } }) as any;
-  }
-
-  async findWithTicketCount(id: string) {
-    return this.prisma.category.findUnique({
-      where: { id },
-      include: { _count: { select: { tickets: true } } },
-    }) as any;
   }
 }

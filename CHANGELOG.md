@@ -13,6 +13,7 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 
 ## Tickets
 - Create: EndUser bisa akses menu/form New Ticket dan `POST /api/tickets` untuk membuat ticket sendiri
+- Create: **FE-06** — partial success handling: jika ticket sudah dibuat tapi upload gagal, tampilkan warning + navigasi ke detail ticket (bukan error misleading)
 - Status: tambah `OnHold` ke frontend (type, color, badge, statusFlows)
 - Status Flows: samakan dengan backend (`Closed → Open`, `InProgress → OnHold/Resolved`)
 - Status: clear `closedAt`/`resolvedAt` saat reopen ticket
@@ -29,8 +30,13 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - PasswordInput: reusable dengan eye icon (hold to reveal)
 - Waktu: formatDateTime jadi 24H (HH:mm)
 - Notifikasi: dropdown toggle di Navbar + Mark all as read
-- Notifikasi: counter auto-fetch via `useNotifications()` di Layout
+- Notifikasi: **FE-03** — badge unread memakai `GET /notifications/unread-count` (server-side) + auto-refresh 30s; `useNotifications()` untuk list saja
 - ErrorBoundary: wrapping App + route `/notifications`
+- ProtectedRoute: fix envelope access `res.data.data.accessToken/user` — session restore setelah reload/deep link sekarang berfungsi (FE-01)
+- Admin Master Data: fix unwrap API envelope `res.data.data` — gunakan `useCategories()` hook dan `unwrapData()` untuk kategori/subkategori (FE-02)
+- Pagination: **FE-04** — hapus opsi "All" yang mengirim `limit=0` (invalid di backend); guard tambahan di `useTickets()` untuk skip `value === 0`
+- Pagination: **FE-08** — tambah Previous/Next buttons untuk mobile (visible di bawah `sm` breakpoint)
+- Telegram: **FE-05** — `useTelegramStatus()` dan `useTelegramConfig()` hanya fetch untuk Admin; non-admin tidak trigger request 403
 
 ## Users & Auth
 - Role: Change Password hanya untuk Admin & ITSupport
@@ -40,8 +46,11 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Users: hard-delete dengan transaction (FK error → "Deactivate the user instead")
 - ValidationPipe: UpdateUserDto tambah field `isActive` (fix forbidden non-whitelisted)
 - Auth: fix admin login gagal — password hash terupdate tiap restart
+- Auth: **SECURITY** — tambah `tokenType` claim (`access`/`refresh`) ke JWT; refresh token tidak bisa dipakai sebagai Bearer API/WebSocket; validasi di JwtStrategy, Gateway, dan refresh/revoke (AUTH-01)
+- Auth: **AUTH-02** — logout tidak memerlukan access token valid; cukup refresh cookie untuk revoke
 - My Account: halaman `/my-account` untuk semua role, berisi profil & change password
 - Change Password: pindah dari sidebar ke halaman My Account (bukan route terpisah)
+- Change Password: **FE-09** — setelah change password, session di-clear dan redirect ke login
 - Profile dropdown: Navbar — avatar user, My Account, theme toggle, Logout
 
 ## Dashboard
@@ -67,6 +76,8 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Prisma: `db push` untuk menambahkan kolom `commentId` + index
 - Validasi MIME type dan file size dilakukan sebelum comment dibuat (bukan setelah) — rollback jika file gagal
 - Semua file divalidasi dalam batch sebelum satupun diproses
+- Attachment: **ATT-01** — attachment komentar `INTERNAL` otomatis disimpan sebagai `INTERNAL`; nested attachment difilter untuk EndUser menggunakan `AttachmentVisibilityPolicy`
+- Comment: **FE-07** — `useAddComment()` invalidate `['ticket', id, 'attachments']` saat komentar membawa file
 
 ## Filter, Date, Sorting
 - Assigned to Me: filter by current user ID (sebelumnya tidak berfungsi)
@@ -90,10 +101,12 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 ## Security
 - Env: `validateEnv()` di startup — throw jika `JWT_SECRET`/`DATABASE_URL` tidak diset
 - JWT: hapus hardcoded `'super-secret-key'` fallback di 3 file (auth.module, jwt.strategy, auth.service)
+- JWT: **OPS-02** — tambah `change-this-to-random-secret` ke denylist + enforce minimum 32 chars di production
 - WebSocket: validasi JWT via `jwtService.verify()` di handshake gateway (S-2)
 - Auth: refresh token pindah ke httpOnly cookie (`secure`, `sameSite: strict`, path `/api/auth`)
 - Auth: access token hanya di memory (zustand tanpa persist) — tidak ada token di localStorage
 - Auth: silent refresh otomatis di `ProtectedRoute` saat page reload
+- Auth: **OPS-03** — helper `getRefreshCookieOptions()` seragam login/refresh/logout + `COOKIE_SECURE` env untuk explicit control
 - Ticket: `findById` filter untuk EndUser — hanya bisa lihat ticket milik sendiri (S-4)
 - Backend: global exception filter (`HttpExceptionFilter`) — semua error terformat konsisten `{ error: { code, message } }`
 - Backend: helmet security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, dll)
@@ -148,6 +161,7 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - Frontend: tombol "Check" di Bot Settings — validasi real-time, tampilkan status inline ✅/❌
 - Frontend: validasi Group Chat ID — "Save Settings" disable + pesan error jika group chat di-enable tapi ID kosong
 - Telegram: fix create config typo dan clear bot token hanya saat token field diubah
+- Fix: **TG-01** — `generateLinkCode()` sekarang buat 6-char code (sebelumnya 10-char), bot handler terima 6-char
 
 ## Production Readiness
 - Maintenance Mode: global `MaintenanceGuard` blocks non-admin API requests when `maintenance:enabled=1` in Redis; allowed endpoints: `/health`, `/maintenance/*`, `/auth/*`
@@ -258,3 +272,52 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - F-02: Frontend tambah `ApiEnvelope<T>`, `unwrapData<T>()`, `unwrapPage<T>()`, `unwrapBlob()` helpers. Semua hooks di-update untuk gunakan adapters.
 - F-02: Hapus `refreshToken` dari `AuthResponse` type (drift fix — frontend tidak menerima refresh token di body, hanya httpOnly cookie).
 - F-02: `NotificationsPage` fix `data.data` → `data` (sudah unwrap oleh interceptor).
+
+## Code Review Fixes — CODE_REVIEW.md (Sesi 1-14)
+- **AUTH-01**: Tambah `tokenType` claim (`access`/`refresh`) ke JWT; `JwtStrategy` dan `NotificationsGateway` reject non-access tokens; `refresh()` validasi `tokenType === 'refresh'` + `jti` + compare stored Redis token.
+- **FE-01**: Fix `ProtectedRoute` baca `res.data.data.accessToken/user` (envelope access) + tambah type `RefreshResponse`.
+- **FE-02**: Fix `MasterDataManagement` pakai `useCategories()` hook + `unwrapData()` + `Promise.all` untuk subcategories.
+- **OPS-02**: Tambah `change-this-to-random-secret` ke denylist + enforce min 32 chars JWT_SECRET di production.
+- **OPS-03**: Tambah `getRefreshCookieOptions()` helper (login/refresh/logout) + `COOKIE_SECURE` env; fix logout `clearCookie` pakai options yang sama.
+- **TG-01**: Fix `generateLinkCode()` buat 6-char code (sebelumnya 10-char, bot validator expect 6).
+- **AUTH-02**: Hapus `@UseGuards(JwtAuthGuard)` dari logout endpoint — cookie-based revoke only.
+- **FE-09**: After change password: `logout()`, `queryClient.clear()`, redirect ke `/login` dengan message.
+- **ATT-01**: Internal comment attachments auto-set `visibility: INTERNAL`; EndUser nested attachments difilter via `AttachmentVisibilityPolicy`.
+- **FE-04**: Hapus opsi "All" dari Pagination; tambah `value !== 0` guard di `useTickets()`.
+- **FE-05**: `useTelegramStatus()` dan `useTelegramConfig()` accept `enabled` option; MyAccountPage pass `enabled: isAdmin`.
+- **FE-07**: `useAddComment()` invalidate `attachments` query saat files ada.
+- **FE-03**: Baru `useUnreadNotificationCount()` hook panggil `/notifications/unread-count` (server-side) + auto-refresh 30s.
+- **FE-06**: Partial success: per-file upload errors caught, navigasi ke `/tickets/:id`.
+- **FE-08**: Mobile Previous/Next buttons visible di bawah `sm` breakpoint di Pagination.
+- **OPS-01**: Update `backend/.env.example` dengan Docker vs local dev comments.
+- **OPS-08**: Tambah `umask 077` + `chmod 700/600` di backup dirs/files di `scripts/backup.sh`.
+- **CAT-01**: `delete()` di categories.service.ts cek `_count.subCategories` dan `_count.slaConfigs` sebelum hard delete; soft-deletes jika ada relations.
+- **OPS-09**: `backup.sh` ganti `source .env` dengan targeted `grep` untuk parse `POSTGRES_USER`/`POSTGRES_DB`.
+- **OPS-06**: Tambah `location /api/maintenance/` di `nginx.conf` dengan `proxy_read_timeout 600s`.
+- **DATA-01**: Pindah file deletion di `tickets.service.ts delete()` SETELAH DB transaction commit.
+- **SLA-02**: Tambah `setNx(key, value, ttl)` ke `RedisService` pakai `SET NX EX`; `checkSLA()` pakai atomic `setNx()`.
+- **ATT-02**: `AttachmentRepository.findByTicketId()` accept `{ select?, include? }`; `attachments.service.ts` pakai `ATTACHMENT_SAFE_SELECT` exclude `path`.
+- **SLA-01**: `updatePriority()` recalc `slaDueAt` dari `createdAt`, compute `slaStatus`.
+- **OPS-04**: Tambah `RESTORE_LOCK_KEY` dengan `SET NX EX` (30min TTL) untuk restore process.
+- **OPS-10**: Dokumentasi Redis persistence tradeoff di `AGENTS.md`.
+- **FE-10**: `CreateTicketForm.tsx` filter `categories` hanya `isActive === true`.
+- **API-01**: Tambah `QueryUsersDto` dan `QueryNotificationsDto` di `pagination-query.dto.ts`.
+- **OPS-05**: `assertSafeTarArchive()` pakai `tar -tzvf` dan reject symlink/hardlink entries.
+- **OPS-07**: `nginx.conf` `client_max_body_size` naik dari `10m` ke `20m`.
+- **API-02**: `exportCsv()` tambah `take: 10000` limit.
+- **OPS-11**: Production seed rotate passwords via `update: { password }` di upsert.
+- **OPS-12**: `start:prod` ganti dari `node dist/main` ke `node dist/src/main`.
+- **OPS-13**: Tambah `set_real_ip_from` untuk private ranges + `real_ip_header X-Forwarded-For`.
+- **TG-02**: Schema migration `20260626000000_add_telegram_config_singleton_key` tambah `key String @unique @default("default")` ke `TelegramConfig`.
+- **OPS-04 lock**: Tambah `acquireLock()`/`releaseLock()` helpers dengan random token ke `MaintenanceService`.
+
+## Frontend Test Infrastructure (Sesi 15)
+- Vitest dipasang sebagai test runner; `vite.config.ts` update dengan test config; `src/test/setup.ts` buat `@testing-library/jest-dom`.
+- `ProtectedRoute.test.tsx`: 3 tests — refresh envelope, unauthenticated redirect, auth display.
+- `auth-store.test.tsx`: 3 tests — login, logout, token persistence.
+- `Pagination.test.tsx`: 5 tests — page info, no "All" option, Next click, Previous disabled, Next disabled.
+- `use-notifications.test.tsx`: 2 tests — unread count fetch, notifications list fetch.
+- Total: 13 frontend tests, semua pass.
+
+## Docker
+- Build: fix `npm ci` failure — regenerate lockfiles dengan Docker node version (npm 10) untuk kompatibilitas.

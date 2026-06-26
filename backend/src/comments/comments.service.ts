@@ -8,11 +8,12 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import { Express } from 'express';
-import { Role, CommentType } from '@prisma/client';
+import { Role, CommentType, AttachmentVisibility } from '@prisma/client';
 import { CommentRepository } from '../common/repositories/comment.repository';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService } from '../attachments/interfaces/storage-service.interface';
+import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -133,6 +134,7 @@ export class CommentsService {
           mimeType: file.mimetype,
           size: file.size,
           path: filePath,
+          visibility: type === CommentType.INTERNAL ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC,
         });
       }
 
@@ -141,7 +143,16 @@ export class CommentsService {
           select: { id: true, name: true, email: true, role: true, avatarUrl: true },
         },
         attachments: {
-          include: {
+          select: {
+            id: true,
+            ticketId: true,
+            commentId: true,
+            userId: true,
+            originalName: true,
+            mimeType: true,
+            size: true,
+            visibility: true,
+            createdAt: true,
             user: { select: { id: true, name: true } },
           },
         },
@@ -175,6 +186,23 @@ export class CommentsService {
       where.type = CommentType.PUBLIC;
     }
 
-    return this.commentRepository.findByTicketId(ticketId, where);
+    const comments = await this.commentRepository.findByTicketId(ticketId, where);
+
+    if (userRole !== Role.EndUser) {
+      return comments;
+    }
+
+    return comments.map((comment: any) => ({
+      ...comment,
+      attachments: (comment.attachments || []).filter((att: any) =>
+        AttachmentVisibilityPolicy.isAttachmentVisible(
+          {
+            comment: { type: comment.type },
+            visibility: att.visibility,
+          },
+          'EndUser',
+        )
+      ),
+    }));
   }
 }

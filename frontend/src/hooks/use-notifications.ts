@@ -4,10 +4,29 @@ import { useNotificationStore } from '@/stores/notification-store';
 import type { Notification } from '@/types';
 import { useEffect } from 'react';
 
-export function useNotifications(page = 1, limit = 20) {
+export function useUnreadNotificationCount() {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
 
   const query = useQuery({
+    queryKey: ['notifications-unread-count'],
+    queryFn: async () => {
+      const response = await apiClient.get<ApiEnvelope<{ count: number }>>('/notifications/unread-count');
+      return unwrapData(response);
+    },
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => {
+    if (query.data) {
+      setUnreadCount(query.data.count);
+    }
+  }, [query.data, setUnreadCount]);
+
+  return query;
+}
+
+export function useNotifications(page = 1, limit = 20) {
+  return useQuery({
     queryKey: ['notifications', page, limit],
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Notification[]>>(
@@ -16,15 +35,6 @@ export function useNotifications(page = 1, limit = 20) {
       return unwrapData(response);
     },
   });
-
-  useEffect(() => {
-    if (query.data) {
-      const unread = query.data.filter((n) => !n.isRead).length;
-      setUnreadCount(unread);
-    }
-  }, [query.data, setUnreadCount]);
-
-  return query;
 }
 
 export function useMarkAsRead() {
