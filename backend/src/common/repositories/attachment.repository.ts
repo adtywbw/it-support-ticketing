@@ -10,12 +10,23 @@ export class AttachmentRepository {
     return this.prisma.attachment.create({ data, include }) as any;
   }
 
-  async findByTicketId(ticketId: string, args?: { include?: Prisma.AttachmentInclude; select?: Prisma.AttachmentSelect }) {
-    return this.prisma.attachment.findMany({
-      where: { ticketId },
-      orderBy: { createdAt: 'desc' },
-      ...args,
-    }) as any;
+  async findByTicketId(ticketId: string, args?: {
+    include?: Prisma.AttachmentInclude;
+    select?: Prisma.AttachmentSelect;
+    skip?: number;
+    take?: number;
+    where?: Prisma.AttachmentWhereInput;
+  }) {
+    const { select, include, skip, take, where } = args ?? {};
+    const prismaArgs: Record<string, unknown> = {
+      where: where ?? { ticketId },
+      orderBy: { createdAt: 'desc' } as const,
+    };
+    if (skip !== undefined) prismaArgs.skip = skip;
+    if (take !== undefined) prismaArgs.take = take;
+    if (select) prismaArgs.select = select;
+    else if (include) prismaArgs.include = include;
+    return this.prisma.attachment.findMany(prismaArgs as any) as any;
   }
 
   async findById(id: string, include?: Prisma.AttachmentInclude) {

@@ -29,6 +29,8 @@ describe('TicketsService', () => {
     update: jest.fn(),
     transaction: jest.fn(),
     transactionBatch: jest.fn(),
+    countPublicCommentsByTicketIds: jest.fn().mockResolvedValue([]),
+    countVisibleAttachmentsByTicketIds: jest.fn().mockResolvedValue([]),
   };
 
   const mockCategoryRepository = {
@@ -80,7 +82,7 @@ describe('TicketsService', () => {
     mockTicketRepository.transaction.mockImplementation(
       (fn: (tx: Record<string, unknown>) => unknown) =>
         fn({
-          $queryRaw: jest.fn().mockResolvedValue([{ max_seq: 0 }]),
+          $queryRaw: jest.fn().mockResolvedValue([{ seq: 1n }]),
           ticket: {
             findFirst: (...args: unknown[]) =>
               mockTicketRepository.findFirst(...args),
@@ -174,7 +176,6 @@ describe('TicketsService', () => {
 
       expect(mockTicketRepository.transaction).toHaveBeenCalledWith(
         expect.any(Function),
-        { isolationLevel: 'Serializable' },
       );
 
       expect(mockTicketRepository.create).toHaveBeenCalledWith(
@@ -230,7 +231,7 @@ describe('TicketsService', () => {
       mockTicketRepository.transaction.mockImplementationOnce(
         (fn: (tx: Record<string, unknown>) => unknown) =>
           fn({
-            $queryRaw: jest.fn().mockResolvedValueOnce([{ max_seq: 0 }]),
+            $queryRaw: jest.fn().mockResolvedValueOnce([{ seq: 1n }]),
             ticket: {
               create: (args: { data: unknown; include?: unknown }) =>
                 mockTicketRepository.create(args.data, args.include),
@@ -265,11 +266,11 @@ describe('TicketsService', () => {
         expect.any(Object),
       );
 
-      // Second call: 5 existing tickets, max_seq = 5, so ticket number = TKT-006
+      // Second call: seq = 6, so ticket number = TKT-006
       mockTicketRepository.transaction.mockImplementationOnce(
         (fn: (tx: Record<string, unknown>) => unknown) =>
           fn({
-            $queryRaw: jest.fn().mockResolvedValueOnce([{ max_seq: 5 }]),
+            $queryRaw: jest.fn().mockResolvedValueOnce([{ seq: 6n }]),
             ticket: {
               create: (args: { data: unknown; include?: unknown }) =>
                 mockTicketRepository.create(args.data, args.include),

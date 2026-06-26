@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
+import apiClient from '@/lib/axios';
 import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -227,26 +227,11 @@ function CategoryManager() {
 
 function SubCategoryManager() {
   const queryClient = useQueryClient();
-  const { data: categories } = useCategories();
+  const { data: categories, isLoading, isError, error, refetch } = useCategories();
 
-  const { data: subCategories, isLoading, isError, error, refetch } = useQuery<SubCategory[]>({
-    queryKey: ['subcategories'],
-    queryFn: async () => {
-      const allSubs: SubCategory[] = [];
-      if (categories) {
-        const results = await Promise.all(
-          categories.map((cat) =>
-            apiClient.get<ApiEnvelope<SubCategory[]>>(`/categories/${cat.id}/sub-categories`)
-          )
-        );
-        for (const res of results) {
-          allSubs.push(...unwrapData(res));
-        }
-      }
-      return allSubs;
-    },
-    enabled: !!categories,
-  });
+  const subCategories: SubCategory[] = (categories ?? []).flatMap(
+    (cat) => (cat.subCategories ?? []).map((sub) => ({ ...sub, categoryId: cat.id }))
+  );
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SubCategory | null>(null);

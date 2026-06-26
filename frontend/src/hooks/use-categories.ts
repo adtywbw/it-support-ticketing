@@ -5,6 +5,7 @@ import type { Category } from '@/types';
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
+    staleTime: 1000 * 60 * 30,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Category[]>>('/categories');
       return unwrapData(response);

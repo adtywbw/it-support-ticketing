@@ -31,6 +31,7 @@ model User {
   @@index([email])
   @@index([role])
   @@index([role, isActive])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -73,6 +74,13 @@ model Ticket {
   @@index([createdAt])
   @@index([slaDueAt])
   @@index([priority])
+  @@index([categoryId])
+  @@index([subCategoryId])
+  @@index([slaStatus])
+  @@index([updatedAt])
+  @@index([requesterId, createdAt])
+  @@index([assignedToId, status])
+  @@index([status, slaStatus])
   @@map("tickets")
 }
 
@@ -116,6 +124,8 @@ model Comment {
 
   @@index([ticketId])
   @@index([createdAt])
+  @@index([ticketId, createdAt])
+  @@index([userId])
   @@map("comments")
 }
 
@@ -147,6 +157,8 @@ model Attachment {
 
   @@index([ticketId])
   @@index([commentId])
+  @@index([ticketId, visibility])
+  @@index([userId])
   @@map("attachments")
 }
 
@@ -212,6 +224,7 @@ model TicketHistory {
   @@index([ticketId])
   @@index([userId])
   @@index([createdAt])
+  @@index([ticketId, createdAt])
   @@map("ticket_history")
 }
 
@@ -228,6 +241,7 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([createdAt])
+  @@index([userId, isRead, createdAt])
   @@map("notifications")
 }
 

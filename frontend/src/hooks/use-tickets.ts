@@ -77,12 +77,12 @@ export function useAssignTicket() {
     },
   });
 }
-export function useTicketComments(ticketId: string) {
+export function useTicketComments(ticketId: string, page = 1, limit = 20) {
   return useQuery({
-    queryKey: ['ticket', ticketId, 'comments'],
+    queryKey: ['ticket', ticketId, 'comments', page, limit],
     queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Comment[]>>(`/tickets/${ticketId}/comments`);
-      return unwrapData(response);
+      const response = await apiClient.get<ApiEnvelope<Comment[]>>(`/tickets/${ticketId}/comments?page=${page}&limit=${limit}`);
+      return unwrapPage(response);
     },
     enabled: !!ticketId,
   });
@@ -123,12 +123,12 @@ export function useAddComment() {
   });
 }
 
-export function useTicketAttachments(ticketId: string) {
+export function useTicketAttachments(ticketId: string, page = 1, limit = 20) {
   return useQuery({
-    queryKey: ['ticket', ticketId, 'attachments'],
+    queryKey: ['ticket', ticketId, 'attachments', page, limit],
     queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Attachment[]>>(`/tickets/${ticketId}/attachments`);
-      return unwrapData(response);
+      const response = await apiClient.get<ApiEnvelope<Attachment[]>>(`/tickets/${ticketId}/attachments?page=${page}&limit=${limit}`);
+      return unwrapPage(response);
     },
     enabled: !!ticketId,
   });

@@ -167,7 +167,7 @@ export class CommentsService {
     }
   }
 
-  async findByTicketId(ticketId: string, userRole: string, userId: string) {
+  async findByTicketId(ticketId: string, userRole: string, userId: string, page = 1, limit = 20) {
     const ticket = await this.ticketRepository.findUnique({
       where: { id: ticketId },
       select: { id: true, requesterId: true },
@@ -186,23 +186,31 @@ export class CommentsService {
       where.type = CommentType.PUBLIC;
     }
 
-    const comments = await this.commentRepository.findByTicketId(ticketId, where);
+    const actualLimit = Math.min(limit, 100);
+    const skip = (page - 1) * actualLimit;
 
-    if (userRole !== Role.EndUser) {
-      return comments;
+    const [comments, total] = await Promise.all([
+      this.commentRepository.findByTicketId(ticketId, where, { skip, take: actualLimit }),
+      this.commentRepository.countByTicketId(ticketId, where),
+    ]);
+
+    let result = comments;
+    if (userRole === Role.EndUser) {
+      result = comments.map((comment: any) => ({
+        ...comment,
+        attachments: (comment.attachments || []).filter((att: any) =>
+          AttachmentVisibilityPolicy.isAttachmentVisible(
+            {
+              comment: { type: comment.type },
+              visibility: att.visibility,
+            },
+            'EndUser',
+          )
+        ),
+      }));
     }
 
-    return comments.map((comment: any) => ({
-      ...comment,
-      attachments: (comment.attachments || []).filter((att: any) =>
-        AttachmentVisibilityPolicy.isAttachmentVisible(
-          {
-            comment: { type: comment.type },
-            visibility: att.visibility,
-          },
-          'EndUser',
-        )
-      ),
-    }));
+    const totalPages = Math.ceil(total / actualLimit) || 1;
+    return { data: result, meta: { page, limit: actualLimit, total, totalPages } };
   }
 }

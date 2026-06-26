@@ -14,6 +14,10 @@ const SKIP_MAINTENANCE_KEY = 'skipMaintenance';
 
 @Injectable()
 export class MaintenanceGuard implements CanActivate {
+  private cachedUntil = 0;
+  private cachedEnabled = false;
+  private cachedMessage: string | null = null;
+
   constructor(
     private readonly redis: RedisService,
     private readonly reflector: Reflector,
@@ -26,14 +30,13 @@ export class MaintenanceGuard implements CanActivate {
     ]);
     if (skip) return true;
 
-    const enabled = await this.redis.get(MAINTENANCE_KEY);
-    if (enabled !== '1') return true;
+    const { enabled, message } = await this.getMaintenanceCached();
+    if (!enabled) return true;
 
     const req = context.switchToHttp().getRequest<Request>();
 
     if (this.isAllowedDuringMaintenance(req)) return true;
 
-    const message = await this.redis.get(MAINTENANCE_MESSAGE_KEY);
     const exception = new ServiceUnavailableException(
       message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
     );
@@ -44,6 +47,20 @@ export class MaintenanceGuard implements CanActivate {
       code: 'MAINTENANCE',
     });
     throw exception;
+  }
+
+  private async getMaintenanceCached(): Promise<{ enabled: boolean; message: string | null }> {
+    const now = Date.now();
+    if (now < this.cachedUntil) {
+      return { enabled: this.cachedEnabled, message: this.cachedMessage };
+    }
+
+    const [enabled, message] = await this.redis.mget([MAINTENANCE_KEY, MAINTENANCE_MESSAGE_KEY]);
+    this.cachedEnabled = enabled === '1';
+    this.cachedMessage = message || null;
+    this.cachedUntil = now + 2000;
+
+    return { enabled: this.cachedEnabled, message: this.cachedMessage };
   }
 
   private isAllowedDuringMaintenance(req: Request): boolean {

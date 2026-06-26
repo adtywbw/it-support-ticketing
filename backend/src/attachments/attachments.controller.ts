@@ -69,9 +69,11 @@ export class AttachmentsController {
   @Get('tickets/:ticketId/attachments')
   async findByTicketId(
     @Param('ticketId') ticketId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
     @CurrentUser() user: { id: string; role: string },
   ) {
-    return this.attachmentsService.findByTicketId(ticketId, user.id, user.role);
+    return this.attachmentsService.findByTicketId(ticketId, user.id, user.role, page, limit);
   }
 
   @Get('attachments/:id/download')
@@ -100,6 +102,7 @@ export class AttachmentsController {
       `${view === '1' ? 'inline' : 'attachment'}; filename="${safeName}"`,
     );
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
 
     const fileStream = (await import('fs')).createReadStream(attachment.path);
     fileStream.on('error', () => {

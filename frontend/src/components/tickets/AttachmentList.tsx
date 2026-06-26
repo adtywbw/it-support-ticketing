@@ -4,28 +4,43 @@ import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
+import Pagination from '@/components/ui/Pagination';
 import { formatDate, formatFileSize, getUserDisplayName } from '@/lib/utils';
 
+const thumbnailCache = new Map<string, string>();
+
 function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () => void }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const urlRef = useRef<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(() => thumbnailCache.get(id) ?? null);
+  const imgRef = useRef<HTMLDivElement>(null);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    if (blobUrl !== null || fetchedRef.current) return;
+    const el = imgRef.current;
+    if (!el) return;
     const ctrl = new AbortController();
-    apiClient.get(`/attachments/${id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
-      .then((r) => {
-        const u = URL.createObjectURL(r.data);
-        urlRef.current = u;
-        setBlobUrl(u);
-      })
-      .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        fetchedRef.current = true;
+        apiClient.get(`/attachments/${id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
+          .then((r) => {
+            const u = URL.createObjectURL(r.data);
+            thumbnailCache.set(id, u);
+            setBlobUrl(u);
+          })
+          .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
     return () => {
+      observer.disconnect();
       ctrl.abort();
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     };
-  }, [id]);
+  }, [id, blobUrl]);
 
-  if (blobUrl === null) return <div className="h-10 w-10 shrink-0 rounded bg-gray-200 animate-pulse dark:bg-gray-600" />;
   if (blobUrl === '') return (
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -33,7 +48,8 @@ function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () 
       </svg>
     </div>
   );
-  return <img src={blobUrl} alt={alt} className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer" onClick={onClick} />;
+  if (blobUrl !== null) return <img src={blobUrl} alt={alt} className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer" onClick={onClick} />;
+  return <div ref={imgRef} className="h-10 w-10 shrink-0 rounded bg-gray-200 animate-pulse dark:bg-gray-600" />;
 }
 
 interface AttachmentListProps {
@@ -50,7 +66,11 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
   const previewUrlRef = useRef<string | null>(null);
-  const { data: attachments, isLoading, isError } = useTicketAttachments(ticketId);
+  const [attachPage, setAttachPage] = useState(1);
+  const [attachLimit, setAttachLimit] = useState(20);
+  const { data: attachmentsData, isLoading, isError } = useTicketAttachments(ticketId, attachPage, attachLimit);
+  const attachments = attachmentsData?.data ?? [];
+  const attachMeta = attachmentsData?.meta;
   const uploadMutation = useUploadAttachment();
 
   useEffect(() => {
@@ -192,6 +212,17 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
             );
           })}
         </div>
+      )}
+
+      {attachMeta && (
+        <Pagination
+          page={attachPage}
+          totalPages={Math.ceil(attachMeta.total / attachLimit) || 1}
+          onPageChange={(p) => setAttachPage(p)}
+          limit={attachLimit}
+          onLimitChange={(l) => { setAttachLimit(l); setAttachPage(1); }}
+          totalItems={attachMeta.total}
+        />
       )}
 
       {previewId && previewUrl !== null && (

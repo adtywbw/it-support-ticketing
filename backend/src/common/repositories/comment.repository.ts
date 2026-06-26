@@ -14,10 +14,12 @@ export class CommentRepository {
     return this.prisma.comment.findUnique({ where: { id }, include }) as any;
   }
 
-  async findByTicketId(ticketId: string, where?: Record<string, unknown>) {
+  async findByTicketId(ticketId: string, where?: Record<string, unknown>, pagination?: { skip: number; take: number }) {
     return this.prisma.comment.findMany({
       where: { ticketId, ...where } as any,
       orderBy: { createdAt: 'asc' },
+      skip: pagination?.skip,
+      take: pagination?.take,
       include: {
         user: {
           select: { id: true, name: true, email: true, role: true, avatarUrl: true },
@@ -29,6 +31,10 @@ export class CommentRepository {
         },
       },
     }) as any;
+  }
+
+  async countByTicketId(ticketId: string, where?: Record<string, unknown>) {
+    return this.prisma.comment.count({ where: { ticketId, ...where } as any });
   }
 
   async deleteMany(where: Prisma.CommentWhereInput) {

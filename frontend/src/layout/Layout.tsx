@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useUnreadNotificationCount } from '@/hooks/use-notifications';
+import { useSocket } from '@/hooks/use-socket';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
 export default function Layout() {
   useUnreadNotificationCount();
+  useSocket();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 

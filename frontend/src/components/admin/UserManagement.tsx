@@ -6,6 +6,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import PasswordInput from '@/components/ui/PasswordInput';
+import Pagination from '@/components/ui/Pagination';
 import { getErrorMessage, getUserDisplayName, getUserInitials } from '@/lib/utils';
 import type { User, UserRole, CreateUserPayload, UpdateUserPayload } from '@/types';
 
@@ -28,7 +29,11 @@ const initialFormData: UserFormData = {
 };
 
 export default function UserManagement() {
-  const { data: users, isLoading, isError, error, refetch } = useUsers();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const { data: usersData, isLoading, isError, error, refetch } = useUsers({ page, limit });
+  const users = usersData?.data ?? [];
+  const meta = usersData?.meta;
   const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
@@ -229,6 +234,17 @@ export default function UserManagement() {
             </table>
           </div>
         </div>
+      )}
+
+      {meta && (
+        <Pagination
+          page={page}
+          totalPages={Math.ceil(meta.total / limit) || 1}
+          onPageChange={(p) => setPage(p)}
+          limit={limit}
+          onLimitChange={(l) => { setLimit(l); setPage(1); }}
+          totalItems={meta.total}
+        />
       )}
 
       <Modal

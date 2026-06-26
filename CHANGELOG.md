@@ -2,6 +2,31 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Performance (CODE_REVIEW.md Ses 2)
+- **PERF-01**: Tambah database indexes untuk query panas — `categoryId`, `subCategoryId`, `slaStatus`, `updatedAt`, `requesterId+createdAt`, `assignedToId+status`, `status+slaStatus` pada tickets; `ticketId+createdAt`, `userId` pada comments; `ticketId+visibility`, `userId` pada attachments; `userId+isRead+createdAt` pada notifications; `ticketId+createdAt` pada ticket_history; `createdAt` pada users.
+- **PERF-02**: Migration raw SQL untuk `pg_trgm` extension + 5 GIN trigram indexes untuk search ILIKE pada tickets (subject, description, ticketNumber) dan users (name, email).
+- **PERF-03**: Hilangkan N+1 query pada EndUser ticket list — ganti `for..await` per-ticket count dengan batch aggregate via `$queryRaw` (`countPublicCommentsByTicketIds`, `countVisibleAttachmentsByTicketIds`).
+- **PERF-04**: SLA cron ganti offset pagination (`skip: processed`) ke keyset pagination (`id > lastId`) — mencegah degradasi batch akhir dan duplikasi/ skip data.
+- **PERF-05**: Ganti `generateTicketNumber()` dari `MAX(SUBSTRING(…))` full table scan ke `nextval('ticket_number_seq')` PostgreSQL sequence O(1). Hapus `isolationLevel: 'Serializable'` karena sequence menghilangkan dependency. Migration `setval` dari data existing.
+- **PERF-06**: Dashboard stats: tambah Redis cache key `dashboard:stats:v1` TTL 30 detik + `invalidateCache()`; SLA stats 4 count queries di-gabung jadi 1 query `COUNT(*) FILTER(WHERE...)`; daily trends ganti fetch semua ticket + loop Node ke SQL `date_trunc` + `GROUP BY`.
+- **PERF-07**: CSV export pertahankan `MAX_EXPORT_ROWS=10000` guard; streaming untuk data besar dicatat sebagai future improvement.
+- **PERF-08**: `LocalStorageService` ganti `fs.existsSync`/`mkdirSync`/`writeFileSync`/`unlinkSync` ke `fs.promises` async.
+- **PERF-10**: Notification broadcast pakai `runWithConcurrency(users, 5, ...)` — 5 concurrent create; Telegram send pakai concurrency limit 3 + `Promise.allSettled`.
+- **PERF-11**: `MaintenanceGuard` tambah in-memory cache 2 detik + `mget` untuk enabled + message — kurangi Redis round-trip per request.
+- **PERF-12**: Route-level code splitting: semua page imports diganti `React.lazy()` + `Suspense` fallback. Build output menampilkan chunk terpisah per page.
+- **PERF-13**: Nginx tambah `location /assets/` dengan `Cache-Control: public, max-age=31536000, immutable`; `index.html` no-cache.
+- **PERF-14**: `SubCategoryManager` hilangkan N+1 request per-category — derive subCategories dari `useCategories()` yang sudah include `subCategories`.
+- **PERF-15**: Navbar notification dropdown query tambah `enabled: notifOpen` + `staleTime: 30_000`.
+- **PERF-19**: TanStack Query staleTime tuning — categories 30 menit, assignable users 10 menit, telegram config 5 menit.
+- **PERF-20**: Backup listing limit 50 terbaru untuk hindari `Promise.all` besar.
+
+## Prisma Migration
+- Migration `20260626001000_add_perf_indexes`: tambah 15+ indexes, pg_trgm extension + 5 GIN indexes, `ticket_number_seq` sequence, dan partial index `tickets_resolved_category_partial_idx`.
+
+## Redis
+- Tambah `mget()` method ke `RedisService` untuk multi-key get atomik.
+- DashboardModule import `RedisModule` untuk inject `RedisService`. (Karena tidak ada @Global)
+
 ## Docker
 - Build: ganti bind mount `./frontend/dist` → named volume `frontend_dist` + frontend builder service (fix 403)
 - Build: tambah `COPY postcss.config.js` & `COPY tailwind.config.js` ke Dockerfile (fix Tailwind tidak terproses)

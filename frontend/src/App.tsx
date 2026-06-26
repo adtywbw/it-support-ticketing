@@ -1,19 +1,28 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from '@/layout/Layout';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import MaintenanceBanner from '@/components/MaintenanceBanner';
-import LoginPage from '@/pages/LoginPage';
-import TicketsPage from '@/pages/TicketsPage';
-import CreateTicketPage from '@/pages/CreateTicketPage';
-import TicketDetailPage from '@/pages/TicketDetailPage';
-import DashboardPage from '@/pages/DashboardPage';
-import NotificationsPage from '@/pages/NotificationsPage';
-import MyAccountPage from '@/pages/MyAccountPage';
-import AdminUsersPage from '@/pages/AdminUsersPage';
-import AdminMasterDataPage from '@/pages/AdminMasterDataPage';
-import AdminMaintenancePage from '@/pages/AdminMaintenancePage';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const TicketsPage = lazy(() => import('@/pages/TicketsPage'));
+const CreateTicketPage = lazy(() => import('@/pages/CreateTicketPage'));
+const TicketDetailPage = lazy(() => import('@/pages/TicketDetailPage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
+const MyAccountPage = lazy(() => import('@/pages/MyAccountPage'));
+const AdminUsersPage = lazy(() => import('@/pages/AdminUsersPage'));
+const AdminMasterDataPage = lazy(() => import('@/pages/AdminMasterDataPage'));
+const AdminMaintenancePage = lazy(() => import('@/pages/AdminMaintenancePage'));
+
+const SuspenseFallback = () => (
+  <div className="flex min-h-screen items-center justify-center">
+    <LoadingSpinner size="lg" />
+  </div>
+);
 
 export default function App() {
   return (
@@ -31,6 +40,7 @@ export default function App() {
         }}
       />
       <MaintenanceBanner />
+      <Suspense fallback={<SuspenseFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
@@ -90,6 +100,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/tickets" replace />} />
         <Route path="*" element={<Navigate to="/tickets" replace />} />
       </Routes>
+      </Suspense>
     </ErrorBoundary>
   );
 }

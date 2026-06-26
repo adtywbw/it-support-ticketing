@@ -1,11 +1,17 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { formatRelativeTime } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
+import Pagination from '@/components/ui/Pagination';
 
 export default function NotificationsPage() {
-  const { data, isLoading } = useNotifications();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const { data: notifData, isLoading } = useNotifications(page, limit);
+  const notifications = notifData?.data ?? [];
+  const meta = notifData?.meta;
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
   const clearAll = useClearAll();
@@ -17,8 +23,6 @@ export default function NotificationsPage() {
       </div>
     );
   }
-
-  const notifications = data ?? [];
 
   return (
     <div className="space-y-4">
@@ -77,6 +81,17 @@ export default function NotificationsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {meta && (
+        <Pagination
+          page={page}
+          totalPages={Math.ceil(meta.total / limit) || 1}
+          onPageChange={(p) => setPage(p)}
+          limit={limit}
+          onLimitChange={(l) => { setLimit(l); setPage(1); }}
+          totalItems={meta.total}
+        />
       )}
 
       <div className="text-center">

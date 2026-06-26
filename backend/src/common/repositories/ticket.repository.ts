@@ -42,6 +42,30 @@ export class TicketRepository {
     return this.prisma.ticket.delete({ where: { id } }) as any;
   }
 
+  async countPublicCommentsByTicketIds(ticketIds: string[]): Promise<Array<{ ticketId: string; count: number }>> {
+    if (ticketIds.length === 0) return [];
+    return this.prisma.$queryRaw<Array<{ ticketId: string; count: number }>>`
+      SELECT "ticketId", COUNT(*)::int AS count
+      FROM comments
+      WHERE "ticketId" = ANY(${ticketIds}::uuid[])
+        AND type = 'PUBLIC'
+      GROUP BY "ticketId"
+    `;
+  }
+
+  async countVisibleAttachmentsByTicketIds(ticketIds: string[]): Promise<Array<{ ticketId: string; count: number }>> {
+    if (ticketIds.length === 0) return [];
+    return this.prisma.$queryRaw<Array<{ ticketId: string; count: number }>>`
+      SELECT a."ticketId", COUNT(*)::int AS count
+      FROM attachments a
+      LEFT JOIN comments c ON c.id = a."commentId"
+      WHERE a."ticketId" = ANY(${ticketIds}::uuid[])
+        AND a.visibility = 'PUBLIC'
+        AND (a."commentId" IS NULL OR c.type = 'PUBLIC')
+      GROUP BY a."ticketId"
+    `;
+  }
+
   async groupBy(args: any) {
     return this.prisma.ticket.groupBy(args) as any;
   }

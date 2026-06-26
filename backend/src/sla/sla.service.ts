@@ -84,15 +84,15 @@ export class SLAService {
   private async performSLACheck() {
     const now = new Date();
     const batchSize = 500;
-    let processed = 0;
-    let hasMore = true;
+    let lastId: string | undefined;
 
-    while (hasMore) {
+    while (true) {
       const batch = await this.ticketRepository.findMany({
         where: {
           status: {
             notIn: [TicketStatus.Resolved, TicketStatus.Closed],
           },
+          ...(lastId ? { id: { gt: lastId } } : {}),
         },
         include: {
           category: {
@@ -104,14 +104,11 @@ export class SLAService {
           },
         },
         take: batchSize,
-        skip: processed,
         orderBy: { id: 'asc' },
       });
 
-      if (batch.length === 0) {
-        hasMore = false;
-        break;
-      }
+      if (batch.length === 0) break;
+      lastId = batch[batch.length - 1].id;
 
       const onTrack: string[] = [];
       const atRisk: string[] = [];
@@ -168,7 +165,6 @@ export class SLAService {
         );
       }
 
-      processed += batch.length;
     }
   }
 }

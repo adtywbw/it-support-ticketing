@@ -1,13 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
+import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import type { User, CreateUserPayload, UpdateUserPayload } from '@/types';
 
-export function useUsers(options?: { enabled?: boolean }) {
+export function useUsers(options?: { enabled?: boolean; page?: number; limit?: number }) {
+  const page = options?.page ?? 1;
+  const limit = options?.limit ?? 10;
   return useQuery({
-    queryKey: ['users'],
+    queryKey: ['users', page, limit],
     queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<User[]>>('/users?includeInactive=true');
-      return unwrapData(response);
+      const response = await apiClient.get<ApiEnvelope<User[]>>(`/users?includeInactive=true&page=${page}&limit=${limit}`);
+      return unwrapPage(response);
     },
     enabled: options?.enabled ?? true,
   });
@@ -16,6 +18,7 @@ export function useUsers(options?: { enabled?: boolean }) {
 export function useAssignableUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users', 'assignable'],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Array<{ id: string; name: string; email: string; role: string }>>>('/users/assignable');
       return unwrapData(response);

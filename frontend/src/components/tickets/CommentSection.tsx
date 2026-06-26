@@ -4,23 +4,44 @@ import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
+import Pagination from '@/components/ui/Pagination';
 import { formatRelativeTime, formatFileSize, getUserInitials, getUserDisplayName, getErrorMessage } from '@/lib/utils';
 
 interface CommentSectionProps {
   ticketId: string;
 }
 
+const thumbnailCache = new Map<string, string>();
+
 function CommentFileThumbnail({ attachment, onPreview }: { attachment: { id: string; originalName: string }; onPreview: (id: string) => void }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const urlRef = useRef<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(() => thumbnailCache.get(attachment.id) ?? null);
+  const imgRef = useRef<HTMLDivElement>(null);
+  const fetchedRef = useRef(false);
+
   useEffect(() => {
+    if (blobUrl !== null || fetchedRef.current) return;
+    const el = imgRef.current;
+    if (!el) return;
     const ctrl = new AbortController();
-    apiClient.get(`/attachments/${attachment.id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
-      .then((r) => { const u = URL.createObjectURL(r.data); urlRef.current = u; setBlobUrl(u); })
-      .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
-    return () => { ctrl.abort(); if (urlRef.current) URL.revokeObjectURL(urlRef.current); };
-  }, [attachment.id]);
-  if (blobUrl === null) return <div className="h-10 w-10 shrink-0 rounded bg-gray-200 animate-pulse dark:bg-gray-600" />;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        fetchedRef.current = true;
+        apiClient.get(`/attachments/${attachment.id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
+          .then((r) => {
+            const u = URL.createObjectURL(r.data);
+            thumbnailCache.set(attachment.id, u);
+            setBlobUrl(u);
+          })
+          .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => { observer.disconnect(); ctrl.abort(); };
+  }, [attachment.id, blobUrl]);
+
   if (blobUrl === '') return (
     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -28,7 +49,8 @@ function CommentFileThumbnail({ attachment, onPreview }: { attachment: { id: str
       </svg>
     </div>
   );
-  return <img src={blobUrl} alt={attachment.originalName} className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer" onClick={() => onPreview(attachment.id)} />;
+  if (blobUrl !== null) return <img src={blobUrl} alt={attachment.originalName} className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer" onClick={() => onPreview(attachment.id)} />;
+  return <div ref={imgRef} className="h-10 w-10 shrink-0 rounded bg-gray-200 animate-pulse dark:bg-gray-600" />;
 }
 
 export default function CommentSection({ ticketId }: CommentSectionProps) {
@@ -41,9 +63,13 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
   const previewUrlRef = useRef<string | null>(null);
+  const [commentPage, setCommentPage] = useState(1);
+  const [commentLimit, setCommentLimit] = useState(20);
   const user = useAuthStore((s) => s.user);
 
-  const { data: comments, isLoading, isError } = useTicketComments(ticketId);
+  const { data: commentsData, isLoading, isError } = useTicketComments(ticketId, commentPage, commentLimit);
+  const comments = commentsData?.data ?? [];
+  const commentMeta = commentsData?.meta;
   const addCommentMutation = useAddComment();
 
   const canSeeInternal = user && (user.role === 'ITSupport' || user.role === 'Admin');
@@ -197,6 +223,17 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
 
         {!isLoading && !isError && visibleComments.length === 0 && (
           <EmptyState title="No comments yet" description="Be the first to comment on this ticket." />
+        )}
+
+        {commentMeta && (
+          <Pagination
+            page={commentPage}
+            totalPages={Math.ceil(commentMeta.total / commentLimit) || 1}
+            onPageChange={(p) => setCommentPage(p)}
+            limit={commentLimit}
+            onLimitChange={(l) => { setCommentLimit(l); setCommentPage(1); }}
+            totalItems={commentMeta.total}
+          />
         )}
 
         {visibleComments.map((comment: {

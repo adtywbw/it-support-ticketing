@@ -159,7 +159,7 @@ export class AttachmentsService {
     return attachment;
   }
 
-  async findByTicketId(ticketId: string, userId: string, userRole: string) {
+  async findByTicketId(ticketId: string, userId: string, userRole: string, page = 1, limit = 20) {
     const ticket = await this.ticketRepository.findUnique({
       where: { id: ticketId },
       select: { id: true, requesterId: true },
@@ -173,21 +173,33 @@ export class AttachmentsService {
       throw new ForbiddenException('Access denied');
     }
 
-    const attachments = await this.attachmentRepository.findByTicketId(ticketId, {
-      select: {
-        ...ATTACHMENT_SAFE_SELECT,
-        user: { select: { id: true, name: true } },
-        comment: { select: { type: true } },
-      },
-    });
+    const actualLimit = Math.min(limit, 100);
+    const skip = (page - 1) * actualLimit;
 
+    const attachmentWhere = { ticketId };
+    const [attachments, total] = await Promise.all([
+      this.attachmentRepository.findByTicketId(ticketId, {
+        where: attachmentWhere,
+        select: {
+          ...ATTACHMENT_SAFE_SELECT,
+          user: { select: { id: true, name: true } },
+          comment: { select: { type: true } },
+        },
+        skip,
+        take: actualLimit,
+      }),
+      this.attachmentRepository.count(attachmentWhere),
+    ]);
+
+    let result = attachments;
     if (userRole === Role.EndUser) {
-      return attachments.filter((attachment: any) =>
+      result = attachments.filter((attachment: any) =>
         AttachmentVisibilityPolicy.isAttachmentVisible(attachment, userRole as UserRole),
       );
     }
 
-    return attachments;
+    const totalPages = Math.ceil(total / actualLimit) || 1;
+    return { data: result, meta: { page, limit: actualLimit, total, totalPages } };
   }
 
   async getDownloadInfo(id: string, userId: string, userRole: string) {

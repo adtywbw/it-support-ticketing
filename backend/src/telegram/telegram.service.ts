@@ -266,11 +266,20 @@ export class TelegramService
 
     const users = await this.userRepository.findTelegramLinkedUsers();
 
-    for (const user of users) {
-      if (user.telegramChatId) {
-        await this.sendMessage(token, Number(user.telegramChatId), message);
+    const queue = users.filter((u: any) => u.telegramChatId);
+    const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const user = queue.shift();
+        if (user?.telegramChatId) {
+          try {
+            await this.sendMessage(token, Number(user.telegramChatId), message);
+          } catch {
+            // Individual send failure should not block others
+          }
+        }
       }
-    }
+    });
+    await Promise.allSettled(workers);
   }
 
   async sendToUser(userId: string, message: string) {

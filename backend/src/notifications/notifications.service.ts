@@ -3,6 +3,17 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { NotificationRepository } from '../common/repositories/notification.repository';
 import { UserRepository } from '../common/repositories/user.repository';
 
+async function runWithConcurrency<T>(items: T[], limit: number, task: (item: T) => Promise<void>) {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (item) await task(item);
+    }
+  });
+  await Promise.allSettled(workers);
+}
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -61,14 +72,14 @@ export class NotificationsService {
   }) {
     const itsupportUsers = await this.userRepository.findSupportUsers();
 
-    for (const user of itsupportUsers) {
+    await runWithConcurrency(itsupportUsers, 5, async (user) => {
       await this.create({
         userId: user.id,
         title: 'New Ticket Created',
         message: `Ticket ${payload.ticketNumber}: ${payload.subject}`,
         data: { ticketId: payload.ticketId, type: 'ticket_created' },
       });
-    }
+    });
 
     const requesterIsNotSupport = !itsupportUsers.some(
       (u) => u.id === payload.requesterId,

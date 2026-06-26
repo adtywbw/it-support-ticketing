@@ -185,3 +185,16 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - `admin@company.com / Admin123!`
 - `support@company.com / Support123!`
 - Production seed requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` env vars.
+
+## Performance Optimizations (CODE_REVIEW.md Sesi 2)
+- Ticket number: PostgreSQL sequence `ticket_number_seq` — O(1) `nextval()`, bukan `MAX(SUBSTRING)` full scan. Transaction isolation default (bukan Serializable).
+- SLA cron: keyset pagination `id > lastId` (bukan offset `skip: processed`).
+- EndUser ticket list: batch aggregate count via `$queryRaw` — bukan N+1 per-ticket.
+- Dashboard: Redis cache TTL 30 detik + SQL aggregation untuk SLA stats & daily trends.
+- Database indexes: 15+ indexes ditambah di migration `20260626001000_add_perf_indexes`, termasuk `pg_trgm` GIN indexes untuk ILIKE search.
+- MaintenanceGuard: in-memory cache 2 detik + `mget` — kurangi Redis round-trip per request.
+- LocalStorage: async `fs/promises` (bukan sync blocking).
+- Notifications/Telegram: concurrency limit 3-5 via `runWithConcurrency`.
+- Frontend: route-level `React.lazy()` code splitting, nginx static asset immutable cache, TanStack Query staleTime tuning (categories 30m, assignable 10m).
+- MasterData: subcategories derived from categories data (no N+1 requests).
+- RedisService: tambah `mget()` method untuk multi-key get atomik.

@@ -30,6 +30,8 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
 
   const { data } = useQuery({
     queryKey: ['notifications', 'dropdown'],
+    enabled: notifOpen,
+    staleTime: 30_000,
     queryFn: async () => {
       const res = await apiClient.get<PaginatedResponse<Notification>>('/notifications?page=1&limit=5');
       return res.data.data;

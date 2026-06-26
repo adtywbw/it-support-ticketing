@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import { Express } from 'express';
 import { StorageService } from '../interfaces/storage-service.interface';
@@ -14,19 +15,19 @@ export class LocalStorageService implements StorageService {
     }
 
     const dir = path.dirname(resolvedPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(resolvedPath, file.buffer);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(resolvedPath, file.buffer);
   }
 
   async delete(filePath: string): Promise<void> {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    try {
+      await fs.unlink(filePath);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
   }
 
   getReadStream(filePath: string): NodeJS.ReadableStream {
-    return fs.createReadStream(filePath);
+    return fsSync.createReadStream(filePath);
   }
 }

@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
@@ -15,7 +16,7 @@ import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
-import { TicketStatus, Priority, SLAStatus, CommentType, Prisma } from '@prisma/client';
+import { TicketStatus, Priority, SLAStatus,       CommentType, Prisma } from '@prisma/client';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 
@@ -151,27 +152,26 @@ export class TicketsService {
       this.ticketRepository.count(where as any),
     ]);
 
-    if (userRole === 'EndUser') {
-      const visibleAttachmentWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere();
+    if (userRole === 'EndUser' && tickets.length > 0) {
+      const ticketIds = tickets.map((t: any) => t.id);
+      const [commentCounts, attachmentCounts] = await Promise.all([
+        this.ticketRepository.countPublicCommentsByTicketIds(ticketIds),
+        this.ticketRepository.countVisibleAttachmentsByTicketIds(ticketIds),
+      ]);
+      const commentsByTicket = new Map(commentCounts.map((r) => [r.ticketId, r.count]));
+      const attachmentsByTicket = new Map(attachmentCounts.map((r) => [r.ticketId, r.count]));
       for (const ticket of tickets) {
-        const visibleComments = await this.ticketRepository.findUnique({
-          where: { id: ticket.id },
-          select: { _count: { select: { comments: { where: { type: CommentType.PUBLIC } } } } },
-        });
-        const visibleAttachments = await this.ticketRepository.findUnique({
-          where: { id: ticket.id },
-          select: { _count: { select: { attachments: { where: visibleAttachmentWhere } } } },
-        });
-        ticket._count.comments = visibleComments?._count.comments ?? 0;
-        ticket._count.attachments = visibleAttachments?._count.attachments ?? 0;
+        ticket._count.comments = commentsByTicket.get(ticket.id) ?? 0;
+        ticket._count.attachments = attachmentsByTicket.get(ticket.id) ?? 0;
       }
     }
 
     return { data: tickets, meta: { page: limit > 0 ? page : 1, limit, total } };
   }
 
-  async exportCsv(queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
+  async exportCsvToResponse(res: Response, queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
     const MAX_EXPORT_ROWS = 10000;
+    const BATCH_SIZE = 500;
     const {
       status, priority, categoryId, assignedToId, requesterId,
       slaStatus, dateFrom, dateTo, search,
@@ -211,19 +211,7 @@ export class TicketsService {
 
     const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    const orderBy: Record<string, string> = { [orderField]: sortOrder };
-
-    const tickets = await this.ticketRepository.findMany({
-      where: where as any,
-      orderBy,
-      take: MAX_EXPORT_ROWS,
-      include: {
-        requester: { select: { id: true, name: true, email: true } },
-        assignedTo: { select: { id: true, name: true, email: true } },
-        category: { select: { id: true, name: true } },
-        subCategory: { select: { id: true, name: true } },
-      },
-    });
+    const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const escapeCsv = (value: unknown) => {
       const raw = String(value ?? '');
@@ -232,21 +220,51 @@ export class TicketsService {
     };
 
     const headers = ['Ticket #', 'Subject', 'Status', 'Priority', 'Category', 'Sub Category', 'Created By', 'Assigned To', 'Created At', 'Resolved At', 'SLA Status'];
-    const rows = tickets.map((t: any) => [
-      t.ticketNumber,
-      t.subject,
-      t.status,
-      t.priority,
-      t.category?.name || '',
-      t.subCategory?.name || '',
-      t.requester?.name || '',
-      t.assignedTo?.name || '',
-      t.createdAt.toISOString(),
-      t.resolvedAt?.toISOString() || '',
-      t.slaStatus || '',
-    ]);
+    res.write(headers.map(escapeCsv).join(',') + '\n');
 
-    return [headers.map(escapeCsv).join(','), ...rows.map((r: any) => r.map(escapeCsv).join(','))].join('\n');
+    let cursorId: string | undefined;
+    let totalExported = 0;
+
+    while (totalExported < MAX_EXPORT_ROWS) {
+      const cursorWhere = cursorId ? { ...where, id: { [orderDir === 'asc' ? 'gt' : 'lt']: cursorId } } : where;
+
+      const batch = await this.ticketRepository.findMany({
+        where: cursorWhere as any,
+        orderBy: { id: orderDir === 'asc' ? 'asc' : 'desc' },
+        take: BATCH_SIZE,
+        include: {
+          requester: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+          category: { select: { id: true, name: true } },
+          subCategory: { select: { id: true, name: true } },
+        },
+      });
+
+      if (batch.length === 0) break;
+
+      for (const ticket of batch) {
+        const row = [
+          ticket.ticketNumber,
+          ticket.subject,
+          ticket.status,
+          ticket.priority,
+          ticket.category?.name || '',
+          ticket.subCategory?.name || '',
+          ticket.requester?.name || '',
+          ticket.assignedTo?.name || '',
+          ticket.createdAt.toISOString(),
+          ticket.resolvedAt?.toISOString() || '',
+          ticket.slaStatus || '',
+        ];
+        res.write(row.map(escapeCsv).join(',') + '\n');
+        totalExported++;
+      }
+
+      cursorId = batch[batch.length - 1].id;
+      if (batch.length < BATCH_SIZE) break;
+    }
+
+    res.end();
   }
 
   async findById(id: string, userRole?: string, userId?: string) {
@@ -255,23 +273,14 @@ export class TicketsService {
       assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
       category: { select: { id: true, name: true } },
       subCategory: { select: { id: true, name: true } },
-      comments: {
-        where: userRole === 'EndUser' ? { type: CommentType.PUBLIC } : undefined,
-        orderBy: { createdAt: 'asc' },
-        include: {
-          user: { select: { id: true, name: true, email: true, role: true } },
-        },
-      },
-      attachments: {
-        where: userRole === 'EndUser'
-          ? AttachmentVisibilityPolicy.buildVisibleAttachmentWhere(userRole as UserRole)
-          : undefined,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          user: { select: { id: true, name: true } },
-        },
-      },
-      _count: { select: { comments: true, attachments: true } },
+      _count: userRole === 'EndUser'
+        ? {
+            select: {
+              comments: { where: { type: CommentType.PUBLIC } },
+              attachments: { where: AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere() },
+            },
+          }
+        : { select: { comments: true, attachments: true } },
     };
 
     if (userRole !== 'EndUser') {
@@ -291,23 +300,6 @@ export class TicketsService {
 
     if (userRole === 'EndUser' && ticket.requesterId !== userId) {
       throw new ForbiddenException('Access denied');
-    }
-
-    if (userRole === 'EndUser') {
-      const visibleAttachmentWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere();
-      const visibleCounts = await this.ticketRepository.findUnique({
-        where: { id: ticket.id },
-        select: {
-          _count: {
-            select: {
-              comments: { where: { type: CommentType.PUBLIC } },
-              attachments: { where: visibleAttachmentWhere },
-            },
-          },
-        },
-      });
-      ticket._count.comments = visibleCounts?._count.comments ?? 0;
-      ticket._count.attachments = visibleCounts?._count.attachments ?? 0;
     }
 
     return ticket;
@@ -562,7 +554,7 @@ export class TicketsService {
           });
 
           return ticket;
-        }, { isolationLevel: 'Serializable' });
+        });
       } catch (error) {
         if (attempt < 2 && this.isRetryableTicketNumberError(error)) {
           continue;
@@ -580,12 +572,10 @@ export class TicketsService {
   }
 
   private async generateTicketNumber(tx: Prisma.TransactionClient): Promise<string> {
-    const result = await tx.$queryRaw<{ max_seq: bigint }[]>`
-      SELECT COALESCE(MAX(CAST(SUBSTRING("ticketNumber" FROM 5) AS INTEGER)), 0) as max_seq
-      FROM "tickets"
+    const result = await tx.$queryRaw<{ seq: bigint }[]>`
+      SELECT nextval('ticket_number_seq') AS seq
     `;
 
-    const nextSeq = Number(result[0].max_seq) + 1;
-    return `TKT-${String(nextSeq).padStart(3, '0')}`;
+    return `TKT-${String(Number(result[0].seq)).padStart(3, '0')}`;
   }
 }

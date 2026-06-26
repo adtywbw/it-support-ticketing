@@ -150,7 +150,17 @@ export class MaintenanceService {
       .sort()
       .reverse();
 
-    return Promise.all(ids.map((id) => this.getBackup(id)));
+    const recentIds = ids.slice(0, 50);
+    const results: BackupInfo[] = [];
+    const queue = [...recentIds];
+    const workers = Array.from({ length: Math.min(5, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const id = queue.shift()!;
+        results.push(await this.getBackup(id));
+      }
+    });
+    await Promise.allSettled(workers);
+    return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   async getBackup(id: string): Promise<BackupInfo> {

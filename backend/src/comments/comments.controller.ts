@@ -4,6 +4,7 @@ import {
   Post,
   Param,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
@@ -42,9 +43,11 @@ export class CommentsController {
   @Get()
   async findByTicketId(
     @Param('ticketId') ticketId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
     @CurrentUser() user: { id: string; role: Role },
   ) {
-    return this.commentsService.findByTicketId(ticketId, user.role, user.id);
+    return this.commentsService.findByTicketId(ticketId, user.role, user.id, page, limit);
   }
 
   @Post()

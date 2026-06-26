@@ -54,10 +54,9 @@ export class TicketsController {
     @CurrentUser() user: { id: string; role: Role },
     @Res() res: Response,
   ) {
-    const csv = await this.ticketsService.exportCsv(queryTicketDto, user.role, user.id);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="tickets-export.csv"');
-    res.send(csv);
+    await this.ticketsService.exportCsvToResponse(res, queryTicketDto, user.role, user.id);
   }
 
   @Get(':id')

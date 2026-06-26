@@ -1,16 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TicketRepository } from '../common/repositories/ticket.repository';
+import { RedisService } from '../redis/redis.service';
 import { TicketStatus, SLAStatus } from '@prisma/client';
+
+const DASHBOARD_CACHE_KEY = 'dashboard:stats:v1';
+const DASHBOARD_CACHE_TTL = 30;
 
 @Injectable()
 export class DashboardService {
   constructor(
     private readonly ticketRepository: TicketRepository,
     private readonly prisma: PrismaService,
+    private readonly redisService: RedisService,
   ) {}
 
-  async getStats() {
+  async getStats(forceRefresh = false) {
+    if (!forceRefresh) {
+      const cached = await this.redisService.get(DASHBOARD_CACHE_KEY);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    }
+
     const [
       statusCounts,
       priorityCounts,
@@ -27,7 +39,7 @@ export class DashboardService {
       this.getAvgResolutionTimeByCategory(),
     ]);
 
-    return {
+    const result = {
       statusCounts,
       priorityCounts,
       slaStats,
@@ -37,6 +49,14 @@ export class DashboardService {
       },
       categoryResolution,
     };
+
+    await this.redisService.set(DASHBOARD_CACHE_KEY, JSON.stringify(result), DASHBOARD_CACHE_TTL);
+
+    return result;
+  }
+
+  async invalidateCache() {
+    await this.redisService.del(DASHBOARD_CACHE_KEY);
   }
 
   private async getStatusCounts() {
@@ -69,23 +89,28 @@ export class DashboardService {
   }
 
   private async getSLAStats() {
-    const activeWhere = {
-      status: { notIn: [TicketStatus.Closed, TicketStatus.Resolved] },
-    };
+    const rows = await this.prisma.$queryRaw<Array<{
+      total: number;
+      onTrack: number;
+      atRisk: number;
+      breached: number;
+    }>>`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE "slaStatus" = 'OnTrack')::int AS "onTrack",
+        COUNT(*) FILTER (WHERE "slaStatus" = 'AtRisk')::int AS "atRisk",
+        COUNT(*) FILTER (WHERE "slaStatus" = 'Breached')::int AS breached
+      FROM tickets
+      WHERE status NOT IN ('Closed', 'Resolved')
+    `;
 
-    const [total, onTrack, atRisk, breached] = await Promise.all([
-      this.ticketRepository.count(activeWhere),
-      this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.OnTrack }),
-      this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.AtRisk }),
-      this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.Breached }),
-    ]);
-
+    const stats = rows[0];
     return {
-      total,
-      onTrack,
-      atRisk,
-      breached,
-      complianceRate: total > 0 ? Math.round((onTrack / total) * 100) : 100,
+      total: stats.total,
+      onTrack: stats.onTrack,
+      atRisk: stats.atRisk,
+      breached: stats.breached,
+      complianceRate: stats.total > 0 ? Math.round((stats.onTrack / stats.total) * 100) : 100,
     };
   }
 
@@ -94,26 +119,24 @@ export class DashboardService {
     since.setDate(since.getDate() - days);
     since.setHours(0, 0, 0, 0);
 
-    const tickets = await this.ticketRepository.findMany({
-      where: { createdAt: { gte: since } },
-      select: { createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    });
+    const rows = await this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
+      SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day,
+             COUNT(*)::int AS count
+      FROM tickets
+      WHERE "createdAt" >= ${since}
+      GROUP BY date_trunc('day', "createdAt")
+      ORDER BY day ASC
+    `;
 
     const trends: Record<string, number> = {};
-
     for (let i = 0; i < days; i++) {
       const date = new Date(since);
       date.setDate(date.getDate() + i);
       const key = date.toISOString().split('T')[0];
       trends[key] = 0;
     }
-
-    for (const ticket of tickets) {
-      const key = ticket.createdAt.toISOString().split('T')[0];
-      if (trends[key] !== undefined) {
-        trends[key]++;
-      }
+    for (const row of rows) {
+      trends[row.day] = row.count;
     }
 
     return trends;

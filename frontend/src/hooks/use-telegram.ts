@@ -59,6 +59,7 @@ export function useUnlinkTelegram() {
 export function useTelegramConfig(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['telegram-config'],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const res = await apiClient.get<ApiEnvelope<TelegramConfig>>('/telegram/config');
       return unwrapData(res);

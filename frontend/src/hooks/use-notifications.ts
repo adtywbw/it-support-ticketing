@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
+import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import { useNotificationStore } from '@/stores/notification-store';
 import type { Notification } from '@/types';
 import { useEffect } from 'react';
@@ -32,7 +32,7 @@ export function useNotifications(page = 1, limit = 20) {
       const response = await apiClient.get<ApiEnvelope<Notification[]>>(
         `/notifications?page=${page}&limit=${limit}`,
       );
-      return unwrapData(response);
+      return unwrapPage(response);
     },
   });
 }
