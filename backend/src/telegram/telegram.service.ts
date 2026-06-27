@@ -8,6 +8,7 @@ import {
 import * as crypto from 'crypto';
 import { TelegramConfigRepository } from '../common/repositories/telegram-config.repository';
 import { UserRepository } from '../common/repositories/user.repository';
+import { TelegramSettingsDto } from './dto/telegram-config.dto';
 
 export interface TelegramSettings {
   enabledEvents: string[];
@@ -40,6 +41,8 @@ export class TelegramService
 {
   private readonly logger = new Logger(TelegramService.name);
   private polling = false;
+  private pollingGeneration = 0;
+  private pollTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly telegramConfigRepository: TelegramConfigRepository,
@@ -52,10 +55,16 @@ export class TelegramService
 
   async onApplicationShutdown() {
     this.polling = false;
+    this.pollingGeneration += 1;
+    this.clearPollTimeout();
   }
 
   async startBot() {
     this.polling = false;
+    this.pollingGeneration += 1;
+    this.clearPollTimeout();
+
+    const generation = this.pollingGeneration;
     const token = await this.resolveToken();
     if (!token) {
       this.logger.warn('Telegram bot token not configured');
@@ -63,7 +72,14 @@ export class TelegramService
     }
     this.polling = true;
     this.logger.log('Telegram bot polling started');
-    this.pollLoop(token, 0);
+    this.pollLoop(token, 0, generation);
+  }
+
+  private clearPollTimeout() {
+    if (this.pollTimeout) {
+      clearTimeout(this.pollTimeout);
+      this.pollTimeout = null;
+    }
   }
 
   private async resolveToken(): Promise<string | null> {
@@ -74,35 +90,14 @@ export class TelegramService
 
   private async resolveSettings(): Promise<TelegramSettings> {
     const config = await this.telegramConfigRepository.findFirst();
-    const defaults: TelegramSettings = {
-      enabledEvents: ['ticket.created'],
-      enableGroupChat: false,
-      groupChatId: process.env.TELEGRAM_GROUP_CHAT_ID || undefined,
-      notifyIndividualsWhenGroupChat: false,
-      templates: {},
-    };
-    if (config?.settings && typeof config.settings === 'object') {
-      const s = config.settings as Record<string, unknown>;
-      return {
-        enabledEvents: (s.enabledEvents as string[]) || defaults.enabledEvents,
-        enableGroupChat:
-          (s.enableGroupChat as boolean) ?? defaults.enableGroupChat,
-        groupChatId:
-          (s.groupChatId as string) ||
-          (!s.enableGroupChat ? undefined : defaults.groupChatId),
-        notifyIndividualsWhenGroupChat:
-          (s.notifyIndividualsWhenGroupChat as boolean) ?? defaults.notifyIndividualsWhenGroupChat,
-        templates: {
-          ...DEFAULT_TEMPLATES,
-          ...((s.templates as Record<string, string>) || {}),
-        },
-      };
-    }
-    return defaults;
+    return this.normalizeSettings(config?.settings as Record<string, unknown> | null | undefined);
   }
 
-  private async pollLoop(token: string, offset: number) {
-    if (!this.polling) return;
+  private async pollLoop(token: string, offset: number, generation: number) {
+    if (!this.polling || generation !== this.pollingGeneration) {
+      this.logger.log('Stale Telegram polling loop stopped');
+      return;
+    }
 
     const TIMEOUT_SECONDS = 30;
     let hasUpdates = false;
@@ -124,8 +119,13 @@ export class TelegramService
       this.logger.error('Telegram polling error', err);
     }
 
+    if (!this.polling || generation !== this.pollingGeneration) {
+      this.logger.log('Stale Telegram polling loop stopped');
+      return;
+    }
+
     const delay = hasUpdates ? 0 : TIMEOUT_SECONDS * 1000;
-    setTimeout(() => this.pollLoop(token, offset), delay);
+    this.pollTimeout = setTimeout(() => this.pollLoop(token, offset, generation), delay);
   }
 
   private async handleUpdate(token: string, update: any) {
@@ -184,7 +184,7 @@ export class TelegramService
     if (!config) {
       config = await this.telegramConfigRepository.create({ settings: {} });
     }
-    const settings = config.settings as unknown as TelegramSettings;
+    const settings = this.normalizeSettings(config.settings as Record<string, unknown> | null | undefined);
     const { groupChatId: _, ...safeSettings } = settings;
     return {
       botToken: '',
@@ -196,7 +196,7 @@ export class TelegramService
 
   async updateConfig(data: {
     botToken?: string;
-    settings?: TelegramSettings;
+    settings?: TelegramSettingsDto;
   }) {
     let config = await this.telegramConfigRepository.findFirst();
     if (!config) {
@@ -212,25 +212,43 @@ export class TelegramService
       }
     }
     if (data.settings) {
-      const existingSettings = (config?.settings as Record<string, unknown>) || {};
-      const merged: Record<string, unknown> = {
-        enabledEvents: data.settings.enabledEvents,
-        enableGroupChat: data.settings.enableGroupChat,
-        notifyIndividualsWhenGroupChat: data.settings.notifyIndividualsWhenGroupChat,
-        templates: { ...DEFAULT_TEMPLATES, ...(data.settings.templates || {}) },
-      };
-      if (data.settings.groupChatId !== undefined) {
-        merged.groupChatId = data.settings.groupChatId || undefined;
-      } else if (existingSettings.groupChatId && data.settings.enableGroupChat) {
-        merged.groupChatId = existingSettings.groupChatId;
-      }
-      update.settings = merged;
+      update.settings = this.normalizeSettings(
+        config?.settings as Record<string, unknown> | null | undefined,
+        data.settings,
+      );
     }
 
     await this.telegramConfigRepository.update(config.id, update);
     await this.startBot();
 
     return this.getConfig();
+  }
+
+  private normalizeSettings(
+    existing?: Record<string, unknown> | null,
+    patch?: TelegramSettingsDto,
+  ): TelegramSettings {
+    const current = existing || {};
+    const currentTemplates = typeof current.templates === 'object' && current.templates !== null
+      ? current.templates as Record<string, string>
+      : {};
+    const enableGroupChat = patch?.enableGroupChat ?? (current.enableGroupChat as boolean | undefined) ?? false;
+    const groupChatId = patch?.groupChatId !== undefined
+      ? patch.groupChatId || undefined
+      : (current.groupChatId as string | undefined) || (enableGroupChat ? process.env.TELEGRAM_GROUP_CHAT_ID : undefined);
+
+    return {
+      enabledEvents: patch?.enabledEvents ?? (current.enabledEvents as string[] | undefined) ?? ['ticket.created'],
+      enableGroupChat,
+      groupChatId,
+      notifyIndividualsWhenGroupChat:
+        patch?.notifyIndividualsWhenGroupChat ?? (current.notifyIndividualsWhenGroupChat as boolean | undefined) ?? false,
+      templates: {
+        ...DEFAULT_TEMPLATES,
+        ...currentTemplates,
+        ...(patch?.templates || {}),
+      },
+    };
   }
 
   renderMessage(

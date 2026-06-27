@@ -40,4 +40,11 @@ export class AttachmentRepository {
   async deleteMany(where: Prisma.AttachmentWhereInput) {
     return this.prisma.attachment.deleteMany({ where });
   }
+
+  async transaction<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
+  ) {
+    return this.prisma.$transaction(fn, options);
+  }
 }

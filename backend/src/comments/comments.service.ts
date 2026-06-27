@@ -8,7 +8,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import { Express } from 'express';
-import { Role, CommentType, AttachmentVisibility } from '@prisma/client';
+import { Role, CommentType, AttachmentVisibility, Prisma } from '@prisma/client';
 import { CommentRepository } from '../common/repositories/comment.repository';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
@@ -33,6 +33,35 @@ const ALLOWED_MIME_TYPES = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES_PER_COMMENT = 3;
+
+const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> = [
+  { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff], offset: 0 },
+  { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 },
+  { mime: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38], offset: 0 },
+  { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46], offset: 0 },
+  { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 },
+  { mime: 'application/zip', bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 },
+  { mime: 'application/x-rar-compressed', bytes: [0x52, 0x61, 0x72, 0x21], offset: 0 },
+];
+
+function detectMimeFromMagicBytes(buffer: Buffer): string | null {
+  for (const sig of MIME_SIGNATURES) {
+    if (buffer.length >= sig.offset + sig.bytes.length) {
+      const match = sig.bytes.every((b, i) => buffer[sig.offset + i] === b);
+      if (match) return sig.mime;
+    }
+  }
+  return null;
+}
+
+function assertMimeTypeIntegrity(file: Express.Multer.File): void {
+  const detected = detectMimeFromMagicBytes(file.buffer);
+  if (detected && detected !== file.mimetype) {
+    throw new BadRequestException(
+      `File content does not match declared type ${file.mimetype}`,
+    );
+  }
+}
 
 function buildSafeUploadPath(uploadDir: string, originalName: string): string {
   const uploadRoot = path.resolve(uploadDir);
@@ -100,63 +129,68 @@ export class CommentsService {
           `File "${file.originalname}" exceeds 5MB limit`,
         );
       }
+
+      if (file.buffer) {
+        assertMimeTypeIntegrity(file);
+      }
     }
 
     const createdFiles: { path: string }[] = [];
 
     try {
-      const comment = await this.commentRepository.create(
-        {
-          ticket: { connect: { id: ticketId } },
-          user: { connect: { id: userId } },
-          content,
-          type,
-        },
-        {
-          user: {
-            select: { id: true, name: true, email: true, role: true, avatarUrl: true },
-          },
-        },
-      );
-
+      const uploadDir = process.env.UPLOAD_DIR || './uploads';
       for (const file of files) {
-        const uploadDir = process.env.UPLOAD_DIR || './uploads';
         const filePath = buildSafeUploadPath(uploadDir, file.originalname);
-
         await this.storageService.save(file, filePath);
         createdFiles.push({ path: filePath });
-
-        await this.attachmentRepository.create({
-          ticket: { connect: { id: ticketId } },
-          comment: { connect: { id: comment.id } },
-          user: { connect: { id: userId } },
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          size: file.size,
-          path: filePath,
-          visibility: type === CommentType.INTERNAL ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC,
-        });
       }
 
-      return this.commentRepository.findById(comment.id, {
-        user: {
-          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
-        },
-        attachments: {
-          select: {
-            id: true,
-            ticketId: true,
-            commentId: true,
-            userId: true,
-            originalName: true,
-            mimeType: true,
-            size: true,
-            visibility: true,
-            createdAt: true,
-            user: { select: { id: true, name: true } },
+      return await this.commentRepository.transaction(async (tx) => {
+        const comment = await tx.comment.create({
+          data: {
+            ticket: { connect: { id: ticketId } },
+            user: { connect: { id: userId } },
+            content,
+            type,
           },
-        },
-      });
+        });
+
+        await Promise.all(files.map((file, index) => tx.attachment.create({
+          data: {
+            ticket: { connect: { id: ticketId } },
+            comment: { connect: { id: comment.id } },
+            user: { connect: { id: userId } },
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            path: createdFiles[index].path,
+            visibility: type === CommentType.INTERNAL ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC,
+          },
+        })));
+
+        return tx.comment.findUnique({
+          where: { id: comment.id },
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+            },
+            attachments: {
+              select: {
+                id: true,
+                ticketId: true,
+                commentId: true,
+                userId: true,
+                originalName: true,
+                mimeType: true,
+                size: true,
+                visibility: true,
+                createdAt: true,
+                user: { select: { id: true, name: true } },
+              },
+            },
+          },
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (err) {
       for (const f of createdFiles) {
         try {
@@ -186,8 +220,9 @@ export class CommentsService {
       where.type = CommentType.PUBLIC;
     }
 
-    const actualLimit = Math.min(limit, 100);
-    const skip = (page - 1) * actualLimit;
+    const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+    const actualLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+    const skip = (normalizedPage - 1) * actualLimit;
 
     const [comments, total] = await Promise.all([
       this.commentRepository.findByTicketId(ticketId, where, { skip, take: actualLimit }),
@@ -211,6 +246,6 @@ export class CommentsService {
     }
 
     const totalPages = Math.ceil(total / actualLimit) || 1;
-    return { data: result, meta: { page, limit: actualLimit, total, totalPages } };
+    return { data: result, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
   }
 }

@@ -40,4 +40,11 @@ export class CommentRepository {
   async deleteMany(where: Prisma.CommentWhereInput) {
     return this.prisma.comment.deleteMany({ where });
   }
+
+  async transaction<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
+  ) {
+    return this.prisma.$transaction(fn, options);
+  }
 }

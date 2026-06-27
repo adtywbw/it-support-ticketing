@@ -210,11 +210,12 @@ it-support-ticketing/
 # 1. Clone and enter
 git clone <repo-url> && cd it-support-ticketing
 
-# 2. Environment variables
-cp .env.example backend/.env
-# Edit secrets (JWT_SECRET, DATABASE_URL, REDIS_URL) in backend/.env
-# If running via docker compose, backend/.env is the canonical source for API, DB, and backup.sh.
-# Wajib: JWT_SECRET, DATABASE_URL, dan REDIS_URL harus diset — startup akan throw error jika tidak ada
+# 2. Environment variables for Docker Compose
+cp backend/.env.compose.example backend/.env
+# Edit secrets in backend/.env: JWT_SECRET, POSTGRES_PASSWORD, DATABASE_URL,
+# REDIS_PASSWORD, and REDIS_URL. backend/.env is the canonical source for API,
+# DB, Redis, and backup.sh when running via docker compose.
+# Wajib: JWT_SECRET, DATABASE_URL, REDIS_URL, dan REDIS_PASSWORD harus diset.
 # Telegram: TELEGRAM_BOT_TOKEN opsional (bisa diisi via Admin UI nanti)
 
 # 3. Build and run (database + frontend build automatically on first start)
@@ -237,13 +238,15 @@ The app will be available at `http://helpdesk.rsmch.internal`.
 > - Start without rebuild: `docker compose up -d` (uses existing images)
 > - Clean dangling images: `docker image prune -f`
 
+Compose nginx is the public edge in the default topology and does not trust client-supplied `X-Forwarded-For` as the real IP. If you add an upstream reverse proxy, configure nginx to trust only that proxy's exact IP/subnet before relying on forwarded real IP headers.
+
 ### Without Docker
 
 ```bash
 # Backend
 cd backend
-cp .env.example .env
-# Ensure REDIS_URL is set in .env
+cp .env.local.example .env
+# Ensure local PostgreSQL and Redis match DATABASE_URL and REDIS_URL in .env
 npm install
 npx prisma generate
 npx prisma migrate dev --name init
@@ -401,11 +404,13 @@ Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers from `frontend/src
 
 ## Backup
 
-Run a backup while Docker Compose services are up:
+Run a backup while Docker Compose services are up and maintenance mode is enabled:
 
 ```bash
 ./scripts/backup.sh
 ```
+
+The script refuses to run while maintenance mode is off because a live DB dump plus uploads archive can be inconsistent. If an operator intentionally accepts that risk, use `./scripts/backup.sh --live-ok`.
 
 The script reads environment variables from `backend/.env` (canonical source) and creates a timestamped directory under `backups/` containing:
 - `db.sql.gz` — PostgreSQL logical dump (`pg_dump --schema public`) containing all tables: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config

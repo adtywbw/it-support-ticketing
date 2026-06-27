@@ -3,8 +3,10 @@ import type { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axio
 import { getAccessToken, useAuthStore } from '@/stores/auth-store';
 import type { User } from '@/types';
 
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
 const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
 });
 
 export interface ApiEnvelope<T> {
@@ -83,7 +85,7 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await axios.post<{ data: { accessToken: string; user: User } }>('/api/auth/refresh', {}, { withCredentials: true });
+        const response = await axios.post<{ data: { accessToken: string; user: User } }>(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
         const { accessToken, user } = response.data.data;
 
         if (!accessToken) {

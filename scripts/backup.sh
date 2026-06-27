@@ -8,6 +8,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_ROOT="${BACKUP_DIR:-$ROOT_DIR/backups}"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_PATH="$BACKUP_ROOT/$TIMESTAMP"
+LIVE_OK=false
+
+if [ "${1:-}" = "--live-ok" ]; then
+  LIVE_OK=true
+elif [ "${1:-}" != "" ]; then
+  echo "Usage: $0 [--live-ok]" >&2
+  exit 2
+fi
 
 cd "$ROOT_DIR"
 
@@ -20,6 +28,17 @@ fi
 
 POSTGRES_USER="${POSTGRES_USER:-ticketing}"
 POSTGRES_DB="${POSTGRES_DB:-ticketing}"
+
+if [ "$LIVE_OK" != "true" ]; then
+  MAINTENANCE_ENABLED="$(docker compose exec -T cache sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli get maintenance:enabled' | tr -d '\r')"
+  if [ "$MAINTENANCE_ENABLED" != "1" ]; then
+    echo "Refusing manual backup because maintenance mode is not enabled." >&2
+    echo "Enable maintenance from /admin/maintenance, or rerun with --live-ok only after accepting inconsistent live-backup risk." >&2
+    exit 1
+  fi
+else
+  echo "WARNING: --live-ok skips maintenance preflight; backup may be inconsistent while app is live." >&2
+fi
 
 mkdir -p "$BACKUP_PATH"
 chmod 700 "$BACKUP_PATH"

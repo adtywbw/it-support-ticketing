@@ -15,6 +15,7 @@ import { Role, CommentType } from '@prisma/client';
 import { CommentsService } from './comments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -43,11 +44,10 @@ export class CommentsController {
   @Get()
   async findByTicketId(
     @Param('ticketId') ticketId: string,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
+    @Query() query: PaginationQueryDto,
     @CurrentUser() user: { id: string; role: Role },
   ) {
-    return this.commentsService.findByTicketId(ticketId, user.role, user.id, page, limit);
+    return this.commentsService.findByTicketId(ticketId, user.role, user.id, query.page ?? 1, query.limit ?? 20);
   }
 
   @Post()

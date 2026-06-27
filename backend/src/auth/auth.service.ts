@@ -127,6 +127,11 @@ export class AuthService {
     await this.revokeAllRefreshTokens(payload.userId);
   }
 
+  @OnEvent('user.deactivated')
+  async handleUserDeactivated(payload: { userId: string }) {
+    await this.revokeAllRefreshTokens(payload.userId);
+  }
+
   async logout(userId: string, tokenId: string): Promise<void> {
     await this.redisService.del(`refresh:${userId}:${tokenId}`);
   }

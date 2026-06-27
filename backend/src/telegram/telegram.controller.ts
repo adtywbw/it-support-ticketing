@@ -9,11 +9,11 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { TelegramService } from './telegram.service';
-import type { TelegramSettings } from './telegram.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CheckTelegramConfigDto, UpdateTelegramConfigDto } from './dto/telegram-config.dto';
 
 @Controller('telegram')
 @UseGuards(JwtAuthGuard)
@@ -54,7 +54,7 @@ export class TelegramController {
   @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   async updateConfig(
-    @Body() body: { botToken?: string; settings?: TelegramSettings },
+    @Body() body: UpdateTelegramConfigDto,
   ) {
     return this.telegramService.updateConfig(body);
   }
@@ -71,7 +71,7 @@ export class TelegramController {
   @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   async check(
-    @Body() body: { botToken?: string; groupChatId?: string },
+    @Body() body: CheckTelegramConfigDto,
   ) {
     return this.telegramService.checkConfig(body.botToken, body.groupChatId);
   }

@@ -1,21 +1,25 @@
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import { getAccessToken, useAuthStore } from '@/stores/auth-store';
+import { useAuthStore } from '@/stores/auth-store';
 import { useQueryClient } from '@tanstack/react-query';
+import { API_BASE_URL } from '@/lib/axios';
+
+function getSocketUrl() {
+  if (!API_BASE_URL.startsWith('http')) return '/notifications';
+  return `${new URL(API_BASE_URL).origin}/notifications`;
+}
 
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !accessToken) return;
 
-    const token = getAccessToken();
-    if (!token) return;
-
-    const socket = io('/notifications', {
-      auth: { token },
+    const socket = io(getSocketUrl(), {
+      auth: { token: accessToken },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -39,12 +43,14 @@ export function useSocket() {
     });
 
     socket.on('connect_error', (err) => {
-      console.error('[Socket] connection error:', err.message);
+      if (/auth|token|unauthorized/i.test(err.message)) {
+        socket.disconnect();
+      }
     });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [isAuthenticated, queryClient]);
+  }, [accessToken, isAuthenticated, queryClient]);
 }

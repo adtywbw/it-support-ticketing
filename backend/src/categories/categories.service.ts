@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -11,12 +12,17 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 export class CategoriesService {
   constructor(private readonly categoryRepository: CategoryRepository) {}
 
-  async findAll() {
-    return this.categoryRepository.findAll();
+  async findAll(userRole: Role) {
+    if (userRole === Role.Admin) {
+      return this.categoryRepository.findAll();
+    }
+    return this.categoryRepository.findAllForTicketForm();
   }
 
-  async findById(id: string) {
-    const category = await this.categoryRepository.findById(id);
+  async findById(id: string, userRole: Role) {
+    const category = userRole === Role.Admin
+      ? await this.categoryRepository.findById(id)
+      : await this.categoryRepository.findByIdForTicketForm(id);
     if (!category) {
       throw new NotFoundException('Category not found');
     }

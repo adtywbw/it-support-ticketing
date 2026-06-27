@@ -1,12 +1,14 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
 import LoginForm from '@/auth/LoginForm';
 
 export default function LoginPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const location = useLocation();
 
   if (isAuthenticated) {
-    return <Navigate to="/tickets" replace />;
+    const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+    return <Navigate to={`${from?.pathname || '/tickets'}${from?.search || ''}`} replace />;
   }
 
   return (

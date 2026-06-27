@@ -19,6 +19,49 @@ export class CategoryRepository {
     }) as any;
   }
 
+  async findAllForTicketForm() {
+    return this.prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        subCategories: {
+          where: { isActive: true },
+          orderBy: { name: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            categoryId: true,
+          },
+        },
+      },
+    }) as any;
+  }
+
+  async findByIdForTicketForm(id: string) {
+    return this.prisma.category.findFirst({
+      where: { id, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        subCategories: {
+          where: { isActive: true },
+          orderBy: { name: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            categoryId: true,
+          },
+        },
+      },
+    }) as any;
+  }
+
   async findById(id: string, include?: Prisma.CategoryInclude) {
     return this.prisma.category.findUnique({
       where: { id },

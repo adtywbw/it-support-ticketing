@@ -231,20 +231,25 @@ export class MaintenanceService {
       throw new BadRequestException('A restore operation is already in progress');
     }
 
+    let preRestoreBackup: BackupInfo | null = null;
+
     try {
       await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
       await new Promise((resolve) => setTimeout(resolve, DRAIN_TIME_MS));
 
-      const preRestoreBackup = await this.createBackup('pre-restore');
+      preRestoreBackup = await this.createBackup('pre-restore');
       await this.restoreDatabase(dbPath);
       await this.restoreUploads(uploadsPath);
 
       await this.setMaintenanceMode(false);
       return preRestoreBackup;
     } catch (error) {
-      await this.setMaintenanceMode(false);
+      const message = 'Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.';
+      await this.setMaintenanceMode(true, message).catch(() => {});
+      const detail = error instanceof Error ? error.message : 'Restore backup failed';
+      const preRestoreDetail = preRestoreBackup ? ` Pre-restore backup: ${preRestoreBackup.id}.` : '';
       throw new BadRequestException(
-        error instanceof Error ? error.message : 'Restore backup failed',
+        `${message}${preRestoreDetail} Detail: ${detail}`,
       );
     } finally {
       await this.releaseLock(lock).catch(() => {});

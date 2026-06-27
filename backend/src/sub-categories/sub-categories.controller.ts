@@ -24,6 +24,8 @@ export class SubCategoriesController {
   ) {}
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
   async findByCategoryId(@Param('categoryId') categoryId: string) {
     return this.subCategoriesService.findByCategoryId(categoryId);
   }

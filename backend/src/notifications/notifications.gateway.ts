@@ -92,4 +92,17 @@ export class NotificationsGateway
       .to(`user:${notification.userId}`)
       .emit('notification', notification);
   }
+
+  @OnEvent('user.deactivated')
+  handleUserDeactivated(payload: { userId: string }) {
+    const sockets = this.userSockets.get(payload.userId);
+    if (!sockets) return;
+
+    for (const socketId of sockets) {
+      const socket = this.server.sockets.sockets.get(socketId);
+      socket?.leave(`user:${payload.userId}`);
+      socket?.disconnect(true);
+    }
+    this.userSockets.delete(payload.userId);
+  }
 }

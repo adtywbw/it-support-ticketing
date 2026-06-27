@@ -7,29 +7,29 @@ Fokus utama: bug, edge case, data leak, race condition, operational failure, dan
 
 ## Ringkasan Prioritas
 
-- [ ] P0-01: Restore backup membuka maintenance mode walaupun restore gagal.
-- [ ] P0-02: Setup Docker fresh install bisa gagal karena template env tidak konsisten dan `REDIS_PASSWORD` production wajib tapi tidak tersedia di root template.
-- [ ] P1-01: EndUser bisa menginfer internal attachment dari meta pagination dan public attachment bisa terskip.
-- [ ] P1-02: WebSocket frontend tetap memakai access token lama setelah refresh.
-- [ ] P1-03: Direct attachment upload/comment attachment tidak atomic dan bisa meninggalkan orphan file/row.
-- [ ] P1-04: Status transition ticket race-prone.
-- [ ] P1-05: Deaktivasi user tidak revoke sesi aktif dan tidak disconnect WebSocket.
-- [ ] P1-06: Read endpoint master data/SLA mengekspos count dan SLA config ke EndUser.
-- [ ] P1-07: Telegram polling restart bisa membuat multiple polling loop.
-- [ ] P1-08: Manual backup script bisa membuat backup inconsistent jika dijalankan saat aplikasi live.
-- [ ] P2-01: Query pagination comment/attachment tidak tervalidasi.
-- [ ] P2-02: Telegram config/check body tidak tervalidasi DTO.
-- [ ] P2-03: SLA create/update membocorkan Prisma edge error sebagai 500.
-- [ ] P2-04: Frontend mutation/export/download failure banyak yang silent.
-- [ ] P2-05: Pagination frontend tidak clamp saat total pages menyusut.
-- [ ] P2-06: `VITE_API_URL` didokumentasikan tapi tidak dipakai frontend.
-- [ ] P2-07: Redis password leak lewat command/process args.
-- [ ] P2-08: nginx real IP trust terlalu luas untuk private network.
-- [ ] P3-01: Login redirect mengabaikan intended route.
-- [ ] P3-02: Notification unread count bisa drift saat repeated mark-read.
-- [ ] P3-03: Telegram assignment notification kehilangan subject.
-- [ ] P3-04: Object URL thumbnail tidak pernah direvoke.
-- [ ] P3-05: DTO kategori/user menerima string kosong/whitespace.
+- [x] P0-01: Restore backup membuka maintenance mode walaupun restore gagal.
+- [x] P0-02: Setup Docker fresh install bisa gagal karena template env tidak konsisten dan `REDIS_PASSWORD` production wajib tapi tidak tersedia di root template.
+- [x] P1-01: EndUser bisa menginfer internal attachment dari meta pagination dan public attachment bisa terskip.
+- [x] P1-02: WebSocket frontend tetap memakai access token lama setelah refresh.
+- [x] P1-03: Direct attachment upload/comment attachment tidak atomic dan bisa meninggalkan orphan file/row.
+- [x] P1-04: Status transition ticket race-prone.
+- [x] P1-05: Deaktivasi user tidak revoke sesi aktif dan tidak disconnect WebSocket.
+- [x] P1-06: Read endpoint master data/SLA mengekspos count dan SLA config ke EndUser.
+- [x] P1-07: Telegram polling restart bisa membuat multiple polling loop.
+- [x] P1-08: Manual backup script bisa membuat backup inconsistent jika dijalankan saat aplikasi live.
+- [x] P2-01: Query pagination comment/attachment tidak tervalidasi.
+- [x] P2-02: Telegram config/check body tidak tervalidasi DTO.
+- [x] P2-03: SLA create/update membocorkan Prisma edge error sebagai 500.
+- [x] P2-04: Frontend mutation/export/download failure banyak yang silent.
+- [x] P2-05: Pagination frontend tidak clamp saat total pages menyusut.
+- [x] P2-06: `VITE_API_URL` didokumentasikan tapi tidak dipakai frontend.
+- [x] P2-07: Redis password leak lewat command/process args.
+- [x] P2-08: nginx real IP trust terlalu luas untuk private network.
+- [x] P3-01: Login redirect mengabaikan intended route.
+- [x] P3-02: Notification unread count bisa drift saat repeated mark-read.
+- [x] P3-03: Telegram assignment notification kehilangan subject.
+- [x] P3-04: Object URL thumbnail tidak pernah direvoke.
+- [x] P3-05: DTO kategori/user menerima string kosong/whitespace.
 
 ## Temuan Detail
 
@@ -49,15 +49,15 @@ Dampak:
 - Operator kehilangan safety window untuk recover memakai pre-restore backup.
 
 Checklist fix:
-- [ ] Ubah flow agar maintenance hanya dimatikan setelah `restoreDatabase()` dan `restoreUploads()` sukses.
-- [ ] Pada failure, biarkan maintenance tetap enabled dengan pesan eksplisit, misalnya `Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.`
-- [ ] Simpan/return ID pre-restore backup bila sudah berhasil dibuat sebelum error.
-- [ ] Pastikan `finally` hanya release lock, bukan mengubah maintenance.
-- [ ] Tambahkan test unit untuk kasus `restoreDatabase` sukses lalu `restoreUploads` gagal.
-- [ ] Tambahkan test unit untuk kasus `createBackup('pre-restore')` gagal sebelum destructive restore.
+- [x] Ubah flow agar maintenance hanya dimatikan setelah `restoreDatabase()` dan `restoreUploads()` sukses.
+- [x] Pada failure, biarkan maintenance tetap enabled dengan pesan eksplisit, misalnya `Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.`
+- [x] Simpan/return ID pre-restore backup bila sudah berhasil dibuat sebelum error.
+- [x] Pastikan `finally` hanya release lock, bukan mengubah maintenance.
+- [x] Tambahkan test unit untuk kasus `restoreDatabase` sukses lalu `restoreUploads` gagal.
+- [x] Tambahkan test unit untuk kasus `createBackup('pre-restore')` gagal sebelum destructive restore.
 
 Verifikasi yang disarankan:
-- [ ] `cd backend && npm test -- maintenance`
+- [x] `cd backend && npm test -- maintenance`
 - [ ] Manual: mock/trigger restore upload failure dan cek `GET /api/health` tetap `maintenance.enabled=true`.
 
 ---
@@ -80,15 +80,15 @@ Dampak:
 - Onboarding/operator bisa salah memilih template env.
 
 Checklist fix:
-- [ ] Buat satu template canonical untuk Docker Compose, misalnya `backend/.env.compose.example`.
-- [ ] Tambahkan `REDIS_PASSWORD=<replace-me>` di template Docker.
-- [ ] Gunakan URL Docker-safe: `DATABASE_URL=postgresql://ticketing:<password>@db:5432/ticketing` dan `REDIS_URL=redis://:<redis-password>@cache:6379`.
-- [ ] Pisahkan template local dev, misalnya `backend/.env.local.example`, untuk host `localhost`.
-- [ ] Update README agar tidak menyalin root `.env.example` jika compose membaca `backend/.env`.
-- [ ] Validasi `REDIS_PASSWORD` juga di Redis healthcheck memakai env yang sama.
+- [x] Buat satu template canonical untuk Docker Compose, misalnya `backend/.env.compose.example`.
+- [x] Tambahkan `REDIS_PASSWORD=<replace-me>` di template Docker.
+- [x] Gunakan URL Docker-safe: `DATABASE_URL=postgresql://ticketing:<password>@db:5432/ticketing` dan `REDIS_URL=redis://:<redis-password>@cache:6379`.
+- [x] Pisahkan template local dev, misalnya `backend/.env.local.example`, untuk host `localhost`.
+- [x] Update README agar tidak menyalin root `.env.example` jika compose membaca `backend/.env`.
+- [x] Validasi `REDIS_PASSWORD` juga di Redis healthcheck memakai env yang sama.
 
 Verifikasi yang disarankan:
-- [ ] Dari clone bersih, copy template baru ke `backend/.env`, isi secret, jalankan `docker compose config`.
+- [x] Dari clone bersih, copy template baru ke `backend/.env`, isi secret, jalankan `docker compose config`.
 - [ ] `docker compose up --build` sampai API healthcheck healthy.
 
 ---
@@ -109,11 +109,11 @@ Dampak:
 - Public attachment bisa terskip jika rows internal berada sebelum public rows pada pagination.
 
 Checklist fix:
-- [ ] Tambahkan method policy yang mengembalikan Prisma `where` untuk visible attachment EndUser.
-- [ ] Terapkan visible `where` sebelum `findMany` dan `count`, bukan setelah query.
-- [ ] Pastikan direct public attachment dan attachment dari public comment tetap tampil.
-- [ ] Pastikan direct internal attachment dan attachment dari internal comment tidak masuk query EndUser.
-- [ ] Hapus fallback filtering in-memory kecuali sebagai defense tambahan tanpa mempengaruhi `meta`.
+- [x] Tambahkan method policy yang mengembalikan Prisma `where` untuk visible attachment EndUser.
+- [x] Terapkan visible `where` sebelum `findMany` dan `count`, bukan setelah query.
+- [x] Pastikan direct public attachment dan attachment dari public comment tetap tampil.
+- [x] Pastikan direct internal attachment dan attachment dari internal comment tidak masuk query EndUser.
+- [x] Hapus fallback filtering in-memory kecuali sebagai defense tambahan tanpa mempengaruhi `meta`.
 - [ ] Tambahkan test untuk `meta.total`, `totalPages`, dan page dengan campuran public/internal.
 
 Verifikasi yang disarankan:
@@ -137,14 +137,14 @@ Dampak:
 - Notifikasi realtime bisa berhenti diam-diam sampai user refresh halaman/login ulang.
 
 Checklist fix:
-- [ ] Select `accessToken` langsung dari `useAuthStore` di `useSocket()`.
-- [ ] Jadikan `accessToken` dependency effect.
-- [ ] Saat token berubah, disconnect socket lama dan connect socket baru dengan token baru, atau update `socket.auth` lalu reconnect.
-- [ ] Pada `connect_error` auth, jangan hanya `console.error`; trigger auth refresh state/refetch atau disconnect bersih.
+- [x] Select `accessToken` langsung dari `useAuthStore` di `useSocket()`.
+- [x] Jadikan `accessToken` dependency effect.
+- [x] Saat token berubah, disconnect socket lama dan connect socket baru dengan token baru, atau update `socket.auth` lalu reconnect.
+- [x] Pada `connect_error` auth, jangan hanya `console.error`; trigger auth refresh state/refetch atau disconnect bersih.
 - [ ] Tambahkan test/harness manual: login, paksa refresh token, lalu matikan/hidupkan network socket dan cek reconnect memakai token baru.
 
 Verifikasi yang disarankan:
-- [ ] `cd frontend && npm run build`
+- [x] `cd frontend && npm run build`
 - [ ] Manual browser: inspect Socket.IO handshake setelah refresh token.
 
 ---
@@ -169,10 +169,10 @@ Dampak:
 - Validasi content type antara direct attachment dan comment attachment tidak konsisten.
 
 Checklist fix:
-- [ ] Bungkus DB write direct attachment dengan `try/catch`; jika create gagal, panggil `storageService.delete(filePath)`.
-- [ ] Untuk comment + attachments, gunakan Prisma transaction untuk comment row dan attachment rows.
-- [ ] Simpan files dengan daftar `createdFiles`, rollback DB transaction bila ada error, lalu cleanup semua files.
-- [ ] Terapkan magic-byte check yang sama untuk comment attachments.
+- [x] Bungkus DB write direct attachment dengan `try/catch`; jika create gagal, panggil `storageService.delete(filePath)`.
+- [x] Untuk comment + attachments, gunakan Prisma transaction untuk comment row dan attachment rows.
+- [x] Simpan files dengan daftar `createdFiles`, rollback DB transaction bila ada error, lalu cleanup semua files.
+- [x] Terapkan magic-byte check yang sama untuk comment attachments.
 - [ ] Untuk limit per-ticket, enforce secara transactional. Pilihan: serializable transaction, advisory lock per ticket, atau model counter/constraint yang aman concurrency.
 - [ ] Tambahkan test partial failure: attachment create ke-2 throw, pastikan tidak ada comment/attachment partial dan files bersih.
 - [ ] Tambahkan test concurrent upload bila memungkinkan.
@@ -199,12 +199,12 @@ Dampak:
 - Workflow valid transition bisa dilanggar karena last-writer-wins.
 
 Checklist fix:
-- [ ] Pindahkan read current status ke dalam transaction.
-- [ ] Gunakan conditional update: `updateMany({ where: { id, status: oldStatus }, data })` dan cek `count === 1`.
-- [ ] Jika count 0, return `409 Conflict` atau `400` dengan pesan status berubah, minta client refresh.
-- [ ] Buat history hanya setelah conditional update sukses.
+- [x] Pindahkan read current status ke dalam transaction.
+- [x] Gunakan conditional update: `updateMany({ where: { id, status: oldStatus }, data })` dan cek `count === 1`.
+- [x] Jika count 0, return `409 Conflict` atau `400` dengan pesan status berubah, minta client refresh.
+- [x] Buat history hanya setelah conditional update sukses.
 - [ ] Pertimbangkan row lock atau serializable transaction jika workflow makin kompleks.
-- [ ] Tambahkan test concurrent/stale status minimal dengan mock `updateMany count=0`.
+- [x] Tambahkan test concurrent/stale status minimal dengan mock `updateMany count=0`.
 
 Verifikasi yang disarankan:
 - [ ] `cd backend && npm test -- tickets`
@@ -228,10 +228,10 @@ Dampak:
 - Socket aktif bisa tetap menerima notifikasi sampai disconnect.
 
 Checklist fix:
-- [ ] Deteksi perubahan `isActive` dari true ke false di `UsersService.update()`.
-- [ ] Emit `user.deactivated` dengan `userId`.
-- [ ] Tambahkan handler di `AuthService` untuk revoke all refresh tokens pada deactivation.
-- [ ] Tambahkan handler di `NotificationsGateway` untuk disconnect semua socket user tersebut dan leave room.
+- [x] Deteksi perubahan `isActive` dari true ke false di `UsersService.update()`.
+- [x] Emit `user.deactivated` dengan `userId`.
+- [x] Tambahkan handler di `AuthService` untuk revoke all refresh tokens pada deactivation.
+- [x] Tambahkan handler di `NotificationsGateway` untuk disconnect semua socket user tersebut dan leave room.
 - [ ] Pertimbangkan juga emit `user.activated` jika butuh audit/log, tanpa revoke.
 - [ ] Tambahkan test event deactivation dan gateway disconnect.
 
@@ -257,9 +257,9 @@ Dampak:
 - EndUser bisa melihat response/resolution SLA config yang mungkin internal-operational.
 
 Checklist fix:
-- [ ] Pisahkan endpoint public form data dari admin master data.
-- [ ] Untuk EndUser, return field minimal: `id`, `name`, `description`, active subcategories aktif.
-- [ ] Lindungi endpoint yang return `_count`, inactive rows, dan `slaConfigs` dengan `@Roles(Role.Admin)` atau staff sesuai kebutuhan.
+- [x] Pisahkan endpoint public form data dari admin master data.
+- [x] Untuk EndUser, return field minimal: `id`, `name`, `description`, active subcategories aktif.
+- [x] Lindungi endpoint yang return `_count`, inactive rows, dan `slaConfigs` dengan `@Roles(Role.Admin)` atau staff sesuai kebutuhan.
 - [ ] Update frontend create ticket agar memakai endpoint minimal.
 - [ ] Tambahkan API test EndUser tidak menerima `_count` dan `slaConfigs`.
 
@@ -285,10 +285,10 @@ Dampak:
 - Bisa terjadi duplicate handling, API conflict, atau loop dengan token lama setelah config diganti.
 
 Checklist fix:
-- [ ] Tambahkan `pollingGeneration` number yang increment tiap `startBot()`.
-- [ ] Pass generation ke `pollLoop(token, offset, generation)` dan stop jika generation stale.
-- [ ] Simpan timeout handle dan clear timeout saat restart/shutdown.
-- [ ] Pastikan `onApplicationShutdown()` clear timeout dan set generation stale.
+- [x] Tambahkan `pollingGeneration` number yang increment tiap `startBot()`.
+- [x] Pass generation ke `pollLoop(token, offset, generation)` dan stop jika generation stale.
+- [x] Simpan timeout handle dan clear timeout saat restart/shutdown.
+- [x] Pastikan `onApplicationShutdown()` clear timeout dan set generation stale.
 - [ ] Tambahkan log saat old loop berhenti agar mudah audit.
 - [ ] Tambahkan unit test sederhana dengan fake timers jika test infra mendukung.
 
@@ -313,13 +313,13 @@ Dampak:
 - Restore dari backup manual bisa menghasilkan attachment missing file.
 
 Checklist fix:
-- [ ] Dokumentasikan secara eksplisit bahwa script hanya boleh dijalankan saat maintenance mode aktif.
-- [ ] Tambahkan preflight script: cek maintenance via API atau Redis sebelum dump.
-- [ ] Jika ada kebutuhan live backup, tambahkan flag eksplisit `--live-ok` dengan warning keras.
-- [ ] Pertimbangkan satu entrypoint backup resmi via API agar semantics sama dengan UI.
+- [x] Dokumentasikan secara eksplisit bahwa script hanya boleh dijalankan saat maintenance mode aktif.
+- [x] Tambahkan preflight check di script yang cek `maintenance:enabled` Redis key.
+- [x] Tambahkan flag `--live-ok` untuk bypass preflight dengan warning.
+- [x] Update README backup section untuk menjelaskan maintenance requirement dan `--live-ok` flag.
 
 Verifikasi yang disarankan:
-- [ ] Jalankan script saat maintenance off dan pastikan gagal dengan pesan jelas.
+- [x] Jalankan script saat maintenance off dan pastikan gagal dengan pesan jelas.
 - [ ] Jalankan script saat maintenance on dan pastikan backup sukses.
 
 ---
@@ -341,9 +341,9 @@ Dampak:
 - Request aneh bisa membebani DB atau membuat response tidak predictable.
 
 Checklist fix:
-- [ ] Gunakan `PaginationQueryDto` untuk comment dan attachment endpoints.
-- [ ] Pastikan `@Type(() => Number)`, `@IsInt`, `@Min(1)`, `@Max(100)` berlaku.
-- [ ] Tambahkan defensive clamp di service untuk call internal.
+- [x] Gunakan `PaginationQueryDto` untuk comment dan attachment endpoints.
+- [x] Pastikan `@Type(() => Number)`, `@IsInt`, `@Min(1)`, `@Max(100)` berlaku.
+- [x] Tambahkan defensive clamp di service untuk call internal.
 - [ ] Tambahkan test `page=abc`, `page=-1`, `limit=10000` return 400.
 
 Verifikasi yang disarankan:
@@ -368,11 +368,11 @@ Dampak:
 - Notification sending bisa rusak runtime atau diam-diam tidak terkirim.
 
 Checklist fix:
-- [ ] Buat DTO `UpdateTelegramConfigDto`, `TelegramSettingsDto`, `TelegramTemplatesDto`, `CheckTelegramConfigDto`.
-- [ ] Validasi `enabledEvents` memakai `@IsArray`, `@IsIn([...], { each: true })`.
-- [ ] Validasi boolean memakai `@IsBoolean`.
-- [ ] Validasi template string length dan allowed variables bila perlu.
-- [ ] Normalize defaults di service setelah DTO valid, bukan dari object arbitrary.
+- [x] Buat DTO `UpdateTelegramConfigDto`, `TelegramSettingsDto`, `TelegramTemplatesDto`, `CheckTelegramConfigDto`.
+- [x] Validasi `enabledEvents` memakai `@IsArray`, `@IsIn([...], { each: true })`.
+- [x] Validasi boolean memakai `@IsBoolean`.
+- [x] Validasi template string length dan allowed variables bila perlu.
+- [x] Normalize defaults di service setelah DTO valid, bukan dari object arbitrary.
 - [ ] Tambahkan test invalid event/body extra field return 400.
 
 Verifikasi yang disarankan:
@@ -395,10 +395,10 @@ Dampak:
 - Kontrak error stabil `{ error: { code, message } }` melemah.
 
 Checklist fix:
-- [ ] Cek category existence sebelum create.
-- [ ] Catch Prisma `P2002` dan return `ConflictException` untuk duplicate SLA config.
-- [ ] Catch Prisma `P2025` dan return `NotFoundException` untuk update id tidak ada.
-- [ ] Validasi response/resolution time masuk akal: `resolutionTimeMinutes >= responseTimeMinutes` jika business rule menghendaki.
+- [x] Cek category existence sebelum create.
+- [x] Catch Prisma `P2002` dan return `ConflictException` untuk duplicate SLA config.
+- [x] Catch Prisma `P2025` dan return `NotFoundException` untuk update id tidak ada.
+- [x] Validasi response/resolution time masuk akal: `resolutionTimeMinutes >= responseTimeMinutes` jika business rule menghendaki.
 - [ ] Tambahkan unit tests untuk missing category, duplicate, missing id.
 
 Verifikasi yang disarankan:
@@ -422,10 +422,10 @@ Dampak:
 - User bisa mengira aksi berhasil padahal gagal.
 
 Checklist fix:
-- [ ] Gunakan `toast.error(getErrorMessage(err, ...))` untuk upload/download/export/status/priority/assign/delete.
-- [ ] Disable control saat mutation terkait pending agar tidak double-submit.
-- [ ] Pada select status/priority/assign, refetch/reset value jika mutation gagal.
-- [ ] Tambahkan client-side file size/type validation sebelum upload untuk feedback cepat.
+- [x] Gunakan `toast.error(getErrorMessage(err, ...))` untuk upload/download/export/status/priority/assign/delete.
+- [x] Disable control saat mutation terkait pending agar tidak double-submit.
+- [x] Pada select status/priority/assign, refetch/reset value jika mutation gagal.
+- [x] Tambahkan client-side file size/type validation sebelum upload untuk feedback cepat.
 - [ ] Pastikan maintenance 503 menampilkan pesan maintenance, bukan generic error.
 
 Verifikasi yang disarankan:
@@ -449,10 +449,10 @@ Dampak:
 - Issue makin terlihat bila backend attachment meta salah untuk EndUser.
 
 Checklist fix:
-- [ ] Setelah query sukses, hitung `totalPages` dari meta.
-- [ ] Jika `page > totalPages`, panggil `setPage(totalPages || 1)`.
-- [ ] Buat helper/hook reusable untuk pagination clamp bila dipakai banyak page.
-- [ ] Pastikan tidak terjadi loop render dengan hanya set jika nilai berubah.
+- [x] Setelah query sukses, hitung `totalPages` dari meta.
+- [x] Jika `page > totalPages`, panggil `setPage(totalPages || 1)`.
+- [x] Buat helper/hook reusable untuk pagination clamp bila dipakai banyak page.
+- [x] Pastikan tidak terjadi loop render dengan hanya set jika nilai berubah.
 
 Verifikasi yang disarankan:
 - [ ] `cd frontend && npm run build`
@@ -476,11 +476,11 @@ Dampak:
 - Operator dapat mengisi env tetapi tidak berdampak.
 
 Checklist fix:
-- [ ] Putuskan apakah frontend memang hanya didukung same-origin nginx.
-- [ ] Jika iya, hapus/ubah `frontend/.env.example` agar tidak misleading.
-- [ ] Jika perlu support configurable API URL, gunakan `import.meta.env.VITE_API_URL ?? '/api'` untuk axios dan refresh.
-- [ ] Konfigurasikan Socket.IO origin/path sesuai API URL.
-- [ ] Update Docker build args/env jika Vite env dipakai di build time.
+- [x] Putuskan apakah frontend memang hanya didukung same-origin nginx.
+- [x] Jika iya, hapus/ubah `frontend/.env.example` agar tidak misleading.
+- [x] Jika perlu support configurable API URL, gunakan `import.meta.env.VITE_API_URL ?? '/api'` untuk axios dan refresh.
+- [x] Konfigurasikan Socket.IO origin/path sesuai API URL.
+- [x] Update Docker build args/env jika Vite env dipakai di build time.
 
 Verifikasi yang disarankan:
 - [ ] `cd frontend && npm run build`
@@ -503,9 +503,9 @@ Dampak:
 - Redis sendiri memperingatkan `-a` kurang aman.
 
 Checklist fix:
-- [ ] Gunakan Redis config file ter-generate/mounted dengan permission ketat, atau Docker secrets.
-- [ ] Untuk healthcheck, gunakan env `REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping`.
-- [ ] Pastikan secret tidak tercetak di logs.
+- [x] Gunakan Redis config file ter-generate/mounted dengan permission ketat, atau Docker secrets.
+- [x] Untuk healthcheck, gunakan env `REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping`.
+- [x] Pastikan secret tidak tercetak di logs.
 
 Verifikasi yang disarankan:
 - [ ] `docker compose config` dan inspect command output tidak memuat password literal.
@@ -528,13 +528,13 @@ Dampak:
 - Rate limit berbasis `$binary_remote_addr` dapat dipengaruhi jika real IP terganti dari header yang tidak trusted.
 
 Checklist fix:
-- [ ] Jika tidak ada reverse proxy upstream, hapus `set_real_ip_from` dan `real_ip_header`.
-- [ ] Jika ada reverse proxy upstream, trust hanya IP/subnet proxy tersebut.
-- [ ] Dokumentasikan topology proxy di README/deployment notes.
+- [x] Jika tidak ada reverse proxy upstream, hapus `set_real_ip_from` dan `real_ip_header`.
+- [x] Jika ada reverse proxy upstream, trust hanya IP/subnet proxy tersebut.
+- [x] Dokumentasikan topology proxy di README/deployment notes.
 - [ ] Test rate limit dengan forged `X-Forwarded-For`.
 
 Verifikasi yang disarankan:
-- [ ] `docker compose exec nginx nginx -t`
+- [x] `docker compose exec nginx nginx -t`
 - [ ] Manual curl dengan header `X-Forwarded-For` dan cek access log.
 
 ---
@@ -553,9 +553,9 @@ Dampak:
 - User yang membuka link ticket/admin langsung harus navigasi ulang setelah login.
 
 Checklist fix:
-- [ ] Di login flow, baca `location.state.from`.
-- [ ] Setelah login sukses, redirect ke `from.pathname + search` jika role user allowed.
-- [ ] Fallback ke `/tickets`.
+- [x] Di login flow, baca `location.state.from`.
+- [x] Setelah login sukses, redirect ke `from.pathname + search` jika role user allowed.
+- [x] Fallback ke `/tickets`.
 
 Verifikasi yang disarankan:
 - [ ] Manual: buka `/admin/maintenance` saat logout, login admin, pastikan kembali ke `/admin/maintenance`.
@@ -576,8 +576,8 @@ Dampak:
 - Double click/retry/concurrent mark-read bisa membuat count terlalu kecil sampai refetch berikutnya.
 
 Checklist fix:
-- [ ] Disable tombol mark-read per item saat mutation pending.
-- [ ] Invalidate/refetch `notifications-unread-count` dan set count dari server.
+- [x] Disable tombol mark-read per item saat mutation pending.
+- [x] Invalidate/refetch `notifications-unread-count` dan set count dari server.
 - [ ] Jika tetap optimistic, decrement hanya jika cache notification sebelumnya `isRead=false`.
 
 Verifikasi yang disarankan:
@@ -599,7 +599,7 @@ Dampak:
 - Template `Ticket Assigned` bisa menampilkan subject kosong/undefined.
 
 Checklist fix:
-- [ ] Tambahkan `subject: ticket.subject` saat emit `ticket.assigned`.
+- [x] Tambahkan `subject: ticket.subject` saat emit `ticket.assigned`.
 - [ ] Pertimbangkan include assigner/assignee display name, bukan hanya id.
 - [ ] Tambahkan test render notification assignment.
 
@@ -621,7 +621,7 @@ Dampak:
 - Long session dengan banyak image attachment dapat meningkatkan memory usage.
 
 Checklist fix:
-- [ ] Batasi cache size dan revoke URL saat evicted.
+- [x] Batasi cache size dan revoke URL saat evicted.
 - [ ] Atau hapus object URL cache dan rely pada browser/http cache.
 - [ ] Revoke semua cached URL saat logout/query clear jika cache tetap global.
 
@@ -645,8 +645,8 @@ Dampak:
 - Data master menjadi sulit dipakai di ticket form/list.
 
 Checklist fix:
-- [ ] Tambahkan `@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)` untuk field string penting.
-- [ ] Tambahkan `@IsNotEmpty()` dan batas panjang (`@MaxLength`) untuk name/description yang relevan.
+- [x] Tambahkan `@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)` untuk field string penting.
+- [x] Tambahkan `@IsNotEmpty()` dan batas panjang (`@MaxLength`) untuk name/description yang relevan.
 - [ ] Tambahkan client-side validation agar admin mendapat feedback sebelum submit.
 - [ ] Tambahkan test whitespace-only returns 400.
 

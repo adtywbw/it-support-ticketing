@@ -99,6 +99,10 @@ export class UsersService {
       this.eventEmitter.emit('user.password_changed', { userId: id });
     }
 
+    if (user.isActive && updateUserDto.isActive === false) {
+      this.eventEmitter.emit('user.deactivated', { userId: id });
+    }
+
     return result;
   }
 

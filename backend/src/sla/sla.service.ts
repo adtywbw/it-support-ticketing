@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { SlaConfigRepository } from '../common/repositories/sla-config.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
+import { CategoryRepository } from '../common/repositories/category.repository';
 import { RedisService } from '../redis/redis.service';
 import { Priority, SLAStatus, TicketStatus } from '@prisma/client';
 
@@ -14,6 +15,7 @@ export class SLAService {
     private readonly slaConfigRepository: SlaConfigRepository,
     private readonly ticketRepository: TicketRepository,
     private readonly redisService: RedisService,
+    private readonly categoryRepository: CategoryRepository,
   ) {}
 
   async getSLAConfig(categoryId: string, priority: Priority) {
@@ -42,12 +44,23 @@ export class SLAService {
     responseTimeMinutes: number;
     resolutionTimeMinutes: number;
   }) {
-    return this.slaConfigRepository.create({
-      category: { connect: { id: data.categoryId } },
-      priority: data.priority,
-      responseTimeMinutes: data.responseTimeMinutes,
-      resolutionTimeMinutes: data.resolutionTimeMinutes,
-    });
+    this.assertSlaWindow(data.responseTimeMinutes, data.resolutionTimeMinutes);
+
+    const category = await this.categoryRepository.findById(data.categoryId, {});
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    try {
+      return await this.slaConfigRepository.create({
+        category: { connect: { id: data.categoryId } },
+        priority: data.priority,
+        responseTimeMinutes: data.responseTimeMinutes,
+        resolutionTimeMinutes: data.resolutionTimeMinutes,
+      });
+    } catch (error) {
+      this.handlePrismaWriteError(error);
+    }
   }
 
   async update(
@@ -58,7 +71,35 @@ export class SLAService {
       isActive?: boolean;
     },
   ) {
-    return this.slaConfigRepository.update(id, data);
+    if (data.responseTimeMinutes !== undefined && data.resolutionTimeMinutes !== undefined) {
+      this.assertSlaWindow(data.responseTimeMinutes, data.resolutionTimeMinutes);
+    }
+
+    try {
+      return await this.slaConfigRepository.update(id, data);
+    } catch (error) {
+      this.handlePrismaWriteError(error);
+    }
+  }
+
+  private assertSlaWindow(responseTimeMinutes: number, resolutionTimeMinutes: number) {
+    if (resolutionTimeMinutes < responseTimeMinutes) {
+      throw new BadRequestException('Resolution time must be greater than or equal to response time');
+    }
+  }
+
+  private handlePrismaWriteError(error: unknown): never {
+    const code = typeof error === 'object' && error !== null && 'code' in error
+      ? (error as { code?: string }).code
+      : undefined;
+
+    if (code === 'P2002') {
+      throw new ConflictException('SLA config already exists for this category and priority');
+    }
+    if (code === 'P2025') {
+      throw new NotFoundException('SLA config not found');
+    }
+    throw error;
   }
 
   @Cron('*/5 * * * *')

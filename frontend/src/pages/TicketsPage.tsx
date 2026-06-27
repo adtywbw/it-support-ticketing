@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import apiClient from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
 import TicketList from '@/components/tickets/TicketList';
 import type { FilterValues } from '@/components/tickets/TicketFilters';
+import { getErrorMessage } from '@/lib/utils';
 
 export default function TicketsPage() {
   const user = useAuthStore((s) => s.user);
@@ -61,6 +63,8 @@ export default function TicketsPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to export tickets'));
     } finally {
       setExporting(false);
     }

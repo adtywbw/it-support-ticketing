@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { getErrorMessage } from '@/lib/utils';
@@ -9,6 +9,7 @@ import type { LoginCredentials, AuthResponse } from '@/types';
 export function useLogin() {
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
+  const location = useLocation();
 
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
@@ -18,7 +19,8 @@ export function useLogin() {
     onSuccess: (data) => {
       const user = { ...data.user, name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() };
       login(user, data.accessToken);
-      navigate('/tickets');
+      const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+      navigate(`${from?.pathname || '/tickets'}${from?.search || ''}`, { replace: true });
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, 'Login failed. Please try again.'));

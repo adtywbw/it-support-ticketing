@@ -1,13 +1,41 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { useTicketAttachments, useUploadAttachment } from '@/hooks/use-tickets';
 import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
-import { formatDate, formatFileSize, getUserDisplayName } from '@/lib/utils';
+import { formatDate, formatFileSize, getErrorMessage, getUserDisplayName } from '@/lib/utils';
 
 const thumbnailCache = new Map<string, string>();
+const MAX_THUMBNAILS = 100;
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+  'application/zip',
+  'application/x-rar-compressed',
+]);
+
+function cacheThumbnail(id: string, url: string) {
+  const existing = thumbnailCache.get(id);
+  if (existing) URL.revokeObjectURL(existing);
+  thumbnailCache.set(id, url);
+  if (thumbnailCache.size <= MAX_THUMBNAILS) return;
+  const [oldestId, oldestUrl] = thumbnailCache.entries().next().value as [string, string];
+  URL.revokeObjectURL(oldestUrl);
+  thumbnailCache.delete(oldestId);
+}
 
 function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () => void }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(() => thumbnailCache.get(id) ?? null);
@@ -27,7 +55,7 @@ function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () 
         apiClient.get(`/attachments/${id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
           .then((r) => {
             const u = URL.createObjectURL(r.data);
-            thumbnailCache.set(id, u);
+            cacheThumbnail(id, u);
             setBlobUrl(u);
           })
           .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
@@ -82,9 +110,21 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+      toast.error(`File type ${file.type || 'unknown'} is not allowed`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    if (file.size > MAX_UPLOAD_SIZE) {
+      toast.error('File size exceeds 10 MB limit');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     setUploading(true);
     try {
       await uploadMutation.mutateAsync({ ticketId, file, visibility: uploadVisibility });
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to upload attachment'));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -106,7 +146,8 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
       const url = URL.createObjectURL(res.data);
       previewUrlRef.current = url;
       setPreviewUrl(url);
-    } catch {
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to preview attachment'));
       setPreviewUrl('');
     }
   }, []);
@@ -134,10 +175,15 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {
-      // silently fail
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to download attachment'));
     }
   }, []);
+
+  useEffect(() => {
+    const totalPages = attachMeta?.totalPages ?? (attachMeta ? Math.ceil(attachMeta.total / (attachMeta.limit || attachLimit)) || 1 : 1);
+    if (attachPage > totalPages) setAttachPage(totalPages || 1);
+  }, [attachMeta, attachLimit, attachPage]);
 
   return (
     <div className="space-y-4">
@@ -217,7 +263,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
       {attachMeta && (
         <Pagination
           page={attachPage}
-          totalPages={Math.ceil(attachMeta.total / attachLimit) || 1}
+          totalPages={attachMeta.totalPages ?? (Math.ceil(attachMeta.total / attachLimit) || 1)}
           onPageChange={(p) => setAttachPage(p)}
           limit={attachLimit}
           onLimitChange={(l) => { setAttachLimit(l); setAttachPage(1); }}

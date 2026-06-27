@@ -21,6 +21,8 @@ export class SLAController {
   constructor(private readonly slaService: SLAService) {}
 
   @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
   async findAll() {
     return this.slaService.findAll();
   }

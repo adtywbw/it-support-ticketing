@@ -19,6 +19,7 @@ import * as path from 'path';
 import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -69,11 +70,10 @@ export class AttachmentsController {
   @Get('tickets/:ticketId/attachments')
   async findByTicketId(
     @Param('ticketId') ticketId: string,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
+    @Query() query: PaginationQueryDto,
     @CurrentUser() user: { id: string; role: string },
   ) {
-    return this.attachmentsService.findByTicketId(ticketId, user.id, user.role, page, limit);
+    return this.attachmentsService.findByTicketId(ticketId, user.id, user.role, query.page ?? 1, query.limit ?? 20);
   }
 
   @Get('attachments/:id/download')

@@ -27,6 +27,7 @@ describe('TicketsService', () => {
     findFirst: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     transaction: jest.fn(),
     transactionBatch: jest.fn(),
     countPublicCommentsByTicketIds: jest.fn().mockResolvedValue([]),
@@ -88,8 +89,12 @@ describe('TicketsService', () => {
               mockTicketRepository.findFirst(...args),
             create: (args: { data: unknown; include?: unknown }) =>
               mockTicketRepository.create(args.data, args.include),
+            findUnique: (args: { where: { id: string } }) =>
+              mockTicketRepository.findById(args.where.id),
             update: (args: { where: unknown; data: unknown }) =>
               mockTicketRepository.update(args.where, args.data),
+            updateMany: (args: { where: unknown; data: unknown }) =>
+              mockTicketRepository.updateMany(args.where, args.data),
           },
           ticketHistory: {
             create: jest.fn().mockResolvedValue({}),
@@ -496,16 +501,16 @@ describe('TicketsService', () => {
         status: TicketStatus.InProgress,
       };
 
-      mockTicketRepository.findById.mockResolvedValue(existingTicket);
-      mockTicketRepository.update.mockResolvedValue(updatedTicket);
+      mockTicketRepository.findById
+        .mockResolvedValueOnce(existingTicket)
+        .mockResolvedValueOnce(updatedTicket);
+      mockTicketRepository.updateMany.mockResolvedValue({ count: 1 });
 
       const updateStatusDto: UpdateStatusDto = {
         status: TicketStatus.InProgress,
       };
 
       const result = await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
-
-      expect(mockTicketRepository.findById).toHaveBeenCalledWith(ticketId);
 
       expect(mockTicketRepository.transaction).toHaveBeenCalled();
 
@@ -541,7 +546,7 @@ describe('TicketsService', () => {
         service.updateStatus(ticketId, updateStatusDto, userId, 'Admin'),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockTicketRepository.update).not.toHaveBeenCalled();
+      expect(mockTicketRepository.updateMany).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when ticket does not exist', async () => {
@@ -555,7 +560,7 @@ describe('TicketsService', () => {
         service.updateStatus(ticketId, updateStatusDto, userId, 'Admin'),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockTicketRepository.update).not.toHaveBeenCalled();
+      expect(mockTicketRepository.updateMany).not.toHaveBeenCalled();
     });
 
     it('should set resolvedAt when transitioning to Resolved', async () => {
@@ -566,7 +571,15 @@ describe('TicketsService', () => {
         assignedToId: 'agent-1',
       };
 
-      mockTicketRepository.findById.mockResolvedValue(existingTicket);
+      mockTicketRepository.findById
+        .mockResolvedValueOnce(existingTicket)
+        .mockImplementation(async () => ({
+          ...existingTicket,
+          status: TicketStatus.Resolved,
+        }));
+      mockTicketRepository.updateMany.mockImplementation(async (_where: unknown, data: any) => ({
+        count: data.resolvedAt ? 1 : 0,
+      }));
       mockTicketRepository.update.mockImplementation(async (_id: string, data: any) => ({
         ...existingTicket,
         status: TicketStatus.Resolved,
@@ -590,7 +603,15 @@ describe('TicketsService', () => {
         assignedToId: 'agent-1',
       };
 
-      mockTicketRepository.findById.mockResolvedValue(existingTicket);
+      mockTicketRepository.findById
+        .mockResolvedValueOnce(existingTicket)
+        .mockImplementation(async () => ({
+          ...existingTicket,
+          status: TicketStatus.Closed,
+        }));
+      mockTicketRepository.updateMany.mockImplementation(async (_where: unknown, data: any) => ({
+        count: data.closedAt ? 1 : 0,
+      }));
       mockTicketRepository.update.mockImplementation(async (_id: unknown, data: any) => ({
         ...existingTicket,
         status: TicketStatus.Closed,
@@ -604,6 +625,24 @@ describe('TicketsService', () => {
       await service.updateStatus(ticketId, updateStatusDto, userId, 'Admin');
 
       expect(mockTicketRepository.transaction).toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when conditional status update affects no rows', async () => {
+      const existingTicket = {
+        id: ticketId,
+        ticketNumber: 'TKT-001',
+        subject: 'Test subject',
+        status: TicketStatus.Open,
+        assignedToId: 'agent-1',
+        requesterId: 'requester-1',
+      };
+
+      mockTicketRepository.findById.mockResolvedValue(existingTicket);
+      mockTicketRepository.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.updateStatus(ticketId, { status: TicketStatus.InProgress }, userId, 'Admin'),
+      ).rejects.toThrow('Ticket status changed');
     });
   });
 });

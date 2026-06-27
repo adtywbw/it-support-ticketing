@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -306,51 +307,59 @@ export class TicketsService {
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string, userRole: string) {
-    const ticket = await this.ticketRepository.findById(id);
-    if (!ticket) {
-      throw new NotFoundException('Ticket not found');
-    }
-
-    if (userRole === 'EndUser') {
-      if (ticket.requesterId !== userId) {
-        throw new ForbiddenException('Access denied');
-      }
-      if (updateStatusDto.status !== TicketStatus.Closed) {
-        throw new ForbiddenException('End users can only close their own tickets');
-      }
-      if (ticket.status !== TicketStatus.Resolved) {
-        throw new ForbiddenException('End users can only close resolved tickets');
-      }
-    }
-
-    const validNextStates = VALID_TRANSITIONS[ticket.status as TicketStatus];
-    if (!validNextStates.includes(updateStatusDto.status)) {
-      throw new BadRequestException(
-        `Cannot transition from ${ticket.status} to ${updateStatusDto.status}`,
-      );
-    }
-
-    const updateData: Record<string, unknown> = {
-      status: updateStatusDto.status,
-    };
-
-    if (updateStatusDto.status === TicketStatus.Resolved) {
-      updateData.resolvedAt = new Date();
-    }
-
-    if (updateStatusDto.status === TicketStatus.Closed) {
-      updateData.closedAt = new Date();
-    }
-
-    if (ticket.status === TicketStatus.Closed && updateStatusDto.status !== TicketStatus.Closed) {
-      updateData.closedAt = null;
-      updateData.resolvedAt = null;
-    }
-
-    const oldStatus = ticket.status;
+    const context: { ticket?: any; oldStatus?: TicketStatus } = {};
 
     const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
-      const updated = await tx.ticket.update({ where: { id }, data: updateData as any });
+      const ticket = await tx.ticket.findUnique({ where: { id } });
+      if (!ticket) {
+        throw new NotFoundException('Ticket not found');
+      }
+
+      if (userRole === 'EndUser') {
+        if (ticket.requesterId !== userId) {
+          throw new ForbiddenException('Access denied');
+        }
+        if (updateStatusDto.status !== TicketStatus.Closed) {
+          throw new ForbiddenException('End users can only close their own tickets');
+        }
+        if (ticket.status !== TicketStatus.Resolved) {
+          throw new ForbiddenException('End users can only close resolved tickets');
+        }
+      }
+
+      const oldStatus = ticket.status as TicketStatus;
+      const validNextStates = VALID_TRANSITIONS[oldStatus];
+      if (!validNextStates.includes(updateStatusDto.status)) {
+        throw new BadRequestException(
+          `Cannot transition from ${ticket.status} to ${updateStatusDto.status}`,
+        );
+      }
+
+      const updateData: Record<string, unknown> = {
+        status: updateStatusDto.status,
+      };
+
+      if (updateStatusDto.status === TicketStatus.Resolved) {
+        updateData.resolvedAt = new Date();
+      }
+
+      if (updateStatusDto.status === TicketStatus.Closed) {
+        updateData.closedAt = new Date();
+      }
+
+      if (oldStatus === TicketStatus.Closed && updateStatusDto.status !== TicketStatus.Closed) {
+        updateData.closedAt = null;
+        updateData.resolvedAt = null;
+      }
+
+      const updated = await tx.ticket.updateMany({
+        where: { id, status: oldStatus },
+        data: updateData as any,
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException('Ticket status changed. Please refresh and retry.');
+      }
+
       await tx.ticketHistory.create({
         data: {
           ticketId: id,
@@ -360,14 +369,19 @@ export class TicketsService {
           newValue: updateStatusDto.status,
         },
       });
-      return updated;
+      context.ticket = ticket;
+      context.oldStatus = oldStatus;
+      return tx.ticket.findUnique({ where: { id } });
     });
+
+    const ticket = context.ticket;
+    const oldStatus = context.oldStatus;
 
     this.eventEmitter.emit('ticket.status.updated', {
       ticketId: id,
       ticketNumber: ticket.ticketNumber,
       subject: ticket.subject,
-      oldStatus: ticket.status,
+      oldStatus,
       newStatus: updateStatusDto.status,
       assignedToId: ticket.assignedToId,
       requesterId: ticket.requesterId,
@@ -417,6 +431,7 @@ export class TicketsService {
       this.eventEmitter.emit('ticket.assigned', {
         ticketId: id,
         ticketNumber: ticket.ticketNumber,
+        subject: ticket.subject,
         assignedToId: assignTicketDto.assignedToId,
         assignedBy: userId,
       });

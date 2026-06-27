@@ -2,6 +2,50 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Bug Fixes (CODE_REVIEW.md Sesi 3)
+
+### P0 - Critical
+- **P0-01**: `restoreBackup()` — maintenance mode sekarang tetap enabled saat restore gagal, bukan dimatikan. Menambahkan pre-restore backup ID ke error message. Test unit regression ditambah untuk kasus `restoreUploads` gagal dan `createBackup('pre-restore')` gagal.
+- **P0-02**: Docker env templates — menambahkan `backend/.env.compose.example` (canonical untuk Docker Compose dengan `REDIS_PASSWORD`) dan `backend/.env.local.example` (untuk local dev). Root `.env.example` ditandai deprecated. README Quick Start diupdate ke `cp backend/.env.compose.example backend/.env`.
+
+### P1 - High
+- **P1-01**: Attachment list EndUser — filter visibility (`AttachmentVisibilityPolicy.buildVisibleAttachmentWhere()`) diterapkan sebelum `findMany` dan `count`, bukan setelah query di memory. Meta pagination sekarang mencerminkan jumlah attachment visible saja, bukan semua.
+- **P1-02**: WebSocket token refresh — `useSocket()` sekarang depend pada `accessToken` dari Zustand store. Saat token berubah (refresh), socket di-reconnect dengan token baru.
+- **P1-03**: Upload atomic cleanup — direct attachment upload dibungkus transaction (`attachmentRepository.transaction`); jika DB insert gagal, file yang sudah tersimpan dihapus. Comment creation juga di-transact: files disimpan dulu, lalu comment + attachment rows dibuat dalam satu transaction.
+- **P1-04**: Status transition race — `updateStatus()` sekarang membaca status di dalam transaction, memakai conditional `updateMany({ where: { id, status: oldStatus } })`, dan return `409 Conflict` jika `count === 1` gagal (status sudah berubah).
+- **P1-05**: User deactivation — `UsersService.update()` emit event `user.deactivated` saat `isActive` berubah dari `true` ke `false`. `AuthService` revoke all refresh tokens, `NotificationsGateway` disconnect semua socket user dan leave room.
+- **P1-06**: EndUser master data — `GET /categories` sekarang return field minimal (`id`, `name`, `description`, `subCategories` aktif) untuk EndUser, dan data lengkap dengan `_count`/`slaConfigs` untuk Admin. `GET /sla-configs` dibatasi Admin-only. Subcategory list juga Admin-only.
+- **P1-07**: Telegram polling restart — menambahkan `pollingGeneration` counter dan timeout handle. Setiap restart/shutdown increment generation; stale loops berhenti. Timeout di-clear saat shutdown.
+- **P1-08**: Backup script maintenance guard — `scripts/backup.sh` sekarang refuse jalan saat maintenance mode off (kecuali `--live-ok`). Flag `--live-ok` menampilkan warning bahwa backup mungkin inconsistent.
+
+### P2 - Medium
+- **P2-01**: Pagination DTO — comment dan attachment endpoints sekarang gunakan `PaginationQueryDto` dengan `@Type(() => Number)`, `@IsInt()`, `@Min(1)`, `@Max(100)`. Invalid params return 400.
+- **P2-02**: Telegram config DTO — menambahkan `UpdateTelegramConfigDto`, `TelegramSettingsDto`, `TelegramTemplatesDto`, `CheckTelegramConfigDto`. `enabledEvents` divalidasi `@IsIn()` untuk event whitelist. Body extra field ditolak.
+- **P2-03**: SLA error handling — `SLAService.create()` precheck category existence dan catch Prisma `P2002` (ConflictException) / `P2025` (NotFoundException). Validasi `resolutionTimeMinutes >= responseTimeMinutes`.
+- **P2-05**: Frontend pagination clamp — `TicketList`, `AttachmentList`, `CommentSection` sekarang auto-adjust `page` saat `totalPages` menyusut (setelah delete/filter).
+- **P2-06**: `VITE_API_URL` — axios `baseURL`, refresh URL, dan socket namespace sekarang gunakan `import.meta.env.VITE_API_URL || '/api'`. `frontend/.env.example` diupdate.
+- **P2-07**: Redis healthcheck — password tidak lagi di-pass via `redis-cli -a` (insecure); sekarang pakai `REDISCLI_AUTH` env. Redis command generate config file via `umask 077` + temp file.
+- **P2-08**: nginx real IP — hapus `set_real_ip_from` private ranges dan `real_ip_header` karena tidak ada upstream reverse proxy di compose default.
+
+### P3 - Low/Medium
+- **P3-01**: Login redirect — login sekarang redirect ke `location.state.from.pathname` (dari `ProtectedRoute`) jika ada, fallback `/tickets`.
+- **P3-02**: Notification count drift — `useMarkAsRead` sekarang invalidasi `notifications-unread-count` query setelah success, bukan decrement lokal.
+- **P3-03**: Telegram assignment subject — `ticket.assigned` event sekarang include `subject: ticket.subject`.
+- **P3-04**: Thumbnail object URL — `thumbnailCache` dibatasi 100 entries; entry overflow di-revoke dan dihapus.
+- **P3-05**: DTO trim/whitespace — `CreateCategoryDto`, `CreateSubCategoryDto`, `CreateUserDto` sekarang pakai `@Transform(trimString)` + `@IsNotEmpty()` untuk name/email, `@MaxLength()` untuk semua string fields.
+
+### Frontend UX Improvements
+- Attachment upload: client-side file type/size validation sebelum upload (feedback cepat tanpa roundtrip).
+- Comment attachment: client-side file type validation sebelum submit.
+- Status update / priority change / assign / delete: semua mutation sekarang tampilkan `toast.error()` saat gagal (bukan silent fail).
+- Export CSV: `toast.error()` saat gagal (bukan silent fail).
+- Attachment download/preview: `toast.error()` saat gagal.
+
+### Docs & Infra
+- README Quick Start diupdate: gunakan `backend/.env.compose.example` untuk Docker Compose, `backend/.env.local.example` untuk local dev.
+- Backup script: dokumentasi `--live-ok` flag dan maintenance requirement.
+- Nginx: dokumentasi topology proxy di README.
+
 ## Performance (CODE_REVIEW.md Ses 2)
 - **PERF-01**: Tambah database indexes untuk query panas — `categoryId`, `subCategoryId`, `slaStatus`, `updatedAt`, `requesterId+createdAt`, `assignedToId+status`, `status+slaStatus` pada tickets; `ticketId+createdAt`, `userId` pada comments; `ticketId+visibility`, `userId` pada attachments; `userId+isRead+createdAt` pada notifications; `ticketId+createdAt` pada ticket_history; `createdAt` pada users.
 - **PERF-02**: Migration raw SQL untuk `pg_trgm` extension + 5 GIN trigram indexes untuk search ILIKE pada tickets (subject, description, ticketNumber) dan users (name, email).

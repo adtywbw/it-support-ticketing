@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, type FormEvent } from 'react';
+import toast from 'react-hot-toast';
 import { useTicketComments, useAddComment } from '@/hooks/use-tickets';
 import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
@@ -12,6 +13,17 @@ interface CommentSectionProps {
 }
 
 const thumbnailCache = new Map<string, string>();
+const MAX_THUMBNAILS = 100;
+
+function cacheThumbnail(id: string, url: string) {
+  const existing = thumbnailCache.get(id);
+  if (existing) URL.revokeObjectURL(existing);
+  thumbnailCache.set(id, url);
+  if (thumbnailCache.size <= MAX_THUMBNAILS) return;
+  const [oldestId, oldestUrl] = thumbnailCache.entries().next().value as [string, string];
+  URL.revokeObjectURL(oldestUrl);
+  thumbnailCache.delete(oldestId);
+}
 
 function CommentFileThumbnail({ attachment, onPreview }: { attachment: { id: string; originalName: string }; onPreview: (id: string) => void }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(() => thumbnailCache.get(attachment.id) ?? null);
@@ -31,7 +43,7 @@ function CommentFileThumbnail({ attachment, onPreview }: { attachment: { id: str
         apiClient.get(`/attachments/${attachment.id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
           .then((r) => {
             const u = URL.createObjectURL(r.data);
-            thumbnailCache.set(attachment.id, u);
+            cacheThumbnail(attachment.id, u);
             setBlobUrl(u);
           })
           .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
@@ -77,9 +89,30 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
   useEffect(() => { return () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }; }, []);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_MIME_TYPES = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'text/csv',
+    'application/zip',
+    'application/x-rar-compressed',
+  ]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
+    const unsupported = selected.find((f) => !ALLOWED_MIME_TYPES.has(f.type));
+    if (unsupported) {
+      setUploadError(`File type ${unsupported.type || 'unknown'} is not allowed`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     const oversized = selected.find((f) => f.size > MAX_FILE_SIZE);
     if (oversized) {
       setUploadError(`File "${oversized.name}" exceeds the 5 MB limit`);
@@ -126,7 +159,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
     try {
       const res = await apiClient.get(`/attachments/${attachment.id}/download?view=1`, { responseType: 'blob' });
       const url = URL.createObjectURL(res.data); previewUrlRef.current = url; setPreviewUrl(url);
-    } catch { setPreviewUrl(''); }
+    } catch (err) { toast.error(getErrorMessage(err, 'Failed to preview attachment')); setPreviewUrl(''); }
   }, []);
 
   const closePreview = useCallback(() => {
@@ -140,8 +173,13 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
       const url = URL.createObjectURL(res.data); const a = document.createElement('a');
       a.href = url; a.download = attachment.originalName;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-    } catch { /* silently fail */ }
+    } catch (err) { toast.error(getErrorMessage(err, 'Failed to download attachment')); }
   }, []);
+
+  useEffect(() => {
+    const totalPages = commentMeta?.totalPages ?? (commentMeta ? Math.ceil(commentMeta.total / (commentMeta.limit || commentLimit)) || 1 : 1);
+    if (commentPage > totalPages) setCommentPage(totalPages || 1);
+  }, [commentMeta, commentLimit, commentPage]);
 
   const visibleComments = Array.isArray(comments)
     ? comments.filter((c: { type: string }) => c.type !== 'INTERNAL' || !!canSeeInternal)
@@ -228,7 +266,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
         {commentMeta && (
           <Pagination
             page={commentPage}
-            totalPages={Math.ceil(commentMeta.total / commentLimit) || 1}
+            totalPages={commentMeta.totalPages ?? (Math.ceil(commentMeta.total / commentLimit) || 1)}
             onPageChange={(p) => setCommentPage(p)}
             limit={commentLimit}
             onLimitChange={(l) => { setCommentLimit(l); setCommentPage(1); }}

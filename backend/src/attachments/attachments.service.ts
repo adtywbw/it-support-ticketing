@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { CommentType, Role, AttachmentVisibility } from '@prisma/client';
+import { CommentType, Role, AttachmentVisibility, Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import { Express } from 'express';
@@ -108,16 +108,6 @@ export class AttachmentsService {
       throw new ForbiddenException('Access denied');
     }
 
-    const attachmentCount = await this.attachmentRepository.count({
-      ticketId,
-    });
-
-    if (attachmentCount >= MAX_FILES_PER_TICKET) {
-      throw new BadRequestException(
-        `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
-      );
-    }
-
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       throw new BadRequestException(
         `File type ${file.mimetype} is not allowed`,
@@ -135,28 +125,40 @@ export class AttachmentsService {
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
     const filePath = buildSafeUploadPath(uploadDir, file.originalname);
 
-    await this.storageService.save(file, filePath);
-
     const resolvedVisibility = userRole === Role.EndUser
       ? AttachmentVisibility.PUBLIC
       : (visibility === 'INTERNAL' ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC);
 
-    const attachment = await this.attachmentRepository.create(
-      {
-        ticket: { connect: { id: ticketId } },
-        user: { connect: { id: userId } },
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        path: filePath,
-        visibility: resolvedVisibility,
-      },
-      {
-        user: { select: { id: true, name: true } },
-      },
-    );
+    await this.storageService.save(file, filePath);
 
-    return attachment;
+    try {
+      return await this.attachmentRepository.transaction(async (tx) => {
+        const attachmentCount = await tx.attachment.count({ where: { ticketId } });
+        if (attachmentCount >= MAX_FILES_PER_TICKET) {
+          throw new BadRequestException(
+            `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
+          );
+        }
+
+        return tx.attachment.create({
+          data: {
+            ticket: { connect: { id: ticketId } },
+            user: { connect: { id: userId } },
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+            path: filePath,
+            visibility: resolvedVisibility,
+          },
+          include: {
+            user: { select: { id: true, name: true } },
+          },
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      await this.storageService.delete(filePath).catch(() => {});
+      throw error;
+    }
   }
 
   async findByTicketId(ticketId: string, userId: string, userRole: string, page = 1, limit = 20) {
@@ -173,10 +175,12 @@ export class AttachmentsService {
       throw new ForbiddenException('Access denied');
     }
 
-    const actualLimit = Math.min(limit, 100);
-    const skip = (page - 1) * actualLimit;
+    const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+    const actualLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+    const skip = (normalizedPage - 1) * actualLimit;
 
-    const attachmentWhere = { ticketId };
+    const visibleWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentWhere(userRole as UserRole);
+    const attachmentWhere = visibleWhere ? { ticketId, ...visibleWhere } : { ticketId };
     const [attachments, total] = await Promise.all([
       this.attachmentRepository.findByTicketId(ticketId, {
         where: attachmentWhere,
@@ -191,15 +195,8 @@ export class AttachmentsService {
       this.attachmentRepository.count(attachmentWhere),
     ]);
 
-    let result = attachments;
-    if (userRole === Role.EndUser) {
-      result = attachments.filter((attachment: any) =>
-        AttachmentVisibilityPolicy.isAttachmentVisible(attachment, userRole as UserRole),
-      );
-    }
-
     const totalPages = Math.ceil(total / actualLimit) || 1;
-    return { data: result, meta: { page, limit: actualLimit, total, totalPages } };
+    return { data: attachments, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
   }
 
   async getDownloadInfo(id: string, userId: string, userRole: string) {

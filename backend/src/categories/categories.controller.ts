@@ -15,6 +15,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('categories')
 @UseGuards(JwtAuthGuard)
@@ -22,13 +23,13 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  async findAll() {
-    return this.categoriesService.findAll();
+  async findAll(@CurrentUser() user: { role: Role }) {
+    return this.categoriesService.findAll(user.role);
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string) {
-    return this.categoriesService.findById(id);
+  async findById(@Param('id') id: string, @CurrentUser() user: { role: Role }) {
+    return this.categoriesService.findById(id, user.role);
   }
 
   @Post()

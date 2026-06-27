@@ -215,3 +215,28 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Frontend: route-level `React.lazy()` code splitting, nginx static asset immutable cache, TanStack Query staleTime tuning (categories 30m, assignable 10m).
 - MasterData: subcategories derived from categories data (no N+1 requests).
 - RedisService: tambah `mget()` method untuk multi-key get atomik.
+
+## Bug Fixes (CODE_REVIEW.md Sesi 3)
+- **Restore safety**: maintenance tetap enabled saat restore gagal; pre-restore backup ID di-return ke error message.
+- **Docker env**: `backend/.env.compose.example` (canonical, termasuk `REDIS_PASSWORD`), `backend/.env.local.example` (local dev).
+- **Attachment visibility**: EndUser `findMany`/`count` pakai `AttachmentVisibilityPolicy.buildVisibleAttachmentWhere()` — post-query filter dihapus.
+- **WebSocket refresh**: `useSocket()` re-create socket saat `accessToken` berubah via Zustand selector.
+- **Upload atomic**: direct attachment & comment creation pakai Prisma transaction; file cleanup jika DB insert gagal.
+- **Status race**: `updateStatus()` pakai conditional `updateMany({ where: { id, status: oldStatus } })` + 409 Conflict.
+- **User deactivation**: emit `user.deactivated` → revoke refresh tokens + disconnect sockets.
+- **Category EndUser**: `GET /categories` return minimal fields untuk EndUser (`findForTicketForm`); Admin tetap lengkap.
+- **Telegram polling**: generation counter + timeout handle — stale loops auto-stop.
+- **Backup script**: refuse saat maintenance off; flag `--live-ok` untuk live backup.
+- **Pagination DTO**: `PaginationQueryDto` dengan `@Type(Number)`, `@IsInt`, `@Min(1)`, `@Max(100)`.
+- **Telegram config**: typed DTOs (`UpdateTelegramConfigDto`, `CheckTelegramConfigDto`) + event whitelist validation.
+- **SLA errors**: category existence precheck + Prisma P2002/P2025 → Conflict/NotFound.
+- **Frontend toasts**: semua mutation/export/download failure sekarang `toast.error()`.
+- **Pagination clamp**: `TicketList`, `AttachmentList`, `CommentSection` auto-adjust page saat totalPages menyusut.
+- **VITE_API_URL**: axios `baseURL`, refresh, socket sekarang gunakan `import.meta.env.VITE_API_URL || '/api'`.
+- **Redis healthcheck**: `REDISCLI_AUTH` env (bukan `-a`); config file via `umask 077`.
+- **Nginx**: hapus `set_real_ip_from` private ranges + `real_ip_header`.
+- **Login redirect**: respect `location.state.from` dari `ProtectedRoute`.
+- **Notification count**: invalidate `notifications-unread-count` query setelah mark-read.
+- **Telegram subject**: `ticket.assigned` event include `subject: ticket.subject`.
+- **Thumbnail cache**: LRU limit 100 entries + revoke evicted URLs.
+- **DTO trim**: `@Transform(trimString)` + `@IsNotEmpty()` + `@MaxLength()` di category, subcategory, user DTOs.

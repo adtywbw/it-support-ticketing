@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useTicket, useUpdateTicketStatus, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
 import { useAssignableUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
@@ -41,7 +42,10 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
       onChange={(e) => {
         const id = e.target.value || null;
         if (id !== (ticket.assignedToId ?? null)) {
-          assignMutation.mutate({ id: ticket.id, assignedToId: id });
+          assignMutation.mutate(
+            { id: ticket.id, assignedToId: id },
+            { onError: (err) => toast.error(getErrorMessage(err, 'Failed to assign ticket')) },
+          );
         }
       }}
       className="mt-1 input text-sm"
@@ -112,7 +116,10 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                   <button
                     key={status}
                     onClick={() =>
-                      updateStatusMutation.mutate({ id: ticket.id, status })
+                      updateStatusMutation.mutate(
+                        { id: ticket.id, status },
+                        { onError: (err) => toast.error(getErrorMessage(err, 'Failed to update status')) },
+                      )
                     }
                     className="btn-secondary btn-sm"
                     disabled={updateStatusMutation.isPending}
@@ -123,7 +130,10 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
               {canCloseOwnResolved && (
                 <button
                   onClick={() =>
-                    updateStatusMutation.mutate({ id: ticket.id, status: 'Closed' })
+                    updateStatusMutation.mutate(
+                      { id: ticket.id, status: 'Closed' },
+                      { onError: (err) => toast.error(getErrorMessage(err, 'Failed to close ticket')) },
+                    )
                   }
                   className="btn-secondary btn-sm"
                   disabled={updateStatusMutation.isPending}
@@ -275,6 +285,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             onSuccess: () => {
               navigate('/tickets');
             },
+            onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete ticket')),
           });
         }}
         title="Delete Ticket"

@@ -39,7 +39,6 @@ export function useNotifications(page = 1, limit = 20) {
 
 export function useMarkAsRead() {
   const queryClient = useQueryClient();
-  const decrement = useNotificationStore((s) => s.decrement);
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -47,7 +46,7 @@ export function useMarkAsRead() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      decrement();
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
   });
 }
