@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useTickets, useUpdateTicketPriority, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
 import { useAssignableUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
@@ -78,6 +79,11 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
   }
 
   const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);
+
+  useEffect(() => {
+    const totalPages = data?.meta?.totalPages ?? (data?.meta ? Math.ceil(data.meta.total / (data.meta.limit || limit || 10)) || 1 : 1);
+    if (page > totalPages) onPageChange(totalPages || 1);
+  }, [limit, data?.meta, onPageChange, page]);
 
   if (isLoading) {
     return (
@@ -171,8 +177,12 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                           value={ticket.priority}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) =>
-                            updatePriorityMutation.mutate({ id: ticket.id, priority: e.target.value as TicketPriority })
+                            updatePriorityMutation.mutate(
+                              { id: ticket.id, priority: e.target.value as TicketPriority },
+                              { onError: (err) => { toast.error(getErrorMessage(err, 'Failed to update priority')); refetch(); } },
+                            )
                           }
+                          disabled={updatePriorityMutation.isPending}
                           className="input text-xs py-1 px-2"
                         >
                           <option value="Low">Low</option>
@@ -192,9 +202,13 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                           onChange={(e) => {
                             const id = e.target.value || null;
                             if (id !== (ticket.assignedToId ?? null)) {
-                              assignMutation.mutate({ id: ticket.id, assignedToId: id });
+                              assignMutation.mutate(
+                                { id: ticket.id, assignedToId: id },
+                                { onError: (err) => { toast.error(getErrorMessage(err, 'Failed to assign ticket')); refetch(); } },
+                              );
                             }
                           }}
+                          disabled={assignMutation.isPending}
                           className="input text-xs py-1 px-2"
                         >
                           <option value="">Unassigned</option>
@@ -257,6 +271,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
           if (deleteConfirm) {
             deleteTicketMutation.mutate(deleteConfirm.id, {
               onSuccess: () => setDeleteConfirm(null),
+              onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete ticket')),
             });
           }
         }}
