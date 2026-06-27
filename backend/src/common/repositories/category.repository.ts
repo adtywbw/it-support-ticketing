@@ -27,6 +27,7 @@ export class CategoryRepository {
         id: true,
         name: true,
         description: true,
+        isActive: true,
         subCategories: {
           where: { isActive: true },
           orderBy: { name: 'asc' },
@@ -35,6 +36,7 @@ export class CategoryRepository {
             name: true,
             description: true,
             categoryId: true,
+            isActive: true,
           },
         },
       },
@@ -48,6 +50,7 @@ export class CategoryRepository {
         id: true,
         name: true,
         description: true,
+        isActive: true,
         subCategories: {
           where: { isActive: true },
           orderBy: { name: 'asc' },
@@ -56,6 +59,7 @@ export class CategoryRepository {
             name: true,
             description: true,
             categoryId: true,
+            isActive: true,
           },
         },
       },
