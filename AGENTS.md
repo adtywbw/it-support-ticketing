@@ -184,7 +184,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ## Key Model Fields (anti-hallucination)
 - `Ticket`: `ticketNumber` (dari sequence, bukan MAX), `status`, `priority`, `visibility` tidak ada di model Ticket — visibility ada di `Attachment`.
 - `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (untuk display saja), nama file di disk = uuid + safe extension.
-- `Comment`: tidak ada field `isInternal` — visibility internal dikontrol via `Attachment.visibility` dan `AttachmentVisibilityPolicy`.
+- `Comment`: tidak ada field `isInternal` boolean — gunakan field `type: CommentType` (`PUBLIC`|`INTERNAL`). Visibility attachment internal dikontrol via `AttachmentVisibilityPolicy`.
 - `TelegramConfig`: singleton, selalu diakses via `key = "default"`, gunakan `findOrCreate()` dari repository — jangan `findFirst()` atau `create()` langsung.
 - `Notification`: clear-all, read-all, mark-read didukung API — cek API Map sebelum tambah endpoint baru.
 - `SLAConfig`: unique constraint di `(categoryId, priority)` — upsert saat create/update.

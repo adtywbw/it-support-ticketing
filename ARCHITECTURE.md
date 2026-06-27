@@ -86,6 +86,9 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ role                       Role (EndUser|ITSupport|Admin)
 │ isActive                   Boolean
 │ avatarUrl                  VARCHAR? (nullable)
+│ telegramChatId             VARCHAR? (nullable, UNIQUE)
+│ telegramCode               VARCHAR? (nullable, UNIQUE)
+│ telegramCodeAt             DateTime? (nullable)
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
 │ INDEXES: (email), (role), (role, isActive)
@@ -271,8 +274,6 @@ it-support-ticketing/
 │       │   │   └── transform.interceptor.ts
 │       │   ├── interfaces/
 │       │   │   └── storage-service.interface.ts
-│       │   ├── pipes/
-│       │   │   └── uuid-validation.pipe.ts
 │       │   ├── policies/
 │       │   │   └── attachment-visibility.policy.ts
 │       │   └── repositories/
@@ -391,7 +392,8 @@ it-support-ticketing/
 │       │   ├── use-notifications.ts
 │       │   ├── use-telegram.ts
 │       │   ├── use-maintenance.ts
-│       │   └── use-change-password.ts
+│       │   ├── use-change-password.ts
+│       │   └── use-socket.ts
 │       ├── auth/
 │       │   ├── LoginForm.tsx
 │       │   └── ProtectedRoute.tsx
@@ -400,6 +402,7 @@ it-support-ticketing/
 │       │   ├── Sidebar.tsx
 │       │   └── Navbar.tsx
 │       ├── components/
+│       │   ├── MaintenanceBanner.tsx
 │       │   ├── tickets/
 │       │   │   ├── TicketList.tsx
 │       │   │   ├── TicketDetail.tsx

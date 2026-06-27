@@ -141,7 +141,7 @@ it-support-ticketing/
 │   ├── Dockerfile             # Multi-stage build (Debian bookworm-slim)
 │   ├── docker-entrypoint.sh    # chown mounted uploads/backups, then run as node
 │   ├── prisma/
-│   │   ├── schema.prisma      # 10 models + 5 enums + indexes
+│   │   ├── schema.prisma      # 10 models + 7 enums + indexes
 │   │   └── seed.ts            # Admin user, categories, sample ticket
 │   └── src/
 │       ├── auth/              # JWT auth, login/refresh/logout
@@ -159,28 +159,23 @@ it-support-ticketing/
 │       ├── health/            # DB + Redis health check
 │       ├── prisma/            # PrismaService
 │       ├── redis/             # ioredis provider
-│       └── common/            # Guards, decorators, interceptors, filters, repositories
+│       └── common/            # Guards, decorators, interceptors, filters, policies, dto, repositories
 ├── frontend/
 │   ├── Dockerfile             # Multi-stage build (Vite build → nginx static)
 │   └── src/
 │       ├── lib/               # Axios client, utility functions
 │       ├── types/             # TypeScript type definitions
-│       ├── stores/            # Zustand stores (auth, notifications)
+│       ├── stores/            # Zustand stores (auth, notifications, theme)
 │       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, useMaintenance, etc.)
 │       ├── auth/              # LoginForm, ProtectedRoute
 │       ├── layout/            # Sidebar, Navbar, Layout
 │       ├── components/
-│       │   ├── tickets/       # TicketList, CreateTicketForm, TicketDetail, etc.
-│       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
-│       │   ├── admin/         # UserManagement, MasterDataManagement
-│       ├── auth/              # LoginForm, ProtectedRoute
-│       ├── layout/            # Sidebar, Navbar, Layout
-│       ├── components/
+│       │   ├── MaintenanceBanner.tsx
 │       │   ├── tickets/       # TicketList, CreateTicketForm, TicketDetail, etc.
 │       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
 │       │   ├── admin/         # UserManagement, MasterDataManagement
 │       │   └── ui/            # Modal, Pagination, ErrorBoundary, LoadingSpinner, etc.
-│       └── pages/             # 9 pages (tickets, detail, create-ticket, dashboard, notifications, my-account, admin-users, admin-master)
+│       └── pages/             # 10 pages (login, tickets, detail, create-ticket, dashboard, notifications, my-account, admin-users, admin-master, admin-maintenance)
 └── uploads/                   # File attachments volume
 ```
 
