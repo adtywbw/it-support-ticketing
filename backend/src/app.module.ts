@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { Reflector } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -23,6 +22,7 @@ import { RepositoriesModule } from './common/repositories/repositories.module';
 import { MaintenanceGuard } from './common/guards/maintenance.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { RedisService } from './redis/redis.service';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -59,6 +59,12 @@ import { RedisService } from './redis/redis.service';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_GUARD,
+      useFactory: (reflector: Reflector) => new JwtAuthGuard(reflector),
+      inject: [Reflector],
+    },
+    JwtAuthGuard,
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,

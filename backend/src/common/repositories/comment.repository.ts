@@ -25,7 +25,16 @@ export class CommentRepository {
           select: { id: true, name: true, email: true, role: true, avatarUrl: true },
         },
         attachments: {
-          include: {
+          select: {
+            id: true,
+            ticketId: true,
+            commentId: true,
+            userId: true,
+            originalName: true,
+            mimeType: true,
+            size: true,
+            visibility: true,
+            createdAt: true,
             user: { select: { id: true, name: true } },
           },
         },

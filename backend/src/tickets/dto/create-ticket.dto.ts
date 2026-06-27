@@ -13,6 +13,7 @@ export class CreateTicketDto {
   subject: string;
 
   @IsString()
+  @MaxLength(10000)
   description: string;
 
   @IsUUID()

@@ -1,5 +1,6 @@
-import { IsOptional, IsInt, Min, Max, IsString, IsEnum, IsBooleanString } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsEnum, IsBooleanString, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Role } from '@prisma/client';
 
 export class PaginationQueryDto {
   @IsOptional()
@@ -18,11 +19,12 @@ export class PaginationQueryDto {
 
 export class QueryUsersDto extends PaginationQueryDto {
   @IsOptional()
-  @IsString()
-  role?: string;
+  @IsEnum(Role)
+  role?: Role;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 
   @IsOptional()

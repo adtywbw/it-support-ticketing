@@ -3,8 +3,10 @@ import {
   IsEnum,
   IsString,
   IsInt,
+  IsUUID,
   Min,
   Max,
+  MaxLength,
   IsDateString,
   IsIn,
 } from 'class-validator';
@@ -34,15 +36,15 @@ export class QueryTicketDto {
   priority?: Priority;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   categoryId?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   assignedToId?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   requesterId?: string;
 
   @IsOptional()
@@ -59,6 +61,7 @@ export class QueryTicketDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 
   @IsOptional()

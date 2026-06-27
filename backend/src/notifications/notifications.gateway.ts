@@ -51,7 +51,7 @@ export class NotificationsGateway
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
 
-      if (payload.tokenType && payload.tokenType !== 'access') {
+      if (payload.tokenType !== 'access') {
         client.disconnect();
         return;
       }

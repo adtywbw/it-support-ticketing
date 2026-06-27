@@ -102,7 +102,7 @@ export class AttachmentsController {
       `${view === '1' ? 'inline' : 'attachment'}; filename="${safeName}"`,
     );
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.setHeader('Cache-Control', 'private, no-cache');
 
     const fileStream = (await import('fs')).createReadStream(attachment.path);
     fileStream.on('error', () => {

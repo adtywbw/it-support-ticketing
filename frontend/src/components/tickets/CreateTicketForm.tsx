@@ -59,12 +59,33 @@ export default function CreateTicketForm() {
   };
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  const ALLOWED_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'text/csv',
+    'application/zip',
+    'application/x-rar-compressed',
+  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const oversized = selected.find((f) => f.size > MAX_FILE_SIZE);
     if (oversized) {
       setUploadError(`File "${oversized.name}" exceeds the 5 MB limit`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    const invalidType = selected.find((f) => !ALLOWED_MIME_TYPES.includes(f.type));
+    if (invalidType) {
+      setUploadError(`File type "${invalidType.type || 'unknown'}" is not allowed`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }

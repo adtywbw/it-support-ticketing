@@ -6,6 +6,7 @@ export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
 
   constructor() {
+    const tlsEnabled = process.env.REDIS_TLS === 'true';
     let url = process.env.REDIS_URL;
     if (url) {
       if (process.env.REDIS_PASSWORD && !url.includes('@')) {
@@ -13,6 +14,7 @@ export class RedisService implements OnModuleDestroy {
       }
       this.client = new Redis(url, {
         retryStrategy: (times) => Math.min(times * 50, 2000),
+        ...(tlsEnabled ? { tls: {} } : {}),
       });
     } else {
       this.client = new Redis({
@@ -20,6 +22,7 @@ export class RedisService implements OnModuleDestroy {
         port: parseInt(process.env.REDIS_PORT || '6379', 10),
         password: process.env.REDIS_PASSWORD || undefined,
         retryStrategy: (times) => Math.min(times * 50, 2000),
+        ...(tlsEnabled ? { tls: {} } : {}),
       });
     }
   }
@@ -52,6 +55,18 @@ export class RedisService implements OnModuleDestroy {
 
   async del(key: string): Promise<void> {
     await this.client.del(key);
+  }
+
+  async incr(key: string): Promise<number> {
+    return this.client.incr(key);
+  }
+
+  async expire(key: string, seconds: number): Promise<void> {
+    await this.client.expire(key, seconds);
+  }
+
+  async eval(script: string, keys: string[], args: string[]): Promise<unknown> {
+    return this.client.eval(script, keys.length, ...keys, ...args);
   }
 
   async deleteByPattern(pattern: string): Promise<number> {

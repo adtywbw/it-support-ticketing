@@ -453,3 +453,31 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md#6-scaling-suggestions) for detailed scal
 5. Redis — managed, separate instances for tokens vs cache
 6. CDN — serve frontend from CloudFront/Cloudflare
 7. CI/CD — GitHub Actions → registry → Kubernetes
+
+## Security
+
+This project implements defense-in-depth security measures. See [CODE_REVIEW.md](./CODE_REVIEW.md) for the full security audit.
+
+### Key Security Controls
+- **Auth**: bcrypt cost 12, JWT access (15min) + refresh (7d) tokens, httpOnly + sameSite=strict cookies, refresh rotation with Redis reuse detection
+- **Account lockout**: 10 failed login attempts → 15-minute lock (Redis)
+- **Timing attack mitigation**: dummy bcrypt compare for non-existent users
+- **Global auth guard**: `JwtAuthGuard` is fail-closed; `@Public()` decorator exempts only health, auth, and maintenance-mode endpoints
+- **File upload**: extension whitelist, magic byte verification, MIME type integrity check, path traversal prevention, size limits
+- **Attachment visibility**: `AttachmentVisibilityPolicy` — EndUser sees only PUBLIC attachments on PUBLIC comments; `path` field never exposed
+- **Nginx**: security headers (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy), dotfile deny, default_server for unmatched Host
+- **Docker**: `no-new-privileges`, `cap_drop: ALL`, resource limits, least-privilege env files
+- **Secrets**: `.env` permission `600`, `.gitignore` covers `.env.*` variants, strong credentials via `openssl rand`
+
+### Security Environment Variables
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `JWT_SECRET` | Yes (min 32 chars) | JWT signing secret |
+| `COOKIE_SECURE` | Yes in production | `true` for HTTPS, `false` for local HTTP dev |
+| `REDIS_PASSWORD` | Yes in production | Redis authentication |
+| `REDIS_TLS` | No | Set `true` for Redis over TLS |
+
+### CI/CD
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every PR and push to main:
+- Backend: `npm ci` → `prisma generate` → `npm run build` → `npm test`
+- Frontend: `npm ci` → `npm run lint` → `npm run build` → `vitest`

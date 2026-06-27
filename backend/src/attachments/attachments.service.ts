@@ -13,6 +13,7 @@ import { AttachmentRepository } from '../common/repositories/attachment.reposito
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService } from './interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
+import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -50,6 +51,7 @@ const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> 
   { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 },
   { mime: 'application/zip', bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 },
   { mime: 'application/x-rar-compressed', bytes: [0x52, 0x61, 0x72, 0x21], offset: 0 },
+  { mime: 'application/msword', bytes: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1], offset: 0 },
 ];
 
 function detectMimeFromMagicBytes(buffer: Buffer): string | null {
@@ -69,21 +71,19 @@ function assertMimeTypeIntegrity(file: Express.Multer.File): void {
       `File content does not match declared type ${file.mimetype}`,
     );
   }
+  if (file.mimetype === 'text/plain' || file.mimetype === 'text/csv') {
+    for (let i = 0; i < Math.min(file.buffer.length, 1024); i++) {
+      if (file.buffer[i] === 0) {
+        throw new BadRequestException(
+          `File content does not match declared type ${file.mimetype}`,
+        );
+      }
+    }
+  }
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES_PER_TICKET = 5;
-
-function buildSafeUploadPath(uploadDir: string, originalName: string): string {
-  const uploadRoot = path.resolve(uploadDir);
-  const ext = path.extname(path.basename(originalName)) || '';
-  const safeName = `${uuidv4()}${ext}`;
-  const resolvedPath = path.resolve(path.join(uploadRoot, safeName));
-  if (!resolvedPath.startsWith(uploadRoot + path.sep) && resolvedPath !== uploadRoot) {
-    throw new BadRequestException('Invalid file path');
-  }
-  return resolvedPath;
-}
 
 @Injectable()
 export class AttachmentsService {
@@ -144,7 +144,7 @@ export class AttachmentsService {
           data: {
             ticket: { connect: { id: ticketId } },
             user: { connect: { id: userId } },
-            originalName: file.originalname,
+            originalName: sanitizeOriginalName(file.originalname),
             mimeType: file.mimetype,
             size: file.size,
             path: filePath,

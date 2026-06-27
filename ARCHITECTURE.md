@@ -544,3 +544,27 @@ it-support-ticketing/
 7. **Static Assets** — Serve the React frontend build from a CDN (CloudFront / Cloudflare), not from Nginx. The Nginx container becomes unnecessary in this setup; the API can be exposed via an Ingress controller directly.
 
 8. **CI/CD** — Use GitHub Actions pipeline: lint → test → build (Docker images) → push to container registry → deploy to Kubernetes via Helm or Kustomize. Use separate namespaces for staging and production.
+
+## 7. Security Architecture
+
+### Authentication & Authorization
+- **JWT tokens**: access (15min, `tokenType: 'access'`) + refresh (7d, `tokenType: 'refresh'`, httpOnly cookie). Both signed with `JWT_SECRET`. `tokenType` is required in payload — tokens without it are rejected.
+- **Global auth guard**: `JwtAuthGuard` registered as `APP_GUARD` in `app.module.ts`. Fail-closed: any controller without `@Public()` requires authentication. `@Public()` applied to `HealthController`, `AuthController` (login/refresh/logout), `MaintenanceController.getMode()`.
+- **Role-based access**: `RolesGuard` checks `@Roles(...)` metadata. EndUser restricted from dashboard, users, master data, maintenance.
+- **Account lockout**: 10 failed login attempts → 15-minute Redis lock (`login:locked:{email}`). Prevents distributed brute-force.
+- **Timing attack mitigation**: `validateUser()` performs dummy bcrypt compare for non-existent users to equalize response time.
+- **Refresh token rotation**: old jti deleted on rotation; reuse detection revokes token. Stored in Redis with TTL matching JWT expiry.
+
+### File Upload Security
+- **Extension whitelist**: `upload.util.ts` — only `.jpg`, `.png`, `.pdf`, `.docx`, etc. Non-whitelisted extensions stripped.
+- **Magic byte verification**: 8 signatures (JPEG, PNG, GIF, WebP, PDF, ZIP, RAR, OLE2/DOC). Text files checked for null bytes.
+- **Path traversal prevention**: `path.basename()` + `resolvedPath.startsWith(uploadRoot)` double check.
+- **`originalName` sanitization**: `path.basename()` + `substring(0, 255)` before DB storage.
+- **`path` field exclusion**: `ATTACHMENT_SAFE_SELECT` and comment repository `select` — filesystem path never exposed to clients.
+
+### Infrastructure Security
+- **Docker hardening**: `no-new-privileges`, `cap_drop: ALL` with minimal `cap_add`, `mem_limit`, `cpus`, `pids_limit` on all services.
+- **Least-privilege env**: `backend/.env.db` (DB only), `backend/.env.cache` (Redis only), `backend/.env` (API full set).
+- **Nginx**: CSP, security headers repeated per location block (add_header inheritance), `default_server` for unmatched Host, dotfile deny.
+- **Secret hygiene**: `.env` permission `600`, `.gitignore` covers `.env.*`, strong credentials via `openssl rand`.
+- **CI/CD**: GitHub Actions runs build + test on every PR.

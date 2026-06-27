@@ -58,7 +58,6 @@ chmod 600 "$BACKUP_PATH/uploads.tar.gz"
 cat > "$BACKUP_PATH/manifest.txt" <<EOF
 created_at=$TIMESTAMP
 postgres_db=$POSTGRES_DB
-postgres_user=$POSTGRES_USER
 uploads_source=api:/app/uploads
 files=db.sql.gz uploads.tar.gz
 EOF

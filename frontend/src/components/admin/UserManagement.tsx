@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/use-users';
 import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -107,7 +108,7 @@ export default function UserManagement() {
       setIsConfirmOpen(false);
       setUserToToggle(null);
     } catch (err: unknown) {
-      alert(getErrorMessage(err, 'An error occurred'));
+      toast.error(getErrorMessage(err, 'An error occurred'));
     }
   };
 
@@ -118,7 +119,7 @@ export default function UserManagement() {
       setIsDeleteConfirmOpen(false);
       setUserToDelete(null);
     } catch (err: unknown) {
-      alert(getErrorMessage(err, 'An error occurred'));
+      toast.error(getErrorMessage(err, 'An error occurred'));
     }
   };
 

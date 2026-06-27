@@ -14,6 +14,7 @@ import { AttachmentRepository } from '../common/repositories/attachment.reposito
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
+import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -33,6 +34,7 @@ const ALLOWED_MIME_TYPES = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES_PER_COMMENT = 3;
+const MAX_FILES_PER_TICKET = 5;
 
 const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> = [
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff], offset: 0 },
@@ -42,6 +44,7 @@ const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> 
   { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 },
   { mime: 'application/zip', bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 },
   { mime: 'application/x-rar-compressed', bytes: [0x52, 0x61, 0x72, 0x21], offset: 0 },
+  { mime: 'application/msword', bytes: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1], offset: 0 },
 ];
 
 function detectMimeFromMagicBytes(buffer: Buffer): string | null {
@@ -61,17 +64,15 @@ function assertMimeTypeIntegrity(file: Express.Multer.File): void {
       `File content does not match declared type ${file.mimetype}`,
     );
   }
-}
-
-function buildSafeUploadPath(uploadDir: string, originalName: string): string {
-  const uploadRoot = path.resolve(uploadDir);
-  const ext = path.extname(path.basename(originalName)) || '';
-  const safeName = `${uuidv4()}${ext}`;
-  const resolvedPath = path.resolve(path.join(uploadRoot, safeName));
-  if (!resolvedPath.startsWith(uploadRoot + path.sep) && resolvedPath !== uploadRoot) {
-    throw new BadRequestException('Invalid file path');
+  if (file.mimetype === 'text/plain' || file.mimetype === 'text/csv') {
+    for (let i = 0; i < Math.min(file.buffer.length, 1024); i++) {
+      if (file.buffer[i] === 0) {
+        throw new BadRequestException(
+          `File content does not match declared type ${file.mimetype}`,
+        );
+      }
+    }
   }
-  return resolvedPath;
 }
 
 @Injectable()
@@ -114,6 +115,13 @@ export class CommentsService {
     if (files.length > MAX_FILES_PER_COMMENT) {
       throw new BadRequestException(
         `Maximum ${MAX_FILES_PER_COMMENT} files per comment`,
+      );
+    }
+
+    const existingAttachmentCount = await this.attachmentRepository.count({ ticketId });
+    if (existingAttachmentCount + files.length > MAX_FILES_PER_TICKET) {
+      throw new BadRequestException(
+        `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
       );
     }
 
@@ -160,7 +168,7 @@ export class CommentsService {
             ticket: { connect: { id: ticketId } },
             comment: { connect: { id: comment.id } },
             user: { connect: { id: userId } },
-            originalName: file.originalname,
+            originalName: sanitizeOriginalName(file.originalname),
             mimeType: file.mimetype,
             size: file.size,
             path: createdFiles[index].path,

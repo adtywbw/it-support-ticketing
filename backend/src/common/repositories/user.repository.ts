@@ -129,6 +129,14 @@ export class UserRepository {
         telegramCode: code,
         telegramCodeAt: { gte: new Date() },
       },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        telegramCode: true,
+        telegramCodeAt: true,
+      },
     }) as any;
   }
 

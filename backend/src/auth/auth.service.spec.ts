@@ -21,9 +21,11 @@ describe('AuthService', () => {
 
   const mockRedisService = {
     set: jest.fn(),
-    get: jest.fn(),
+    get: jest.fn().mockResolvedValue(null),
     del: jest.fn(),
     deleteByPattern: jest.fn(),
+    incr: jest.fn().mockResolvedValue(0),
+    expire: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -158,6 +160,7 @@ describe('AuthService', () => {
         isActive: true,
       };
 
+      redisService.get.mockResolvedValue(null);
       usersService.findByEmail.mockResolvedValue(mockUser);
       jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(true);
 

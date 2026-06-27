@@ -39,6 +39,11 @@ function validateEnv() {
         'REDIS_PASSWORD is required in production.',
       );
     }
+    if (process.env.COOKIE_SECURE !== 'true') {
+      throw new Error(
+        'COOKIE_SECURE must be "true" in production. Set to "false" only for local HTTP development.',
+      );
+    }
   }
 }
 

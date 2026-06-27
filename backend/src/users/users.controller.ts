@@ -17,6 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto, QueryUsersDto } from '../common/dto/pagination-query.dto';
 
 @Controller('users')
@@ -67,8 +68,11 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(Role.Admin)
-  async delete(@Param('id') id: string) {
-    await this.usersService.delete(id);
-    return { message: 'User deactivated successfully' };
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    await this.usersService.delete(id, user.id);
+    return { message: 'User deleted successfully' };
   }
 }

@@ -14,24 +14,44 @@ import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { AuthResponse } from './interfaces/auth-response.interface';
 
+const MAX_FAILED_ATTEMPTS = 10;
+const LOCK_DURATION_SEC = 900;
+
 @Injectable()
 export class AuthService {
   private readonly refreshTokenExpiryMs: number;
+  private readonly dummyHash: string;
 
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
   ) {
-    this.refreshTokenExpiryMs = 7 * 24 * 60 * 60 * 1000;
+    const expiryStr = process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d';
+    this.refreshTokenExpiryMs = this.parseExpiryToMs(expiryStr);
+    this.dummyHash = bcrypt.hashSync('dummy-password-for-timing', 12);
+  }
+
+  private parseExpiryToMs(expiry: string): number {
+    const match = expiry.match(/^(\d+)([smhd])$/);
+    if (!match) return 7 * 24 * 60 * 60 * 1000;
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    const multipliers: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+    return value * (multipliers[unit] || multipliers.d);
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+    const normalizedEmail = loginDto.email.toLowerCase().trim();
+    await this.checkAccountLocked(normalizedEmail);
+
+    const user = await this.validateUser(normalizedEmail, loginDto.password);
     if (!user) {
+      await this.trackFailedLogin(normalizedEmail);
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    await this.resetFailedLogin(normalizedEmail);
     return this.generateTokens(user);
   }
 
@@ -144,7 +164,7 @@ export class AuthService {
   }): Promise<AuthResponse> {
     const tokenId = uuidv4();
 
-    const basePayload: JwtPayload = {
+    const basePayload = {
       sub: user.id,
       email: user.email,
       role: user.role as JwtPayload['role'],
@@ -194,6 +214,7 @@ export class AuthService {
   ) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
+      await bcrypt.compare(password, this.dummyHash);
       return null;
     }
 
@@ -207,5 +228,30 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  private async trackFailedLogin(email: string): Promise<void> {
+    const key = `login:failed:${email}`;
+    const count = await this.redisService.incr(key);
+    if (count === 1) {
+      await this.redisService.expire(key, LOCK_DURATION_SEC);
+    }
+    if (count >= MAX_FAILED_ATTEMPTS) {
+      const lockKey = `login:locked:${email}`;
+      await this.redisService.set(lockKey, '1', LOCK_DURATION_SEC);
+    }
+  }
+
+  private async checkAccountLocked(email: string): Promise<void> {
+    const lockKey = `login:locked:${email}`;
+    const locked = await this.redisService.get(lockKey);
+    if (locked) {
+      throw new UnauthorizedException('Account temporarily locked due to too many failed attempts. Try again later.');
+    }
+  }
+
+  private async resetFailedLogin(email: string): Promise<void> {
+    const key = `login:failed:${email}`;
+    await this.redisService.del(key);
   }
 }

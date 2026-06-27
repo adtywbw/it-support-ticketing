@@ -16,6 +16,7 @@ import { CommentsService } from './comments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -63,20 +64,15 @@ export class CommentsController {
   }))
   async create(
     @Param('ticketId') ticketId: string,
-    @Body('content') content: string,
-    @Body('type') type: string,
+    @Body() createCommentDto: CreateCommentDto,
     @UploadedFiles() files: Express.Multer.File[],
     @CurrentUser() user: { id: string; role: Role },
   ) {
-    if (!content?.trim()) {
-      throw new BadRequestException('Content is required');
-    }
-
-    const commentType = type === 'INTERNAL' ? CommentType.INTERNAL : CommentType.PUBLIC;
+    const commentType = createCommentDto.type === CommentType.INTERNAL ? CommentType.INTERNAL : CommentType.PUBLIC;
 
     return this.commentsService.create(
       ticketId,
-      content.trim(),
+      createCommentDto.content.trim(),
       commentType,
       files || [],
       user.id,

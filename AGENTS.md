@@ -19,23 +19,23 @@
 - Verify narrowly with relevant test/build/lint only; do not run the whole stack unless needed.
 - Preserve user changes; never revert/reset/checkout files without explicit request.
 
-## Agentic Loop Wajib
-- Fase 1 - Context Gathering: gunakan Project Structure dan API Map di AGENTS.md sebagai peta awal — jangan recursive scan direktori dulu. Lookup langsung ke file spesifik yang relevan dengan task. Jika file tidak ditemukan dari lookup terarah, baru scan direktori terbatas. Baca maksimal 3-5 file sebelum pindah ke Planning.
-- Jangan langsung edit file sebelum context gathering selesai.
-- Fase 2 - Planning: untuk task yang menyentuh lebih dari 1 file, tulis rencana perubahan sebelum eksekusi.
-- Planning format (compact): `path/to/file.ts` → apa yang diubah (1 kalimat). Untuk bug: root cause 1 kalimat. Flag jika ada behavior change. Jangan verbose — planning harus terbaca dalam 30 detik.
-- Untuk bug, identifikasi root cause terlebih dahulu, baru susun plan fix.
-- Tanya konfirmasi manusia HANYA jika informasi yang dibutuhkan tidak bisa diderivasi dari codebase atau AGENTS.md ini. Maksimal 1 pertanyaan per siklus; gabung semua ambiguitas dalam satu pesan.
-- Fase 3 - Execution: buat perubahan sesempit mungkin sesuai scope task.
-- Jangan tambah fitur, refactor, atau improvement yang tidak diminta.
-- Prefer reversible actions dan hindari operasi destruktif tanpa konfirmasi eksplisit.
-- Jika diminta commit, satu perubahan logis = satu commit; jangan batch perubahan tidak terkait.
-- Fase 4 - Verification: setelah edit, jalankan test/lint/build yang relevan sesuai area perubahan.
-- Jika verifikasi tidak relevan atau tidak bisa dijalankan, laporkan alasannya.
-- Jika test/lint/build gagal, baca error, analisis, perbaiki, lalu ulangi verifikasi.
-- Jangan deklarasikan selesai sebelum verifikasi relevan hijau atau keterbatasannya dijelaskan.
-- Fase 5 - Reporting: ringkas file yang diubah, alasan perubahan, verifikasi yang dijalankan, dan bukti verifikasi yang berhasil.
-- Flag perubahan behavior secara eksplisit jika ada yang perlu diketahui manusia.
+## Mandatory Agentic Loop
+- Phase 1 - Context Gathering: use the Project Structure and API Map in AGENTS.md as the initial map — do not recursively scan directories first. Directly look up the specific files relevant to the task. If a file is not found via targeted lookup, only then do a limited directory scan. Read at most 3–5 files before moving to Planning.
+- Do not edit files before context gathering is complete.
+- Phase 2 - Planning: for tasks touching more than 1 file, write a change plan before executing.
+- Planning format (compact): `path/to/file.ts` → what changes (1 sentence). For bugs: root cause in 1 sentence. Flag any behavior changes. Keep it concise — the plan must be readable in 30 seconds.
+- For bugs, identify the root cause first, then compose the fix plan.
+- Ask for human confirmation ONLY if the required information cannot be derived from the codebase or this AGENTS.md. Maximum 1 question per cycle; combine all ambiguities into a single message.
+- Phase 3 - Execution: make changes as narrow as possible within the task scope.
+- Do not add unrequested features, refactors, or improvements.
+- Prefer reversible actions and avoid destructive operations without explicit confirmation.
+- If asked to commit, one logical change = one commit; do not batch unrelated changes.
+- Phase 4 - Verification: after edits, run the test/lint/build relevant to the changed area.
+- If verification is not relevant or cannot be run, report the reason.
+- If test/lint/build fails, read the error, analyze, fix, then repeat verification.
+- Do not declare done until relevant verification passes or its limitations are explained.
+- Phase 5 - Reporting: summarize files changed, reasons for changes, verification run, and evidence of successful verification.
+- Explicitly flag any behavior changes that humans need to be aware of.
 
 ## Non-Negotiable Rules
 - Do not persist access tokens in `localStorage`, `sessionStorage`, or other persistent storage.
@@ -157,7 +157,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
 - API image includes `postgresql-client-16`, `gzip`, `tar`, and `gosu`; entrypoint chowns `/app/uploads` and `/app/backups`, then runs as `node`.
-- Redis has no persistence volume. Refresh tokens and maintenance flags are lost on `cache` container recreate. This is an intentional tradeoff: logout massal on Redis restart is acceptable for this deployment.
+- Redis has no persistence volume. Refresh tokens and maintenance flags are lost on `cache` container recreate. This is an intentional tradeoff: mass logout on Redis restart is acceptable for this deployment.
 
 ## API Map
 - Health: `GET /api/health` includes maintenance status.
@@ -182,61 +182,109 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - `TelegramConfig` is singleton enforced by `key` column (`@unique @default("default")`); repository uses `findOrCreate()` on the fixed key.
 
 ## Key Model Fields (anti-hallucination)
-- `Ticket`: `ticketNumber` (dari sequence, bukan MAX), `status`, `priority`, `visibility` tidak ada di model Ticket — visibility ada di `Attachment`.
-- `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (untuk display saja), nama file di disk = uuid + safe extension.
-- `Comment`: tidak ada field `isInternal` boolean — gunakan field `type: CommentType` (`PUBLIC`|`INTERNAL`). Visibility attachment internal dikontrol via `AttachmentVisibilityPolicy`.
-- `TelegramConfig`: singleton, selalu diakses via `key = "default"`, gunakan `findOrCreate()` dari repository — jangan `findFirst()` atau `create()` langsung.
-- `Notification`: clear-all, read-all, mark-read didukung API — cek API Map sebelum tambah endpoint baru.
-- `SLAConfig`: unique constraint di `(categoryId, priority)` — upsert saat create/update.
+- `Ticket`: `ticketNumber` (from sequence, not MAX), `status`, `priority`; `visibility` does not exist on the Ticket model — visibility belongs to `Attachment`.
+- `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (for display only), filename on disk = uuid + safe extension.
+- `Comment`: there is no `isInternal` boolean field — use the `type: CommentType` field (`PUBLIC`|`INTERNAL`). Internal attachment visibility is controlled via `AttachmentVisibilityPolicy`.
+- `TelegramConfig`: singleton, always accessed via `key = "default"`, use `findOrCreate()` from the repository — do not call `findFirst()` or `create()` directly.
+- `Notification`: clear-all, read-all, mark-read are supported by the API — check the API Map before adding new endpoints.
+- `SLAConfig`: unique constraint on `(categoryId, priority)` — upsert on create/update.
 
 ## Common Pitfalls
-- Jangan inject `PrismaService` langsung ke service baru; selalu lewat repository di `common/repositories/`.
-- `TransformInterceptor` sudah wrap response jadi `{ data, meta? }` secara global — jangan wrap manual di controller.
-- `AttachmentVisibilityPolicy` adalah satu-satunya sumber kebenaran visibility attachment — jangan duplikasi logic filter di tempat lain.
-- Frontend error: gunakan `toast.error()`, bukan `throw` atau `console.error` saja.
-- Backend error: gunakan `BadRequestException` / `NotFoundException` dari `@nestjs/common`, bukan `Error` biasa.
-- Jangan buat subcategory endpoint terpisah untuk list; derivasikan dari data categories yang sudah ada (lihat MasterData di Performance Optimizations).
-- Telegram: jangan kirim `botToken` atau `groupChatId` ke frontend — hanya flag `hasBotToken` / `hasGroupChatId`.
+- Do not inject `PrismaService` directly into new services; always go through the repository in `common/repositories/`.
+- `TransformInterceptor` already wraps responses into `{ data, meta? }` globally — do not manually wrap in controllers.
+- `AttachmentVisibilityPolicy` is the single source of truth for attachment visibility — do not duplicate filter logic elsewhere.
+- Frontend errors: use `toast.error()`, not just `throw` or `console.error`.
+- Backend errors: use `BadRequestException` / `NotFoundException` from `@nestjs/common`, not plain `Error`.
+- Do not create a separate subcategory endpoint for listing; derive from existing categories data (see MasterData in Performance Optimizations).
+- Telegram: do not send `botToken` or `groupChatId` to the frontend — only the `hasBotToken` / `hasGroupChatId` flags.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`
 - `support@company.com / Support123!`
 - Production seed requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` env vars.
 
-## Performance Optimizations (CODE_REVIEW.md Sesi 2)
-- Ticket number: PostgreSQL sequence `ticket_number_seq` — O(1) `nextval()`, bukan `MAX(SUBSTRING)` full scan. Transaction isolation default (bukan Serializable).
-- SLA cron: keyset pagination `id > lastId` (bukan offset `skip: processed`).
-- EndUser ticket list: batch aggregate count via `$queryRaw` — bukan N+1 per-ticket.
-- Dashboard: Redis cache TTL 30 detik + SQL aggregation untuk SLA stats & daily trends.
-- Database indexes: 15+ indexes ditambah di migration `20260626001000_add_perf_indexes`, termasuk `pg_trgm` GIN indexes untuk ILIKE search.
-- MaintenanceGuard: in-memory cache 2 detik + `mget` — kurangi Redis round-trip per request.
-- LocalStorage: async `fs/promises` (bukan sync blocking).
+## Performance Optimizations (CODE_REVIEW.md Session 2)
+- Ticket number: PostgreSQL sequence `ticket_number_seq` — O(1) `nextval()`, not `MAX(SUBSTRING)` full scan. Default transaction isolation (not Serializable).
+- SLA cron: keyset pagination `id > lastId` (not offset `skip: processed`).
+- EndUser ticket list: batch aggregate count via `$queryRaw` — not N+1 per-ticket.
+- Dashboard: Redis cache TTL 30 seconds + SQL aggregation for SLA stats & daily trends.
+- Database indexes: 15+ indexes added in migration `20260626001000_add_perf_indexes`, including `pg_trgm` GIN indexes for ILIKE search.
+- MaintenanceGuard: 2-second in-memory cache + `mget` — reduces Redis round-trips per request.
+- LocalStorage: async `fs/promises` (not sync blocking).
 - Notifications/Telegram: concurrency limit 3-5 via `runWithConcurrency`.
 - Frontend: route-level `React.lazy()` code splitting, nginx static asset immutable cache, TanStack Query staleTime tuning (categories 30m, assignable 10m).
 - MasterData: subcategories derived from categories data (no N+1 requests).
-- RedisService: tambah `mget()` method untuk multi-key get atomik.
+- RedisService: add `mget()` method for atomic multi-key get.
 
-## Bug Fixes (CODE_REVIEW.md Sesi 3)
-- **Restore safety**: maintenance tetap enabled saat restore gagal; pre-restore backup ID di-return ke error message.
-- **Docker env**: `backend/.env.compose.example` (canonical, termasuk `REDIS_PASSWORD`), `backend/.env.local.example` (local dev).
-- **Attachment visibility**: EndUser `findMany`/`count` pakai `AttachmentVisibilityPolicy.buildVisibleAttachmentWhere()` — post-query filter dihapus.
-- **WebSocket refresh**: `useSocket()` re-create socket saat `accessToken` berubah via Zustand selector.
-- **Upload atomic**: direct attachment & comment creation pakai Prisma transaction; file cleanup jika DB insert gagal.
-- **Status race**: `updateStatus()` pakai conditional `updateMany({ where: { id, status: oldStatus } })` + 409 Conflict.
+## Bug Fixes (CODE_REVIEW.md Session 3)
+- **Restore safety**: maintenance remains enabled when restore fails; the pre-restore backup ID is returned in the error message.
+- **Docker env**: `backend/.env.compose.example` (canonical, including `REDIS_PASSWORD`), `backend/.env.local.example` (local dev).
+- **Attachment visibility**: EndUser `findMany`/`count` uses `AttachmentVisibilityPolicy.buildVisibleAttachmentWhere()` — post-query filter removed.
+- **WebSocket refresh**: `useSocket()` re-creates the socket when `accessToken` changes via Zustand selector.
+- **Upload atomic**: direct attachment & comment creation uses a Prisma transaction; file cleanup if DB insert fails.
+- **Status race**: `updateStatus()` uses conditional `updateMany({ where: { id, status: oldStatus } })` + 409 Conflict.
 - **User deactivation**: emit `user.deactivated` → revoke refresh tokens + disconnect sockets.
-- **Category EndUser**: `GET /categories` return minimal fields untuk EndUser (`findForTicketForm`); Admin tetap lengkap.
+- **Category EndUser**: `GET /categories` returns minimal fields for EndUser (`findForTicketForm`); Admin remains full.
 - **Telegram polling**: generation counter + timeout handle — stale loops auto-stop.
-- **Backup script**: refuse saat maintenance off; flag `--live-ok` untuk live backup.
-- **Pagination DTO**: `PaginationQueryDto` dengan `@Type(Number)`, `@IsInt`, `@Min(1)`, `@Max(100)`.
+- **Backup script**: refuses when maintenance is off; `--live-ok` flag for live backup.
+- **Pagination DTO**: `PaginationQueryDto` with `@Type(Number)`, `@IsInt`, `@Min(1)`, `@Max(100)`.
 - **Telegram config**: typed DTOs (`UpdateTelegramConfigDto`, `CheckTelegramConfigDto`) + event whitelist validation.
 - **SLA errors**: category existence precheck + Prisma P2002/P2025 → Conflict/NotFound.
-- **Frontend toasts**: semua mutation/export/download failure sekarang `toast.error()`.
-- **Pagination clamp**: `TicketList`, `AttachmentList`, `CommentSection` auto-adjust page saat totalPages menyusut.
-- **VITE_API_URL**: axios `baseURL`, refresh, socket sekarang gunakan `import.meta.env.VITE_API_URL || '/api'`.
-- **Redis healthcheck**: `REDISCLI_AUTH` env (bukan `-a`); config file via `umask 077`.
-- **Nginx**: hapus `set_real_ip_from` private ranges + `real_ip_header`.
-- **Login redirect**: respect `location.state.from` dari `ProtectedRoute`.
-- **Notification count**: invalidate `notifications-unread-count` query setelah mark-read.
+- **Frontend toasts**: all mutation/export/download failures now use `toast.error()`.
+- **Pagination clamp**: `TicketList`, `AttachmentList`, `CommentSection` auto-adjust page when totalPages shrinks.
+- **VITE_API_URL**: axios `baseURL`, refresh, and socket now use `import.meta.env.VITE_API_URL || '/api'`.
+- **Redis healthcheck**: `REDISCLI_AUTH` env (not `-a`); config file via `umask 077`.
+- **Nginx**: remove `set_real_ip_from` private ranges + `real_ip_header`.
+- **Login redirect**: respect `location.state.from` from `ProtectedRoute`.
+- **Notification count**: invalidate `notifications-unread-count` query after mark-read.
 - **Telegram subject**: `ticket.assigned` event include `subject: ticket.subject`.
 - **Thumbnail cache**: LRU limit 100 entries + revoke evicted URLs.
-- **DTO trim**: `@Transform(trimString)` + `@IsNotEmpty()` + `@MaxLength()` di category, subcategory, user DTOs.
+- **DTO trim**: `@Transform(trimString)` + `@IsNotEmpty()` + `@MaxLength()` in category, subcategory, user DTOs.
+
+## Security Fixes (CODE_REVIEW.md Session 4)
+- **SEC-001**: `validateEnv()` di `main.ts` sekarang enforce `COOKIE_SECURE=true` di production. `.env` diubah ke `NODE_ENV=development` untuk local HTTP-only dev.
+- **SEC-002**: `JwtStrategy` dan `NotificationsGateway` sekarang explicit check `payload.tokenType !== 'access'` (sebelumnya truthy guard bypass token tanpa `tokenType`). `JwtPayload.tokenType` sekarang required (hapus `?`).
+- **SEC-003**: Account lockout setelah 10 failed login attempts (Redis tracking, 15 menit lock window). `RedisService` tambah `incr()` dan `expire()`.
+- **SEC-004**: Nginx security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) sekarang di-repeat di setiap `location` block yang punya `add_header` sendiri.
+- **SEC-005**: Content-Security-Policy header ditambahkan untuk frontend SPA di nginx.
+- **SEC-006**: `backend/.env` permission diubah ke `600` (owner-only).
+- **SEC-007**: `.gitignore` sekarang cover `.env.*` variants dengan `!.env.*.example` exception.
+- **SEC-008**: Docker container hardening: `security_opt: no-new-privileges`, `cap_drop: ALL`, `cap_add` minimal, `mem_limit`, `cpus`, `pids_limit` untuk semua service.
+- **SEC-009**: `CommentRepository.findByTicketId()` sekarang `select` (bukan `include`) untuk attachments — exclude `path` field dari response.
+- **SEC-010**: `AuthService.validateUser()` lakukan dummy bcrypt compare untuk user-not-found (timing side-channel mitigation).
+- **SEC-013**: `JwtAuthGuard` sekarang global guard dengan `@Public()` decorator exemption. Fail-closed: controller tanpa `@Public()` require auth. `@Public()` di `HealthController`, `AuthController` (login/refresh/logout), `MaintenanceController.getMode()`.
+- **SEC-014**: `CommentsController.create()` sekarang gunakan `CreateCommentDto` class (enable ValidationPipe: `@MaxLength(10000)` pada content, `@IsEnum(CommentType)` pada type).
+- **SEC-015**: File extension whitelist di `buildSafeUploadPath()` — shared utility `backend/src/common/utils/upload.util.ts`. Extension di-filter ke whitelist; non-whitelist disimpan tanpa extension.
+- **SEC-016**: `originalName` di-sanitize (`path.basename()` + `substring(0, 255)`) sebelum disimpan ke DB.
+- **SEC-017**: Telegram link code: 8 random bytes → 8 chars base64url, case-sensitive (sebelumnya 4 bytes, 6 chars, toUpperCase).
+- **SEC-018**: Redis lock release di `MaintenanceService` sekarang atomic via Lua script (sebelumnya GET-then-DEL TOCTOU race).
+- **SEC-019**: `setMaintenanceMode(false)` sekarang check `RESTORE_LOCK_KEY` — refuse disable maintenance saat restore aktif.
+- **SEC-020**: Infrastructure credentials di `.env` di-generate dengan `openssl rand` (sebelumnya `ticket123`, `redis123`).
+- **SEC-023**: Separate env files: `backend/.env.db` (hanya DB vars), `backend/.env.cache` (hanya Redis password). Least-privilege.
+- **SEC-025**: `LoginDto` dan `ChangePasswordDto` tambah `@MaxLength(128)` pada password fields.
+- **SEC-026**: Magic byte signatures tambah `application/msword` (OLE2). Text file integrity check: reject files dengan null bytes untuk `text/plain`/`text/csv`.
+- **SEC-028**: Refresh TTL sekarang baca dari `JWT_REFRESH_TOKEN_EXPIRY` env (sebelumnya hardcoded 7 hari). Cookie maxAge juga mengikuti env.
+- **SEC-029**: `changePassword()` sekarang `res.clearCookie(REFRESH_COOKIE)` setelah revocation.
+- **SEC-033**: Frontend `use-auth.ts` validate `from.pathname` starts with `/` (open redirect mitigation).
+- **SEC-034**: `CreateTicketForm` tambah MIME type validation (sebelumnya hanya size check).
+- **SEC-036**: `ErrorBoundary` guard `console.error` dengan `import.meta.env.DEV`.
+- **SEC-037**: `UserManagement` ganti `alert()` dengan `toast.error()`.
+- **SEC-038**: `CreateTicketDto.description` tambah `@MaxLength(10000)`.
+- **SEC-039**: `QueryTicketDto` ID fields (`categoryId`, `assignedToId`, `requesterId`) ubah dari `@IsString()` ke `@IsUUID()`.
+- **SEC-040**: `QueryTicketDto.search` tambah `@MaxLength(200)`.
+- **SEC-042**: Download `Cache-Control` ubah dari `private, max-age=86400` ke `private, no-cache`.
+- **SEC-043**: `MAX_FILES_PER_TICKET` (5) check ditambahkan di `CommentsService.create()`.
+- **SEC-045**: `UserRepository.findWithTelegramCode()` tambah `select` untuk exclude `password` hash.
+- **SEC-046**: `TelegramService.getConfig()` dan `updateConfig()` sekarang gunakan `findOrCreate()` dari repository (sebelumnya `findFirst()` + `create()` langsung).
+- **SEC-047**: `UsersService.create()` reactivation response tambah `reactivated: true` flag.
+- **SEC-048**: `UsersService.delete()` prevent self-deletion (`id === requesterId` → `BadRequestException`).
+- **SEC-049**: Nginx tambah `default_server` block untuk unmatched Host headers (`return 444`).
+- **SEC-050**: Nginx tambah `location ~ /\. { deny all; }` untuk dotfile protection.
+- **SEC-051**: `frontend/nginx.conf` tambah security headers dan CSP.
+- **SEC-052**: Root `.env.example` ditandai deprecated (redirect ke `backend/.env.compose.example`).
+- **SEC-053**: `scripts/backup.sh` manifest hapus `postgres_user` (info leak).
+- **SEC-055**: `QueryUsersDto.search` tambah `@MaxLength(200)`, `role` ubah ke `@IsEnum(Role)`.
+- **SEC-056**: `RedisService` tambah optional TLS support (`REDIS_TLS=true` env).
+- **SEC-057**: JWT secret di `.env` di-generate dengan `openssl rand -hex 64` (128 hex chars).
+- **SEC-059**: Tambah GitHub Actions CI workflow (`.github/workflows/ci.yml`).
+- **SEC-060**: `as any` di `user.repository.ts` — noted but not fully refactored (low priority, type safety improvement).

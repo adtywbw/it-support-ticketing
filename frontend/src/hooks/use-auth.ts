@@ -20,7 +20,10 @@ export function useLogin() {
       const user = { ...data.user, name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() };
       login(user, data.accessToken);
       const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
-      navigate(`${from?.pathname || '/tickets'}${from?.search || ''}`, { replace: true });
+      const safePath = from?.pathname && from.pathname.startsWith('/') && !from.pathname.startsWith('//')
+        ? `${from.pathname}${from.search || ''}`
+        : '/tickets';
+      navigate(safePath, { replace: true });
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, 'Login failed. Please try again.'));

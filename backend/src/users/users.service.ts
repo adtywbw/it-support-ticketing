@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
@@ -56,12 +57,13 @@ export class UsersService {
     if (existing) {
       if (!existing.isActive) {
         const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
-        return this.userRepository.update(existing.id, {
+        const reactivated = await this.userRepository.update(existing.id, {
           password: hashedPassword,
           name: createUserDto.name,
           role: createUserDto.role || 'EndUser',
           isActive: true,
         });
+        return { ...reactivated, reactivated: true } as any;
       }
       throw new ConflictException('Email already in use');
     }
@@ -106,7 +108,11 @@ export class UsersService {
     return result;
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, requesterId?: string): Promise<void> {
+    if (id === requesterId) {
+      throw new BadRequestException('Cannot delete your own account');
+    }
+
     const user = await this.userRepository.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');

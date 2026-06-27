@@ -53,14 +53,29 @@ export class MaintenanceService {
     return { key, token };
   }
 
+  private static readonly RELEASE_LOCK_SCRIPT = `
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+      return redis.call('del', KEYS[1])
+    else
+      return 0
+    end
+  `;
+
   private async releaseLock(handle: LockHandle): Promise<void> {
-    const stored = await this.redis.get(handle.key);
-    if (stored === handle.token) {
-      await this.redis.del(handle.key);
-    }
+    await this.redis.eval(
+      MaintenanceService.RELEASE_LOCK_SCRIPT,
+      [handle.key],
+      [handle.token],
+    );
   }
 
   async setMaintenanceMode(enabled: boolean, message?: string): Promise<void> {
+    if (!enabled) {
+      const restoreLock = await this.redis.get(RESTORE_LOCK_KEY);
+      if (restoreLock) {
+        throw new BadRequestException('Cannot disable maintenance during active restore');
+      }
+    }
     await this.redis.set(MAINTENANCE_KEY, enabled ? '1' : '0');
     if (message !== undefined) {
       await this.redis.set(MAINTENANCE_MESSAGE_KEY, message);

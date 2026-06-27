@@ -390,3 +390,69 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 
 ## Docker
 - Build: fix `npm ci` failure — regenerate lockfiles dengan Docker node version (npm 10) untuk kompatibilitas.
+
+## Security Fixes (CODE_REVIEW.md Session 4 — 2026-06-27)
+
+### HIGH
+- **SEC-001**: `validateEnv()` di `main.ts` enforce `COOKIE_SECURE=true` di production. `.env` diubah ke `NODE_ENV=development` untuk local HTTP-only dev.
+- **SEC-002**: `JwtStrategy` dan `NotificationsGateway` explicit check `payload.tokenType !== 'access'` (sebelumnya truthy guard). `JwtPayload.tokenType` required.
+- **SEC-003**: Account lockout setelah 10 failed login attempts (Redis, 15 menit lock window). `RedisService` tambah `incr()`/`expire()`.
+- **SEC-004**: Nginx security headers di-repeat di setiap `location` block (add_header inheritance fix).
+- **SEC-005**: Content-Security-Policy header untuk frontend SPA di nginx.
+- **SEC-006**: `backend/.env` permission `600` (owner-only).
+- **SEC-007**: `.gitignore` cover `.env.*` variants dengan `!.env.*.example` exception.
+- **SEC-008**: Docker container hardening (`no-new-privileges`, `cap_drop: ALL`, `mem_limit`, `cpus`, `pids_limit`).
+- **SEC-009**: `CommentRepository.findByTicketId()` `select` (bukan `include`) — exclude `path` field.
+
+### MEDIUM
+- **SEC-010**: Dummy bcrypt compare untuk user-not-found (timing side-channel mitigation).
+- **SEC-013**: `JwtAuthGuard` global guard dengan `@Public()` decorator (fail-closed).
+- **SEC-014**: `CommentsController.create()` gunakan `CreateCommentDto` class (ValidationPipe enabled).
+- **SEC-015**: File extension whitelist di `buildSafeUploadPath()` — shared utility `upload.util.ts`.
+- **SEC-016**: `originalName` sanitize (`path.basename()` + `substring(0, 255)`).
+- **SEC-017**: Telegram link code 8 bytes/8 chars/case-sensitive (sebelumnya 4 bytes/6 chars/toUpperCase).
+- **SEC-018**: Atomic Redis lock release via Lua script (TOCTOU race fix).
+- **SEC-019**: `setMaintenanceMode(false)` check `RESTORE_LOCK_KEY`.
+- **SEC-020**: Strong infrastructure credentials (`openssl rand`).
+- **SEC-023**: Separate env files `backend/.env.db` dan `backend/.env.cache` (least-privilege).
+- **SEC-025**: `@MaxLength(128)` pada LoginDto/ChangePasswordDto password fields.
+- **SEC-026**: Magic byte signatures tambah OLE2 + text file null byte check.
+
+### LOW
+- **SEC-028**: Refresh TTL baca dari `JWT_REFRESH_TOKEN_EXPIRY` env (config drift fix).
+- **SEC-029**: `changePassword()` clear refresh cookie.
+- **SEC-033**: Frontend open redirect mitigation (`from.pathname` validation).
+- **SEC-034**: `CreateTicketForm` MIME type validation.
+- **SEC-036**: `ErrorBoundary` guard `console.error` dengan `import.meta.env.DEV`.
+- **SEC-037**: `UserManagement` ganti `alert()` dengan `toast.error()`.
+- **SEC-038**: `CreateTicketDto.description` `@MaxLength(10000)`.
+- **SEC-039**: `QueryTicketDto` ID fields `@IsUUID()`.
+- **SEC-040**: `QueryTicketDto.search` `@MaxLength(200)`.
+- **SEC-042**: Download `Cache-Control: private, no-cache`.
+- **SEC-043**: `MAX_FILES_PER_TICKET` check di comment attachments.
+- **SEC-045**: `findWithTelegramCode()` `select` exclude password.
+- **SEC-046**: `TelegramService` gunakan `findOrCreate()`.
+- **SEC-047**: User reactivation response `reactivated: true` flag.
+- **SEC-048**: Prevent self-deletion (`id === requesterId`).
+- **SEC-049**: Nginx `default_server` block untuk unmatched Host.
+- **SEC-050**: Nginx dotfile protection (`location ~ /\. { deny all; }`).
+- **SEC-051**: `frontend/nginx.conf` security headers + CSP.
+- **SEC-052**: Root `.env.example` deprecated.
+- **SEC-053**: `backup.sh` manifest hapus `postgres_user`.
+- **SEC-055**: `QueryUsersDto` `@MaxLength(200)` search, `@IsEnum(Role)` role.
+- **SEC-056**: `RedisService` optional TLS (`REDIS_TLS=true`).
+- **SEC-057**: JWT secret `openssl rand -hex 64` (128 hex chars).
+- **SEC-059**: GitHub Actions CI workflow.
+
+### Not Implemented (Low Priority / Risk Acceptance)
+- **SEC-011**: Refresh token family-based revocation — breaking change, semua user perlu re-login. Ditangguhkan.
+- **SEC-012**: Access token blacklist — accept 15min tradeoff (short-lived JWT).
+- **SEC-027**: Separate `JWT_REFRESH_SECRET` — breaking change. Ditangguhkan.
+- **SEC-030**: CSRF — risk acceptance `sameSite=strict` (no action needed).
+- **SEC-031/032**: `@SkipMaintenance()` — sudah di-address via `@Public()` approach.
+- **SEC-035**: `UserManagement` client-side validation — defense in depth, backend sudah validasi.
+- **SEC-041**: Comments query-level attachment filter — post-query filter sudah adequate (defense in depth).
+- **SEC-044**: Covered by SEC-017.
+- **SEC-054**: `npm audit` — jalankan manual saat maintenance.
+- **SEC-058**: Encrypt Telegram botToken at rest — ditangguhkan (kompleksitas vs risk).
+- **SEC-060**: `as any` di `user.repository.ts` — noted, low priority type safety improvement.

@@ -180,10 +180,7 @@ export class TelegramService
   }
 
   async getConfig() {
-    let config = await this.telegramConfigRepository.findFirst();
-    if (!config) {
-      config = await this.telegramConfigRepository.create({ settings: {} });
-    }
+    const config = await this.telegramConfigRepository.findOrCreate({ settings: {} });
     const settings = this.normalizeSettings(config.settings as Record<string, unknown> | null | undefined);
     const { groupChatId: _, ...safeSettings } = settings;
     return {
@@ -198,10 +195,7 @@ export class TelegramService
     botToken?: string;
     settings?: TelegramSettingsDto;
   }) {
-    let config = await this.telegramConfigRepository.findFirst();
-    if (!config) {
-      config = await this.telegramConfigRepository.create({ settings: {} });
-    }
+    const config = await this.telegramConfigRepository.findOrCreate({ settings: {} });
 
     const update: Record<string, unknown> = {};
     if (data.botToken !== undefined) {
@@ -443,8 +437,8 @@ export class TelegramService
   }
 
   async generateLinkCode(userId: string): Promise<string> {
-    const bytes = crypto.randomBytes(4);
-    const code = bytes.toString('base64url').substring(0, 6).toUpperCase();
+    const bytes = crypto.randomBytes(8);
+    const code = bytes.toString('base64url').substring(0, 8);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.userRepository.update(userId, {

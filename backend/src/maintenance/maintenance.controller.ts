@@ -17,12 +17,14 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
 import { MaintenanceModeDto } from './dto/maintenance-mode.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('maintenance')
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
   @Get('mode')
+  @Public()
   getMaintenanceMode() {
     return this.maintenanceService.getMaintenanceMode();
   }
