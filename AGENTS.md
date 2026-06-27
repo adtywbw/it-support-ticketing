@@ -20,12 +20,12 @@
 - Preserve user changes; never revert/reset/checkout files without explicit request.
 
 ## Agentic Loop Wajib
-- Fase 1 - Context Gathering: sebelum edit atau eksekusi perubahan, baca struktur direktori project, identifikasi file relevan, dan pahami naming, pattern, serta arsitektur yang sudah ada.
+- Fase 1 - Context Gathering: gunakan Project Structure dan API Map di AGENTS.md sebagai peta awal — jangan recursive scan direktori dulu. Lookup langsung ke file spesifik yang relevan dengan task. Jika file tidak ditemukan dari lookup terarah, baru scan direktori terbatas. Baca maksimal 3-5 file sebelum pindah ke Planning.
 - Jangan langsung edit file sebelum context gathering selesai.
 - Fase 2 - Planning: untuk task yang menyentuh lebih dari 1 file, tulis rencana perubahan sebelum eksekusi.
-- Planning harus mencantumkan file yang akan diubah, apa yang diubah, dan kenapa.
+- Planning format (compact): `path/to/file.ts` → apa yang diubah (1 kalimat). Untuk bug: root cause 1 kalimat. Flag jika ada behavior change. Jangan verbose — planning harus terbaca dalam 30 detik.
 - Untuk bug, identifikasi root cause terlebih dahulu, baru susun plan fix.
-- Tanya konfirmasi manusia jika tujuan ambigu, ada beberapa opsi valid, atau ada risiko perubahan behavior.
+- Tanya konfirmasi manusia HANYA jika informasi yang dibutuhkan tidak bisa diderivasi dari codebase atau AGENTS.md ini. Maksimal 1 pertanyaan per siklus; gabung semua ambiguitas dalam satu pesan.
 - Fase 3 - Execution: buat perubahan sesempit mungkin sesuai scope task.
 - Jangan tambah fitur, refactor, atau improvement yang tidak diminta.
 - Prefer reversible actions dan hindari operasi destruktif tanpa konfirmasi eksplisit.
@@ -180,6 +180,23 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Attachment relates to ticket, user, optional comment, and has `visibility` (`PUBLIC`/`INTERNAL`).
 - `SLAConfig` is unique on `(categoryId, priority)`.
 - `TelegramConfig` is singleton enforced by `key` column (`@unique @default("default")`); repository uses `findOrCreate()` on the fixed key.
+
+## Key Model Fields (anti-hallucination)
+- `Ticket`: `ticketNumber` (dari sequence, bukan MAX), `status`, `priority`, `visibility` tidak ada di model Ticket — visibility ada di `Attachment`.
+- `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (untuk display saja), nama file di disk = uuid + safe extension.
+- `Comment`: tidak ada field `isInternal` — visibility internal dikontrol via `Attachment.visibility` dan `AttachmentVisibilityPolicy`.
+- `TelegramConfig`: singleton, selalu diakses via `key = "default"`, gunakan `findOrCreate()` dari repository — jangan `findFirst()` atau `create()` langsung.
+- `Notification`: clear-all, read-all, mark-read didukung API — cek API Map sebelum tambah endpoint baru.
+- `SLAConfig`: unique constraint di `(categoryId, priority)` — upsert saat create/update.
+
+## Common Pitfalls
+- Jangan inject `PrismaService` langsung ke service baru; selalu lewat repository di `common/repositories/`.
+- `TransformInterceptor` sudah wrap response jadi `{ data, meta? }` secara global — jangan wrap manual di controller.
+- `AttachmentVisibilityPolicy` adalah satu-satunya sumber kebenaran visibility attachment — jangan duplikasi logic filter di tempat lain.
+- Frontend error: gunakan `toast.error()`, bukan `throw` atau `console.error` saja.
+- Backend error: gunakan `BadRequestException` / `NotFoundException` dari `@nestjs/common`, bukan `Error` biasa.
+- Jangan buat subcategory endpoint terpisah untuk list; derivasikan dari data categories yang sudah ada (lihat MasterData di Performance Optimizations).
+- Telegram: jangan kirim `botToken` atau `groupChatId` ke frontend — hanya flag `hasBotToken` / `hasGroupChatId`.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`

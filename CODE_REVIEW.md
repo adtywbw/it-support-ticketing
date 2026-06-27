@@ -1,1352 +1,694 @@
-# Code Review - Performance Focus
+# Code Review - Bug & Edge Case
 
-Tanggal review: 2026-06-26
-Reviewer: Senior Fullstack Engineer
-Scope: review performa end-to-end untuk backend NestJS/Prisma/PostgreSQL/Redis, frontend React/TanStack Query, Docker/nginx, dan alur operasional yang terlihat dari kode saat ini.
+Tanggal review: 2026-06-26  
+Reviewer: AI senior fullstack engineer  
+Scope: backend NestJS, frontend React, Docker/nginx/env, backup/restore, auth/session, upload/download, notification, Telegram, maintenance mode.  
+Fokus utama: bug, edge case, data leak, race condition, operational failure, dan mismatch kontrak API/frontend.
 
-## Ringkasan Eksekutif
+## Ringkasan Prioritas
 
-Project sudah memiliki fondasi yang cukup baik: API list utama sudah dipaginasi, query utama memakai `select`/`include` yang cukup eksplisit, nginx sudah mengaktifkan gzip, Prisma connection pool sudah dikontrol via `DATABASE_POOL_MAX`, dan limit upload sudah dibatasi. Risiko performa terbesar saat data mulai tumbuh ada di database index, N+1 query pada list tiket EndUser, SLA cron dengan offset pagination, pembuatan ticket number yang melakukan full table scan, dashboard yang menghitung beberapa statistik dari raw table setiap request, dan frontend yang belum melakukan route-level code splitting.
-
-Prioritas perbaikan disarankan:
-
-1. Tambah index PostgreSQL yang hilang untuk query tiket, dashboard, user list, comment, attachment, notification.
-2. Hilangkan N+1 query di `TicketsService.findAll()` untuk role EndUser.
-3. Ubah SLA cron dari offset pagination ke keyset pagination.
-4. Ganti generator ticket number dari `MAX(SUBSTRING(...))` ke PostgreSQL sequence/counter table.
-5. Optimalkan dashboard dengan SQL aggregation, compound index, dan Redis cache TTL pendek.
-6. Kurangi blocking I/O dan eager attachment download pada alur file/thumbnail.
-7. Tambah route-level code splitting dan cache policy static assets di frontend/nginx.
-
-## Progress Checklist
-
-### P0 - Dampak Tinggi, Dikerjakan Dulu
-
-- [x] Tambah index Prisma/raw SQL untuk `tickets.categoryId`, `tickets.subCategoryId`, `tickets.slaStatus`, `tickets.updatedAt`, compound ticket list/dashboard, `users.createdAt`, comment/attachment/user/notification compound indexes.
-- [x] Tambah trigram GIN index untuk search `ILIKE '%term%'` pada ticket dan user search.
-- [x] Refactor `TicketsService.findAll()` agar EndUser count comments/attachments tidak melakukan 2 query per ticket.
-- [x] Refactor `SLAService.performSLACheck()` dari `skip: processed` ke keyset pagination berbasis cursor.
-- [x] Ganti `generateTicketNumber()` dari raw `MAX()` scan ke sequence/counter yang O(1).
-- [x] Optimalkan dashboard stats: query agregasi di DB, bukan fetch row lalu hitung di Node, dan tambahkan cache Redis TTL pendek.
-
-### P1 - Dampak Sedang
-
-- [x] Refactor `LocalStorageService` agar tidak memakai `fs.writeFileSync()`/`fs.unlinkSync()` di request path.
-- [x] Tambah lazy thumbnail loading atau thumbnail endpoint untuk attachment image agar detail tiket tidak mengunduh semua image saat render.
-- [x] Batasi/parallelkan proses notification dan Telegram send dengan concurrency limit.
-- [x] Cache maintenance flag di `MaintenanceGuard` selama TTL pendek atau gunakan `mget` untuk mengurangi Redis round-trip per request.
-- [x] Tambah route-level `React.lazy()` dan `Suspense` untuk page components.
-- [x] Tambah cache header nginx untuk static assets fingerprinted dari Vite.
-- [x] Hilangkan N+1 request sub-category pada Admin Master Data.
-
-### P2 - Optimasi Lanjutan
-
-- [ ] Pertimbangkan keyset pagination untuk ticket list dan notification list saat data sudah besar.
-- [x] Tambah pagination UI untuk Admin Users dan Notifications agar frontend tidak bergantung pada default backend.
-- [x] Gunakan websocket notification di frontend atau kurangi polling unread count jika realtime sudah diaktifkan.
-- [ ] Tambah observability: query duration log, slow query log PostgreSQL, dan baseline load test untuk endpoint tiket/dashboard.
-- [ ] Evaluasi UUIDv7 untuk table write-heavy jika insert throughput mulai tinggi.
+- [ ] P0-01: Restore backup membuka maintenance mode walaupun restore gagal.
+- [ ] P0-02: Setup Docker fresh install bisa gagal karena template env tidak konsisten dan `REDIS_PASSWORD` production wajib tapi tidak tersedia di root template.
+- [ ] P1-01: EndUser bisa menginfer internal attachment dari meta pagination dan public attachment bisa terskip.
+- [ ] P1-02: WebSocket frontend tetap memakai access token lama setelah refresh.
+- [ ] P1-03: Direct attachment upload/comment attachment tidak atomic dan bisa meninggalkan orphan file/row.
+- [ ] P1-04: Status transition ticket race-prone.
+- [ ] P1-05: Deaktivasi user tidak revoke sesi aktif dan tidak disconnect WebSocket.
+- [ ] P1-06: Read endpoint master data/SLA mengekspos count dan SLA config ke EndUser.
+- [ ] P1-07: Telegram polling restart bisa membuat multiple polling loop.
+- [ ] P1-08: Manual backup script bisa membuat backup inconsistent jika dijalankan saat aplikasi live.
+- [ ] P2-01: Query pagination comment/attachment tidak tervalidasi.
+- [ ] P2-02: Telegram config/check body tidak tervalidasi DTO.
+- [ ] P2-03: SLA create/update membocorkan Prisma edge error sebagai 500.
+- [ ] P2-04: Frontend mutation/export/download failure banyak yang silent.
+- [ ] P2-05: Pagination frontend tidak clamp saat total pages menyusut.
+- [ ] P2-06: `VITE_API_URL` didokumentasikan tapi tidak dipakai frontend.
+- [ ] P2-07: Redis password leak lewat command/process args.
+- [ ] P2-08: nginx real IP trust terlalu luas untuk private network.
+- [ ] P3-01: Login redirect mengabaikan intended route.
+- [ ] P3-02: Notification unread count bisa drift saat repeated mark-read.
+- [ ] P3-03: Telegram assignment notification kehilangan subject.
+- [ ] P3-04: Object URL thumbnail tidak pernah direvoke.
+- [ ] P3-05: DTO kategori/user menerima string kosong/whitespace.
 
 ## Temuan Detail
 
-### PERF-01 - Missing Database Indexes Pada Query Panas
+### P0-01 - Restore failure tetap disable maintenance mode
 
-Severity: High
+Severity: Critical  
+Area: Backend maintenance/restore  
+Referensi: `backend/src/maintenance/maintenance.service.ts:234-250`
 
-Lokasi bukti:
+Root cause:
+- `restoreBackup()` mengaktifkan maintenance, membuat pre-restore backup, restore DB, restore uploads.
+- Pada `catch`, service selalu memanggil `setMaintenanceMode(false)`.
+- Ini bertentangan dengan catatan project bahwa maintenance hanya dimatikan jika restore sukses.
 
-- `backend/prisma/schema.prisma:43-76`
-- `backend/prisma/schema.prisma:104-119`
-- `backend/prisma/schema.prisma:132-150`
-- `backend/prisma/schema.prisma:218-230`
-- `backend/src/tickets/tickets.service.ts:100-151`
-- `backend/src/dashboard/dashboard.service.ts:71-101`
-- `backend/src/dashboard/dashboard.service.ts:122-139`
-- `backend/src/common/repositories/user.repository.ts:65-78`
-- `backend/src/common/repositories/notification.repository.ts:21-29`
-
-Masalah:
-
-Schema saat ini hanya memiliki sebagian index dasar. Query produksi yang sering dipakai memfilter/sort pada kolom yang belum semua ter-index. PostgreSQL tidak otomatis membuat index pada foreign key, jadi FK seperti `tickets.categoryId`, `tickets.subCategoryId`, `comments.userId`, dan `attachments.userId` tetap dapat menyebabkan scan atau cost tinggi saat data tumbuh.
-
-Contoh query panas:
-
-```ts
-// backend/src/tickets/tickets.service.ts:104-109
-if (status) where.status = status;
-if (priority) where.priority = priority;
-if (categoryId) where.categoryId = categoryId;
-if (assignedToId) where.assignedToId = assignedToId;
-if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
-if (slaStatus) where.slaStatus = slaStatus;
-```
-
-```ts
-// backend/src/dashboard/dashboard.service.ts:76-80
-const [total, onTrack, atRisk, breached] = await Promise.all([
-  this.ticketRepository.count(activeWhere),
-  this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.OnTrack }),
-  this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.AtRisk }),
-  this.ticketRepository.count({ ...activeWhere, slaStatus: SLAStatus.Breached }),
-]);
-```
-
-Index yang hilang atau kurang optimal:
-
-- `Ticket.categoryId`: dipakai filter list tiket dan group by dashboard, tapi belum ada index.
-- `Ticket.subCategoryId`: FK optional, belum ada index.
-- `Ticket.slaStatus`: dipakai count dashboard, belum ada index.
-- `Ticket.updatedAt`: field sort di API list, belum ada index.
-- `Ticket.requesterId + createdAt`: query EndUser dominan adalah `requesterId = userId ORDER BY createdAt DESC`.
-- `Ticket.assignedToId + status`: query support sering berupa assignee + status.
-- `Ticket.status + slaStatus`: dashboard SLA count.
-- `User.createdAt`: default user list sort `ORDER BY createdAt DESC`, belum ada index.
-- `Comment.userId`: FK tanpa index.
-- `Attachment.userId`: FK tanpa index.
-- `Attachment.ticketId + visibility`: EndUser visible attachment filtering/count.
-- `Notification.userId + createdAt` atau `userId + isRead + createdAt`: notification list filter user lalu sort createdAt.
-
-Langkah fix:
-
-1. Update `backend/prisma/schema.prisma` dengan index berikut.
-
-```prisma
-model User {
-  // Hapus @@index([email]) karena @unique sudah membuat unique index.
-  @@index([role])
-  @@index([role, isActive])
-  @@index([createdAt])
-  @@map("users")
-}
-
-model Ticket {
-  @@index([status])
-  @@index([assignedToId])
-  @@index([requesterId])
-  @@index([createdAt])
-  @@index([slaDueAt])
-  @@index([priority])
-  @@index([categoryId])
-  @@index([subCategoryId])
-  @@index([slaStatus])
-  @@index([updatedAt])
-  @@index([requesterId, createdAt])
-  @@index([assignedToId, status])
-  @@index([status, slaStatus])
-  @@map("tickets")
-}
-
-model Comment {
-  @@index([ticketId, createdAt])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("comments")
-}
-
-model Attachment {
-  @@index([ticketId])
-  @@index([ticketId, visibility])
-  @@index([commentId])
-  @@index([userId])
-  @@map("attachments")
-}
-
-model TicketHistory {
-  @@index([ticketId, createdAt])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("ticket_history")
-}
-
-model Notification {
-  @@index([userId, isRead, createdAt])
-  @@index([createdAt])
-  @@map("notifications")
-}
-```
-
-2. Buat migration Prisma: `cd backend && npx prisma migrate dev --name add_perf_indexes`.
-3. Pastikan migration tidak menghapus index penting secara tidak sengaja. Index single-column bisa dipertahankan dulu untuk menghindari risiko regresi, lalu dievaluasi setelah `EXPLAIN ANALYZE`.
-4. Setelah deploy, jalankan `ANALYZE` atau biarkan autovacuum analyze berjalan. Untuk validasi cepat di staging, jalankan `EXPLAIN (ANALYZE, BUFFERS)` pada query list tiket/dashboard.
+Dampak:
+- Jika `restoreDatabase()` sudah drop schema atau restore sebagian lalu `restoreUploads()` gagal, aplikasi langsung dibuka ke user dalam kondisi data rusak/tidak konsisten.
+- Operator kehilangan safety window untuk recover memakai pre-restore backup.
 
 Checklist fix:
+- [ ] Ubah flow agar maintenance hanya dimatikan setelah `restoreDatabase()` dan `restoreUploads()` sukses.
+- [ ] Pada failure, biarkan maintenance tetap enabled dengan pesan eksplisit, misalnya `Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.`
+- [ ] Simpan/return ID pre-restore backup bila sudah berhasil dibuat sebelum error.
+- [ ] Pastikan `finally` hanya release lock, bukan mengubah maintenance.
+- [ ] Tambahkan test unit untuk kasus `restoreDatabase` sukses lalu `restoreUploads` gagal.
+- [ ] Tambahkan test unit untuk kasus `createBackup('pre-restore')` gagal sebelum destructive restore.
 
-- [x] Tambahkan index Prisma.
-- [x] Generate migration.
-- [x] Review SQL migration.
-- [ ] Deploy ke staging.
-- [ ] Jalankan `EXPLAIN ANALYZE` untuk ticket list default, EndUser ticket list, dashboard SLA count, notification list.
-- [ ] Bandingkan p95 response time sebelum/sesudah.
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- maintenance`
+- [ ] Manual: mock/trigger restore upload failure dan cek `GET /api/health` tetap `maintenance.enabled=true`.
 
-### PERF-02 - Search `contains + insensitive` Tidak Bisa Memakai B-tree Index
+---
 
-Severity: High untuk dataset besar, Medium untuk dataset kecil
+### P0-02 - Fresh Docker setup bisa gagal karena env template mismatch
 
-Lokasi bukti:
+Severity: Critical  
+Area: Deployment/env/Docker  
+Referensi: `README.md:213-221`, `.env.example:1-39`, `backend/.env.example:23-29`, `docker-compose.yml:42,87-90`, `backend/src/main.ts:18-41`
 
-- `backend/src/tickets/tickets.service.ts:125-130`
-- `backend/src/tickets/tickets.service.ts:204-209`
-- `backend/src/common/repositories/user.repository.ts:69-73`
+Root cause:
+- README meminta `cp .env.example backend/.env`.
+- Root `.env.example` memakai `NODE_ENV=production`, berisi `REDIS_URL=redis://cache:6379`, tetapi tidak berisi `REDIS_PASSWORD`.
+- Backend production startup mewajibkan `REDIS_PASSWORD`.
+- Redis container dijalankan dengan `redis-server --requirepass "$REDIS_PASSWORD"`, sehingga env kosong bisa membuat auth/config tidak sesuai ekspektasi.
+- `backend/.env.example` malah default `DATABASE_URL` dan `REDIS_URL` ke `localhost`, yang salah untuk Docker Compose bila dipakai langsung.
 
-Masalah:
-
-Prisma `contains` dengan `mode: 'insensitive'` pada PostgreSQL menjadi pola seperti `ILIKE '%keyword%'`. Leading wildcard membuat B-tree index tidak bisa dipakai. Pada data tiket/user besar, search akan melakukan sequential scan pada kolom text.
-
-Snippet:
-
-```ts
-where.OR = [
-  { subject: { contains: search, mode: 'insensitive' } },
-  { description: { contains: search, mode: 'insensitive' } },
-  { ticketNumber: { contains: search, mode: 'insensitive' } },
-];
-```
-
-Langkah fix minimal:
-
-1. Tambah raw SQL migration untuk `pg_trgm` dan GIN trigram indexes.
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
-CREATE INDEX IF NOT EXISTS tickets_subject_trgm_idx
-  ON tickets USING gin ("subject" gin_trgm_ops);
-
-CREATE INDEX IF NOT EXISTS tickets_description_trgm_idx
-  ON tickets USING gin ("description" gin_trgm_ops);
-
-CREATE INDEX IF NOT EXISTS tickets_ticket_number_trgm_idx
-  ON tickets USING gin ("ticketNumber" gin_trgm_ops);
-
-CREATE INDEX IF NOT EXISTS users_name_trgm_idx
-  ON users USING gin (name gin_trgm_ops);
-
-CREATE INDEX IF NOT EXISTS users_email_trgm_idx
-  ON users USING gin (email gin_trgm_ops);
-```
-
-2. Tetap gunakan kode Prisma saat ini. Trigram index akan membantu query `ILIKE '%term%'` tanpa rewrite besar.
-3. Untuk jangka panjang, evaluasi full-text search jika butuh ranking/relevance.
+Dampak:
+- Fresh `docker compose up --build` dari README bisa gagal startup atau menghasilkan error Redis/database yang membingungkan.
+- Onboarding/operator bisa salah memilih template env.
 
 Checklist fix:
+- [ ] Buat satu template canonical untuk Docker Compose, misalnya `backend/.env.compose.example`.
+- [ ] Tambahkan `REDIS_PASSWORD=<replace-me>` di template Docker.
+- [ ] Gunakan URL Docker-safe: `DATABASE_URL=postgresql://ticketing:<password>@db:5432/ticketing` dan `REDIS_URL=redis://:<redis-password>@cache:6379`.
+- [ ] Pisahkan template local dev, misalnya `backend/.env.local.example`, untuk host `localhost`.
+- [ ] Update README agar tidak menyalin root `.env.example` jika compose membaca `backend/.env`.
+- [ ] Validasi `REDIS_PASSWORD` juga di Redis healthcheck memakai env yang sama.
 
-- [x] Buat migration raw SQL `pg_trgm`.
-- [ ] Deploy ke staging dengan dataset representatif.
-- [ ] Jalankan `EXPLAIN ANALYZE` untuk search tiket dan user.
-- [ ] Pastikan ukuran index masih wajar terhadap storage.
+Verifikasi yang disarankan:
+- [ ] Dari clone bersih, copy template baru ke `backend/.env`, isi secret, jalankan `docker compose config`.
+- [ ] `docker compose up --build` sampai API healthcheck healthy.
 
-### PERF-03 - N+1 Query Pada Ticket List EndUser
+---
 
-Severity: High
+### P1-01 - EndUser attachment list leak internal count dan pagination salah
 
-Lokasi bukti: `backend/src/tickets/tickets.service.ts:154-167`
+Severity: High  
+Area: Backend authorization/data visibility  
+Referensi: `backend/src/attachments/attachments.service.ts:176-202`
 
-Masalah:
+Root cause:
+- Query attachment mengambil semua attachment ticket dengan `where = { ticketId }`.
+- Untuk EndUser, filtering visibility dilakukan setelah query di memory.
+- `count()` juga menghitung semua attachment, termasuk internal/direct internal/comment internal.
 
-Untuk setiap ticket di halaman EndUser, service menjalankan dua query tambahan: satu untuk visible comments count dan satu untuk visible attachments count. Dengan `limit=100`, endpoint dapat melakukan 1 query list + 1 query count + 200 query tambahan. Ini menaikkan latency dan beban database secara linear terhadap ukuran halaman.
-
-Snippet:
-
-```ts
-if (userRole === 'EndUser') {
-  const visibleAttachmentWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere();
-  for (const ticket of tickets) {
-    const visibleComments = await this.ticketRepository.findUnique({
-      where: { id: ticket.id },
-      select: { _count: { select: { comments: { where: { type: CommentType.PUBLIC } } } } },
-    });
-    const visibleAttachments = await this.ticketRepository.findUnique({
-      where: { id: ticket.id },
-      select: { _count: { select: { attachments: { where: visibleAttachmentWhere } } } },
-    });
-    ticket._count.comments = visibleComments?._count.comments ?? 0;
-    ticket._count.attachments = visibleAttachments?._count.attachments ?? 0;
-  }
-}
-```
-
-Langkah fix yang disarankan:
-
-1. Ambil `ticketIds` dari hasil list.
-2. Tambahkan method repository untuk aggregate count by `ticketId`.
-3. Gunakan `groupBy` untuk comments public.
-4. Untuk attachments, gunakan `groupBy` dengan filter visibility public dan kondisi comment public/direct sesuai policy. Jika Prisma `groupBy` sulit untuk relation filter comment, gunakan raw SQL yang eksplisit.
-5. Merge hasil aggregate ke `ticket._count` di memory.
-
-Contoh implementasi service-level:
-
-```ts
-if (userRole === 'EndUser' && tickets.length > 0) {
-  const ticketIds = tickets.map((ticket) => ticket.id);
-
-  const [commentCounts, attachmentCounts] = await Promise.all([
-    this.ticketRepository.countPublicCommentsByTicketIds(ticketIds),
-    this.ticketRepository.countVisibleAttachmentsByTicketIds(ticketIds),
-  ]);
-
-  const commentsByTicket = new Map(commentCounts.map((row) => [row.ticketId, row.count]));
-  const attachmentsByTicket = new Map(attachmentCounts.map((row) => [row.ticketId, row.count]));
-
-  for (const ticket of tickets) {
-    ticket._count.comments = commentsByTicket.get(ticket.id) ?? 0;
-    ticket._count.attachments = attachmentsByTicket.get(ticket.id) ?? 0;
-  }
-}
-```
-
-Contoh raw SQL repository untuk visible attachments:
-
-```ts
-async countVisibleAttachmentsByTicketIds(ticketIds: string[]) {
-  if (ticketIds.length === 0) return [];
-
-  return this.prisma.$queryRaw<Array<{ ticketId: string; count: number }>>`
-    SELECT a."ticketId", COUNT(*)::int AS count
-    FROM attachments a
-    LEFT JOIN comments c ON c.id = a."commentId"
-    WHERE a."ticketId" = ANY(${ticketIds})
-      AND a.visibility = 'PUBLIC'
-      AND (a."commentId" IS NULL OR c.type = 'PUBLIC')
-    GROUP BY a."ticketId"
-  `;
-}
-```
-
-Catatan: validasi ulang sintaks array binding Prisma/PostgreSQL di staging. Jika `ANY(${ticketIds})` tidak diterjemahkan sesuai harapan, gunakan `Prisma.join(ticketIds)` dengan cast UUID/text sesuai tipe kolom.
+Dampak:
+- EndUser dapat menginfer jumlah internal attachment dari `meta.total`, `totalPages`, empty page, atau halaman yang item-nya lebih sedikit dari limit.
+- Public attachment bisa terskip jika rows internal berada sebelum public rows pada pagination.
 
 Checklist fix:
+- [ ] Tambahkan method policy yang mengembalikan Prisma `where` untuk visible attachment EndUser.
+- [ ] Terapkan visible `where` sebelum `findMany` dan `count`, bukan setelah query.
+- [ ] Pastikan direct public attachment dan attachment dari public comment tetap tampil.
+- [ ] Pastikan direct internal attachment dan attachment dari internal comment tidak masuk query EndUser.
+- [ ] Hapus fallback filtering in-memory kecuali sebagai defense tambahan tanpa mempengaruhi `meta`.
+- [ ] Tambahkan test untuk `meta.total`, `totalPages`, dan page dengan campuran public/internal.
 
-- [x] Tambah method aggregate comments count.
-- [x] Tambah method aggregate visible attachments count.
-- [x] Ubah `TicketsService.findAll()` agar tidak ada `await` query dalam loop.
-- [x] Tambah unit test EndUser count tetap hanya public dan sesuai visibility policy (existing tests pass).
-- [x] Jalankan `backend npm test` — 47 tests pass.
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- attachments`
+- [ ] Manual: buat ticket milik EndUser dengan 1 public dan 3 internal attachment, cek API EndUser hanya `total=1`.
 
-### PERF-04 - SLA Cron Menggunakan Offset Pagination
+---
 
-Severity: High
+### P1-02 - WebSocket memakai token lama setelah refresh
 
-Lokasi bukti: `backend/src/sla/sla.service.ts:84-172`
+Severity: High  
+Area: Frontend auth/realtime  
+Referensi: `frontend/src/hooks/use-socket.ts:9-18,49`, `frontend/src/lib/axios.ts:86-103`
 
-Masalah:
+Root cause:
+- `useSocket()` hanya depend pada `isAuthenticated` dan membaca token sekali via `getAccessToken()`.
+- Axios refresh mengupdate access token di Zustand, tetapi socket yang sudah dibuat tidak di-recreate dan `socket.auth.token` tidak diupdate.
 
-SLA cron berjalan setiap 5 menit dan melakukan pagination dengan `skip: processed`. Offset semakin besar membuat PostgreSQL tetap harus melewati row sebelumnya. Pada active ticket besar, batch akhir menjadi semakin mahal. Selain itu, jika data berubah saat cron berjalan, offset pagination bisa skip/duplikasi item.
-
-Snippet:
-
-```ts
-const batch = await this.ticketRepository.findMany({
-  where: {
-    status: {
-      notIn: [TicketStatus.Resolved, TicketStatus.Closed],
-    },
-  },
-  include: {
-    category: {
-      include: {
-        slaConfigs: {
-          where: { isActive: true },
-        },
-      },
-    },
-  },
-  take: batchSize,
-  skip: processed,
-  orderBy: { id: 'asc' },
-});
-```
-
-Langkah fix:
-
-1. Ganti `processed` dengan cursor `lastId`.
-2. Query batch berikutnya dengan `id > lastId` dan `orderBy: { id: 'asc' }`.
-3. Update `lastId` dari item terakhir batch, bukan dari jumlah processed.
-4. Pastikan tidak memproses ticket yang baru dibuat dengan id lebih kecil dari cursor. Karena UUID acak tidak menjamin waktu, untuk keyset yang lebih stabil gunakan `(createdAt, id)` atau simpan snapshot `startedAt` dan filter `createdAt <= startedAt`.
-5. Alternatif lebih efisien: karena status SLA hanya berubah ketika mendekati/breached due date, query berdasarkan `slaDueAt` window dan current `slaStatus`, bukan semua active tickets.
-
-Contoh patch minimal:
-
-```ts
-private async performSLACheck() {
-  const now = new Date();
-  const batchSize = 500;
-  let lastId: string | undefined;
-
-  while (true) {
-    const batch = await this.ticketRepository.findMany({
-      where: {
-        status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
-        ...(lastId ? { id: { gt: lastId } } : {}),
-      },
-      include: {
-        category: { include: { slaConfigs: { where: { isActive: true } } } },
-      },
-      take: batchSize,
-      orderBy: { id: 'asc' },
-    });
-
-    if (batch.length === 0) break;
-    lastId = batch[batch.length - 1].id;
-
-    // existing classification + updateMany logic
-  }
-}
-```
+Dampak:
+- Setelah access token expired, reconnect Socket.IO dapat memakai token expired.
+- Notifikasi realtime bisa berhenti diam-diam sampai user refresh halaman/login ulang.
 
 Checklist fix:
+- [ ] Select `accessToken` langsung dari `useAuthStore` di `useSocket()`.
+- [ ] Jadikan `accessToken` dependency effect.
+- [ ] Saat token berubah, disconnect socket lama dan connect socket baru dengan token baru, atau update `socket.auth` lalu reconnect.
+- [ ] Pada `connect_error` auth, jangan hanya `console.error`; trigger auth refresh state/refetch atau disconnect bersih.
+- [ ] Tambahkan test/harness manual: login, paksa refresh token, lalu matikan/hidupkan network socket dan cek reconnect memakai token baru.
 
-- [x] Ubah offset ke keyset.
-- [ ] Tambah test untuk multi-batch SLA check (manual verification).
-- [x] Pastikan cron tidak skip data ketika batch update mengubah `slaStatus` (keyset pagination by id prevents duplication).
-- [ ] Monitor durasi cron sebelum/sesudah.
+Verifikasi yang disarankan:
+- [ ] `cd frontend && npm run build`
+- [ ] Manual browser: inspect Socket.IO handshake setelah refresh token.
 
-### PERF-05 - Ticket Number Generation Full Table Scan dan Serializable Retry
+---
 
-Severity: High saat ticket count besar atau create concurrent tinggi
+### P1-03 - Upload attachment/comment tidak atomic dan bisa meninggalkan orphan
 
-Lokasi bukti: `backend/src/tickets/tickets.service.ts:523-590`
+Severity: High  
+Area: Backend upload/storage/database consistency  
+Referensi: `backend/src/attachments/attachments.service.ts:111-157`, `backend/src/comments/comments.service.ts:105-166`
 
-Masalah:
+Root cause:
+- Direct attachment: file disimpan dulu (`storageService.save`) lalu DB row dibuat. Jika DB insert gagal, file tidak dihapus.
+- Max direct attachment count dicek terpisah dari create, sehingga concurrent upload bisa melewati limit 5.
+- Comment: comment row dibuat, lalu setiap file disimpan dan attachment row dibuat satu per satu. Jika attachment ke-2 gagal, file yang sudah dibuat dihapus, tetapi comment row dan attachment row yang sudah sukses tetap tersisa.
+- Comment attachment juga tidak memakai magic-byte integrity check seperti direct attachment.
 
-Setiap create ticket menjalankan raw query `MAX(CAST(SUBSTRING("ticketNumber" FROM 5) AS INTEGER))` terhadap seluruh table tickets. Ini O(n) per insert dan tidak bisa memanfaatkan unique index `ticketNumber` karena nilainya dihitung dari expression. Service juga memakai transaction isolation `Serializable` dan retry, sehingga concurrency create dapat menambah contention.
-
-Snippet:
-
-```ts
-const result = await tx.$queryRaw<{ max_seq: bigint }[]>`
-  SELECT COALESCE(MAX(CAST(SUBSTRING("ticketNumber" FROM 5) AS INTEGER)), 0) as max_seq
-  FROM "tickets"
-`;
-
-const nextSeq = Number(result[0].max_seq) + 1;
-return `TKT-${String(nextSeq).padStart(3, '0')}`;
-```
-
-Langkah fix opsi A, direkomendasikan: PostgreSQL sequence.
-
-1. Buat migration raw SQL.
-
-```sql
-CREATE SEQUENCE IF NOT EXISTS ticket_number_seq;
-
-SELECT setval(
-  'ticket_number_seq',
-  COALESCE((
-    SELECT MAX(CAST(SUBSTRING("ticketNumber" FROM 5) AS INTEGER))
-    FROM tickets
-    WHERE "ticketNumber" ~ '^TKT-[0-9]+$'
-  ), 0),
-  true
-);
-```
-
-2. Ubah generator menjadi `nextval`.
-
-```ts
-private async generateTicketNumber(tx: Prisma.TransactionClient): Promise<string> {
-  const result = await tx.$queryRaw<{ seq: bigint }[]>`
-    SELECT nextval('ticket_number_seq') AS seq
-  `;
-
-  return `TKT-${String(Number(result[0].seq)).padStart(3, '0')}`;
-}
-```
-
-3. Setelah menggunakan sequence, pertimbangkan menurunkan isolation level transaction ticket create dari `Serializable` ke default, karena unique ticket number tidak lagi bergantung pada scan `MAX()`.
-4. Pertahankan retry untuk `P2002` sementara sebagai safety net.
+Dampak:
+- Orphan file di disk tanpa DB row.
+- Comment bisa muncul tanpa attachment yang dimaksud user.
+- Attachment row bisa menunjuk file yang sudah dihapus saat cleanup parsial.
+- Concurrent upload bisa melebihi limit attachment per ticket.
+- Validasi content type antara direct attachment dan comment attachment tidak konsisten.
 
 Checklist fix:
+- [ ] Bungkus DB write direct attachment dengan `try/catch`; jika create gagal, panggil `storageService.delete(filePath)`.
+- [ ] Untuk comment + attachments, gunakan Prisma transaction untuk comment row dan attachment rows.
+- [ ] Simpan files dengan daftar `createdFiles`, rollback DB transaction bila ada error, lalu cleanup semua files.
+- [ ] Terapkan magic-byte check yang sama untuk comment attachments.
+- [ ] Untuk limit per-ticket, enforce secara transactional. Pilihan: serializable transaction, advisory lock per ticket, atau model counter/constraint yang aman concurrency.
+- [ ] Tambahkan test partial failure: attachment create ke-2 throw, pastikan tidak ada comment/attachment partial dan files bersih.
+- [ ] Tambahkan test concurrent upload bila memungkinkan.
 
-- [x] Buat sequence migration dengan `setval` dari data existing.
-- [x] Ubah `generateTicketNumber()` ke `nextval`.
-- [ ] Tambah concurrency test create ticket (manual verification).
-- [x] Verifikasi ticket number tidak reset setelah restart/deploy (sequence persists in DB).
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- comments`
+- [ ] `cd backend && npm test -- attachments`
 
-### PERF-06 - Dashboard Stats Mengulang Query Mahal dan Menghitung Tren di Node
+---
 
-Severity: High untuk dashboard sering dibuka atau data ticket besar
+### P1-04 - Ticket status transition race-prone
 
-Lokasi bukti: `backend/src/dashboard/dashboard.service.ts:13-147`
+Severity: High  
+Area: Backend ticket workflow/concurrency  
+Referensi: `backend/src/tickets/tickets.service.ts:308-364`
 
-Masalah:
+Root cause:
+- Current status dibaca dan divalidasi sebelum transaction.
+- Update dalam transaction memakai `tx.ticket.update({ where: { id }, data })`, tidak memastikan status masih sama dengan `oldStatus`.
 
-`getStats()` menjalankan beberapa query paralel setiap request dashboard. Sebagian agregasi sudah memakai `groupBy`, tetapi SLA stats melakukan 4 count terpisah, daily trend mengambil semua ticket 7/30 hari lalu dihitung di Node, dan avg resolution raw query belum didukung index yang cukup. Endpoint dashboard cocok untuk caching TTL pendek karena tidak harus real-time per detik.
-
-Snippet daily trends:
-
-```ts
-const tickets = await this.ticketRepository.findMany({
-  where: { createdAt: { gte: since } },
-  select: { createdAt: true },
-  orderBy: { createdAt: 'asc' },
-});
-
-for (const ticket of tickets) {
-  const key = ticket.createdAt.toISOString().split('T')[0];
-  if (trends[key] !== undefined) {
-    trends[key]++;
-  }
-}
-```
-
-Langkah fix:
-
-1. Tambahkan cache Redis untuk response dashboard dengan TTL 30-60 detik.
-2. Invalidate cache saat mutation tiket: create, status update, assign, priority update, delete.
-3. Ubah SLA stats menjadi satu `groupBy` berdasarkan `slaStatus` dengan filter active status, atau raw SQL agregasi conditional.
-4. Ubah daily trends menjadi SQL group by date.
-
-Contoh raw SQL daily trend:
-
-```ts
-const rows = await this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
-  SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day,
-         COUNT(*)::int AS count
-  FROM tickets
-  WHERE "createdAt" >= ${since}
-  GROUP BY date_trunc('day', "createdAt")
-  ORDER BY day ASC
-`;
-```
-
-Contoh raw SQL SLA stats satu query:
-
-```ts
-const rows = await this.prisma.$queryRaw<Array<{
-  total: number;
-  onTrack: number;
-  atRisk: number;
-  breached: number;
-}>>`
-  SELECT
-    COUNT(*)::int AS total,
-    COUNT(*) FILTER (WHERE "slaStatus" = 'OnTrack')::int AS "onTrack",
-    COUNT(*) FILTER (WHERE "slaStatus" = 'AtRisk')::int AS "atRisk",
-    COUNT(*) FILTER (WHERE "slaStatus" = 'Breached')::int AS breached
-  FROM tickets
-  WHERE status NOT IN ('Closed', 'Resolved')
-`;
-```
+Dampak:
+- Dua request concurrent bisa sama-sama lolos validasi berdasarkan stale status.
+- History bisa mencatat old/new value yang tidak merefleksikan state sebenarnya.
+- Workflow valid transition bisa dilanggar karena last-writer-wins.
 
 Checklist fix:
+- [ ] Pindahkan read current status ke dalam transaction.
+- [ ] Gunakan conditional update: `updateMany({ where: { id, status: oldStatus }, data })` dan cek `count === 1`.
+- [ ] Jika count 0, return `409 Conflict` atau `400` dengan pesan status berubah, minta client refresh.
+- [ ] Buat history hanya setelah conditional update sukses.
+- [ ] Pertimbangkan row lock atau serializable transaction jika workflow makin kompleks.
+- [ ] Tambahkan test concurrent/stale status minimal dengan mock `updateMany count=0`.
 
-- [x] Tambah cache key `dashboard:stats:v1` TTL 30-60 detik.
-- [x] Tambah `invalidateCache()` method.
-- [x] Ubah daily trends ke SQL aggregation.
-- [x] Ubah SLA stats ke satu query.
-- [x] Tambah index dari PERF-01 sebelum mengukur hasil.
-- [ ] Ukur response time dashboard p95.
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- tickets`
 
-### PERF-07 - CSV Export Memuat Semua Row ke Memory dan Membentuk String Besar
+---
 
-Severity: Medium sekarang, High jika export dinaikkan di atas 10.000 row
+### P1-05 - Deaktivasi user tidak revoke active session dan WebSocket
 
-Lokasi bukti:
+Severity: High  
+Area: Backend auth/session/realtime  
+Referensi: `backend/src/users/users.service.ts:91-100`, `backend/src/auth/auth.service.ts:120-128`, `backend/src/notifications/notifications.gateway.ts:61-71,89-94`
 
-- `backend/src/tickets/tickets.service.ts:173-249`
-- `backend/src/tickets/tickets.controller.ts:49-60`
+Root cause:
+- `UsersService.update()` emit event hanya saat password berubah.
+- `AuthService` revoke refresh tokens hanya untuk `user.password_changed` dan `user.deleted`.
+- Gateway hanya cek `isActive` saat connection awal; socket user yang sudah connected tetap join room.
 
-Masalah:
-
-Export CSV mengambil sampai 10.000 ticket dengan `findMany`, membuat array `rows`, lalu menggabungkan seluruh CSV menjadi satu string sebelum `res.send()`. Dengan row dan field besar, memory spike terjadi di API process. Saat data/limit naik, pendekatan ini tidak scalable.
-
-Snippet:
-
-```ts
-const tickets = await this.ticketRepository.findMany({
-  where: where as any,
-  orderBy,
-  take: MAX_EXPORT_ROWS,
-  include: {
-    requester: { select: { id: true, name: true, email: true } },
-    assignedTo: { select: { id: true, name: true, email: true } },
-    category: { select: { id: true, name: true } },
-    subCategory: { select: { id: true, name: true } },
-  },
-});
-
-return [headers.map(escapeCsv).join(','), ...rows.map((r: any) => r.map(escapeCsv).join(','))].join('\n');
-```
-
-Langkah fix:
-
-1. Pertahankan `MAX_EXPORT_ROWS` sebagai guard.
-2. Ubah endpoint menjadi streaming response jika export dipakai sering atau data bertambah.
-3. Gunakan cursor/keyset batch 500-1000 row per batch.
-4. Tulis header CSV lalu stream row satu per satu ke `res`.
-5. Hindari `rows = tickets.map(...)` untuk dataset besar.
+Dampak:
+- User yang dinonaktifkan masih bisa memakai access token sampai expiry.
+- Refresh token aktif tidak dicabut sampai refresh berikutnya gagal karena user inactive, tetapi key Redis masih ada sampai token dipakai/expiry.
+- Socket aktif bisa tetap menerima notifikasi sampai disconnect.
 
 Checklist fix:
+- [ ] Deteksi perubahan `isActive` dari true ke false di `UsersService.update()`.
+- [ ] Emit `user.deactivated` dengan `userId`.
+- [ ] Tambahkan handler di `AuthService` untuk revoke all refresh tokens pada deactivation.
+- [ ] Tambahkan handler di `NotificationsGateway` untuk disconnect semua socket user tersebut dan leave room.
+- [ ] Pertimbangkan juga emit `user.activated` jika butuh audit/log, tanpa revoke.
+- [ ] Tambahkan test event deactivation dan gateway disconnect.
 
-- [x] Tambah streaming export service/controller (keyset pagination + res.write chunks).
-- [x] Pastikan response header diset sebelum body stream.
-- [ ] Tambah integration test export kecil (manual verification).
-- [ ] Load test export 10.000 row untuk memory peak (manual verification).
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- users`
+- [ ] Manual: login user, buka socket, deactivate dari admin, pastikan socket disconnect dan refresh gagal.
 
-### PERF-08 - File Upload Storage Memakai Blocking Sync I/O
+---
 
-Severity: Medium-High
+### P1-06 - EndUser dapat membaca internal master data counts dan SLA config
 
-Lokasi bukti: `backend/src/attachments/services/local-storage.service.ts:9-26`
+Severity: High  
+Area: Backend authorization/data minimization  
+Referensi: `backend/src/categories/categories.controller.ts:24-31`, `backend/src/common/repositories/category.repository.ts:9-18,22-32`, `backend/src/sub-categories/sub-categories.controller.ts:26-29`, `backend/src/sla/sla.controller.ts:23-25`
 
-Masalah:
+Root cause:
+- Category/sub-category/SLA read endpoints hanya JWT-protected, tidak role-protected.
+- Repository category mengembalikan `_count` ticket/subcategory/SLA dan `slaConfigs` pada detail.
+- EndUser memang butuh category/subcategory aktif untuk create ticket, tetapi tidak perlu count internal dan SLA operational config.
 
-Request upload dan delete file memanggil filesystem sync API (`existsSync`, `mkdirSync`, `writeFileSync`, `unlinkSync`). Sync I/O memblokir Node.js event loop. Pada file 5-10 MB dan concurrent upload, request lain bisa ikut tertahan.
-
-Snippet:
-
-```ts
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true });
-}
-fs.writeFileSync(resolvedPath, file.buffer);
-```
-
-Langkah fix:
-
-1. Ganti ke `fs.promises.mkdir` dan `fs.promises.writeFile`.
-2. Ganti delete ke `fs.promises.unlink` dengan ignore `ENOENT`.
-3. Untuk optimasi lebih lanjut, pakai streaming upload ke temp file atau multer disk storage, bukan seluruh file buffer di memory.
-
-Contoh:
-
-```ts
-import * as fs from 'fs/promises';
-
-async save(file: Express.Multer.File, filePath: string): Promise<void> {
-  const uploadRoot = path.resolve(process.env.UPLOAD_DIR || './uploads');
-  const resolvedPath = path.resolve(filePath);
-  if (!resolvedPath.startsWith(uploadRoot + path.sep) && resolvedPath !== uploadRoot) {
-    throw new BadRequestException('File path outside upload directory');
-  }
-
-  await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
-  await fs.writeFile(resolvedPath, file.buffer);
-}
-```
+Dampak:
+- EndUser bisa melihat volume ticket per category/subcategory.
+- EndUser bisa melihat response/resolution SLA config yang mungkin internal-operational.
 
 Checklist fix:
+- [ ] Pisahkan endpoint public form data dari admin master data.
+- [ ] Untuk EndUser, return field minimal: `id`, `name`, `description`, active subcategories aktif.
+- [ ] Lindungi endpoint yang return `_count`, inactive rows, dan `slaConfigs` dengan `@Roles(Role.Admin)` atau staff sesuai kebutuhan.
+- [ ] Update frontend create ticket agar memakai endpoint minimal.
+- [ ] Tambahkan API test EndUser tidak menerima `_count` dan `slaConfigs`.
 
-- [x] Ubah save/delete menjadi async fs.
-- [x] Tambah test upload/delete attachment (existing tests cover upload behavior; multer memory storage vs diskStorage documented).
-- [ ] Uji upload beberapa file paralel (manual benchmark).
-- [x] Evaluasi multer disk storage jika concurrent upload tinggi: saat ini memory storage (default). `diskStorage` sudah di-import tapi belum dipakai. Untuk concurrent tinggi, migrasi ke `diskStorage` direkomendasikan, butuh refactor service layer. Ditunda sampai traffic naik.
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- categories`
+- [ ] Manual: login EndUser dan cek response `/api/categories`, `/api/categories/:id`, `/api/sla-configs`.
 
-### PERF-09 - Attachment Image Thumbnail Diunduh Eager Per Item
+---
 
-Severity: Medium-High untuk ticket detail dengan banyak image
+### P1-07 - Telegram bot restart dapat menjalankan beberapa polling loop
 
-Lokasi bukti:
+Severity: High  
+Area: Backend Telegram/integration concurrency  
+Referensi: `backend/src/telegram/telegram.service.ts:57-67,104-129,230-231`
 
-- `frontend/src/components/tickets/AttachmentList.tsx:9-37`
-- `frontend/src/components/tickets/AttachmentList.tsx:147-159`
-- `frontend/src/components/tickets/CommentSection.tsx:13-32`
-- `frontend/src/components/tickets/CommentSection.tsx:235-245`
-- `backend/src/attachments/attachments.controller.ts:77-110`
+Root cause:
+- `startBot()` set `polling=false`, resolve token, lalu `polling=true` dan memanggil `pollLoop()` baru.
+- Loop lama yang sudah menjadwalkan `setTimeout` dapat resume setelah `polling` kembali true.
+- Tidak ada generation id atau timeout handle untuk membatalkan loop lama.
 
-Masalah:
-
-Setiap image attachment langsung memanggil API download blob saat komponen thumbnail mount. Jika ticket detail punya banyak image di direct attachments dan comments, browser akan mengirim banyak request download sekaligus. Backend mengirim file asli, bukan thumbnail kecil, sehingga bandwidth dan CPU I/O bisa boros.
-
-Snippet frontend:
-
-```tsx
-useEffect(() => {
-  const ctrl = new AbortController();
-  apiClient.get(`/attachments/${id}/download?view=1`, { responseType: 'blob', signal: ctrl.signal })
-    .then((r) => {
-      const u = URL.createObjectURL(r.data);
-      urlRef.current = u;
-      setBlobUrl(u);
-    })
-    .catch(() => { if (!ctrl.signal.aborted) setBlobUrl(''); });
-  return () => {
-    ctrl.abort();
-    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-  };
-}, [id]);
-```
-
-Langkah fix minimal:
-
-1. Lazy-load thumbnail hanya saat item terlihat menggunakan `IntersectionObserver`.
-2. Batasi jumlah concurrent thumbnail downloads, misalnya 3-4 request sekaligus.
-3. Cache blob URL per attachment id selama page hidup agar berpindah section tidak download ulang.
-4. Tambahkan `Cache-Control: private, max-age=300` dan `ETag`/`Last-Modified` di endpoint download jika access control tetap aman.
-
-Langkah fix ideal:
-
-1. Generate thumbnail kecil saat upload image.
-2. Simpan path thumbnail di DB atau gunakan deterministic sidecar path.
-3. Endpoint `/attachments/:id/thumbnail` mengirim thumbnail kecil, bukan file asli.
-4. Preview full image baru diunduh saat user klik.
+Dampak:
+- Multiple long-poll Telegram berjalan bersamaan.
+- Bisa terjadi duplicate handling, API conflict, atau loop dengan token lama setelah config diganti.
 
 Checklist fix:
+- [ ] Tambahkan `pollingGeneration` number yang increment tiap `startBot()`.
+- [ ] Pass generation ke `pollLoop(token, offset, generation)` dan stop jika generation stale.
+- [ ] Simpan timeout handle dan clear timeout saat restart/shutdown.
+- [ ] Pastikan `onApplicationShutdown()` clear timeout dan set generation stale.
+- [ ] Tambahkan log saat old loop berhenti agar mudah audit.
+- [ ] Tambahkan unit test sederhana dengan fake timers jika test infra mendukung.
 
-- [x] Tambah lazy loading thumbnail via IntersectionObserver.
-- [x] Tambah cache per attachment id di component/hook.
-- [x] Tambah header cache private di backend download.
-- [ ] Pertimbangkan thumbnail generation untuk image upload (noted - ideal future step).
-- [ ] Uji ticket detail dengan 50 image attachments.
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- telegram`
+- [ ] Manual: save Telegram config beberapa kali, cek log hanya satu polling active.
 
-### PERF-10 - Notifications dan Telegram Send Berjalan Sequential
+---
 
-Severity: Medium
+### P1-08 - Manual backup script bisa inconsistent saat app live
 
-Lokasi bukti:
+Severity: High  
+Area: Operations/backup consistency  
+Referensi: `scripts/backup.sh:27-36`, `backend/src/maintenance/maintenance.service.ts:89-93`, `README.md:404-419`
 
-- `backend/src/notifications/notifications.service.ts:55-84`
-- `backend/src/notifications/notifications.service.ts:101-141`
-- `backend/src/telegram/telegram.service.ts:267-273`
+Root cause:
+- API backup mewajibkan maintenance mode kecuali `pre-restore`.
+- Manual `scripts/backup.sh` langsung dump DB dan tar uploads tanpa cek maintenance.
 
-Masalah:
-
-Saat ticket dibuat, service mengambil semua support users lalu membuat notification satu per satu dengan `await` di dalam loop. Telegram juga mengirim ke linked users satu per satu. Jika jumlah support/admin/linked user besar, latency event handler meningkat dan dapat memperlambat event pipeline.
-
-Snippet notification:
-
-```ts
-for (const user of itsupportUsers) {
-  await this.create({
-    userId: user.id,
-    title: 'New Ticket Created',
-    message: `Ticket ${payload.ticketNumber}: ${payload.subject}`,
-    data: { ticketId: payload.ticketId, type: 'ticket_created' },
-  });
-}
-```
-
-Snippet Telegram:
-
-```ts
-for (const user of users) {
-  if (user.telegramChatId) {
-    await this.sendMessage(token, Number(user.telegramChatId), message);
-  }
-}
-```
-
-Langkah fix:
-
-1. Untuk in-app notification, tambahkan repository `createMany` jika tidak perlu return semua row. Jika perlu realtime payload per user, gunakan `Promise.allSettled` dengan concurrency limit.
-2. Untuk Telegram, jangan `Promise.all` tanpa batas karena rate limit Telegram. Gunakan concurrency limit 3-5 atau queue sederhana.
-3. Pisahkan event handler agar ticket mutation tidak menunggu broadcast eksternal jika tidak wajib. Bisa pakai background queue berbasis Redis nanti.
-
-Contoh concurrency helper minimal:
-
-```ts
-async function runWithConcurrency<T>(items: T[], limit: number, task: (item: T) => Promise<void>) {
-  const queue = [...items];
-  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
-    while (queue.length > 0) {
-      const item = queue.shift();
-      if (item) await task(item);
-    }
-  });
-  await Promise.allSettled(workers);
-}
-```
+Dampak:
+- Saat ada upload/ticket baru selama backup, DB bisa mereferensikan file yang belum/ tidak masuk archive, atau archive punya file tanpa DB row.
+- Restore dari backup manual bisa menghasilkan attachment missing file.
 
 Checklist fix:
+- [ ] Dokumentasikan secara eksplisit bahwa script hanya boleh dijalankan saat maintenance mode aktif.
+- [ ] Tambahkan preflight script: cek maintenance via API atau Redis sebelum dump.
+- [ ] Jika ada kebutuhan live backup, tambahkan flag eksplisit `--live-ok` dengan warning keras.
+- [ ] Pertimbangkan satu entrypoint backup resmi via API agar semantics sama dengan UI.
 
-- [x] Tambah batching/concurrency limit notification create via `runWithConcurrency`.
-- [x] Tambah concurrency limit Telegram send (max 3 concurrent).
-- [x] Pastikan kegagalan satu receiver tidak menggagalkan semua receiver (`Promise.allSettled` + try/catch).
-- [ ] Monitor event handler duration.
+Verifikasi yang disarankan:
+- [ ] Jalankan script saat maintenance off dan pastikan gagal dengan pesan jelas.
+- [ ] Jalankan script saat maintenance on dan pastikan backup sukses.
 
-### PERF-11 - MaintenanceGuard Melakukan Redis Read Pada Setiap Request
+---
 
-Severity: Medium pada traffic tinggi
+### P2-01 - Pagination comment/attachment tidak tervalidasi
 
-Lokasi bukti: `backend/src/common/guards/maintenance.guard.ts:22-47`
+Severity: Medium  
+Area: Backend API validation  
+Referensi: `backend/src/comments/comments.controller.ts:43-50`, `backend/src/attachments/attachments.controller.ts:69-77`, `backend/src/comments/comments.service.ts:189-214`, `backend/src/attachments/attachments.service.ts:176-202`
 
-Masalah:
+Root cause:
+- Controller memakai `@Query('page') page = 1` dan `@Query('limit') limit = 20` tanpa DTO.
+- Query raw bisa berupa string, `abc`, `-1`, `0`, atau angka sangat besar.
+- Service melakukan `Math.min(limit, 100)` dan `skip = (page - 1) * actualLimit`, yang bisa menghasilkan `NaN` atau skip negatif.
 
-Global `MaintenanceGuard` berjalan sebelum handler untuk seluruh API. Setiap request melakukan `redis.get('maintenance:enabled')`. Saat maintenance aktif, request juga mengambil message. Ini membuat Redis menjadi dependency latency untuk semua request, termasuk request ringan.
-
-Snippet:
-
-```ts
-const enabled = await this.redis.get(MAINTENANCE_KEY);
-if (enabled !== '1') return true;
-
-const req = context.switchToHttp().getRequest<Request>();
-
-if (this.isAllowedDuringMaintenance(req)) return true;
-
-const message = await this.redis.get(MAINTENANCE_MESSAGE_KEY);
-```
-
-Langkah fix:
-
-1. Cache maintenance state in-memory per API process selama TTL pendek, misalnya 1000-2000 ms.
-2. Ambil `enabled` dan `message` dengan `mget` saat refresh cache.
-3. Saat `setMaintenanceMode()` dipanggil, publish invalidation via Redis pub/sub atau cukup toleransi TTL pendek.
-4. Jangan cache terlalu lama karena maintenance mode dipakai untuk safety restore.
-
-Contoh konsep:
-
-```ts
-private cachedUntil = 0;
-private cachedMaintenance = { enabled: false, message: null as string | null };
-
-private async getMaintenanceCached() {
-  const now = Date.now();
-  if (now < this.cachedUntil) return this.cachedMaintenance;
-
-  const [enabled, message] = await this.redis.getClient().mget(MAINTENANCE_KEY, MAINTENANCE_MESSAGE_KEY);
-  this.cachedMaintenance = { enabled: enabled === '1', message: message || null };
-  this.cachedUntil = now + 1000;
-  return this.cachedMaintenance;
-}
-```
+Dampak:
+- Prisma validation error bisa menjadi 500.
+- Pagination metadata bisa invalid.
+- Request aneh bisa membebani DB atau membuat response tidak predictable.
 
 Checklist fix:
+- [ ] Gunakan `PaginationQueryDto` untuk comment dan attachment endpoints.
+- [ ] Pastikan `@Type(() => Number)`, `@IsInt`, `@Min(1)`, `@Max(100)` berlaku.
+- [ ] Tambahkan defensive clamp di service untuk call internal.
+- [ ] Tambahkan test `page=abc`, `page=-1`, `limit=10000` return 400.
 
-- [x] Tambah cache TTL pendek di guard (2 detik).
-- [x] Gunakan `mget` untuk enabled + message.
-- [ ] Test maintenance enable/disable delay maksimal sesuai TTL (manual verification).
-- [x] Pastikan restore flow tetap aman (cache invalidation via TTL).
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- comments`
+- [ ] `cd backend && npm test -- attachments`
 
-### PERF-12 - Frontend Belum Route-Level Code Splitting
+---
 
-Severity: Medium
+### P2-02 - Telegram config/check body tidak tervalidasi DTO
 
-Lokasi bukti: `frontend/src/App.tsx:1-16`
+Severity: Medium  
+Area: Backend API validation/config integrity  
+Referensi: `backend/src/telegram/telegram.controller.ts:53-77`, `backend/src/telegram/telegram.service.ts:197-228,257-258`
 
-Masalah:
+Root cause:
+- Controller memakai plain TypeScript object type pada `@Body()`.
+- Class-validator tidak menvalidasi nested settings/template/event names.
+- Service menyimpan `settings` yang diterima dengan type assertion.
 
-Semua page diimport statis di root `App`. Akibatnya bundle awal memuat admin pages, maintenance page, dashboard, ticket detail, dan login sekaligus. Untuk user EndUser, admin code tetap masuk initial bundle meskipun tidak pernah dipakai.
-
-Snippet:
-
-```tsx
-import LoginPage from '@/pages/LoginPage';
-import TicketsPage from '@/pages/TicketsPage';
-import CreateTicketPage from '@/pages/CreateTicketPage';
-import TicketDetailPage from '@/pages/TicketDetailPage';
-import DashboardPage from '@/pages/DashboardPage';
-import NotificationsPage from '@/pages/NotificationsPage';
-import MyAccountPage from '@/pages/MyAccountPage';
-import AdminUsersPage from '@/pages/AdminUsersPage';
-import AdminMasterDataPage from '@/pages/AdminMasterDataPage';
-import AdminMaintenancePage from '@/pages/AdminMaintenancePage';
-```
-
-Langkah fix:
-
-1. Ganti page imports dengan `React.lazy`.
-2. Bungkus routes dengan `Suspense` dan fallback loading.
-3. Pastikan protected route tetap bekerja dan tidak expose data karena backend guard tetap sumber keamanan.
-4. Setelah build, cek output chunk Vite.
-
-Contoh:
-
-```tsx
-import { lazy, Suspense } from 'react';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-
-const LoginPage = lazy(() => import('@/pages/LoginPage'));
-const TicketsPage = lazy(() => import('@/pages/TicketsPage'));
-const AdminMaintenancePage = lazy(() => import('@/pages/AdminMaintenancePage'));
-
-export default function App() {
-  return (
-    <ErrorBoundary>
-      <Suspense fallback={<div className="p-8"><LoadingSpinner /></div>}>
-        <Routes>{/* existing routes */}</Routes>
-      </Suspense>
-    </ErrorBoundary>
-  );
-}
-```
+Dampak:
+- Invalid `enabledEvents`, boolean string, template object aneh, atau group chat invalid dapat tersimpan.
+- Notification sending bisa rusak runtime atau diam-diam tidak terkirim.
 
 Checklist fix:
+- [ ] Buat DTO `UpdateTelegramConfigDto`, `TelegramSettingsDto`, `TelegramTemplatesDto`, `CheckTelegramConfigDto`.
+- [ ] Validasi `enabledEvents` memakai `@IsArray`, `@IsIn([...], { each: true })`.
+- [ ] Validasi boolean memakai `@IsBoolean`.
+- [ ] Validasi template string length dan allowed variables bila perlu.
+- [ ] Normalize defaults di service setelah DTO valid, bukan dari object arbitrary.
+- [ ] Tambahkan test invalid event/body extra field return 400.
 
-- [x] Convert page imports ke `lazy()`.
-- [x] Tambah `Suspense` fallback with LoadingSpinner.
-- [x] Jalankan `frontend npm run build` — sukses.
-- [x] Cek chunk output dan initial JS size (masing-masing page jadi terpisah, main bundle 331KB).
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- telegram`
 
-### PERF-13 - Nginx Belum Mengatur Cache-Control Untuk Static Assets
+---
 
-Severity: Medium
+### P2-03 - SLA create/update edge error keluar sebagai Prisma 500
 
-Lokasi bukti: `nginx/nginx.conf:88-92`
+Severity: Medium  
+Area: Backend API error handling  
+Referensi: `backend/src/sla/sla.service.ts:35-62`
 
-Masalah:
+Root cause:
+- `create()` langsung connect category id dan create unique `(categoryId, priority)` tanpa precheck/catch.
+- `update()` langsung update id tanpa mapping `P2025`.
 
-Vite menghasilkan asset fingerprinted di `/assets/...`. Nginx saat ini hanya `try_files` tanpa cache header khusus. Browser bisa tetap melakukan revalidation yang tidak perlu untuk JS/CSS fingerprinted.
-
-Snippet:
-
-```nginx
-location / {
-  root /usr/share/nginx/html;
-  index index.html;
-  try_files $uri $uri/ /index.html;
-}
-```
-
-Langkah fix:
-
-1. Tambah location untuk `/assets/` dengan immutable cache.
-2. Set `index.html` no-cache agar deploy SPA tetap mengambil manifest terbaru.
-
-Contoh config:
-
-```nginx
-location /assets/ {
-  root /usr/share/nginx/html;
-  add_header Cache-Control "public, max-age=31536000, immutable" always;
-  try_files $uri =404;
-}
-
-location = /index.html {
-  root /usr/share/nginx/html;
-  add_header Cache-Control "no-cache" always;
-}
-
-location / {
-  root /usr/share/nginx/html;
-  index index.html;
-  try_files $uri $uri/ /index.html;
-  add_header Cache-Control "no-cache" always;
-}
-```
+Dampak:
+- Category id tidak ada, duplicate priority per category, atau config id tidak ada bisa return 500/internal Prisma error.
+- Kontrak error stabil `{ error: { code, message } }` melemah.
 
 Checklist fix:
+- [ ] Cek category existence sebelum create.
+- [ ] Catch Prisma `P2002` dan return `ConflictException` untuk duplicate SLA config.
+- [ ] Catch Prisma `P2025` dan return `NotFoundException` untuk update id tidak ada.
+- [ ] Validasi response/resolution time masuk akal: `resolutionTimeMinutes >= responseTimeMinutes` jika business rule menghendaki.
+- [ ] Tambahkan unit tests untuk missing category, duplicate, missing id.
 
-- [x] Update nginx cache policy (assets immutable, index.html no-cache).
-- [ ] Test hard refresh setelah deploy (manual verification).
-- [x] Test route SPA direct access tetap fallback ke `index.html` (existing `try_files` behavior preserved).
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- sla`
 
-### PERF-14 - Admin Master Data Melakukan N Request Untuk Sub-categories
+---
 
-Severity: Medium
+### P2-04 - Frontend banyak failure mutasi/download/export yang silent
 
-Lokasi bukti: `frontend/src/components/admin/MasterDataManagement.tsx:232-249`
+Severity: Medium  
+Area: Frontend UX/API error handling  
+Referensi: `frontend/src/components/tickets/AttachmentList.tsx:82-91,124-139`, `frontend/src/components/tickets/TicketList.tsx:170-175,189-196,253-260`, `frontend/src/pages/TicketsPage.tsx:51-66`, `frontend/src/hooks/use-tickets.ts:49-78,137-167,170-181`
 
-Masalah:
+Root cause:
+- Beberapa mutation dipanggil tanpa `onError` atau `catch`.
+- Direct upload `try/finally` tidak catch, download attachment catch tapi silent.
+- Export CSV tidak catch error.
 
-SubCategory tab mengambil categories, lalu melakukan request per category untuk sub-categories. Padahal `useCategories()` sudah mengambil category dengan `subCategories` dari backend repository `CategoryRepository.findAll()`.
-
-Snippet:
-
-```tsx
-const results = await Promise.all(
-  categories.map((cat) =>
-    apiClient.get<ApiEnvelope<SubCategory[]>>(`/categories/${cat.id}/sub-categories`)
-  )
-);
-for (const res of results) {
-  allSubs.push(...unwrapData(res));
-}
-```
-
-Langkah fix minimal:
-
-1. Derive `subCategories` dari data `categories` yang sudah ada.
-2. Hanya panggil endpoint sub-category terpisah jika backend tidak mengembalikan subCategories.
-3. Alternatif backend: tambah endpoint `GET /sub-categories` untuk list semua sub-categories.
-
-Contoh:
-
-```tsx
-const subCategories = categories?.flatMap((category) =>
-  (category.subCategories ?? []).map((sub) => ({
-    ...sub,
-    categoryId: category.id,
-  }))
-) ?? [];
-```
+Dampak:
+- Permission error, invalid transition, maintenance 503, max file size, unsupported file, network error, atau export failure terlihat seperti tidak terjadi apa-apa.
+- User bisa mengira aksi berhasil padahal gagal.
 
 Checklist fix:
+- [ ] Gunakan `toast.error(getErrorMessage(err, ...))` untuk upload/download/export/status/priority/assign/delete.
+- [ ] Disable control saat mutation terkait pending agar tidak double-submit.
+- [ ] Pada select status/priority/assign, refetch/reset value jika mutation gagal.
+- [ ] Tambahkan client-side file size/type validation sebelum upload untuk feedback cepat.
+- [ ] Pastikan maintenance 503 menampilkan pesan maintenance, bukan generic error.
 
-- [x] Cek tipe `Category` sudah memuat `subCategories` (type sudah include `subCategories?: SubCategory[]`).
-- [x] Hapus query N request di `SubCategoryManager` (sekarang derive dari `categories`).
-- [x] Pastikan invalidation category/subcategory tetap refresh data (via `queryClient.invalidateQueries`).
-- [x] Jalankan frontend lint/build — sukses.
+Verifikasi yang disarankan:
+- [ ] `cd frontend && npm run build`
+- [ ] Manual: upload file > limit, ubah status invalid, export saat API dimatikan, cek toast muncul.
 
-### PERF-15 - Navbar Notification Dropdown Fetch Selalu Aktif
+---
 
-Severity: Low-Medium
+### P2-05 - Pagination frontend tidak clamp saat total pages menyusut
 
-Lokasi bukti: `frontend/src/layout/Navbar.tsx:31-37`
+Severity: Medium  
+Area: Frontend pagination edge case  
+Referensi: `frontend/src/components/tickets/TicketList.tsx:240-248`, `frontend/src/components/tickets/AttachmentList.tsx:217-225`, `frontend/src/hooks/use-notifications.ts:28-37`
 
-Masalah:
+Root cause:
+- UI menyimpan `page` lokal/parent.
+- Saat filter/delete/visibility membuat `totalPages` turun, page saat ini tidak dipaksa kembali ke range valid.
 
-Dropdown notification mengambil 5 notification saat Navbar render, walaupun user tidak membuka dropdown. Layout juga polling unread count via `useUnreadNotificationCount()` di `frontend/src/layout/Layout.tsx:8`. Ini bukan masalah besar, tapi request bisa dikurangi.
-
-Snippet:
-
-```tsx
-const { data } = useQuery({
-  queryKey: ['notifications', 'dropdown'],
-  queryFn: async () => {
-    const res = await apiClient.get<PaginatedResponse<Notification>>('/notifications?page=1&limit=5');
-    return res.data.data;
-  },
-});
-```
-
-Langkah fix:
-
-1. Set `enabled: notifOpen` agar fetch hanya saat dropdown dibuka.
-2. Tambah `staleTime: 30_000` atau reuse cache dari query notifications.
-3. Setelah mark read/clear all, invalidate dropdown dan unread count query secara eksplisit.
-
-Contoh:
-
-```tsx
-const { data } = useQuery({
-  queryKey: ['notifications', 'dropdown'],
-  enabled: notifOpen,
-  staleTime: 30_000,
-  queryFn: async () => {
-    const res = await apiClient.get<PaginatedResponse<Notification>>('/notifications?page=1&limit=5');
-    return res.data.data;
-  },
-});
-```
+Dampak:
+- User bisa berada di page 3 dari 2 dan melihat empty state padahal data ada di page sebelumnya.
+- Issue makin terlihat bila backend attachment meta salah untuk EndUser.
 
 Checklist fix:
+- [ ] Setelah query sukses, hitung `totalPages` dari meta.
+- [ ] Jika `page > totalPages`, panggil `setPage(totalPages || 1)`.
+- [ ] Buat helper/hook reusable untuk pagination clamp bila dipakai banyak page.
+- [ ] Pastikan tidak terjadi loop render dengan hanya set jika nilai berubah.
 
-- [x] Tambah `enabled: notifOpen`.
-- [x] Tambah `staleTime: 30_000`.
-- [x] Pastikan dropdown tetap refresh setelah notification mutation.
+Verifikasi yang disarankan:
+- [ ] `cd frontend && npm run build`
+- [ ] Manual: buka page terakhir, hapus/filter data sampai total page turun, cek page otomatis valid.
 
-### PERF-16 - Notification Realtime Gateway Ada, Frontend Masih Polling
+---
 
-Severity: Low-Medium
+### P2-06 - `VITE_API_URL` ada di template tapi frontend hardcode `/api`
 
-Lokasi bukti:
+Severity: Medium  
+Area: Frontend deployment config  
+Referensi: `frontend/.env.example:1`, `frontend/src/lib/axios.ts:6-8,86`, `frontend/src/hooks/use-socket.ts:17`
 
-- `backend/src/notifications/notifications.gateway.ts:89-94`
-- `frontend/src/hooks/use-notifications.ts:7-17`
-- `frontend/package.json:14-25`
+Root cause:
+- Axios base URL hardcode `/api`.
+- Refresh request hardcode `/api/auth/refresh` memakai axios global.
+- Socket.IO hardcode namespace relatif `/notifications`.
 
-Masalah:
-
-Backend sudah punya Socket.IO gateway untuk event `notification.created`, tetapi frontend tidak memiliki `socket.io-client` dan masih polling unread count setiap 30 detik. Polling 30 detik masih wajar, tetapi jika user banyak, ini menjadi request berkala yang tidak perlu.
-
-Snippet polling:
-
-```ts
-const query = useQuery({
-  queryKey: ['notifications-unread-count'],
-  queryFn: async () => {
-    const response = await apiClient.get<ApiEnvelope<{ count: number }>>('/notifications/unread-count');
-    return unwrapData(response);
-  },
-  refetchInterval: 30000,
-});
-```
-
-Langkah fix opsional:
-
-1. Tambah `socket.io-client` di frontend.
-2. Connect ke namespace `/notifications` setelah login dengan access token memory.
-3. Pada event notification, increment unread count dan invalidate dropdown/list query.
-4. Turunkan polling menjadi fallback, misalnya 5 menit, atau disable saat socket connected.
+Dampak:
+- Deployment beda origin/subpath/proxy tidak bisa dikonfigurasi meski `VITE_API_URL` tersedia.
+- Operator dapat mengisi env tetapi tidak berdampak.
 
 Checklist fix:
+- [ ] Putuskan apakah frontend memang hanya didukung same-origin nginx.
+- [ ] Jika iya, hapus/ubah `frontend/.env.example` agar tidak misleading.
+- [ ] Jika perlu support configurable API URL, gunakan `import.meta.env.VITE_API_URL ?? '/api'` untuk axios dan refresh.
+- [ ] Konfigurasikan Socket.IO origin/path sesuai API URL.
+- [ ] Update Docker build args/env jika Vite env dipakai di build time.
 
-- [x] Tambah socket client hook.
-- [x] Handle reconnect/token refresh.
-- [x] Invalidate notification queries saat event masuk.
-- [x] Jadikan polling fallback, bukan mekanisme utama.
+Verifikasi yang disarankan:
+- [ ] `cd frontend && npm run build`
+- [ ] Manual deploy dengan non-default API URL bila support dipilih.
 
-### PERF-17 - Ticket Detail Mengambil Data Ticket, Comments, Attachments Terpisah dan Sebagian Data Duplikatif
+---
 
-Severity: Low-Medium
+### P2-07 - Redis password bisa leak lewat process args
 
-Lokasi bukti:
+Severity: Medium  
+Area: Infra/secrets  
+Referensi: `docker-compose.yml:87-90`
 
-- `backend/src/tickets/tickets.service.ts:252-314`
-- `frontend/src/components/tickets/TicketDetail.tsx:66-68`
-- `frontend/src/components/tickets/CommentSection.tsx:46`
-- `frontend/src/components/tickets/AttachmentList.tsx:53`
+Root cause:
+- Redis password dipass sebagai command argument: `redis-server --requirepass "$REDIS_PASSWORD"`.
+- Healthcheck memakai `redis-cli -a "$REDIS_PASSWORD" ping`.
 
-Masalah:
-
-`findById()` backend sudah include comments dan attachments, tetapi frontend tetap memanggil `useTicketComments()` dan `useTicketAttachments()` sebagai request terpisah. Ini bisa disengaja untuk modularitas, tetapi saat ticket detail dibuka, request awal bisa berisi data besar yang tidak dipakai oleh component comments/attachments karena mereka fetch ulang.
-
-Snippet backend include:
-
-```ts
-const include: Record<string, unknown> = {
-  requester: { select: { id: true, name: true, email: true, avatarUrl: true } },
-  assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
-  category: { select: { id: true, name: true } },
-  subCategory: { select: { id: true, name: true } },
-  comments: { /* ... */ },
-  attachments: { /* ... */ },
-  _count: { select: { comments: true, attachments: true } },
-};
-```
-
-Langkah fix:
-
-1. Pilih salah satu strategi:
-   - Strategy A: `GET /tickets/:id` hanya return ticket metadata + counts, comments/attachments tetap endpoint terpisah.
-   - Strategy B: `GET /tickets/:id` return semua detail dan frontend memakai data itu tanpa refetch comments/attachments.
-2. Untuk performa dan payload control, Strategy A biasanya lebih baik. Comments/attachments bisa dipaginasi/lazy-load.
-3. Jika Strategy A dipilih, hapus include comments/attachments dari `findById()` dan biarkan tab/section load terpisah.
-4. Tambah pagination untuk comments/attachments jika bisa sangat banyak.
+Dampak:
+- Secret bisa terlihat via process inspection/container tooling/logging tertentu.
+- Redis sendiri memperingatkan `-a` kurang aman.
 
 Checklist fix:
+- [ ] Gunakan Redis config file ter-generate/mounted dengan permission ketat, atau Docker secrets.
+- [ ] Untuk healthcheck, gunakan env `REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping`.
+- [ ] Pastikan secret tidak tercetak di logs.
 
-- [x] Tentukan strategi data ticket detail (Strategy A: backend omits comments/attachments include, frontend fetches separately).
-- [x] Hindari payload duplikatif.
-- [x] Tambah pagination comments/attachments via page/limit query params + frontend Pagination component.
-- [x] Update tests dan frontend hooks sesuai strategi.
+Verifikasi yang disarankan:
+- [ ] `docker compose config` dan inspect command output tidak memuat password literal.
+- [ ] Healthcheck Redis tetap healthy.
 
-### PERF-18 - Admin Users dan Notifications Belum Memakai Pagination UI Secara Penuh
+---
 
-Severity: Low-Medium, juga functional UX risk
+### P2-08 - nginx real IP trust terlalu luas
 
-Lokasi bukti:
+Severity: Medium  
+Area: Infra/rate-limit/log integrity  
+Referensi: `nginx/nginx.conf:33-40,63,73`
 
-- `backend/src/common/repositories/user.repository.ts:58-80`
-- `frontend/src/hooks/use-users.ts:5-13`
-- `frontend/src/components/admin/UserManagement.tsx:30-31`
-- `frontend/src/hooks/use-notifications.ts:28-37`
-- `frontend/src/pages/NotificationsPage.tsx:7-21`
+Root cause:
+- nginx trust semua private ranges `172.16.0.0/12`, `192.168.0.0/16`, `10.0.0.0/8` sebagai real IP proxies.
+- Jika client berada di LAN/private network, header `X-Forwarded-For` bisa spoofable.
 
-Masalah:
-
-Backend user list dan notification list sudah mendukung pagination, tetapi frontend `useUsers()` dan `useNotifications()` hanya unwrap `data` dan tidak expose `meta` ke UI. Admin users juga tidak mengirim `page/limit`, sehingga default backend hanya 10 user. Jika nanti frontend menaikkan limit besar untuk workaround, tabel besar akan menjadi berat.
-
-Langkah fix:
-
-1. Ubah hooks agar mengembalikan `{ data, meta }` via `unwrapPage`.
-2. Tambah state `page`, `limit` dan component `Pagination` di Admin Users dan NotificationsPage.
-3. Pertahankan max `limit <= 100` dari DTO.
+Dampak:
+- Log IP bisa dipalsukan.
+- Rate limit berbasis `$binary_remote_addr` dapat dipengaruhi jika real IP terganti dari header yang tidak trusted.
 
 Checklist fix:
+- [ ] Jika tidak ada reverse proxy upstream, hapus `set_real_ip_from` dan `real_ip_header`.
+- [ ] Jika ada reverse proxy upstream, trust hanya IP/subnet proxy tersebut.
+- [ ] Dokumentasikan topology proxy di README/deployment notes.
+- [ ] Test rate limit dengan forged `X-Forwarded-For`.
 
-- [x] Update `useUsers` memakai `unwrapPage`.
-- [x] Update `useNotifications` memakai `unwrapPage`.
-- [x] Tambah pagination UI.
-- [ ] Tambah regression test pagination jika memungkinkan (future).
+Verifikasi yang disarankan:
+- [ ] `docker compose exec nginx nginx -t`
+- [ ] Manual curl dengan header `X-Forwarded-For` dan cek access log.
 
-### PERF-19 - Cache Strategy TanStack Query Masih Generik Untuk Data Static
+---
 
-Severity: Low
+### P3-01 - Login redirect mengabaikan route tujuan awal
 
-Lokasi bukti:
+Severity: Low/Medium  
+Area: Frontend auth UX  
+Referensi: `frontend/src/auth/ProtectedRoute.tsx:34-35`, `frontend/src/hooks/use-auth.ts:18-22`
 
-- `frontend/src/main.tsx:11-19`
-- `frontend/src/hooks/use-categories.ts:5-24`
-- `frontend/src/hooks/use-users.ts:16-25`
-- `frontend/src/hooks/use-telegram.ts:59-67`
+Root cause:
+- `ProtectedRoute` mengirim `state.from` ke login.
+- `useLogin` selalu `navigate('/tickets')` setelah sukses.
 
-Masalah:
-
-Default query stale time adalah 2 menit untuk semua query. Data master seperti categories, assignable users, dan Telegram config relatif jarang berubah, sehingga bisa diberi `staleTime` lebih panjang dan invalidation eksplisit setelah mutation.
-
-Langkah fix:
-
-1. Tambahkan `staleTime` per hook untuk data static.
-2. Contoh categories: 10-30 menit.
-3. Assignable users: 5-10 menit, invalidasi saat user create/update/delete.
-4. Maintenance mode tetap polling pendek karena sifat operasional.
-
-Contoh:
-
-```ts
-export function useCategories() {
-  return useQuery({
-    queryKey: ['categories'],
-    staleTime: 1000 * 60 * 30,
-    queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<Category[]>>('/categories');
-      return unwrapData(response);
-    },
-  });
-}
-```
+Dampak:
+- User yang membuka link ticket/admin langsung harus navigasi ulang setelah login.
 
 Checklist fix:
+- [ ] Di login flow, baca `location.state.from`.
+- [ ] Setelah login sukses, redirect ke `from.pathname + search` jika role user allowed.
+- [ ] Fallback ke `/tickets`.
 
-- [x] Tambah staleTime khusus categories (30 menit).
-- [x] Tambah staleTime khusus assignable users (10 menit).
-- [x] Tambah staleTime khusus telegram config (5 menit).
-- [x] Pastikan mutation admin invalidates query terkait (existing behavior).
+Verifikasi yang disarankan:
+- [ ] Manual: buka `/admin/maintenance` saat logout, login admin, pastikan kembali ke `/admin/maintenance`.
 
-### PERF-20 - Backup Listing Membaca Metadata Semua Backup Secara Paralel Tanpa Batas
+---
 
-Severity: Low-Medium
+### P3-02 - Notification unread count bisa drift
 
-Lokasi bukti: `backend/src/maintenance/maintenance.service.ts:144-154`
+Severity: Low/Medium  
+Area: Frontend notification state  
+Referensi: `frontend/src/hooks/use-notifications.ts:40-52`
 
-Masalah:
+Root cause:
+- `useMarkAsRead` decrement local count pada setiap success.
+- Tidak cek apakah notification memang unread saat request dikirim.
 
-`listBackups()` membaca semua directory backup lalu menjalankan `Promise.all(ids.map(...))`. Jika backup sangat banyak, ini memicu banyak `fs.stat` paralel. Saat ini kemungkinan kecil, tapi mudah memburuk jika backup harian tidak dibersihkan.
-
-Snippet:
-
-```ts
-return Promise.all(ids.map((id) => this.getBackup(id)));
-```
-
-Langkah fix:
-
-1. Tambah pagination/limit untuk backup list, misalnya default 50 terbaru.
-2. Atau proses dengan concurrency limit kecil.
-3. Tambah retensi backup otomatis jika sesuai kebutuhan ops.
+Dampak:
+- Double click/retry/concurrent mark-read bisa membuat count terlalu kecil sampai refetch berikutnya.
 
 Checklist fix:
+- [ ] Disable tombol mark-read per item saat mutation pending.
+- [ ] Invalidate/refetch `notifications-unread-count` dan set count dari server.
+- [ ] Jika tetap optimistic, decrement hanya jika cache notification sebelumnya `isRead=false`.
 
-- [x] Tambah limit/pagination backup list (default 50 terbaru).
-- [x] Tambah concurrency limit untuk `getBackup` (concurrency 5 via worker pool).
-- [ ] Tambah retention policy ops jika diperlukan (ops decision).
+Verifikasi yang disarankan:
+- [ ] Manual double-click mark read dan cek count tidak negatif/drift.
 
-## Roadmap Implementasi Detail
+---
 
-### Tahap 1 - Database Foundation
+### P3-03 - Telegram assignment notification kehilangan subject
 
-Target: mengurangi query scan dan sort mahal sebelum refactor service.
+Severity: Low  
+Area: Backend Telegram event payload  
+Referensi: `backend/src/tickets/tickets.service.ts:416-422`, `backend/src/telegram/telegram.listener.ts:27-41`
 
-Checklist:
+Root cause:
+- Listener expects `payload.subject`.
+- Event `ticket.assigned` tidak include `subject`.
 
-- [x] Update `backend/prisma/schema.prisma` dengan index Prisma dari PERF-01.
-- [x] Buat raw SQL migration untuk `pg_trgm` dan partial index dashboard resolved ticket.
-- [x] Drop redundant index `users_email_idx` hanya jika migration existing memang membuatnya dan tidak dipakai selain unique constraint (tidak ada `users_email_idx` standalone selain unique constraint).
-- [x] Jalankan SQL migration langsung via psql ke database running (container tidak memiliki file migrasi terbaru).
-- [x] Rebuild Docker image untuk sinkronisasi migrasi Prisma (`docker compose build api` + restart).
-- [x] Jalankan `npx prisma generate` di container setelah rebuild (Dockerfile runs it at build time; migration registered in `_prisma_migrations`).
-- [x] Jalankan `backend npm run build` — sukses.
-- [x] Jalankan targeted test backend — 47 tests pass.
-- [ ] Jalankan `EXPLAIN ANALYZE` query tiket/dashboard.
+Dampak:
+- Template `Ticket Assigned` bisa menampilkan subject kosong/undefined.
 
-Raw SQL tambahan yang disarankan:
+Checklist fix:
+- [ ] Tambahkan `subject: ticket.subject` saat emit `ticket.assigned`.
+- [ ] Pertimbangkan include assigner/assignee display name, bukan hanya id.
+- [ ] Tambahkan test render notification assignment.
 
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+Verifikasi yang disarankan:
+- [ ] Trigger assign ticket dan cek pesan Telegram berisi subject.
 
-CREATE INDEX IF NOT EXISTS tickets_subject_trgm_idx
-  ON tickets USING gin ("subject" gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS tickets_description_trgm_idx
-  ON tickets USING gin ("description" gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS tickets_ticket_number_trgm_idx
-  ON tickets USING gin ("ticketNumber" gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS users_name_trgm_idx
-  ON users USING gin (name gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS users_email_trgm_idx
-  ON users USING gin (email gin_trgm_ops);
+---
 
-CREATE INDEX IF NOT EXISTS tickets_resolved_category_partial_idx
-  ON tickets ("categoryId")
-  WHERE "resolvedAt" IS NOT NULL AND status IN ('Resolved', 'Closed');
-```
+### P3-04 - Object URL thumbnail cache tidak pernah direvoke
 
-### Tahap 2 - Backend Hot Path Refactor
+Severity: Low  
+Area: Frontend memory leak  
+Referensi: `frontend/src/components/tickets/AttachmentList.tsx:10,27-31`, `frontend/src/components/tickets/CommentSection.tsx:31-35`
 
-Target: menghilangkan pola query yang tumbuh linear terhadap jumlah row/page.
+Root cause:
+- Global `thumbnailCache` menyimpan `URL.createObjectURL()` tanpa eviction/revoke.
 
-Checklist:
+Dampak:
+- Long session dengan banyak image attachment dapat meningkatkan memory usage.
 
-- [x] Refactor EndUser counts di `TicketsService.findAll()`.
-- [x] Refactor SLA cron ke keyset.
-- [x] Refactor ticket number ke sequence.
-- [x] Refactor dashboard aggregation/cache.
-- [x] Refactor LocalStorage sync I/O.
-- [x] Update existing tests agar sesuai behavior baru.
-- [x] Jalankan `backend npm test` (47 pass) dan `backend npm run build` (sukses).
+Checklist fix:
+- [ ] Batasi cache size dan revoke URL saat evicted.
+- [ ] Atau hapus object URL cache dan rely pada browser/http cache.
+- [ ] Revoke semua cached URL saat logout/query clear jika cache tetap global.
 
-### Tahap 3 - Frontend Loading dan Network Reduction
+Verifikasi yang disarankan:
+- [ ] Manual load banyak image attachment dan cek memory/object URL tidak terus tumbuh.
 
-Target: mengurangi initial bundle dan request yang tidak perlu.
+---
 
-Checklist:
+### P3-05 - DTO kategori/user menerima string kosong atau whitespace
 
-- [x] Route-level lazy import untuk pages.
-- [x] Lazy thumbnail/image download via IntersectionObserver + blob cache (PERF-09).
-- [x] Navbar notification query `enabled: notifOpen`.
-- [x] MasterData subcategory no N request.
-- [x] Pagination UI untuk users/notifications (PERF-18).
-- [x] Socket.IO realtime notification hook + auto-reconnect (PERF-16).
-- [x] Pagination comments/attachments di ticket detail.
-- [x] Streaming CSV export dengan keyset pagination (PERF-07).
-- [x] Static cache header nginx.
-- [x] Jalankan `frontend npm run lint` (0 errors) dan `frontend npm run build` (sukses).
+Severity: Low/Medium  
+Area: Backend validation/data quality  
+Referensi: `backend/src/categories/dto/create-category.dto.ts:1-10`, `backend/src/users/dto/create-user.dto.ts:10-23`, `backend/src/categories/dto/update-category.dto.ts:1-4`, `frontend/src/components/admin/MasterDataManagement.tsx:128-143,197-209`, `frontend/src/components/admin/UserManagement.tsx:73-97`
 
-### Tahap 4 - Observability dan Validasi
+Root cause:
+- DTO memakai `@IsString()` tanpa `@IsNotEmpty()` atau trim transform.
+- Frontend admin form mengirim raw string untuk beberapa form.
 
-Target: memastikan fix terbukti, bukan hanya asumsi.
+Dampak:
+- Nama kategori/user kosong/whitespace bisa lolos validasi backend bila Prisma tidak menolak.
+- Data master menjadi sulit dipakai di ticket form/list.
 
-Checklist:
+Checklist fix:
+- [ ] Tambahkan `@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)` untuk field string penting.
+- [ ] Tambahkan `@IsNotEmpty()` dan batas panjang (`@MaxLength`) untuk name/description yang relevan.
+- [ ] Tambahkan client-side validation agar admin mendapat feedback sebelum submit.
+- [ ] Tambahkan test whitespace-only returns 400.
 
-- [ ] Aktifkan PostgreSQL slow query log di staging.
-- [ ] Tambah timing log untuk endpoint `/tickets`, `/dashboard/stats`, `/notifications`, `/attachments/:id/download`.
-- [ ] Buat dataset staging representatif: minimal 50k tickets, 200k comments, 100k attachments metadata, 500 users.
-- [ ] Jalankan baseline sebelum fix dan sesudah fix.
-- [ ] Catat p50/p95/p99 latency dan DB CPU/IO.
+Verifikasi yang disarankan:
+- [ ] `cd backend && npm test -- categories users`
+- [ ] Manual submit whitespace-only di admin UI.
 
-## Catatan Risiko Behavior
+## Catatan Positif
 
-- Menambah index aman untuk behavior, tetapi meningkatkan write overhead dan storage. Index harus dipilih berdasarkan query nyata dan dievaluasi setelah deploy.
-- Mengubah ticket number ke sequence dapat membuat gap nomor jika transaction rollback. Ini normal untuk sequence PostgreSQL dan lebih baik daripada full scan. Jika nomor wajib gapless, perlu counter table dengan row lock, bukan sequence.
-- Cache dashboard membuat data bisa terlambat 30-60 detik. Jika UI butuh real-time, invalidation setelah mutation wajib diterapkan.
-- Lazy thumbnail mengubah timing load image. Pastikan UX tetap jelas dengan skeleton/loading state.
-- Route-level code splitting mengubah loading state route. Pastikan fallback tidak merusak layout.
+- Access token tidak ditemukan tersimpan di `localStorage` atau `sessionStorage`; persistence yang terdeteksi hanya theme (`frontend/src/main.tsx:21`, `frontend/src/stores/theme-store.ts:17`). Ini sesuai non-negotiable rule.
+- Backend sudah memakai global `ValidationPipe` dengan `whitelist`, `forbidNonWhitelisted`, dan `transform` di `backend/src/main.ts:62-68`.
+- Attachment download visibility sudah dicek via policy di `backend/src/attachments/attachments.service.ts:205-223`; masalah utama ada pada list/count pagination.
+- Backup API sudah punya lock token compare-delete di `MaintenanceService.releaseLock()` untuk backup/restore lock; issue lock token masih ada di SLA cron lock.
+- CSV export service sudah memiliki escaping formula-leading cells menurut hasil eksplorasi dan tidak menjadi prioritas bug sesi ini.
 
-## Catatan Untuk Agent AI Berikutnya
+## Catatan Untuk Agent AI Sesi Berikutnya
 
-Konteks penting:
+- Jangan langsung refactor besar. Mulai dari P0 dan P1 dengan patch kecil per isu.
+- Paling aman urutan fix:
+  1. P0-01 restore maintenance safety.
+  2. P1-01 attachment visibility query/count.
+  3. P1-03 upload atomic cleanup.
+  4. P1-02 socket token refresh.
+  5. P0-02 env template/README Docker.
+- Saat mengubah backend, ikuti flow project: controller -> service -> repository. Jangan inject `PrismaService` langsung ke service baru kecuali pattern existing memang repository tidak cukup.
+- Jangan menyimpan access token ke storage persisten. Zustand auth state harus tetap memory-only.
+- Jangan expose Telegram token/group chat secret ke frontend. Tetap gunakan `hasBotToken` dan `hasGroupChatId` flags.
+- Untuk P1-01, fix harus di backend. Frontend hanya defensive clamp, bukan client-side filtering internal data.
+- Untuk P0-01, hati-hati jangan mematikan maintenance pada failure. Ini behavior intentionally safer, tetapi perlu diberi pesan operator jelas.
+- Untuk env/Docker, jangan ubah HTTP/HTTPS/nginx flow kecuali memang diminta. Scope cukup template env dan README agar compose fresh start benar.
+- Worktree bisa dirty. Jangan revert perubahan user.
+- Setelah tiap patch, jalankan verifikasi sempit sesuai area:
+  - Backend: `cd backend && npm test -- <area>` atau `npm run build` bila test spesifik tidak ada.
+  - Frontend: `cd frontend && npm run build`; lint bila menyentuh style/imports banyak.
+  - Infra: `docker compose config`; `nginx -t` di container bila nginx berubah.
 
-- User meminta review performa, bukan implementasi fix. File ini dibuat sebagai handoff dan tracking checklist.
-- `AGENTS.md` wajib dipatuhi. Backend change harus menjaga flow service -> repository; jangan inject `PrismaService` langsung ke service baru kecuali pola existing sudah begitu dan ada alasan kuat.
-- Jangan menyimpan access token di persistent storage. Auth frontend saat ini memory-only di Zustand dan harus dipertahankan.
-- Jangan expose EndUser ke dashboard/admin/internal comments/attachments.
-- Jangan jalankan destructive command seperti `docker compose down -v`, `git reset --hard`, atau checkout file tanpa instruksi eksplisit.
-- Worktree mungkin dirty. Jangan revert perubahan user.
+## Checklist Global Progress
 
-Urutan kerja yang disarankan untuk sesi baru:
-
-1. Baca `AGENTS.md` dan `CODE_REVIEW.md` ini.
-2. Mulai dari PERF-01 sampai PERF-06 karena itu berdampak paling tinggi.
-3. Untuk setiap fix, buat perubahan kecil dan terpisah. Jangan gabungkan semua optimasi dalam satu patch besar.
-4. Setelah backend schema berubah, buat migration resmi dan jalankan verifikasi backend.
-5. Setelah frontend berubah, jalankan lint/build frontend.
-6. Update checkbox di file ini setelah fix benar-benar selesai dan terverifikasi.
-
-File paling relevan untuk mulai:
-
-- `backend/prisma/schema.prisma`
-- `backend/src/tickets/tickets.service.ts`
-- `backend/src/common/repositories/ticket.repository.ts`
-- `backend/src/sla/sla.service.ts`
-- `backend/src/dashboard/dashboard.service.ts`
-- `backend/src/attachments/services/local-storage.service.ts`
-- `frontend/src/App.tsx`
-- `frontend/src/components/tickets/AttachmentList.tsx`
-- `frontend/src/components/tickets/CommentSection.tsx`
-- `frontend/src/components/admin/MasterDataManagement.tsx`
-- `nginx/nginx.conf`
-
-Verifikasi yang direkomendasikan per area:
-
-- Backend unit tests: `npm test` di `backend`.
-- Backend build: `npm run build` di `backend`.
-- Frontend lint: `npm run lint` di `frontend`.
-- Frontend build: `npm run build` di `frontend`.
-- Migration validation: `npx prisma migrate dev` local/staging, lalu `npx prisma migrate deploy` untuk deploy flow.
-- Query validation: `EXPLAIN (ANALYZE, BUFFERS)` untuk ticket list, dashboard counts, search ticket, notification list.
-
-Jangan tandai checklist selesai sebelum:
-
-- Kode sudah berubah.
-- Test/build relevan sudah hijau atau keterbatasan jelas dicatat.
-- Jika performa adalah tujuan, minimal ada bukti query plan atau pengukuran latency sebelum/sesudah.
-
-## Status Review Ini
-
-- [x] `AGENTS.md` dibaca.
-- [x] Struktur backend/frontend, Prisma schema, migration, nginx, Docker, dan file hot path dibaca.
-- [x] Temuan performa disusun dengan bukti file/line.
-- [x] Checklist fix dibuat untuk tracking.
-- [x] Catatan handoff untuk agent sesi berikutnya dibuat.
-- [x] Fix performa diimplementasikan (PERF-01 s.d. PERF-15, PERF-19, PERF-20).
+- [ ] Semua P0 selesai dan terverifikasi.
+- [ ] Semua P1 selesai dan terverifikasi.
+- [ ] Semua P2 yang berdampak runtime selesai atau diputuskan ditunda.
+- [ ] Semua P3 dievaluasi, minimal dibuat issue/backlog.
+- [ ] Tambah regression tests untuk authorization visibility, restore failure, upload failure, dan status race.
+- [ ] Update README/AGENTS.md bila ada perubahan behavior operasional.
+- [ ] Jalankan build backend/frontend setelah rangkaian fix utama selesai.
