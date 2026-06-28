@@ -502,3 +502,8 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - **PERF-H3**: PostgreSQL `shm_size: 1g` di db container — default 64MB membatasi sort/parallel query operations; dashboard aggregate queries bisa spill to disk.
 - **PERF-H4**: `DATABASE_POOL_MAX=20` (dari default 10) di `.env.compose.example` + `.env.local.example` — mencegah pool exhaustion saat SLA cron + concurrent API traffic.
 - **PERF-H5**: nginx `access_log` buffered (`buffer=16k flush=2m`) — reduksi per-request I/O syscalls dari 1-per-request ke batch writes setiap 2 menit atau 16KB.
+
+## Bug Fixes (2026-06-28)
+
+### Critical
+- **BUG-12**: API container stuck starting — PostgreSQL dalam `db` container hanya listen di `127.0.0.1`/`::1` karena `listen_addresses` tidak diset di `postgres/postgresql.conf`. Container `api` tidak bisa connect ke `db:5432` over Docker network. Fix: tambahkan `listen_addresses = '*'` di `postgres/postgresql.conf` agar PostgreSQL bind ke semua network interfaces termasuk Docker bridge.

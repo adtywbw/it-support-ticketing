@@ -150,7 +150,7 @@ postgres/postgresql.conf
 - `nginx` also proxies `/socket.io/` with WebSocket upgrade headers for realtime notifications.
 - `api` binds port `3000` to `127.0.0.1` for local debug; normal traffic goes through nginx `/api/`.
 - `api`, `db`, and `cache` services read from `backend/.env` via `env_file`; `cache` requires `REDIS_PASSWORD` and starts Redis with `requirepass` + `maxmemory 400mb` + `maxmemory-policy allkeys-lru`.
-- `db` uses a custom `postgres/postgresql.conf` (`shared_buffers=512MB`, `work_mem=16MB`, `effective_cache_size=1536MB`) and `shm_size: 1g` for parallel query performance.
+- `db` uses a custom `postgres/postgresql.conf` (`listen_addresses='*'`, `shared_buffers=512MB`, `work_mem=16MB`, `effective_cache_size=1536MB`) and `shm_size: 1g` for parallel query performance. `listen_addresses='*'` is required so PostgreSQL binds to the Docker network interface instead of only localhost.
 - Backup output lives in `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` and `backups/` is gitignored.
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
