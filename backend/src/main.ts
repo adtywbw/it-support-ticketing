@@ -15,7 +15,7 @@ function validateEnv() {
     );
   }
 
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV?.toLowerCase() === 'production') {
     const jwtSecret = process.env.JWT_SECRET || '';
     const weakSecrets = [
       'your-super-secret-jwt-key-change-in-production',

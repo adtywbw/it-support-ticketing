@@ -30,12 +30,21 @@ export class MaintenanceGuard implements CanActivate {
     ]);
     if (skip) return true;
 
-    const { enabled, message } = await this.getMaintenanceCached();
-    if (!enabled) return true;
-
     const req = context.switchToHttp().getRequest<Request>();
 
     if (this.isAllowedDuringMaintenance(req)) return true;
+
+    let enabled = false;
+    let message: string | null = null;
+    try {
+      const cached = await this.getMaintenanceCached();
+      enabled = cached.enabled;
+      message = cached.message;
+    } catch {
+      return true;
+    }
+
+    if (!enabled) return true;
 
     const exception = new ServiceUnavailableException(
       message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',

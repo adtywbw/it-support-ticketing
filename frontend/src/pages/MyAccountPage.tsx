@@ -87,9 +87,13 @@ export default function MyAccountPage() {
   }, [configLoaded, telegramConfig.data]);
 
   const handleGenerateCode = async () => {
-    const result = await generateCode.mutateAsync();
-    setLinkCode(result.code);
-    setShowCode(true);
+    try {
+      const result = await generateCode.mutateAsync();
+      setLinkCode(result.code);
+      setShowCode(true);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to generate Telegram link code'));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,9 +152,13 @@ export default function MyAccountPage() {
     if (enableGroupChat) {
       settings.groupChatId = groupChatId || undefined;
     }
-    await updateConfig.mutateAsync({ ...(botTokenTouched ? { botToken } : {}), settings });
-    setConfigSaved(true);
-    setTimeout(() => setConfigSaved(false), 3000);
+    try {
+      await updateConfig.mutateAsync({ ...(botTokenTouched ? { botToken } : {}), settings });
+      setConfigSaved(true);
+      setTimeout(() => setConfigSaved(false), 3000);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to save Telegram configuration'));
+    }
   };
 
   const checkHasError = checkResult && (

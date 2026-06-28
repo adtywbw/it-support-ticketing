@@ -472,3 +472,20 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - **ARCH-07**: Axios interceptor early-reject refresh saat `accessToken` null — hindari percobaan refresh yang sia-sia di konteks unauthenticated.
 - **ARCH-08**: `use-maintenance.ts` typed `apiClient.get<Blob>`, hapus `as unknown as AxiosResponse` double-cast.
 - **ARCH-09**: `Navbar.tsx` pakai `unwrapData` + `ApiEnvelope<Notification[]>` helper, hapus manual `res.data.data` access.
+
+## Bug & Edge Case Fixes (Session 6 — 2026-06-28)
+
+### Critical
+- **BUG-01**: `restoreBackup()` — `setMaintenanceMode(false)` dipanggil saat `RESTORE_LOCK` masih di-hold → throw → maintenance stuck meski restore berhasil. Fix: release lock sebelum disable maintenance (`maintenance.service.ts`).
+
+### High
+- **BUG-02**: Refresh token replay — `redis.get` + `redis.del` non-atomic → concurrent refresh dengan same token both succeed. Fix: atomic Lua GETDEL script (`auth.service.ts`).
+- **BUG-03**: `NODE_ENV === 'production'` case-sensitive → `Production`/`PRODUCTION` bypass semua production security checks. Fix: `toLowerCase()` comparison (`main.ts`, `seed.ts`).
+- **BUG-04**: `telegram_config` migration gagal jika >1 row exist (no dedup before unique index). Fix: hapus duplikat sebelum `CREATE UNIQUE INDEX` (`migration.sql`).
+- **BUG-05**: Login lockout permanent — `incr` succeeds but `expire` fails → key tanpa TTL → user locked forever. Fix: atomic Lua INCR+EXPIRE script (`auth.service.ts`).
+- **BUG-06**: `handleGenerateCode` `mutateAsync` tanpa try/catch → silent failure, no toast. Fix: wrap dalam try/catch + `toast.error` (`MyAccountPage.tsx`).
+- **BUG-07**: `handleSaveConfig` `mutateAsync` tanpa try/catch → silent failure, no toast. Fix: wrap dalam try/catch + `toast.error` (`MyAccountPage.tsx`).
+- **BUG-08**: Health endpoint return HTTP 200 meski `status: 'unhealthy'` → Docker healthcheck never detects DB outage. Fix: `res.status(503)` saat unhealthy (`health.controller.ts`).
+- **BUG-09**: MaintenanceGuard `redis.mget` dipanggil SEBELUM `isAllowedDuringMaintenance` → Redis down = `/health`, `/auth`, `/maintenance` semua 500. Fix: cek allowed paths sebelum Redis; default allow saat Redis error (`maintenance.guard.ts`).
+- **BUG-10**: No auto-seed in Docker CMD → fresh deploy tidak ada admin → locked out. Fix: entrypoint menjalankan seed di dev mode; `SEED_ON_START=true` untuk production (`docker-entrypoint.sh`).
+- **BUG-11**: `migrate deploy` failure → `restart: unless-stopped` → infinite restart loop. Fix: entrypoint retry 3x dengan delay, lalu exit 1 setelah 30s sleep (`docker-entrypoint.sh`).

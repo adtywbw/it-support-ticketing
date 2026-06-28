@@ -85,13 +85,13 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ## Auth & Security
 - Access token is memory-only in Zustand auth state.
 - Access token has `tokenType: 'access'` claim; refresh token has `tokenType: 'refresh'`.
-- Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`.
+- Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`. Refresh token rotation uses atomic Lua GETDEL to prevent replay.
 - Refresh TTL via `JWT_REFRESH_TOKEN_EXPIRY` env; cookie maxAge follows env.
 - Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
 - `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET).
 - Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
 - `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.
-- Account locks after 10 failed logins (Redis tracking, 15-min window).
+- Account locks after 10 failed logins (Redis tracking, 15-min window). Lockout counter uses atomic Lua INCR+EXPIRE to prevent permanent lock on partial Redis failure.
 - `CORS_ORIGIN` is comma-separated. Code currently defaults to `https://helpdesk.rsmch.internal`; Docker local is HTTP-only, so set env explicitly when using an HTTP origin.
 - Non-HTTP exceptions must not leak internal messages to clients.
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
@@ -118,7 +118,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 ## Maintenance Mode
 - Flags live in Redis: `maintenance:enabled`, `maintenance:message`; Redis is not restored from backups.
 - `MaintenanceGuard` is a global guard in `app.module.ts` and runs before `ThrottlerGuard`.
-- `MaintenanceGuard` uses a 2-second in-memory cache + Redis `mget` to reduce round-trips.
+- `MaintenanceGuard` uses a 2-second in-memory cache + Redis `mget` to reduce round-trips. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis; if Redis is unreachable, guard defaults to allow (fail-open).
 - Always allowed during maintenance: `/api/health`, `/api/maintenance/*`, `/api/auth/*`.
 - Non-admin API calls during maintenance return `503 { error: { code: 'MAINTENANCE', message } }`.
 - Use `@SkipMaintenance()` to skip checks on specific handlers.
@@ -152,7 +152,7 @@ frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 - Backup output lives in `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` and `backups/` is gitignored.
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
-- API image includes `postgresql-client-16`, `gzip`, `tar`, and `gosu`; entrypoint chowns `/app/uploads` and `/app/backups`, then runs as `node`.
+- API image includes `postgresql-client-16`, `gzip`, `tar`, and `gosu`; entrypoint chowns `/app/uploads` and `/app/backups`, runs migrations with 3-retry loop, runs seed (dev mode or `SEED_ON_START=true`), then runs as `node`.
 - Redis has no persistence volume. Refresh tokens and maintenance flags are lost on `cache` container recreate. This is an intentional tradeoff: mass logout on Redis restart is acceptable for this deployment.
 
 ## API Map

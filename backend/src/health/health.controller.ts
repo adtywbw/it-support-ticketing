@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { Public } from '../common/decorators/public.decorator';
@@ -12,7 +13,7 @@ export class HealthController {
   ) {}
 
   @Get()
-  async check() {
+  async check(@Res() res: Response) {
     const checks: Record<string, string> = {};
 
     try {
@@ -43,11 +44,13 @@ export class HealthController {
       // ignore — maintenance status is best-effort
     }
 
-    return {
+    const body = {
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       checks,
       maintenance,
     };
+
+    res.status(isHealthy ? 200 : 503).json(body);
   }
 }

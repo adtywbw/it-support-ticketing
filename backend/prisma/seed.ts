@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env.NODE_ENV?.toLowerCase() === 'production';
 
   const adminPasswordRaw = isProduction
     ? process.env.SEED_ADMIN_PASSWORD

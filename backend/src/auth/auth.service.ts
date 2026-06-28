@@ -17,6 +17,20 @@ import { AuthResponse } from './interfaces/auth-response.interface';
 const MAX_FAILED_ATTEMPTS = 10;
 const LOCK_DURATION_SEC = 900;
 
+const GETDEL_SCRIPT = `
+  local stored = redis.call('GET', KEYS[1])
+  redis.call('DEL', KEYS[1])
+  return stored
+`;
+
+const INCR_EXPIRE_SCRIPT = `
+  local count = redis.call('INCR', KEYS[1])
+  if count == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+  end
+  return count
+`;
+
 @Injectable()
 export class AuthService {
   private readonly refreshTokenExpiryMs: number;
@@ -69,19 +83,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const storedToken = await this.redisService.get(
-      `refresh:${payload.sub}:${payload.jti}`,
-    );
+    const storedToken = await this.redisService.eval(
+      GETDEL_SCRIPT,
+      [`refresh:${payload.sub}:${payload.jti}`],
+      [],
+    ) as string | null;
     if (!storedToken || storedToken !== refreshToken) {
-      await this.redisService.del(
-        `refresh:${payload.sub}:${payload.jti}`,
-      );
       throw new UnauthorizedException('Refresh token has been revoked');
     }
-
-    await this.redisService.del(
-      `refresh:${payload.sub}:${payload.jti}`,
-    );
 
     const user = await this.usersService.findById(payload.sub);
     if (!user || !user.isActive) {
@@ -232,10 +241,11 @@ export class AuthService {
 
   private async trackFailedLogin(email: string): Promise<void> {
     const key = `login:failed:${email}`;
-    const count = await this.redisService.incr(key);
-    if (count === 1) {
-      await this.redisService.expire(key, LOCK_DURATION_SEC);
-    }
+    const count = await this.redisService.eval(
+      INCR_EXPIRE_SCRIPT,
+      [key],
+      [String(LOCK_DURATION_SEC)],
+    ) as number;
     if (count >= MAX_FAILED_ATTEMPTS) {
       const lockKey = `login:locked:${email}`;
       await this.redisService.set(lockKey, '1', LOCK_DURATION_SEC);

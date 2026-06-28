@@ -26,6 +26,7 @@ describe('AuthService', () => {
     deleteByPattern: jest.fn(),
     incr: jest.fn().mockResolvedValue(0),
     expire: jest.fn().mockResolvedValue(undefined),
+    eval: jest.fn().mockResolvedValue(null),
   };
 
   beforeEach(async () => {
@@ -107,7 +108,7 @@ describe('AuthService', () => {
         jti: 'token-jti',
       };
       const token = jwtService.sign(payload, { expiresIn: '7d' });
-      redisService.get.mockResolvedValue(null);
+      redisService.eval.mockResolvedValue(null);
 
       await expect(service.refresh(token)).rejects.toThrow('Refresh token has been revoked');
     });
@@ -121,7 +122,7 @@ describe('AuthService', () => {
         jti: 'token-jti',
       };
       const token = jwtService.sign(payload, { expiresIn: '7d' });
-      redisService.get.mockResolvedValue('different-token-value');
+      redisService.eval.mockResolvedValue('different-token-value');
 
       await expect(service.refresh(token)).rejects.toThrow('Refresh token has been revoked');
     });
@@ -135,7 +136,7 @@ describe('AuthService', () => {
         jti: 'valid-jti',
       };
       const token = jwtService.sign(payload, { expiresIn: '7d' });
-      redisService.get.mockResolvedValue(token);
+      redisService.eval.mockResolvedValue(token);
       usersService.findById.mockResolvedValue(mockUser);
 
       const result = await service.refresh(token);
@@ -143,7 +144,11 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result).toHaveProperty('user');
-      expect(redisService.del).toHaveBeenCalledWith('refresh:user-1:valid-jti');
+      expect(redisService.eval).toHaveBeenCalledWith(
+        expect.any(String),
+        ['refresh:user-1:valid-jti'],
+        [],
+      );
       expect(usersService.findById).toHaveBeenCalledWith('user-1');
     });
   });

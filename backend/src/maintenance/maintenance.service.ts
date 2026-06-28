@@ -253,6 +253,7 @@ export class MaintenanceService {
       await this.restoreDatabase(dbPath);
       await this.restoreUploads(uploadsPath);
 
+      await this.releaseLock(lock).catch(() => {});
       await this.setMaintenanceMode(false);
       return preRestoreBackup;
     } catch {

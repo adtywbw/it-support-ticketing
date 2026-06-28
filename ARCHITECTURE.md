@@ -453,19 +453,21 @@ it-support-ticketing/
 - Alpine images are not used because newer Alpine versions (≥3.19) dropped OpenSSL 1.1 compat packages, which Prisma engines (compiled against `libssl.so.1.1`) depend on.
 
 ### Database Migration
-- The container's entry point (`CMD`) runs `npx --no-install prisma migrate deploy && node dist/src/main`.
+- The container's entry point (`docker-entrypoint.sh`) runs `npx --no-install prisma migrate deploy` with a 3-retry loop (10s delay between attempts, 30s sleep before final exit) before starting the app.
   - `migrate deploy` applies pending migrations (versioned, rollbackable). Safer than `db push` for production — no accidental data loss.
   - `--no-install` ensures the CLI is not downloaded at runtime; `prisma` is a runtime dependency in `package.json`.
+  - The retry loop prevents tight restart loops on transient DB failures (e.g., DB not yet ready on first boot).
   - **Initial migration** `20260623000000_init` was generated via `prisma migrate diff --from-empty --to-schema-datamodel` and marked as applied with `prisma migrate resolve --applied`.
 - All migration files are stored in `prisma/migrations/` and tracked in version control.
 - Follow-up migration `20260624000000_add_missing_indexes` adds indexes declared in schema but missing from the initial migration: `users(role, isActive)` and `ticket_history(userId)`.
+- Migration `20260626000000_add_telegram_config_singleton_key` deduplicates `telegram_config` rows before creating the unique index on `key`, preventing failure if pre-singleton `findOrCreate()` races left multiple rows.
 - To create new migrations during development: `npx prisma migrate dev --name <description>`.
-- **Env validation**: `bootstrap()` calls `validateEnv()` which throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is not set, preventing the app from starting with missing configuration.
+- **Env validation**: `bootstrap()` calls `validateEnv()` which throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is not set, preventing the app from starting with missing configuration. `NODE_ENV` comparison is case-insensitive (`toLowerCase()`).
 
 ### Database Seeding
 - `prisma/seed.ts` is compiled to `dist/prisma/seed.js` during the Docker multi-stage build (`npx tsc prisma/seed.ts --outDir dist/prisma`).
-- Production containers do not run seed automatically. Run seed manually only when intentionally provisioning dev/demo data.
-- Default Admin/ITSupport users are created only if missing; existing user passwords are not reset by seed.
+- The entry point (`docker-entrypoint.sh`) runs seed automatically in non-production mode after migrations. In production, seed runs only when `SEED_ON_START=true` is set.
+- Default Admin/ITSupport users are created only if missing; existing user passwords are not reset by seed (dev mode). In production, passwords are rotated on each seed via `upsert`.
 - The sample ticket is skipped when `NODE_ENV=production`.
 - **Production seed**: requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` environment variables. If either is missing, seed throws an error with an explicit message. Production credentials are never logged to stdout.
 
@@ -489,7 +491,7 @@ it-support-ticketing/
 - Backend production image installs dependencies with `npm ci --omit=dev`; `docker-entrypoint.sh` chowns `/app/uploads` and `/app/backups`, then uses `gosu` so the app still runs as the non-root `node` user.
 - Compose binds the API debug port to `127.0.0.1:3000`; normal browser traffic enters through Nginx `/api/`, so Nginx rate limiting and upload body limits are not bypassed remotely.
 - Nginx sets `client_max_body_size 10m`, matching the largest backend ticket attachment upload limit.
-- API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures.
+- API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures. Health endpoint returns HTTP 503 (not 200) when DB or Redis is unhealthy, so the healthcheck correctly detects outages.
 - Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
 - Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
 - CORS locked down to explicit origins via `CORS_ORIGIN` env var.
@@ -499,7 +501,7 @@ it-support-ticketing/
 - Logging: `json-file` driver with `max-size: 10m` and `max-file: 3` — prevents disk exhaustion from unbounded logs.
 
 ### Security Rules
-- Access tokens are short-lived JWTs stored only in frontend memory; refresh tokens are httpOnly cookies backed by Redis and revoked on logout.
+- Access tokens are short-lived JWTs stored only in frontend memory; refresh tokens are httpOnly cookies backed by Redis and revoked on logout. Refresh token rotation uses atomic Lua GETDEL to prevent replay attacks from concurrent refresh calls.
 - Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation.
 - EndUser access is ownership-scoped: EndUser can create tickets as requester, can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
 - EndUser cannot access `/dashboard` or admin routes; both backend roles and frontend routes/actions enforce this.
@@ -508,7 +510,7 @@ it-support-ticketing/
 - File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level magic-byte checks before persistence.
 - Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only. `LocalStorageService` validates path containment as defense-in-depth.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.
-- `MaintenanceGuard` (global `APP_GUARD`) blocks all non-essential API requests when maintenance mode is enabled. Allowed during maintenance: `/health`, `/maintenance/*` (all methods), `/auth/*` (all methods). Non-admin users receive `503 { error: { code: 'MAINTENANCE', message } }`.
+- `MaintenanceGuard` (global `APP_GUARD`) blocks all non-essential API requests when maintenance mode is enabled. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis access, so Redis outages do not block essential endpoints. If Redis is unreachable, the guard defaults to "allow" (fail-open) to prevent total system lockout. Non-admin users receive `503 { error: { code: 'MAINTENANCE', message } }`.
 - `TransformInterceptor` (global `APP_INTERCEPTOR`) wraps all success responses in `{ data, meta? }` envelope. Skips wrap for stream/CSV/blob responses. Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers to extract data from the envelope.
 - `HttpExceptionFilter` returns stable error codes (`BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.) via `resp.code` or `getCodeFromStatus()` fallback.
 - Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.

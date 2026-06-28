@@ -42,4 +42,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
 EXPOSE 3000
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sh", "-c", "npx --no-install prisma migrate deploy && node dist/src/main"]
+CMD ["node", "dist/src/main"]
