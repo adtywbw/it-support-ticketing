@@ -495,7 +495,7 @@ it-support-ticketing/
 - Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
 - Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
 - CORS locked down to explicit origins via `CORS_ORIGIN` env var.
-- Redis requires `REDIS_PASSWORD` in production; Compose `cache` reads `backend/.env` and starts Redis with `requirepass`. Redis is configured with `maxmemory 400mb` and `maxmemory-policy allkeys-lru` to prevent OOM kills under load.
+- Redis requires `REDIS_PASSWORD` in production; Compose `cache` reads `backend/.env` and starts Redis with `requirepass`. Redis is configured with `maxmemory 400mb`, `maxmemory-policy allkeys-lru`, and `stop-writes-on-bgsave-error no` (Redis has no persistence volume, so RDB saves always fail; without this flag, Redis would block all writes including login account lock checks).
 - Global exception filter (`HttpExceptionFilter`) ensures consistent `{ error: { code, message } }` response format for all errors and returns a generic message for unexpected 500 errors.
 - Prisma connection pool configured via `DATABASE_POOL_MAX` env (default 10, recommended 20 for production), set via `connection_limit` query parameter in the connection string.
 - PostgreSQL is tuned via a custom `postgres/postgresql.conf` mounted into the db container: `listen_addresses='*'`, `shared_buffers=512MB`, `work_mem=16MB`, `effective_cache_size=1536MB`. `listen_addresses='*'` is required so PostgreSQL binds to the Docker network interface instead of only localhost. The db container uses `shm_size: 1g` (vs Docker default 64MB) to support parallel query execution and large hash aggregates.
