@@ -83,16 +83,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const storedToken = await this.redisService.eval(
-      GETDEL_SCRIPT,
-      [`refresh:${payload.sub}:${payload.jti}`],
-      [],
-    ) as string | null;
+    let storedToken: string | null;
+    try {
+      storedToken = await this.redisService.eval(
+        GETDEL_SCRIPT,
+        [`refresh:${payload.sub}:${payload.jti}`],
+        [],
+      ) as string | null;
+    } catch {
+      throw new UnauthorizedException('Refresh token validation failed');
+    }
     if (!storedToken || storedToken !== refreshToken) {
       throw new UnauthorizedException('Refresh token has been revoked');
     }
 
-    const user = await this.usersService.findById(payload.sub);
+    let user;
+    try {
+      user = await this.usersService.findById(payload.sub);
+    } catch {
+      throw new UnauthorizedException('User not found or inactive');
+    }
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }

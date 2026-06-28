@@ -117,6 +117,14 @@ apiClient.interceptors.response.use(
       }
     }
 
+    if (error.response?.status === 503) {
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/admin/maintenance' && currentPath !== '/login') {
+        window.location.href = '/admin/maintenance';
+      }
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   },
 );
