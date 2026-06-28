@@ -477,6 +477,7 @@ This project implements defense-in-depth security measures. See [CODE_REVIEW.md]
 | `REDIS_PASSWORD` | Yes in production | Redis authentication |
 | `REDIS_TLS` | No | Set `true` for Redis over TLS |
 | `SEED_ON_START` | No | Set `true` to auto-seed in production (requires `SEED_ADMIN_PASSWORD`/`SEED_SUPPORT_PASSWORD`) |
+| `DATABASE_POOL_MAX` | No (default 10) | Prisma connection pool size; recommended 20 for production |
 
 ### CI/CD
 GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every PR and push to main:

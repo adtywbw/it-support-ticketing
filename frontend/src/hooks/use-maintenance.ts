@@ -2,14 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, unwrapBlob, type ApiEnvelope } from '@/lib/axios';
 import type { BackupInfo, MaintenanceStatus } from '@/types';
 
-export function useMaintenanceMode() {
+export function useMaintenanceMode(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['maintenance', 'mode'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<MaintenanceStatus>>('/maintenance/mode');
       return unwrapData(response);
     },
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 }
 

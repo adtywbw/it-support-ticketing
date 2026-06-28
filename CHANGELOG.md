@@ -489,3 +489,16 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - **BUG-09**: MaintenanceGuard `redis.mget` dipanggil SEBELUM `isAllowedDuringMaintenance` → Redis down = `/health`, `/auth`, `/maintenance` semua 500. Fix: cek allowed paths sebelum Redis; default allow saat Redis error (`maintenance.guard.ts`).
 - **BUG-10**: No auto-seed in Docker CMD → fresh deploy tidak ada admin → locked out. Fix: entrypoint menjalankan seed di dev mode; `SEED_ON_START=true` untuk production (`docker-entrypoint.sh`).
 - **BUG-11**: `migrate deploy` failure → `restart: unless-stopped` → infinite restart loop. Fix: entrypoint retry 3x dengan delay, lalu exit 1 setelah 30s sleep (`docker-entrypoint.sh`).
+
+## Performance Optimizations (Session 7 — 2026-06-28)
+
+### Critical
+- **PERF-C1**: Redis `maxmemory 400mb` + `maxmemory-policy allkeys-lru` — mencegah OOM kill yang invalidates semua refresh tokens + cache. Config ditambah ke Redis `command` di `docker-compose.yml`.
+- **PERF-C2**: PostgreSQL tuning via custom `postgres/postgresql.conf` — `shared_buffers=512MB`, `work_mem=16MB`, `effective_cache_size=1536MB`, `maintenance_work_mem=128MB`, `random_page_cost=1.1`, `effective_io_concurrency=200`. Mount sebagai `command: postgres -c config_file=...` di db service.
+
+### High
+- **PERF-H1**: Maintenance polling di-gate ke authenticated users saja — `MaintenanceBanner` tidak lagi poll `/api/maintenance/mode` setiap 5s untuk unauthenticated visitors. Interval dinaikkan dari 5s ke 15s. Reduksi ~72k req/jam per 100 concurrent users.
+- **PERF-H2**: `SortHeader` hoisted dari inside `TicketList` render body ke module scope — eliminasi full header remount pada setiap parent re-render (sort toggle, mutation isPending, deleteConfirm).
+- **PERF-H3**: PostgreSQL `shm_size: 1g` di db container — default 64MB membatasi sort/parallel query operations; dashboard aggregate queries bisa spill to disk.
+- **PERF-H4**: `DATABASE_POOL_MAX=20` (dari default 10) di `.env.compose.example` + `.env.local.example` — mencegah pool exhaustion saat SLA cron + concurrent API traffic.
+- **PERF-H5**: nginx `access_log` buffered (`buffer=16k flush=2m`) — reduksi per-request I/O syscalls dari 1-per-request ke batch writes setiap 2 menit atau 16KB.

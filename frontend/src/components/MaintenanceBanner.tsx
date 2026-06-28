@@ -1,7 +1,9 @@
 import { useMaintenanceMode } from '@/hooks/use-maintenance';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function MaintenanceBanner() {
-  const { data: maintenance } = useMaintenanceMode();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { data: maintenance } = useMaintenanceMode({ enabled: isAuthenticated });
 
   if (!maintenance?.enabled) return null;
 

@@ -94,8 +94,11 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    shm_size: 1g
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     env_file: ./backend/.env.db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-ticketing} -d $${POSTGRES_DB:-ticketing}"]
@@ -125,7 +128,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     env_file: ./backend/.env.cache
-    command: sh -c 'umask 077 && printf "requirepass %s\n" "$$REDIS_PASSWORD" > /tmp/redis.conf && exec redis-server /tmp/redis.conf'
+    command: sh -c 'umask 077 && printf "requirepass %s\nmaxmemory 400mb\nmaxmemory-policy allkeys-lru\n" "$$REDIS_PASSWORD" > /tmp/redis.conf && exec redis-server /tmp/redis.conf'
     healthcheck:
       test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping"]
       interval: 10s

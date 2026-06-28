@@ -23,6 +23,37 @@ interface TicketListProps {
   onLimitChange: (limit: number) => void;
 }
 
+interface SortHeaderProps {
+  field: string;
+  children: ReactNode;
+  className?: string;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+  onSort: (field: string) => void;
+}
+
+function SortHeader({ field, children, className = '', sortBy, sortOrder, onSort }: SortHeaderProps) {
+  const isActive = sortBy === field;
+  const direction = isActive && sortOrder === 'asc' ? 'asc' : 'desc';
+  return (
+    <th
+      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors ${className}`}
+      onClick={() => onSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {children}
+        <svg className={`w-3 h-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-30 group-hover:opacity-60'}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+          {direction === 'asc' ? (
+            <path d="M6 2v8M3 5l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
+          ) : (
+            <path d="M6 10V2M3 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+          )}
+        </svg>
+      </span>
+    </th>
+  );
+}
+
 export default function TicketList({ filters, onFiltersChange, page, onPageChange, onLimitChange }: TicketListProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -55,28 +86,6 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     const newOrder = filters.sortBy === field && filters.sortOrder === 'asc' ? 'desc' : 'asc';
     onFiltersChange({ ...filters, sortBy: field, sortOrder: newOrder as 'asc' | 'desc' });
   };
-
-  function SortHeader({ field, children, className = '' }: { field: string; children: ReactNode; className?: string }) {
-    const isActive = filters.sortBy === field;
-    const direction = isActive && filters.sortOrder === 'asc' ? 'asc' : 'desc';
-    return (
-      <th
-        className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors ${className}`}
-        onClick={() => handleSort(field)}
-      >
-        <span className="inline-flex items-center gap-1">
-          {children}
-          <svg className={`w-3 h-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-30 group-hover:opacity-60'}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-            {direction === 'asc' ? (
-              <path d="M6 2v8M3 5l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
-            ) : (
-              <path d="M6 10V2M3 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
-            )}
-          </svg>
-        </span>
-      </th>
-    );
-  }
 
   const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);
 
@@ -131,20 +140,20 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <SortHeader field="ticketNumber">Ticket #</SortHeader>
-                  <SortHeader field="subject">Subject</SortHeader>
+                  <SortHeader field="ticketNumber" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Ticket #</SortHeader>
+                  <SortHeader field="subject" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Subject</SortHeader>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Category
                   </th>
-                  <SortHeader field="status">Status</SortHeader>
-                  <SortHeader field="priority">Priority</SortHeader>
+                  <SortHeader field="status" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Status</SortHeader>
+                  <SortHeader field="priority" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Priority</SortHeader>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Assigned To
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Created By
                   </th>
-                  <SortHeader field="createdAt">Created</SortHeader>
+                  <SortHeader field="createdAt" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Created</SortHeader>
                   {isAdmin && (
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Actions

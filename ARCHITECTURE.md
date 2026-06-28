@@ -495,9 +495,11 @@ it-support-ticketing/
 - Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
 - Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
 - CORS locked down to explicit origins via `CORS_ORIGIN` env var.
-- Redis requires `REDIS_PASSWORD` in production; Compose `cache` reads `backend/.env` and starts Redis with `requirepass`.
+- Redis requires `REDIS_PASSWORD` in production; Compose `cache` reads `backend/.env` and starts Redis with `requirepass`. Redis is configured with `maxmemory 400mb` and `maxmemory-policy allkeys-lru` to prevent OOM kills under load.
 - Global exception filter (`HttpExceptionFilter`) ensures consistent `{ error: { code, message } }` response format for all errors and returns a generic message for unexpected 500 errors.
-- Prisma connection pool configured via `DATABASE_POOL_MAX` env (default 10), set via `connection_limit` query parameter in the connection string.
+- Prisma connection pool configured via `DATABASE_POOL_MAX` env (default 10, recommended 20 for production), set via `connection_limit` query parameter in the connection string.
+- PostgreSQL is tuned via a custom `postgres/postgresql.conf` mounted into the db container: `shared_buffers=512MB`, `work_mem=16MB`, `effective_cache_size=1536MB`. The db container uses `shm_size: 1g` (vs Docker default 64MB) to support parallel query execution and large hash aggregates.
+- nginx access logging is buffered (`buffer=16k flush=2m`) to reduce per-request I/O syscalls through the Docker json-file log driver.
 - Logging: `json-file` driver with `max-size: 10m` and `max-file: 3` — prevents disk exhaustion from unbounded logs.
 
 ### Security Rules
