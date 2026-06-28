@@ -507,3 +507,4 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 
 ### Critical
 - **BUG-12**: API container stuck starting — PostgreSQL dalam `db` container hanya listen di `127.0.0.1`/`::1` karena `listen_addresses` tidak diset di `postgres/postgresql.conf`. Container `api` tidak bisa connect ke `db:5432` over Docker network. Fix: tambahkan `listen_addresses = '*'` di `postgres/postgresql.conf` agar PostgreSQL bind ke semua network interfaces termasuk Docker bridge.
+- **BUG-13**: Telegram link code always rejected — `generateLinkCode()` produces 8-char codes (`substring(0, 8)`) tapi bot handler validasi `code.length !== 6`. Semua kode valid ditolak. Fix: ganti length check dari `!== 6` ke `!== 8` di `telegram.service.ts`.

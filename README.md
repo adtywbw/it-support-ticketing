@@ -346,7 +346,7 @@ Production containers do not run seed automatically. If the seed script is run m
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/telegram/status` | Check if current user is linked |
-| POST | `/api/telegram/link` | Generate link code (6-digit, 5 min expiry) |
+| POST | `/api/telegram/link` | Generate link code (8-char, 5 min expiry) |
 | DELETE | `/api/telegram/link` | Unlink Telegram |
 | GET | `/api/telegram/config` | Get config (Admin only) |
 | PUT | `/api/telegram/config` | Update config (Admin only) |

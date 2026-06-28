@@ -137,7 +137,7 @@ export class TelegramService
 
     if (text.startsWith('/start ')) {
       const code = text.slice(7).trim();
-      if (!code || code.length !== 6) {
+      if (!code || code.length !== 8) {
         await this.sendMessage(token, chatId, 'Invalid link code.');
         return;
       }
