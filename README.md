@@ -95,7 +95,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - `Uploads` downloads `uploads.tar.gz`, an archive of uploaded attachment files
 - Delete uses the same confirmation dialog pattern as other destructive actions
 - Restore performs a full DB + uploads restore, validates safe upload archives, requires typed backup ID confirmation, creates a pre-restore backup automatically, clears frontend cache, and forces login again after success
-- **Maintenance Mode**: Admin must enable maintenance mode first before backup/restore buttons become active. During maintenance, non-admin users see an overlay banner and cannot access the system. Restore auto-enables maintenance mode for the entire duration (typically 15-60 seconds), then auto-disables when complete.
+- **Maintenance Mode**: Admin must enable maintenance mode first before backup/restore buttons become active. During maintenance, Admin can navigate all menus (small non-blocking banner shown); non-admin users see a full-screen overlay and cannot interact with the system. Restore auto-enables maintenance mode for the entire duration (typically 15-60 seconds), then auto-disables when complete.
 
 ### UI/UX
 - Dark mode toggle (persisted to localStorage, default light)
@@ -122,7 +122,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - CSV export neutralizes spreadsheet formula injection
 - Nginx + NestJS rate limiting (10 req/s per IP each layer)
 - EndUser status changes restricted to closing own resolved tickets
-- `MaintenanceGuard` global guard blocks non-admin requests during maintenance mode (stored in Redis)
+- `MaintenanceGuard` global guard allows Admin through during maintenance mode (via JWT verification) while blocking non-admin requests with 503 (stored in Redis)
 - Restore does not disable maintenance mode on failure — stays active until restore completes
 - Telegram config API response strips secrets; only `hasBotToken`/`hasGroupChatId` flags returned to frontend
 

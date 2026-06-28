@@ -2,6 +2,21 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Bug Fixes (Session 5)
+
+### P0 - Critical
+- **P0-03**: `restoreUploads()` EXDEV cross-device link — tempDir dipindah dari `path.dirname(uploadDir)` (overlay container filesystem) ke **dalam** `uploadDir` (Docker named volume, same filesystem). `fs.rename()` sebelumnya selalu gagal dengan `EXDEV` saat memindahkan file antar-filesystem di Docker. Saat clear upload dir, basename tempDir di-exclude dari penghapusan.
+- **P0-04**: `restoreBackup()` error ditelan — `catch {` tanpa variabel error + tidak ada `Logger` di `MaintenanceService`. Error asli dari `restoreDatabase`/`restoreUploads` tidak pernah di-log. Fix: tambah `Logger` class, ubah ke `catch (error)`, log message + stack trace via `this.logger.error()`.
+
+### P1 - High
+- **P1-09**: `MaintenanceGuard` tidak mengizinkan Admin melewati maintenance — guard memblokir **semua** request selain allowed paths tanpa memeriksa role. Admin tidak bisa buka menu lain selain Maintenance. Fix: inject `JwtService`, verify JWT dari `Authorization` header saat maintenance enabled: Admin → allow; non-admin → 503; expired/invalid token → allow (biarkan `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
+- **P1-10**: Frontend axios 503 handler redirect **semua** user ke `/admin/maintenance` (halaman admin-only) → redirect loop untuk non-admin → force logout/glitch. Fix: 503 handler hanya redirect jika `role === 'Admin'`; non-admin request di-reject tanpa redirect.
+- **P1-11**: Frontend `MaintenanceBanner` hanya tampilkan banner kecil untuk semua user — non-admin masih bisa klik UI di belakangnya dan dapat error toast. Fix: Admin lihat banner kecil non-blocking; non-admin lihat full-screen overlay (`fixed inset-0 z-[60]`) yang memblokir interaksi. Polling `/maintenance/mode` tetap jalan (endpoint public, di-allow saat maintenance).
+
+### Tests
+- `maintenance.guard.spec.ts` (baru): 12 test case — admin allow, non-admin block, ITSupport block, expired/invalid token allow, no token block, allowed paths, `@SkipMaintenance()`, Redis unreachable fail-open, 503 response code/message.
+- `maintenance.service.spec.ts`: tambah assertion untuk `logger.error` dipanggil dengan error asli; tambah test verifikasi tempDir dibuat di dalam `uploadDir` (mencegah EXDEV).
+
 ## Bug Fixes (CODE_REVIEW.md Sesi 3)
 
 ### P0 - Critical

@@ -68,7 +68,7 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
 
-The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users. It also manages a maintenance mode flag stored in Redis that blocks non-admin/non-auth API requests via `MaintenanceGuard`.
+The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users. It also manages a maintenance mode flag stored in Redis that blocks non-admin API requests via `MaintenanceGuard` while allowing Admin through via JWT verification.
 
 All repositories are exported from `RepositoriesModule` (marked `@Global()`) and registered once in `AppModule` — no per-module imports needed, mirroring the pattern used by `PrismaModule`.
 
@@ -481,8 +481,8 @@ it-support-ticketing/
 - Admin UI backup uses `/api/maintenance/backups`, runs inside the API container, and writes to the same `./backups:/app/backups` mount.
 - Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
 - Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
-- Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, validates upload archive entries against path traversal/symlink/hardlink abuse, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads through a temporary directory swap, then requires the user to log in again.
-- Restore flow: enable maintenance mode → 5-second drain time → create pre-restore backup → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode (only on success). `MaintenanceGuard` blocks non-admin API requests during restore while admin can still access `/api/maintenance/*` endpoints. Total maintenance duration is typically 15-60 seconds depending on DB/upload size. If restore fails, maintenance mode remains active.
+- Admin UI restore uses `POST /api/maintenance/backups/:id/restore` for full DB + uploads restore. It requires typed backup ID confirmation, validates both gzip files, validates upload archive entries against path traversal/symlink/hardlink abuse, creates a pre-restore backup automatically, restores DB via `psql`, restores uploads through a temporary directory swap (tempDir created inside `uploadDir` to avoid `EXDEV` cross-device rename), then requires the user to log in again.
+- Restore flow: enable maintenance mode → 5-second drain time → create pre-restore backup → DROP SCHEMA + import SQL + extract uploads → disable maintenance mode (only on success). `MaintenanceGuard` allows Admin through during maintenance via JWT verification while non-admin API calls return `503`. Total maintenance duration is typically 15-60 seconds depending on DB/upload size. If restore fails, maintenance mode remains active and the original error is logged via `Logger`.
 - Admin must enable maintenance mode from the UI before backup/restore buttons become active.
 - Restore is destructive and should be run during a maintenance window.
 
@@ -512,12 +512,12 @@ it-support-ticketing/
 - File upload validation runs at the Multer interceptor layer (`limits` + MIME `fileFilter`) and again in service-level magic-byte checks before persistence.
 - Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only. `LocalStorageService` validates path containment as defense-in-depth.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.
-- `MaintenanceGuard` (global `APP_GUARD`) blocks all non-essential API requests when maintenance mode is enabled. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis access, so Redis outages do not block essential endpoints. If Redis is unreachable, the guard defaults to "allow" (fail-open) to prevent total system lockout. Non-admin users receive `503 { error: { code: 'MAINTENANCE', message } }`.
+- `MaintenanceGuard` (global `APP_GUARD`) blocks non-essential API requests when maintenance mode is enabled. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis access, so Redis outages do not block essential endpoints. If Redis is unreachable, the guard defaults to "allow" (fail-open) to prevent total system lockout. When maintenance is enabled, the guard verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
 - `TransformInterceptor` (global `APP_INTERCEPTOR`) wraps all success responses in `{ data, meta? }` envelope. Skips wrap for stream/CSV/blob responses. Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers to extract data from the envelope.
 - `HttpExceptionFilter` returns stable error codes (`BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.) via `resp.code` or `getCodeFromStatus()` fallback.
 - Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.
 - Health endpoint always accessible (no auth required) and includes `maintenance: { enabled, message }` in its response for frontend polling.
-- Restore does not disable maintenance mode on failure — `restoreSucceeded` flag ensures maintenance stays active until restore completes successfully.
+- Restore does not disable maintenance mode on failure — maintenance stays active until restore completes successfully. The original error is logged via `Logger` so "See server logs for details" in the error message is actionable.
 - Telegram config API response strips `groupChatId`; only `hasBotToken`/`hasGroupChatId` flags returned to frontend.
 
 ### Built Artifacts

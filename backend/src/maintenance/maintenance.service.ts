@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { execFile } from 'child_process';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
@@ -42,6 +42,7 @@ interface PgOptions {
 
 @Injectable()
 export class MaintenanceService {
+  private readonly logger = new Logger(MaintenanceService.name);
   private readonly backupDir = process.env.BACKUP_DIR || '/app/backups';
   private readonly uploadDir = process.env.UPLOAD_DIR || '/app/uploads';
 
@@ -256,7 +257,11 @@ export class MaintenanceService {
       await this.releaseLock(lock).catch(() => {});
       await this.setMaintenanceMode(false);
       return preRestoreBackup;
-    } catch {
+    } catch (error) {
+      this.logger.error(
+        `Restore failed for backup ${id}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       const message = 'Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.';
       await this.setMaintenanceMode(true, message).catch(() => {});
       const preRestoreDetail = preRestoreBackup ? ` Pre-restore backup: ${preRestoreBackup.id}.` : '';
@@ -345,10 +350,8 @@ export class MaintenanceService {
   private async restoreUploads(uploadsPath: string): Promise<void> {
     await this.assertSafeTarArchive(uploadsPath);
 
-    const tempDir = path.join(
-      path.dirname(this.uploadDir),
-      `.upload-restore-${crypto.randomBytes(8).toString('hex')}`,
-    );
+    const tempDirName = `.upload-restore-${crypto.randomBytes(8).toString('hex')}`;
+    const tempDir = path.join(this.uploadDir, tempDirName);
 
     try {
       await fs.mkdir(tempDir, { recursive: true });
@@ -359,10 +362,12 @@ export class MaintenanceService {
       await fs.mkdir(this.uploadDir, { recursive: true });
       const entries = await fs.readdir(this.uploadDir);
       await Promise.all(
-        entries.map((entry) => fs.rm(path.join(this.uploadDir, entry), {
-          recursive: true,
-          force: true,
-        })),
+        entries
+          .filter((entry) => entry !== tempDirName)
+          .map((entry) => fs.rm(path.join(this.uploadDir, entry), {
+            recursive: true,
+            force: true,
+          })),
       );
 
       const extractedEntries = await fs.readdir(tempDir);

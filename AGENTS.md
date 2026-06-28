@@ -121,10 +121,12 @@ postgres/postgresql.conf
 - `MaintenanceGuard` is a global guard in `app.module.ts` and runs before `ThrottlerGuard`.
 - `MaintenanceGuard` uses a 2-second in-memory cache + Redis `mget` to reduce round-trips. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis; if Redis is unreachable, guard defaults to allow (fail-open).
 - Always allowed during maintenance: `/api/health`, `/api/maintenance/*`, `/api/auth/*`.
-- Non-admin API calls during maintenance return `503 { error: { code: 'MAINTENANCE', message } }`.
+- When maintenance is enabled, `MaintenanceGuard` verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
 - Use `@SkipMaintenance()` to skip checks on specific handlers.
-- `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded.
-- Frontend `MaintenanceBanner` polls `/api/health` every 5 seconds.
+- `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded. On failure, logs the original error via `Logger` and keeps maintenance enabled with the pre-restore backup ID in the error message.
+- `restoreUploads()` creates its tempDir **inside** `uploadDir` (same Docker volume) to avoid `EXDEV` cross-device rename errors; the tempDir basename is excluded from the upload dir clear step.
+- Frontend `MaintenanceBanner` polls `/api/maintenance/mode` every 15 seconds (authenticated users only). Admin sees a small non-blocking banner; non-admin sees a full-screen overlay that blocks interaction.
+- Frontend axios 503 handler redirects only Admin to `/admin/maintenance`; non-admin requests are rejected without redirect (no redirect loop).
 - Admin must enable maintenance mode before backup/restore from UI.
 - `GET /api/health` is public and includes `maintenance: { enabled, message }`.
 

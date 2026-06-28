@@ -3,6 +3,7 @@ import { APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
@@ -51,9 +52,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
   providers: [
     {
       provide: APP_GUARD,
-      useFactory: (redis: RedisService, reflector: Reflector) =>
-        new MaintenanceGuard(redis, reflector),
-      inject: [RedisService, Reflector],
+      useFactory: (redis: RedisService, reflector: Reflector, jwtService: JwtService) =>
+        new MaintenanceGuard(redis, reflector, jwtService),
+      inject: [RedisService, Reflector, JwtService],
     },
     {
       provide: APP_GUARD,
