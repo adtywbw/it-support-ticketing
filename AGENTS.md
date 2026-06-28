@@ -195,6 +195,7 @@ postgres/postgresql.conf
 - Backend errors: use `BadRequestException` / `NotFoundException` from `@nestjs/common`, not plain `Error`.
 - Do not create a separate subcategory endpoint for listing; derive subcategories from existing `useCategories()` data (which includes `subCategories`).
 - Telegram: do not send `botToken` or `groupChatId` to the frontend — only the `hasBotToken` / `hasGroupChatId` flags.
+- Prisma `$queryRaw` tagged template: do not append type casts like `${arr}::uuid[]` to interpolated parameters — Prisma parameterizes the interpolation and PostgreSQL cannot cast parameter references. Use `${arr}` without cast; PostgreSQL handles type coercion implicitly.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`

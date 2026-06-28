@@ -47,7 +47,7 @@ export class TicketRepository {
     return this.prisma.$queryRaw<Array<{ ticketId: string; count: number }>>`
       SELECT "ticketId", COUNT(*)::int AS count
       FROM comments
-      WHERE "ticketId" = ANY(${ticketIds}::uuid[])
+      WHERE "ticketId" = ANY(${ticketIds})
         AND type = 'PUBLIC'
       GROUP BY "ticketId"
     `;
@@ -59,7 +59,7 @@ export class TicketRepository {
       SELECT a."ticketId", COUNT(*)::int AS count
       FROM attachments a
       LEFT JOIN comments c ON c.id = a."commentId"
-      WHERE a."ticketId" = ANY(${ticketIds}::uuid[])
+      WHERE a."ticketId" = ANY(${ticketIds})
         AND a.visibility = 'PUBLIC'
         AND (a."commentId" IS NULL OR c.type = 'PUBLIC')
       GROUP BY a."ticketId"
