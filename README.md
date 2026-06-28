@@ -283,7 +283,7 @@ Production containers do not run seed automatically. If the seed script is run m
 | POST | `/api/auth/login` | Login — sets refresh token as httpOnly cookie, returns `accessToken` + `user` |
 | POST | `/api/auth/refresh` | Refresh access token — reads refresh token from cookie (no body needed), returns `accessToken` + `user` |
 | POST | `/api/auth/logout` | Invalidate refresh token + clear cookie |
-| POST | `/api/auth/change-password` | Change own password |
+| POST | `/api/auth/change-password` | Change own password (ITSupport & Admin only; EndUser cannot change own password) |
 
 ### Tickets
 | Method | Path | Description |
