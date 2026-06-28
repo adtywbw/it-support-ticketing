@@ -479,5 +479,5 @@ This project implements defense-in-depth security measures. See [CODE_REVIEW.md]
 
 ### CI/CD
 GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every PR and push to main:
-- Backend: `npm ci` → `prisma generate` → `npm run build` → `npm test`
-- Frontend: `npm ci` → `npm run lint` → `npm run build` → `vitest`
+- Backend: `npm ci` → `prisma generate` → `npm run build` → `npm test` → `npm audit --audit-level=high`
+- Frontend: `npm ci` → `npm run lint` → `npm run build` → `vitest` → `npm audit --audit-level=high`

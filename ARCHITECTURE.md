@@ -276,6 +276,9 @@ it-support-ticketing/
 │       │   │   └── storage-service.interface.ts
 │       │   ├── policies/
 │       │   │   └── attachment-visibility.policy.ts
+│       │   ├── utils/
+│       │   │   ├── mime-validation.util.ts
+│       │   │   └── upload.util.ts
 │       │   └── repositories/
 │       │       ├── repositories.module.ts
 │       │       ├── user.repository.ts
@@ -376,6 +379,7 @@ it-support-ticketing/
 │       ├── index.css
 │       ├── lib/
 │       │   ├── axios.ts
+│       │   ├── constants.ts
 │       │   └── utils.ts
 │       ├── types/
 │       │   └── index.ts
@@ -557,7 +561,7 @@ it-support-ticketing/
 
 ### File Upload Security
 - **Extension whitelist**: `upload.util.ts` — only `.jpg`, `.png`, `.pdf`, `.docx`, etc. Non-whitelisted extensions stripped.
-- **Magic byte verification**: 8 signatures (JPEG, PNG, GIF, WebP, PDF, ZIP, RAR, OLE2/DOC). Text files checked for null bytes.
+- **Magic byte verification**: `mime-validation.util.ts` — 8 signatures (JPEG, PNG, GIF, WebP, PDF, ZIP, RAR, OLE2/DOC). Text files checked for null bytes. Shared across comments and attachments modules.
 - **Path traversal prevention**: `path.basename()` + `resolvedPath.startsWith(uploadRoot)` double check.
 - **`originalName` sanitization**: `path.basename()` + `substring(0, 255)` before DB storage.
 - **`path` field exclusion**: `ATTACHMENT_SAFE_SELECT` and comment repository `select` — filesystem path never exposed to clients.

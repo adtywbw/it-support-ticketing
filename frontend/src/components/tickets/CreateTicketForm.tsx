@@ -4,6 +4,7 @@ import { useCreateTicket, useUploadAttachment } from '@/hooks/use-tickets';
 import { useCategories } from '@/hooks/use-categories';
 import type { TicketPriority } from '@/types';
 import { formatFileSize, getErrorMessage } from '@/lib/utils';
+import { ALLOWED_MIME_TYPES, MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface FormData {
@@ -58,26 +59,9 @@ export default function CreateTicketForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024;
-  const ALLOWED_MIME_TYPES = [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain',
-    'text/csv',
-    'application/zip',
-    'application/x-rar-compressed',
-  ];
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    const oversized = selected.find((f) => f.size > MAX_FILE_SIZE);
+    const oversized = selected.find((f) => f.size > MAX_TICKET_ATTACHMENT_SIZE);
     if (oversized) {
       setUploadError(`File "${oversized.name}" exceeds the 5 MB limit`);
       if (fileInputRef.current) fileInputRef.current.value = '';

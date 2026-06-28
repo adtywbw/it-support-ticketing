@@ -80,10 +80,10 @@ export function useRestoreBackup() {
 }
 
 export async function downloadBackupFile(id: string, type: 'db' | 'uploads') {
-  const response = await apiClient.get(`/maintenance/backups/${id}/download/${type}`, {
+  const response = await apiClient.get<Blob>(`/maintenance/backups/${id}/download/${type}`, {
     responseType: 'blob',
   });
-  const blob = unwrapBlob(response as unknown as import('axios').AxiosResponse<Blob>);
+  const blob = unwrapBlob(response);
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

@@ -20,22 +20,7 @@ import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-
-const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-  'application/zip',
-  'application/x-rar-compressed',
-];
+import { ALLOWED_MIME_TYPES } from '../common/utils/mime-validation.util';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 

@@ -8,7 +8,10 @@ export default function LoginPage() {
 
   if (isAuthenticated) {
     const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
-    return <Navigate to={`${from?.pathname || '/tickets'}${from?.search || ''}`} replace />;
+    const safePath = from?.pathname && from.pathname.startsWith('/') && !from.pathname.startsWith('//')
+      ? from.pathname
+      : '/tickets';
+    return <Navigate to={`${safePath}${from?.search || ''}`} replace />;
   }
 
   return (

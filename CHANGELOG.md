@@ -456,3 +456,19 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - **SEC-054**: `npm audit` — jalankan manual saat maintenance.
 - **SEC-058**: Encrypt Telegram botToken at rest — ditangguhkan (kompleksitas vs risk).
 - **SEC-060**: `as any` di `user.repository.ts` — noted, low priority type safety improvement.
+
+## Architecture Review Fixes (Session 5 — 2026-06-28)
+
+### Backend
+- **ARCH-01**: Centralize MIME validation — `ALLOWED_MIME_TYPES`, `MIME_SIGNATURES`, `detectMimeFromMagicBytes`, `assertMimeTypeIntegrity` dipindah dari 4 file (comments.service, attachments.service, comments.controller, attachments.controller) ke shared `backend/src/common/utils/mime-validation.util.ts`. Menghilangkan ~155 baris duplikasi.
+- **ARCH-06**: `MaintenanceService` error messages di-sanitize — catch blocks tidak lagi membocorkan `error.message` (stderr pg_dump/psql/tar) ke client. Pesan generik dikembalikan; detail internal hanya di server log. Pre-restore backup ID tetap dikembalikan di pesan restore.
+- **ARCH-10**: `execFile` maxBuffer di `MaintenanceService` naik dari 1MB ke 16MB (`EXEC_MAX_BUFFER`) — mencegah buffer overflow pada tar listing/psql output besar.
+- **ARCH-13**: CI tambah `npm audit --audit-level=high` step di kedua job (backend + frontend). Pipeline akan fail jika ada vulnerability high/critical.
+
+### Frontend
+- **ARCH-11**: Shared `frontend/src/lib/constants.ts` — `ALLOWED_MIME_TYPES`, `MAX_DIRECT_ATTACHMENT_SIZE` (10MB), `MAX_COMMENT_ATTACHMENT_SIZE` (5MB), `MAX_TICKET_ATTACHMENT_SIZE` (5MB). Menghilangkan duplikasi dari 3 komponen (AttachmentList, CommentSection, CreateTicketForm).
+- **ARCH-12**: Hapus inline type re-declarations di `AttachmentList.tsx` dan `CommentSection.tsx` — hooks sudah return typed `Attachment[]`/`Comment[]`, cast `as Array<{...}>` tidak diperlukan.
+- **ARCH-05**: `LoginPage.tsx` validasi `from.pathname` (open-redirect mitigation) — konsisten dengan `use-auth.ts` yang sudah memvalidasi.
+- **ARCH-07**: Axios interceptor early-reject refresh saat `accessToken` null — hindari percobaan refresh yang sia-sia di konteks unauthenticated.
+- **ARCH-08**: `use-maintenance.ts` typed `apiClient.get<Blob>`, hapus `as unknown as AxiosResponse` double-cast.
+- **ARCH-09**: `Navbar.tsx` pakai `unwrapData` + `ApiEnvelope<Notification[]>` helper, hapus manual `res.data.data` access.

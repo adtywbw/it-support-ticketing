@@ -15,65 +15,11 @@ import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
-
-const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-  'application/zip',
-  'application/x-rar-compressed',
-];
+import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES_PER_COMMENT = 3;
 const MAX_FILES_PER_TICKET = 5;
-
-const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> = [
-  { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff], offset: 0 },
-  { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 },
-  { mime: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38], offset: 0 },
-  { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46], offset: 0 },
-  { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 },
-  { mime: 'application/zip', bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 },
-  { mime: 'application/x-rar-compressed', bytes: [0x52, 0x61, 0x72, 0x21], offset: 0 },
-  { mime: 'application/msword', bytes: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1], offset: 0 },
-];
-
-function detectMimeFromMagicBytes(buffer: Buffer): string | null {
-  for (const sig of MIME_SIGNATURES) {
-    if (buffer.length >= sig.offset + sig.bytes.length) {
-      const match = sig.bytes.every((b, i) => buffer[sig.offset + i] === b);
-      if (match) return sig.mime;
-    }
-  }
-  return null;
-}
-
-function assertMimeTypeIntegrity(file: Express.Multer.File): void {
-  const detected = detectMimeFromMagicBytes(file.buffer);
-  if (detected && detected !== file.mimetype) {
-    throw new BadRequestException(
-      `File content does not match declared type ${file.mimetype}`,
-    );
-  }
-  if (file.mimetype === 'text/plain' || file.mimetype === 'text/csv') {
-    for (let i = 0; i < Math.min(file.buffer.length, 1024); i++) {
-      if (file.buffer[i] === 0) {
-        throw new BadRequestException(
-          `File content does not match declared type ${file.mimetype}`,
-        );
-      }
-    }
-  }
-}
 
 @Injectable()
 export class CommentsService {

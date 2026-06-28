@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { formatRelativeTime, formatFileSize, getUserInitials, getUserDisplayName, getErrorMessage } from '@/lib/utils';
+import { ALLOWED_MIME_TYPES, MAX_COMMENT_ATTACHMENT_SIZE } from '@/lib/constants';
 
 interface CommentSectionProps {
   ticketId: string;
@@ -88,32 +89,15 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
 
   useEffect(() => { return () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }; }, []);
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024;
-  const ALLOWED_MIME_TYPES = new Set([
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain',
-    'text/csv',
-    'application/zip',
-    'application/x-rar-compressed',
-  ]);
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    const unsupported = selected.find((f) => !ALLOWED_MIME_TYPES.has(f.type));
+    const unsupported = selected.find((f) => !ALLOWED_MIME_TYPES.includes(f.type));
     if (unsupported) {
       setUploadError(`File type ${unsupported.type || 'unknown'} is not allowed`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    const oversized = selected.find((f) => f.size > MAX_FILE_SIZE);
+    const oversized = selected.find((f) => f.size > MAX_COMMENT_ATTACHMENT_SIZE);
     if (oversized) {
       setUploadError(`File "${oversized.name}" exceeds the 5 MB limit`);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -274,14 +258,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           />
         )}
 
-        {visibleComments.map((comment: {
-          id: string;
-          type: string;
-          content: string;
-          createdAt: string;
-          user?: { name?: string; firstName?: string; lastName?: string };
-          attachments?: Array<{ id: string; originalName: string; size: number; mimeType: string; user?: { id: string; name: string }; createdAt: string }>;
-        }) => (
+        {visibleComments.map((comment) => (
           <div
             key={comment.id}
             className={`rounded-lg border p-4 ${

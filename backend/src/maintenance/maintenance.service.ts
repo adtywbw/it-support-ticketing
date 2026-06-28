@@ -14,6 +14,7 @@ const DRAIN_TIME_MS = 5000;
 const BACKUP_LOCK_KEY = 'maintenance:backup:lock';
 const RESTORE_LOCK_KEY = 'maintenance:restore:lock';
 const BACKUP_LOCK_TTL = 600;
+const EXEC_MAX_BUFFER = 16 * 1024 * 1024;
 
 export interface BackupFileInfo {
   exists: boolean;
@@ -125,14 +126,14 @@ export class MaintenanceService {
 
       await execFileAsync('pg_dump', pgDump.args, {
         env: { ...process.env, ...pgDump.env },
-        maxBuffer: 1024 * 1024,
+        maxBuffer: EXEC_MAX_BUFFER,
       });
       await execFileAsync('gzip', ['-f', dbSqlPath], {
-        maxBuffer: 1024 * 1024,
+        maxBuffer: EXEC_MAX_BUFFER,
       });
 
       await execFileAsync('tar', ['-czf', uploadsPath, '-C', this.uploadDir, '.'], {
-        maxBuffer: 1024 * 1024,
+        maxBuffer: EXEC_MAX_BUFFER,
       });
 
       await fs.writeFile(
@@ -144,11 +145,9 @@ export class MaintenanceService {
           '',
         ].join('\n'),
       );
-    } catch (error) {
+    } catch {
       await fs.rm(backupPath, { recursive: true, force: true });
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Backup failed',
-      );
+      throw new BadRequestException('Backup failed. See server logs for details.');
     } finally {
       await this.releaseLock(lock).catch(() => {});
     }
@@ -217,10 +216,8 @@ export class MaintenanceService {
 
     try {
       await fs.rm(this.resolveBackupPath(id), { recursive: true, force: true });
-    } catch (error) {
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Delete backup failed',
-      );
+    } catch {
+      throw new BadRequestException('Failed to delete backup. See server logs for details.');
     }
   }
 
@@ -258,13 +255,12 @@ export class MaintenanceService {
 
       await this.setMaintenanceMode(false);
       return preRestoreBackup;
-    } catch (error) {
+    } catch {
       const message = 'Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.';
       await this.setMaintenanceMode(true, message).catch(() => {});
-      const detail = error instanceof Error ? error.message : 'Restore backup failed';
       const preRestoreDetail = preRestoreBackup ? ` Pre-restore backup: ${preRestoreBackup.id}.` : '';
       throw new BadRequestException(
-        `${message}${preRestoreDetail} Detail: ${detail}`,
+        `${message}${preRestoreDetail} See server logs for details.`,
       );
     } finally {
       await this.releaseLock(lock).catch(() => {});
@@ -312,10 +308,8 @@ export class MaintenanceService {
   private async validateGzipFile(filePath: string, message: string): Promise<void> {
     try {
       await execFileAsync('gzip', ['-t', filePath], { maxBuffer: 1024 * 1024 });
-    } catch (error) {
-      throw new BadRequestException(
-        error instanceof Error ? `${message}: ${error.message}` : message,
-      );
+    } catch {
+      throw new BadRequestException(message);
     }
   }
 
@@ -342,7 +336,7 @@ export class MaintenanceService {
       ['-c', 'gzip -dc "$DB_BACKUP_PATH" | psql -v ON_ERROR_STOP=1'],
       {
         env: { ...process.env, ...pg.env, DB_BACKUP_PATH: dbPath },
-        maxBuffer: 1024 * 1024,
+        maxBuffer: EXEC_MAX_BUFFER,
       },
     );
   }
@@ -358,7 +352,7 @@ export class MaintenanceService {
     try {
       await fs.mkdir(tempDir, { recursive: true });
       await execFileAsync('tar', ['-xzf', uploadsPath, '-C', tempDir, '--no-same-owner', '--no-same-permissions'], {
-        maxBuffer: 1024 * 1024,
+        maxBuffer: EXEC_MAX_BUFFER,
       });
 
       await fs.mkdir(this.uploadDir, { recursive: true });
@@ -383,13 +377,11 @@ export class MaintenanceService {
     let output: string;
     try {
       const result = await execFileAsync('tar', ['-tzvf', uploadsPath], {
-        maxBuffer: 1024 * 1024,
+        maxBuffer: EXEC_MAX_BUFFER,
       });
       output = result.stdout;
-    } catch (error) {
-      throw new BadRequestException(
-        `Uploads backup is invalid: ${error instanceof Error ? error.message : 'tar listing failed'}`,
-      );
+    } catch {
+      throw new BadRequestException('Uploads backup is invalid or unreadable.');
     }
 
     const lines = output.split('\n').filter((line) => line.length > 0);

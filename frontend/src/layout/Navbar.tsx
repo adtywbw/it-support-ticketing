@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNotificationStore } from '@/stores/notification-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { useLogout } from '@/hooks/use-auth';
 import { formatRelativeTime, getUserDisplayName, getUserInitials } from '@/lib/utils';
-import type { Notification, PaginatedResponse } from '@/types';
+import type { Notification } from '@/types';
 
 interface NavbarProps {
   onMenuToggle: () => void;
@@ -33,8 +33,8 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
     enabled: notifOpen,
     staleTime: 30_000,
     queryFn: async () => {
-      const res = await apiClient.get<PaginatedResponse<Notification>>('/notifications?page=1&limit=5');
-      return res.data.data;
+      const res = await apiClient.get<ApiEnvelope<Notification[]>>('/notifications?page=1&limit=5');
+      return unwrapData(res);
     },
   });
 

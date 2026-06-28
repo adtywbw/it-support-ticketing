@@ -7,25 +7,10 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { formatDate, formatFileSize, getErrorMessage, getUserDisplayName } from '@/lib/utils';
+import { ALLOWED_MIME_TYPES, MAX_DIRECT_ATTACHMENT_SIZE } from '@/lib/constants';
 
 const thumbnailCache = new Map<string, string>();
 const MAX_THUMBNAILS = 100;
-const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-  'application/zip',
-  'application/x-rar-compressed',
-]);
 
 function cacheThumbnail(id: string, url: string) {
   const existing = thumbnailCache.get(id);
@@ -110,12 +95,12 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       toast.error(`File type ${file.type || 'unknown'} is not allowed`);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    if (file.size > MAX_UPLOAD_SIZE) {
+    if (file.size > MAX_DIRECT_ATTACHMENT_SIZE) {
       toast.error('File size exceeds 10 MB limit');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -212,10 +197,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
 
       {attachments && attachments.length > 0 && (
         <div className="space-y-2">
-          {(attachments as Array<{
-            id: string; originalName: string; size: number; mimeType: string;
-            user?: { id: string; name: string }; visibility?: string; createdAt: string;
-          }>).map((attachment) => {
+          {attachments.map((attachment) => {
             const isImage = attachment.mimeType?.startsWith('image/');
             return (
               <div key={attachment.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
