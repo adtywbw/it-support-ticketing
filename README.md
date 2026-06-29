@@ -271,48 +271,30 @@ mkcert -cert-file nginx/certs/helpdesk.rsmch.internal.pem \
        helpdesk.rsmch.internal
 ```
 
-Then make three changes:
+The repo ships `nginx/nginx.ssl.conf` and `docker-compose.prod.yml` — no manual file editing needed. The production override swaps the HTTP nginx config for the SSL variant (port 80 → 301 redirect, 443 with TLS) and mounts the certs directory.
 
-1. **`nginx/nginx.conf`** — replace the `helpdesk.rsmch.internal` server block (port 80) with a redirect to 443, and add an SSL server block with all the original `location` blocks:
-   ```nginx
-   server {
-     listen 80;
-     server_name helpdesk.rsmch.internal;
-     return 301 https://$host$request_uri;
-   }
+1. **DNS** — point `helpdesk.rsmch.internal` to your server (e.g., via AdGuard Home, dnsmasq, or `/etc/hosts`).
 
-   server {
-     listen 443 ssl;
-     server_name helpdesk.rsmch.internal;
-     ssl_certificate     /etc/nginx/certs/helpdesk.rsmch.internal.pem;
-     ssl_certificate_key /etc/nginx/certs/helpdesk.rsmch.internal-key.pem;
-     client_max_body_size 20m;
-
-     # ... keep all location blocks from the original port-80 server ...
-   }
+2. **Build and start** with the production override:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
    ```
-
-2. **`docker-compose.yml`** — expose port 443 and mount the certs directory in the `nginx` service:
-   ```yaml
-   nginx:
-     ports:
-       - "80:80"
-       - "443:443"
-     volumes:
-       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-       - ./nginx/certs:/etc/nginx/certs:ro
-       - frontend_dist:/usr/share/nginx/html:ro
-   ```
-
-3. **DNS** — point `helpdesk.rsmch.internal` to your server (e.g., via AdGuard Home, dnsmasq, or `/etc/hosts`).
 
 > **Trust:** mkcert certificates are trusted only by machines that have the mkcert root CA installed. Run `mkcert -CAROOT` to find the root CA and distribute it to client devices. For larger deployments, use a public CA (Let's Encrypt) or an internal PKI.
 
 ### 3. Build and Start
 
 ```bash
+# Option A (external reverse proxy) or local HTTP dev:
 docker compose up --build -d
+
+# Option B (mkcert, bundled nginx with TLS):
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
+
+> **Tip (Option B):** To avoid repeating `-f` flags, set `COMPOSE_FILE` once:
+> `export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml`
+> Then `docker compose up`, `docker compose ps`, etc. use both files automatically.
 
 The API entrypoint runs `prisma migrate deploy` (3 retries) on startup. In production, the seed script runs automatically only if `SEED_ON_START=true`; otherwise run it manually once:
 

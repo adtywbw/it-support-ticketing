@@ -1,0 +1,20 @@
+# Production overrides: HTTPS via mkcert (README Option B).
+# Dev uses docker-compose.yml alone (HTTP-only). Production opt-in:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+#
+# Prerequisites:
+#   1. Generate mkcert certs into nginx/certs/ (see README §Production Deployment).
+#   2. Set in backend/.env: NODE_ENV=production, COOKIE_SECURE=true,
+#      CORS_ORIGIN=https://<your-domain>.
+#
+# This override swaps the HTTP nginx.conf for nginx.ssl.conf (HTTP→HTTPS redirect
+# + TLS on 443) and mounts the certs directory. All other services are inherited
+# from docker-compose.yml unchanged.
+services:
+  nginx:
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.ssl.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
