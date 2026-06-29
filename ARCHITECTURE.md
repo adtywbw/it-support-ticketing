@@ -488,6 +488,8 @@ it-support-ticketing/
 - Restore is destructive and should be run during a maintenance window.
 
 ### Production Deployment
+> For a step-by-step production setup guide (env config, TLS options with mkcert, build/start, verify), see [README.md §Production Deployment](./README.md#production-deployment). This section covers runtime characteristics only.
+
 - All services have `restart: unless-stopped` — containers auto-restart on crash.
 - Backend production image installs dependencies with `npm ci --omit=dev`; `docker-entrypoint.sh` chowns `/app/uploads` and `/app/backups`, then uses `gosu` so the app still runs as the non-root `node` user.
 - Compose binds the API debug port to `127.0.0.1:3000`; normal browser traffic enters through Nginx `/api/`, so Nginx rate limiting and upload body limits are not bypassed remotely.

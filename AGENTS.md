@@ -149,7 +149,7 @@ postgres/postgresql.conf
 - `backend/.env.compose.example` ships with local HTTP defaults (`NODE_ENV=development`, `COOKIE_SECURE=false`) matching the bundled HTTP-only nginx. Production behind an HTTPS reverse proxy requires `NODE_ENV=production`, `COOKIE_SECURE=true`, and HTTPS `CORS_ORIGIN` — documented in the example file header.
 - Domain: `helpdesk.rsmch.internal` via AdGuard Home DNS rewrite.
 - Cert files under `nginx/certs/` are gitignored placeholders if SSL is re-enabled later.
-- To re-enable SSL, update `nginx.conf`, expose port 443 in `docker-compose.yml`, and generate certs with `mkcert`.
+- To re-enable SSL, update `nginx.conf`, expose port 443 in `docker-compose.yml`, and generate certs with `mkcert`. Full step-by-step production setup (env config, TLS options, build/start, verify) is in `README.md` §Production Deployment.
 - **Lockfile compatibility**: after running `npm install` or `npm update` locally, regenerate lockfiles with the Docker node version to prevent `npm ci` failures: `docker run --rm -v "$(pwd)/frontend":/app -w /app node:20-alpine npm install --package-lock-only` and `docker run --rm -v "$(pwd)/backend":/app -w /app node:20-bookworm-slim npm install --package-lock-only`.
 - `frontend` service builds `frontend/Dockerfile` target `builder`, copies `/app/dist` to `frontend_dist`, then stays running.
 - `nginx` serves static files from `frontend_dist:/usr/share/nginx/html` and proxies API traffic.

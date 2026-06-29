@@ -206,6 +206,134 @@ Production containers do not run seed automatically. If the seed script is run m
 
 > **Production**: Default credentials above are for development only. In production, set `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` env vars before running seed.
 
+## Production Deployment
+
+The Quick Start section covers local HTTP development. Production requires HTTPS, strong secrets, and explicit seed credentials. Follow the steps below in addition to the Quick Start setup.
+
+### Prerequisites
+
+- **TLS termination** — either an external reverse proxy (nginx, Caddy, Traefik, Cloudflare, ALB) in front of the bundled nginx, or mkcert-issued certificates for an internal network. See [TLS Options](#tls-options) below.
+- **Strong secrets** — generate with `openssl rand -base64 24` (passwords) or `openssl rand -hex 32` (JWT).
+- **Seed passwords** — `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` for first-run seeding.
+
+### 1. Configure Environment
+
+In `backend/.env`, switch from the local HTTP defaults to production values:
+
+```env
+NODE_ENV=production
+COOKIE_SECURE=true
+CORS_ORIGIN=https://helpdesk.rsmch.internal
+
+# Strong secrets (do not reuse dev values)
+JWT_SECRET=<32+ random characters — validated at startup>
+POSTGRES_PASSWORD=<strong-db-password>
+REDIS_PASSWORD=<strong-redis-password — required in production>
+DATABASE_URL=postgresql://ticketing:<strong-db-password>@db:5432/ticketing
+REDIS_URL=redis://:<strong-redis-password>@cache:6379
+
+# Seed credentials (required for production seed)
+SEED_ADMIN_PASSWORD=<strong-admin-password>
+SEED_SUPPORT_PASSWORD=<strong-support-password>
+
+# Optional: auto-seed on container start (otherwise run seed manually once)
+SEED_ON_START=true
+```
+
+Ensure the matching passwords in the least-privilege env files:
+- `backend/.env.db` → `POSTGRES_PASSWORD` must match `backend/.env`
+- `backend/.env.cache` → `REDIS_PASSWORD` must match `backend/.env`
+
+> **Enforced at startup.** When `NODE_ENV=production`, the API refuses to start unless: `JWT_SECRET` is ≥32 characters and not a known weak value, `REDIS_PASSWORD` is set, and `COOKIE_SECURE=true`.
+
+### 2. TLS Options
+
+The bundled nginx listens on port 80 (HTTP only). Secure cookies require HTTPS, so TLS must be terminated somewhere. Choose one:
+
+#### Option A — External Reverse Proxy (recommended)
+
+Put a TLS-terminating proxy (nginx, Caddy, Traefik, AWS ALB, Cloudflare) in front. The bundled nginx stays HTTP and receives proxied traffic. No changes to `nginx.conf` or `docker-compose.yml` are needed — just set `COOKIE_SECURE=true` and `CORS_ORIGIN` to your HTTPS origin.
+
+If you add an upstream proxy, configure the bundled nginx to trust only that proxy's IP/subnet before relying on `X-Forwarded-For` headers (see note in Quick Start).
+
+#### Option B — mkcert (internal networks)
+
+For internal deployments where you control the client devices, enable SSL directly in the bundled nginx using [mkcert](https://github.com/FiloSottile/mkcert):
+
+```bash
+# 1. Install mkcert and its local CA
+mkcert -install
+
+# 2. Generate certificates for your domain
+mkdir -p nginx/certs
+mkcert -cert-file nginx/certs/helpdesk.rsmch.internal.pem \
+       -key-file nginx/certs/helpdesk.rsmch.internal-key.pem \
+       helpdesk.rsmch.internal
+```
+
+Then make three changes:
+
+1. **`nginx/nginx.conf`** — replace the `helpdesk.rsmch.internal` server block (port 80) with a redirect to 443, and add an SSL server block with all the original `location` blocks:
+   ```nginx
+   server {
+     listen 80;
+     server_name helpdesk.rsmch.internal;
+     return 301 https://$host$request_uri;
+   }
+
+   server {
+     listen 443 ssl;
+     server_name helpdesk.rsmch.internal;
+     ssl_certificate     /etc/nginx/certs/helpdesk.rsmch.internal.pem;
+     ssl_certificate_key /etc/nginx/certs/helpdesk.rsmch.internal-key.pem;
+     client_max_body_size 20m;
+
+     # ... keep all location blocks from the original port-80 server ...
+   }
+   ```
+
+2. **`docker-compose.yml`** — expose port 443 and mount the certs directory in the `nginx` service:
+   ```yaml
+   nginx:
+     ports:
+       - "80:80"
+       - "443:443"
+     volumes:
+       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+       - ./nginx/certs:/etc/nginx/certs:ro
+       - frontend_dist:/usr/share/nginx/html:ro
+   ```
+
+3. **DNS** — point `helpdesk.rsmch.internal` to your server (e.g., via AdGuard Home, dnsmasq, or `/etc/hosts`).
+
+> **Trust:** mkcert certificates are trusted only by machines that have the mkcert root CA installed. Run `mkcert -CAROOT` to find the root CA and distribute it to client devices. For larger deployments, use a public CA (Let's Encrypt) or an internal PKI.
+
+### 3. Build and Start
+
+```bash
+docker compose up --build -d
+```
+
+The API entrypoint runs `prisma migrate deploy` (3 retries) on startup. In production, the seed script runs automatically only if `SEED_ON_START=true`; otherwise run it manually once:
+
+```bash
+docker compose exec api node dist/prisma/seed.js
+```
+
+> In production, the seed script **rotates** existing admin/support passwords on each run (unlike dev mode which preserves them). The sample ticket is skipped and credentials are never logged to stdout.
+
+### 4. Verify
+
+```bash
+# Health check (includes DB, Redis, and maintenance status)
+curl https://helpdesk.rsmch.internal/api/health
+
+# Container status
+docker compose ps
+```
+
+Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the password from **My Account** if desired.
+
 ## API Endpoints
 
 ### Auth
