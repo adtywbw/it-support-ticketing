@@ -221,11 +221,13 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 ┌─────────────────────────────────────────────────────────────────────┐
 │ telegram_config
 │ PK id (UUID)
+│ key (UNIQUE)               VARCHAR   @default("default") — singleton
 │ botToken                   VARCHAR? (nullable — fallback from .env)
 │ settings                   JSON    (enabledEvents[], enableGroupChat,
 │                                     groupChatId?, templates{})
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
+│ NOTE: Singleton enforced by unique key; repository uses atomic upsert.
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -490,7 +492,7 @@ it-support-ticketing/
 - All services have `restart: unless-stopped` — containers auto-restart on crash.
 - Backend production image installs dependencies with `npm ci --omit=dev`; `docker-entrypoint.sh` chowns `/app/uploads` and `/app/backups`, then uses `gosu` so the app still runs as the non-root `node` user.
 - Compose binds the API debug port to `127.0.0.1:3000`; normal browser traffic enters through Nginx `/api/`, so Nginx rate limiting and upload body limits are not bypassed remotely.
-- Nginx sets `client_max_body_size 10m`, matching the largest backend ticket attachment upload limit.
+- Nginx sets `client_max_body_size 20m`, accommodating the backend upload limits (10MB direct attachment, 5MB comment attachment).
 - API healthcheck: `"CMD", "wget", "--spider", "-q", "http://localhost:3000/health"` — interval 30s, start_period 30s, 3 retries. Container is killed + restarted after 3 consecutive failures. Health endpoint returns HTTP 503 (not 200) when DB or Redis is unhealthy, so the healthcheck correctly detects outages.
 - Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
 - Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
@@ -504,7 +506,7 @@ it-support-ticketing/
 
 ### Security Rules
 - Access tokens are short-lived JWTs stored only in frontend memory; refresh tokens are httpOnly cookies backed by Redis and revoked on logout. Refresh token rotation uses atomic Lua GETDEL to prevent replay attacks from concurrent refresh calls.
-- Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation.
+- Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation. WebSocket sessions are also bounded to access-token expiry: `NotificationsGateway` reads `payload.exp` and schedules a `setTimeout` disconnect at expiry; already-expired tokens disconnect immediately. Timers are cleared on disconnect/deactivation.
 - EndUser access is ownership-scoped: EndUser can create tickets as requester, can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
 - EndUser cannot access `/dashboard` or admin routes; both backend roles and frontend routes/actions enforce this.
 - INTERNAL comments, INTERNAL standalone attachments, and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses. Visibility is centralized via `AttachmentVisibilityPolicy` in `backend/src/common/policies/`.
@@ -515,6 +517,7 @@ it-support-ticketing/
 - `MaintenanceGuard` (global `APP_GUARD`) blocks non-essential API requests when maintenance mode is enabled. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis access, so Redis outages do not block essential endpoints. If Redis is unreachable, the guard defaults to "allow" (fail-open) to prevent total system lockout. When maintenance is enabled, the guard verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
 - `TransformInterceptor` (global `APP_INTERCEPTOR`) wraps all success responses in `{ data, meta? }` envelope. Skips wrap for stream/CSV/blob responses. Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers to extract data from the envelope.
 - `HttpExceptionFilter` returns stable error codes (`BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.) via `resp.code` or `getCodeFromStatus()` fallback.
+- Dashboard stats are cached in Redis (`dashboard:stats:v1`, 30s TTL). `DashboardService` listens to `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, and `ticket.deleted` events via `EventEmitter2` and invalidates the cache so stats stay fresh without waiting for the TTL.
 - Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.
 - Health endpoint always accessible (no auth required) and includes `maintenance: { enabled, message }` in its response for frontend polling.
 - Restore does not disable maintenance mode on failure — maintenance stays active until restore completes successfully. The original error is logged via `Logger` so "See server logs for details" in the error message is actionable.
@@ -565,10 +568,11 @@ it-support-ticketing/
 
 ### File Upload Security
 - **Extension whitelist**: `upload.util.ts` — only `.jpg`, `.png`, `.pdf`, `.docx`, etc. Non-whitelisted extensions stripped.
-- **Magic byte verification**: `mime-validation.util.ts` — 8 signatures (JPEG, PNG, GIF, WebP, PDF, ZIP, RAR, OLE2/DOC). Text files checked for null bytes. Shared across comments and attachments modules.
+- **Magic byte verification**: `mime-validation.util.ts` — 8 signatures (JPEG, PNG, GIF, WebP, PDF, ZIP, RAR, OLE2/DOC). Text files checked for null bytes. A `MIME_COMPATIBILITY_MAP` allows compatible container mismatches: OOXML files (`.docx`/`.xlsx`) are ZIP containers detected as `application/zip`, and legacy `.xls` shares the OLE2 CFB signature with `application/msword`. Obvious spoofing (e.g., ZIP declared as `image/png`) is still rejected. Shared across comments and attachments modules.
 - **Path traversal prevention**: `path.basename()` + `resolvedPath.startsWith(uploadRoot)` double check.
 - **`originalName` sanitization**: `path.basename()` + `substring(0, 255)` before DB storage.
 - **`path` field exclusion**: `ATTACHMENT_SAFE_SELECT` and comment repository `select` — filesystem path never exposed to clients.
+- **DTO input validation**: `CreateTicketDto` and `CreateCommentDto` use `@Transform(trimString)` + `@IsNotEmpty()` + `@MinLength()` so direct API clients cannot submit whitespace-only or too-short text payloads. `ValidationPipe` is enabled globally with `whitelist` and `forbidNonWhitelisted`.
 
 ### Infrastructure Security
 - **Docker hardening**: `no-new-privileges`, `cap_drop: ALL` with minimal `cap_add`, `mem_limit`, `cpus`, `pids_limit` on all services.
