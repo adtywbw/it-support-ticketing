@@ -527,3 +527,37 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - **BUG-15**: auth/refresh 500 during backup restore — `refresh()` di `auth.service.ts` tidak wrap Redis `eval()` dan `usersService.findById()` dalam try/catch. Saat restore menjalankan `DROP SCHEMA CASCADE`, tabel User tidak ada → Prisma throw error non-HttpException → HttpExceptionFilter return 500. Redis unreachable juga produce 500. Fix: wrap kedua call dalam try/catch, return `UnauthorizedException` (401) sebagai gantinya.
 - **BUG-16**: Admin tidak bisa navigate setelah login saat maintenance — Frontend axios interceptor hanya handle 401, tidak handle 503. Semua non-auth endpoint return 503 saat maintenance aktif, tapi frontend tidak redirect ke maintenance page. Admin terjebak di halaman error tanpa cara disable maintenance. Fix: tambahkan 503 handler di axios interceptor yang redirect ke `/admin/maintenance`.
 - **BUG-17**: Redis `stop-writes-on-bgsave-error` blocking login — Redis container tanpa persistence volume gagal RDB save → `stop-writes-on-bgsave-error yes` (default) mem-block semua write termasuk login account lock check → 500. Fix: tambahkan `stop-writes-on-bgsave-error no` ke Redis config di `docker-compose.yml`.
+
+## Code Review Execution (Session 8 — 2026-06-29)
+
+Eksekusi `AI_AGENT_REVIEW_TASKS.md` — 10 task selesai, production readiness gate terpenuhi.
+
+### High
+- **CRT-01**: Backend dependency vulnerabilities — upgrade `multer` dari `^1.4.5-lts.1` ke `^2.2.0` + override di `package.json` (fix nested multer di `@nestjs/platform-express`). Hapus unused `diskStorage` import di `attachments.controller.ts`. `npm audit --omit=dev --audit-level=high` sekarang 0 high (sebelumnya 2 high). Lockfile di-regenerate dengan Docker node 20. 13 moderate tersisa butuh NestJS 11 upgrade (breaking, ditangguhkan).
+- **CRT-02**: Frontend tests diperbaiki — `ProtectedRoute.test.tsx` ganti `vi.mock('axios')` auto-mock ke manual mock yang setup `axios.create().interceptors.request/response.use()` (fix `TypeError: Cannot read properties of undefined (reading 'interceptors')`). `use-notifications.test.tsx` tambah `unwrapPage` ke mock + update expectation ke shape `{ data, meta }`. 4 suites / 13 tests pass (sebelumnya 2 suites failed).
+
+### Medium
+- **CRT-03**: SLA partial update validation — `SLAService.update()` sekarang load existing config by ID, merge `responseTimeMinutes`/`resolutionTimeMinutes` dengan patch values, lalu validate merged values via `assertSlaWindow()`. Throw `NotFoundException` jika config tidak ada. Sebelumnya hanya validate saat kedua field disediakan, sehingga partial update bisa melanggar invariant `resolution >= response`. 9 unit test ditambah.
+- **CRT-04**: Office file MIME validation — tambah `MIME_COMPATIBILITY_MAP` di `mime-validation.util.ts`: `application/zip` compatible dengan OOXML MIME (`.docx`/`.xlsx`), `application/msword` (OLE CFB signature) compatible dengan `application/vnd.ms-excel` (`.xls`). `assertMimeTypeIntegrity()` cek compatibility map sebelum reject. Spoofing obvious (ZIP declared as PNG) tetap ditolak. 18 unit test ditambah.
+- **CRT-05**: WebSocket session token expiry — `NotificationsGateway` sekarang baca `payload.exp` setelah JWT verify: jika sudah expired → disconnect langsung, jika belum → schedule `setTimeout` disconnect di expiry. Timer di-clear pada disconnect dan user deactivation. Frontend `useSocket()` sudah reconnect saat `accessToken` berubah (refresh), jadi tidak butuh perubahan frontend. 12 unit test ditambah (fake timers).
+- **CRT-06**: DTO blank text validation — `CreateTicketDto` tambah `@Transform(trimString)` + `@IsNotEmpty()` + `@MinLength(5)` untuk subject, `@MinLength(10)` untuk description (match frontend). `CreateCommentDto` tambah `@Transform(trimString)` + `@IsNotEmpty()` untuk content. Direct API client tidak lagi bisa kirim whitespace-only payload. 14 unit test ditambah.
+- **CRT-07**: TelegramConfig singleton atomic — repository ganti `findFirst()` ke `findUnique({ where: { key: 'default' } })` dan `findOrCreate()` ke `upsert()` on key (race-free). `create()` selalu set `key: 'default'`. Sebelumnya `findFirst()` + `create()` bisa race under concurrent startup. 7 unit test ditambah (termasuk concurrent findOrCreate).
+- **CRT-08**: Failed attachment upload visibility — `CreateTicketForm.tsx` ganti `setUploadError()` ke `toast.error()` untuk kasus upload gagal setelah ticket dibuat. Sebelumnya error disimpan ke state lokal lalu component langsung navigate, sehingga error hilang saat unmount. Toast tetap visible di ticket detail page.
+- **CRT-09**: Compose env local vs production — `.env.compose.example` default diubah ke `NODE_ENV=development` + `COOKIE_SECURE=false` (match nginx HTTP-only bundled). Header comment dokumentasi production HTTPS reverse proxy config (NODE_ENV=production, COOKIE_SECURE=true, CORS_ORIGIN HTTPS). README Quick Start diupdate dengan catatan local HTTP vs production HTTPS.
+- **CRT-10**: Dashboard cache invalidation wired — `DashboardService` tambah `@OnEvent` listener untuk `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, `ticket.deleted` → `invalidateCache()` dengan error handling. `TicketsService.updatePriority()` emit `ticket.priority.updated`, `delete()` emit `ticket.deleted` (3 event lain sudah ada). Sebelumnya `invalidateCache()` ada tapi tidak pernah dipanggil, dashboard stats stale sampai Redis TTL 30s expire. 3 unit test ditambah.
+
+### Test Suite Growth
+- Backend: 6 → 13 suites, 63 → 126 tests.
+- Frontend: 2 failed → 4 suites / 13 tests pass.
+- New spec files: `sla.service.spec.ts`, `mime-validation.util.spec.ts`, `notifications.gateway.spec.ts`, `create-ticket.dto.spec.ts`, `create-comment.dto.spec.ts`, `telegram-config.repository.spec.ts`, `dashboard.service.spec.ts`.
+
+### Production Readiness Gate
+1. Backend production audit: 0 high-severity ✅
+2. Frontend tests pass ✅
+3. SLA partial update validation fixed ✅
+4. Upload MIME validation matches allowed types ✅
+5. Deployment docs/config distinguish HTTP local vs HTTPS production ✅
+
+### Residual (deferred)
+- 13 moderate vulnerabilities butuh NestJS 11 upgrade (breaking). `file-type` (ZIP bomb DoS) paling relevan karena app proses upload.
+- E2E / integration tests belum ada.

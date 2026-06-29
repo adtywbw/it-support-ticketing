@@ -98,6 +98,7 @@ postgres/postgresql.conf
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
 - `POST /api/auth/change-password` is restricted to ITSupport & Admin via `RolesGuard`; EndUser cannot change own password (must request Admin/ITSupport). Frontend hides the Change Password section in My Account for EndUser.
 - WebSocket clients disconnect when user is inactive (`isActive=false`).
+- WebSocket sessions are bounded to access-token expiry: `NotificationsGateway` reads `payload.exp` and schedules a `setTimeout` disconnect at expiry; already-expired tokens disconnect immediately. Timers are cleared on disconnect/deactivation.
 - Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only.
 - Telegram config API response strips `groupChatId`; only `hasBotToken`/`hasGroupChatId` flags returned to frontend.
 
@@ -116,6 +117,7 @@ postgres/postgresql.conf
 - EndUser sees only PUBLIC direct attachments and attachments from PUBLIC comments.
 - ITSupport/Admin can access dashboard and operational ticket workflows.
 - `updateStatus()` is atomic: conditional `updateMany({ where: { id, status: oldStatus } })` → 409 Conflict on race.
+- Ticket mutation events: `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, `ticket.deleted` are emitted via `EventEmitter2`. `DashboardService` listens to all five and invalidates its Redis cache (`dashboard:stats:v1`) so stats stay fresh without waiting for the 30s TTL.
 
 ## Maintenance Mode
 - Flags live in Redis: `maintenance:enabled`, `maintenance:message`; Redis is not restored from backups.
@@ -144,6 +146,7 @@ postgres/postgresql.conf
 
 ## Docker & HTTP Notes
 - Docker local is HTTP only; nginx listens on port 80 and HTTPS is disabled for local development.
+- `backend/.env.compose.example` ships with local HTTP defaults (`NODE_ENV=development`, `COOKIE_SECURE=false`) matching the bundled HTTP-only nginx. Production behind an HTTPS reverse proxy requires `NODE_ENV=production`, `COOKIE_SECURE=true`, and HTTPS `CORS_ORIGIN` — documented in the example file header.
 - Domain: `helpdesk.rsmch.internal` via AdGuard Home DNS rewrite.
 - Cert files under `nginx/certs/` are gitignored placeholders if SSL is re-enabled later.
 - To re-enable SSL, update `nginx.conf`, expose port 443 in `docker-compose.yml`, and generate certs with `mkcert`.
@@ -186,9 +189,9 @@ postgres/postgresql.conf
 - `Ticket`: `ticketNumber` (from sequence, not MAX), `status`, `priority`; `visibility` does not exist on the Ticket model — visibility belongs to `Attachment`.
 - `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (for display only), filename on disk = uuid + safe extension.
 - `Comment`: there is no `isInternal` boolean field — use the `type: CommentType` field (`PUBLIC`|`INTERNAL`). Internal attachment visibility is controlled via `AttachmentVisibilityPolicy`.
-- `TelegramConfig`: singleton, always accessed via `key = "default"`, use `findOrCreate()` from the repository — do not call `findFirst()` or `create()` directly.
+- `TelegramConfig`: singleton, always accessed via `key = "default"`, use `findOrCreate()` (atomic `upsert`) from the repository — do not call `findFirst()` or `create()` directly.
 - `Notification`: clear-all, read-all, mark-read are supported by the API — check the API Map before adding new endpoints.
-- `SLAConfig`: unique constraint on `(categoryId, priority)` — upsert on create/update.
+- `SLAConfig`: unique constraint on `(categoryId, priority)` — upsert on create/update. `SLAService.update()` loads existing config and validates merged `responseTimeMinutes`/`resolutionTimeMinutes` before persisting partial patches.
 
 ## Common Pitfalls
 - Do not inject `PrismaService` directly into new services; always go through the repository in `common/repositories/`.
@@ -200,6 +203,8 @@ postgres/postgresql.conf
 - Telegram: do not send `botToken` or `groupChatId` to the frontend — only the `hasBotToken` / `hasGroupChatId` flags.
 - Prisma `$queryRaw` tagged template: do not append type casts like `${arr}::uuid[]` to interpolated parameters — Prisma parameterizes the interpolation and PostgreSQL cannot cast parameter references. Use `${arr}` without cast; PostgreSQL handles type coercion implicitly.
 - Backend errors: wrap Redis/Prisma calls that may fail during maintenance (e.g. `redisService.eval()`, `usersService.findById()`) in try/catch — non-`HttpException` errors produce 500 instead of graceful 401. The `HttpExceptionFilter` only catches `HttpException` subclasses.
+- MIME validation: `assertMimeTypeIntegrity()` uses a `MIME_COMPATIBILITY_MAP` — OOXML files (`.docx`/`.xlsx`) are ZIP containers detected as `application/zip`, and legacy `.xls` shares the OLE CFB signature with `application/msword`. Do not reject these compatible mismatches; update the map if new container types are added.
+- DTO validation: `CreateTicketDto` and `CreateCommentDto` use `@Transform(trimString)` + `@IsNotEmpty()` + `@MinLength()` — direct API clients cannot send whitespace-only payloads. Match these constraints when adding new text-field DTOs.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`

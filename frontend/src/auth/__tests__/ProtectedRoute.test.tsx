@@ -4,7 +4,22 @@ import { MemoryRouter } from 'react-router-dom';
 import ProtectedRoute from '../ProtectedRoute';
 import { useAuthStore } from '@/stores/auth-store';
 
-vi.mock('axios');
+vi.mock('axios', () => ({
+  default: {
+    create: vi.fn(() => ({
+      interceptors: {
+        request: { use: vi.fn() },
+        response: { use: vi.fn() },
+      },
+      get: vi.fn(),
+      post: vi.fn(),
+      patch: vi.fn(),
+      delete: vi.fn(),
+    })),
+    post: vi.fn(),
+    get: vi.fn(),
+  },
+}));
 
 describe('FE-01: ProtectedRoute', () => {
   beforeEach(() => {

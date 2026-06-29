@@ -34,6 +34,7 @@ export class NotificationsGateway
   server: Server;
 
   private userSockets: Map<string, Set<string>> = new Map();
+  private expiryTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -69,12 +70,20 @@ export class NotificationsGateway
       }
       this.userSockets.get(userId)!.add(client.id);
       client.join(`user:${userId}`);
+
+      this.scheduleExpiryDisconnect(client, payload.exp);
     } catch {
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
+    const timer = this.expiryTimers.get(client.id);
+    if (timer) {
+      clearTimeout(timer);
+      this.expiryTimers.delete(client.id);
+    }
+
     for (const [userId, sockets] of this.userSockets.entries()) {
       if (sockets.has(client.id)) {
         sockets.delete(client.id);
@@ -84,6 +93,23 @@ export class NotificationsGateway
         break;
       }
     }
+  }
+
+  private scheduleExpiryDisconnect(client: Socket, exp?: number) {
+    if (!exp) return;
+
+    const delayMs = exp * 1000 - Date.now();
+    if (delayMs <= 0) {
+      client.disconnect();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      this.expiryTimers.delete(client.id);
+      client.disconnect();
+    }, delayMs);
+
+    this.expiryTimers.set(client.id, timer);
   }
 
   @OnEvent('notification.created')
@@ -99,6 +125,11 @@ export class NotificationsGateway
     if (!sockets) return;
 
     for (const socketId of sockets) {
+      const timer = this.expiryTimers.get(socketId);
+      if (timer) {
+        clearTimeout(timer);
+        this.expiryTimers.delete(socketId);
+      }
       const socket = this.server.sockets.sockets.get(socketId);
       socket?.leave(`user:${payload.userId}`);
       socket?.disconnect(true);

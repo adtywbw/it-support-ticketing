@@ -28,6 +28,25 @@ const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> 
   { mime: 'application/msword', bytes: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1], offset: 0 },
 ];
 
+/**
+ * Maps a detected magic-byte MIME to declared MIME types that are compatible
+ * with the same container/signature format.
+ *
+ * - OOXML files (.docx, .xlsx) are ZIP containers, so magic bytes detect them
+ *   as `application/zip` even though the declared type is the OOXML MIME.
+ * - OLE2 Compound File Binary (CFB) is shared by legacy .doc and .xls files,
+ *   so magic bytes detect both as `application/msword`.
+ */
+const MIME_COMPATIBILITY_MAP: Record<string, string[]> = {
+  'application/zip': [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
+  'application/msword': [
+    'application/vnd.ms-excel',
+  ],
+};
+
 export function detectMimeFromMagicBytes(buffer: Buffer): string | null {
   for (const sig of MIME_SIGNATURES) {
     if (buffer.length >= sig.offset + sig.bytes.length) {
@@ -41,9 +60,12 @@ export function detectMimeFromMagicBytes(buffer: Buffer): string | null {
 export function assertMimeTypeIntegrity(file: Express.Multer.File): void {
   const detected = detectMimeFromMagicBytes(file.buffer);
   if (detected && detected !== file.mimetype) {
-    throw new BadRequestException(
-      `File content does not match declared type ${file.mimetype}`,
-    );
+    const compatible = MIME_COMPATIBILITY_MAP[detected];
+    if (!compatible || !compatible.includes(file.mimetype)) {
+      throw new BadRequestException(
+        `File content does not match declared type ${file.mimetype}`,
+      );
+    }
   }
   if (file.mimetype === 'text/plain' || file.mimetype === 'text/csv') {
     for (let i = 0; i < Math.min(file.buffer.length, 1024); i++) {

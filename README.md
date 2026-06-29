@@ -212,6 +212,11 @@ cp backend/.env.compose.example backend/.env
 # DB, Redis, and backup.sh when running via docker compose.
 # Wajib: JWT_SECRET, DATABASE_URL, REDIS_URL, dan REDIS_PASSWORD harus diset.
 # Telegram: TELEGRAM_BOT_TOKEN opsional (bisa diisi via Admin UI nanti)
+#
+# The example ships with local HTTP defaults (NODE_ENV=development,
+# COOKIE_SECURE=false) matching the bundled HTTP-only nginx config.
+# For production behind an HTTPS reverse proxy, set NODE_ENV=production,
+# COOKIE_SECURE=true, and CORS_ORIGIN to your HTTPS origin.
 
 # 3. Build and run (database + frontend build automatically on first start)
 docker compose up --build

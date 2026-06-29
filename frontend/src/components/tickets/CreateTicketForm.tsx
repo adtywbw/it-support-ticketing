@@ -1,5 +1,6 @@
 import { useState, useRef, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useCreateTicket, useUploadAttachment } from '@/hooks/use-tickets';
 import { useCategories } from '@/hooks/use-categories';
 import type { TicketPriority } from '@/types';
@@ -106,7 +107,7 @@ export default function CreateTicketForm() {
       }
 
       if (uploadErrors.length > 0) {
-        setUploadError(`Ticket created, but failed to upload: ${uploadErrors.join(', ')}`);
+        toast.error(`Ticket created, but failed to upload: ${uploadErrors.join(', ')}`);
       }
 
       navigate(`/tickets/${ticket.id}`);

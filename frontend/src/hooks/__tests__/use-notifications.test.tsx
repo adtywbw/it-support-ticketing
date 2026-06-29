@@ -9,6 +9,7 @@ vi.mock('@/lib/axios', () => ({
     get: vi.fn(),
   },
   unwrapData: vi.fn((res) => res.data.data),
+  unwrapPage: vi.fn((res) => ({ data: res.data.data, meta: res.data.meta })),
 }));
 
 const mockGet = vi.mocked((await import('@/lib/axios')).default.get);
@@ -58,7 +59,10 @@ describe('FE-03: useNotifications', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.data).toEqual(mockNotifications);
+      expect(result.current.data).toEqual({
+        data: mockNotifications,
+        meta: { total: 1, page: 1, limit: 10 },
+      });
     });
 
     expect(mockGet).toHaveBeenCalledWith('/notifications?page=1&limit=20');

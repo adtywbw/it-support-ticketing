@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { RedisService } from '../redis/redis.service';
@@ -9,6 +10,8 @@ const DASHBOARD_CACHE_TTL = 30;
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     private readonly ticketRepository: TicketRepository,
     private readonly prisma: PrismaService,
@@ -57,6 +60,19 @@ export class DashboardService {
 
   async invalidateCache() {
     await this.redisService.del(DASHBOARD_CACHE_KEY);
+  }
+
+  @OnEvent('ticket.created')
+  @OnEvent('ticket.status.updated')
+  @OnEvent('ticket.assigned')
+  @OnEvent('ticket.priority.updated')
+  @OnEvent('ticket.deleted')
+  async handleTicketChanged() {
+    try {
+      await this.invalidateCache();
+    } catch (error) {
+      this.logger.warn('Failed to invalidate dashboard cache', error);
+    }
   }
 
   private async getStatusCounts() {

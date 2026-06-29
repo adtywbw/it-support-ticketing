@@ -71,8 +71,15 @@ export class SLAService {
       isActive?: boolean;
     },
   ) {
-    if (data.responseTimeMinutes !== undefined && data.resolutionTimeMinutes !== undefined) {
-      this.assertSlaWindow(data.responseTimeMinutes, data.resolutionTimeMinutes);
+    const existing = await this.slaConfigRepository.findUnique({ id });
+    if (!existing) {
+      throw new NotFoundException('SLA config not found');
+    }
+
+    if (data.responseTimeMinutes !== undefined || data.resolutionTimeMinutes !== undefined) {
+      const responseTimeMinutes = data.responseTimeMinutes ?? existing.responseTimeMinutes;
+      const resolutionTimeMinutes = data.resolutionTimeMinutes ?? existing.resolutionTimeMinutes;
+      this.assertSlaWindow(responseTimeMinutes, resolutionTimeMinutes);
     }
 
     try {

@@ -499,6 +499,13 @@ export class TicketsService {
       return updated;
     });
 
+    this.eventEmitter.emit('ticket.priority.updated', {
+      ticketId: id,
+      ticketNumber: updatedTicket.ticketNumber,
+      oldPriority,
+      newPriority,
+    });
+
     return updatedTicket;
   }
 
@@ -525,6 +532,11 @@ export class TicketsService {
         // Best-effort file cleanup after DB commit
       }
     }
+
+    this.eventEmitter.emit('ticket.deleted', {
+      ticketId: id,
+      ticketNumber: ticket.ticketNumber,
+    });
   }
 
   private async createTicketWithNumber(
