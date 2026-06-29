@@ -2,6 +2,11 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Docker / TLS Refactor
+
+- **DR-01**: Production TLS via compose override — added `nginx/nginx.ssl.conf` (HTTPS variant: port 80→301 redirect, 443 SSL, TLS 1.2/1.3) and `docker-compose.prod.yml` (override: port 443, certs mount, swap to SSL config). Eliminates manual editing of `nginx.conf`/`docker-compose.yml` for mkcert deployments. Dev: `docker compose up` (HTTP). Prod: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d` (HTTPS). Updated README, AGENTS.md, ARCHITECTURE.md, and `.env.compose.example` accordingly.
+- **DR-02**: Password generation recommendation changed from `openssl rand -base64 24` to `openssl rand -hex 24` across README and `.env` example templates. Base64 output can contain `/`, `+`, `=` (reserved URI characters) which break `DATABASE_URL`/`REDIS_URL` parsing in Prisma and ioredis. Hex is URL-safe with the same 192-bit entropy.
+
 ## Bug Fixes (Session 5)
 
 ### P0 - Critical

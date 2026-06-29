@@ -4,7 +4,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 
 ## Architecture
 
-Browser → Nginx (port 80, reverse proxy + static files) → NestJS API (port 3000) → PostgreSQL 16 + Redis 7. A separate frontend builder service compiles the React SPA via Vite and copies the output to a shared named volume (`frontend_dist`) that Nginx serves.
+Browser → Nginx (port 80 dev / 443 prod via override, reverse proxy + static files) → NestJS API (port 3000) → PostgreSQL 16 + Redis 7. A separate frontend builder service compiles the React SPA via Vite and copies the output to a shared named volume (`frontend_dist`) that Nginx serves.
 
 See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the container diagram and stack justification.
 
@@ -95,7 +95,8 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 
 ```
 it-support-ticketing/
-├── docker-compose.yml         # Multi-container setup
+├── docker-compose.yml         # Multi-container setup (dev: HTTP)
+├── docker-compose.prod.yml    # Production override (mkcert TLS: port 443)
 ├── scripts/                   # backup.sh
 ├── nginx/                     # reverse proxy + security headers
 ├── backend/                   # NestJS API (Prisma, Redis, WebSocket)
@@ -433,7 +434,7 @@ Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers from `frontend/src
 | Service | Image / Build | Port | Restart | Healthcheck | Logging |
 |---------|---------------|------|---------|-------------|---------|
 | frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
-| nginx | nginx:1.25-alpine | 80 | unless-stopped | — | 10m x 3 files |
+| nginx | nginx:1.25-alpine | 80 (dev) / 443 (prod override) | unless-stopped | — | 10m x 3 files |
 | api | `backend/Dockerfile` (node:20-bookworm-slim, non-root via entrypoint) | 127.0.0.1:3000 | unless-stopped | `GET /health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
 | cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |

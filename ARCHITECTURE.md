@@ -238,10 +238,12 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 ```
 it-support-ticketing/
 ├── docker-compose.yml
+├── docker-compose.prod.yml     # Production override: mkcert TLS (port 443)
 ├── scripts/
 │   └── backup.sh              # PostgreSQL + uploads volume backup
 ├── nginx/
-│   ├── nginx.conf
+│   ├── nginx.conf              # Dev: HTTP-only (port 80)
+│   ├── nginx.ssl.conf          # Prod: HTTPS (80→301 redirect + 443 SSL)
 │   └── certs/               # mkcert SSL cert & key (gitignored)
 ├── backend/
 │   ├── Dockerfile
