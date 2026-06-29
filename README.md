@@ -124,10 +124,18 @@ See [ARCHITECTURE.md §3 Database Schema](./ARCHITECTURE.md#3-database-schema-er
 git clone <repo-url> && cd it-support-ticketing
 
 # 2. Environment variables for Docker Compose
+#    backend/.env        -> `api` service (full set, canonical source)
+#    backend/.env.db     -> `db` service (PostgreSQL only, least-privilege)
+#    backend/.env.cache  -> `cache` service (Redis only, least-privilege)
 cp backend/.env.compose.example backend/.env
+cp backend/.env.db.example       backend/.env.db
+cp backend/.env.cache.example    backend/.env.cache
 # Edit secrets in backend/.env: JWT_SECRET, POSTGRES_PASSWORD, DATABASE_URL,
-# REDIS_PASSWORD, and REDIS_URL. backend/.env is the canonical source for API,
-# DB, Redis, and backup.sh when running via docker compose.
+# REDIS_PASSWORD, and REDIS_URL. backend/.env is the canonical source for the
+# API service and backup.sh when running via docker compose.
+# Then set the SAME POSTGRES_PASSWORD in backend/.env.db and the SAME
+# REDIS_PASSWORD in backend/.env.cache (they must match backend/.env so the
+# API can connect to the DB and Redis).
 # Wajib: JWT_SECRET, DATABASE_URL, REDIS_URL, dan REDIS_PASSWORD harus diset.
 # Telegram: TELEGRAM_BOT_TOKEN opsional (bisa diisi via Admin UI nanti)
 #

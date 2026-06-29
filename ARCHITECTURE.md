@@ -474,7 +474,7 @@ it-support-ticketing/
 
 ### Backup Operations
 - `scripts/backup.sh` creates a timestamped backup under `backups/` while Compose services are running.
-- `backup.sh` reads environment variables from `backend/.env` (canonical source), matching the API and DB services.
+- `backup.sh` reads environment variables from `backend/.env` (canonical source for the API service). The `POSTGRES_PASSWORD` in `backend/.env` must match `backend/.env.db` so the script can authenticate to the `db` container.
 - The database backup uses `docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip`.
 - The upload backup uses `docker compose run --rm --no-deps api tar -czf ... -C /app/uploads .`, so Compose resolves the `uploads_data` named volume instead of relying on host paths.
 - Backup output contains `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt`; `backups/` is gitignored and should be copied off-host for production retention.
@@ -496,7 +496,7 @@ it-support-ticketing/
 - Security headers via `helmet` middleware (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.) applied at NestJS application layer.
 - Request logging via `morgan('combined')` — each HTTP request logged to stdout (captured by Docker logs).
 - CORS locked down to explicit origins via `CORS_ORIGIN` env var.
-- Redis requires `REDIS_PASSWORD` in production; Compose `cache` reads `backend/.env` and starts Redis with `requirepass`. Redis is configured with `maxmemory 400mb`, `maxmemory-policy allkeys-lru`, and `stop-writes-on-bgsave-error no` (Redis has no persistence volume, so RDB saves always fail; without this flag, Redis would block all writes including login account lock checks).
+- Redis requires `REDIS_PASSWORD` in production; Compose `cache` reads `backend/.env.cache` (least-privilege, SEC-023) and starts Redis with `requirepass`. Redis is configured with `maxmemory 400mb`, `maxmemory-policy allkeys-lru`, and `stop-writes-on-bgsave-error no` (Redis has no persistence volume, so RDB saves always fail; without this flag, Redis would block all writes including login account lock checks).
 - Global exception filter (`HttpExceptionFilter`) ensures consistent `{ error: { code, message } }` response format for all errors and returns a generic message for unexpected 500 errors.
 - Prisma connection pool configured via `DATABASE_POOL_MAX` env (default 10, recommended 20 for production), set via `connection_limit` query parameter in the connection string.
 - PostgreSQL is tuned via a custom `postgres/postgresql.conf` mounted into the db container: `listen_addresses='*'`, `shared_buffers=512MB`, `work_mem=16MB`, `effective_cache_size=1536MB`. `listen_addresses='*'` is required so PostgreSQL binds to the Docker network interface instead of only localhost. The db container uses `shm_size: 1g` (vs Docker default 64MB) to support parallel query execution and large hash aggregates.
