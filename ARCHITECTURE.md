@@ -233,12 +233,11 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 
 ---
 
-## 3. Folder Structure
+## 4. Folder Structure
 
 ```
 it-support-ticketing/
 ├── docker-compose.yml
-├── .env.example
 ├── scripts/
 │   └── backup.sh              # PostgreSQL + uploads volume backup
 ├── nginx/

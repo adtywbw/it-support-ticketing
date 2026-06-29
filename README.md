@@ -4,32 +4,9 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 
 ## Architecture
 
-```
-  ┌───────────────────┐     docker build      ┌──────────────────┐
-  │  Frontend Builder │──── target: builder ──▶│  frontend_dist  │
-  │  (vite build)     │     cp /app/dist/*     │  (named volume) │
-  └───────────────────┘     → /export/         └────────┬─────────┘
-                                                          │
-                                                          ▼
-   ┌──────────┐     ┌──────────────┐    ┌──────────────────┐
-   │ Browser  │────▶│  Nginx :80   │◀───│ /usr/share/      │
-   │          │     │  reverse     │    │ nginx/html       │
-   └──────────┘     │  proxy       │    └──────────────────┘
-                    └──────┬───────┘
-                           │ /api/
-                         ▼
-                  ┌──────────────┐
-                  │ NestJS (:3000)│
-                  └───┬──────┬───┘
-                      │      │
-                ┌─────┘      └──────┐
-                ▼                    ▼
-         ┌──────────────┐  ┌──────────────────┐
-         │ PostgreSQL   │  │  Redis 7          │
-         │     16       │  │ (tokens, lock,    │
-         └──────────────┘  │  cache, cron)     │
-                           └──────────────────┘
-```
+Browser → Nginx (port 80, reverse proxy + static files) → NestJS API (port 3000) → PostgreSQL 16 + Redis 7. A separate frontend builder service compiles the React SPA via Vite and copies the output to a shared named volume (`frontend_dist`) that Nginx serves.
+
+See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the container diagram and stack justification.
 
 ## Tech Stack
 
@@ -106,93 +83,33 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Responsive mobile layout with hamburger menu
 
 ### Security
-- Helmet security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.)
-- Global exception filter — consistent `{ error: { code, message } }` error format
-- Unexpected 500 errors return a generic message instead of leaking internal exception details
-- JWT auth with short-lived access tokens (in-memory) + rotating refresh tokens (httpOnly cookie, Redis-backed)
-- Logout revokes the active refresh token from Redis; inactive users are rejected at login/refresh/JWT validation
-- Env validation at startup — app throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is missing; production also requires `REDIS_PASSWORD` and rejects known weak `JWT_SECRET` placeholders
-- WebSocket gateway authenticates connections via JWT verification + checks `isActive` in DB; sessions are bounded to access-token expiry (auto-disconnect at `exp`)
-- bcrypt password hashing (cost 12)
-- Self-service password change (current password verification)
-- class-validator DTO validation with `whitelist` + `forbidNonWhitelisted`; text fields trimmed + `@IsNotEmpty()` + `@MinLength()` to reject whitespace-only payloads
-- Role-based access control + ownership-based guards (EndUser restricted to own tickets/comments/attachments only)
-- Internal comments and internal attachments are hidden from EndUser responses/downloads
-- EndUser ticket `_count` reflects only visible comments/attachments, not internal counts
-- Upload filenames generated server-side (`uuid + safe extension`); download filenames are sanitized and `LocalStorageService` validates path containment
-- Upload endpoints enforce Multer size/count/MIME limits before service persistence; magic-byte validation with compatibility map for Office containers (OOXML `.docx`/`.xlsx` detected as ZIP, legacy `.xls` shares OLE2 signature)
-- CSV export neutralizes spreadsheet formula injection
-- Nginx + NestJS rate limiting (10 req/s per IP each layer)
-- EndUser status changes restricted to closing own resolved tickets
-- `MaintenanceGuard` global guard allows Admin through during maintenance mode (via JWT verification) while blocking non-admin requests with 503 (stored in Redis)
-- Restore does not disable maintenance mode on failure — stays active until restore completes
-- Telegram config API response strips secrets; only `hasBotToken`/`hasGroupChatId` flags returned to frontend
+- JWT auth (access in-memory + refresh httpOnly cookie), bcrypt cost 12, account lockout, role-based access control
+- EndUser ownership-scoped: own tickets/comments/attachments only; internal comments/attachments hidden
+- File upload: extension whitelist, magic-byte MIME validation (with Office container compatibility), path traversal prevention, size limits
+- WebSocket sessions bounded to access-token expiry; inactive users disconnected
+- DTO validation: trim + `@IsNotEmpty()` + `@MinLength()` rejects whitespace-only payloads
+- `MaintenanceGuard` blocks non-admin API during maintenance; Admin bypasses via JWT verification
+- See [ARCHITECTURE.md §7](./ARCHITECTURE.md#7-security-architecture) for full security architecture
 
 ## Project Structure
 
 ```
 it-support-ticketing/
 ├── docker-compose.yml         # Multi-container setup
-├── scripts/
-│   └── backup.sh              # Backup PostgreSQL dump + uploads volume
-├── nginx/
-│   ├── nginx.conf             # Reverse proxy + rate limiting
-│   └── certs/                 # SSL cert & key placeholder (gitignored, for future HTTPS setup)
-├── backend/
-│   ├── Dockerfile             # Multi-stage build (Debian bookworm-slim)
-│   ├── docker-entrypoint.sh    # chown mounted uploads/backups, then run as node
-│   ├── prisma/
-│   │   ├── schema.prisma      # 10 models + 7 enums + indexes
-│   │   └── seed.ts            # Admin user, categories, sample ticket
-│   └── src/
-│       ├── auth/              # JWT auth, login/refresh/logout
-│       ├── tickets/           # CRUD, filtering, pagination, status workflow
-│       ├── comments/          # Public/internal comments
-│       ├── attachments/       # File upload with StorageService abstraction
-│       ├── categories/        # Master data management
-│       ├── sub-categories/
-│       ├── sla/               # Config + cron breach checker
-│       ├── notifications/     # Event-driven + WebSocket gateway
-│       ├── telegram/          # Bot polling, sendMessage, link/unlink, config CRUD
-│       ├── maintenance/       # Admin backup API
-│       ├── dashboard/         # Statistics & analytics
-│       ├── users/             # Admin user management
-│       ├── health/            # DB + Redis health check
-│       ├── prisma/            # PrismaService
-│       ├── redis/             # ioredis provider
-│       └── common/            # Guards, decorators, interceptors, filters, policies, dto, repositories
-├── frontend/
-│   ├── Dockerfile             # Multi-stage build (Vite build → nginx static)
-│   └── src/
-│       ├── lib/               # Axios client, utility functions
-│       ├── types/             # TypeScript type definitions
-│       ├── stores/            # Zustand stores (auth, notifications, theme)
-│       ├── hooks/             # TanStack Query hooks (useTickets, useAuth, useMaintenance, etc.)
-│       ├── auth/              # LoginForm, ProtectedRoute
-│       ├── layout/            # Sidebar, Navbar, Layout
-│       ├── components/
-│       │   ├── MaintenanceBanner.tsx
-│       │   ├── tickets/       # TicketList, CreateTicketForm, TicketDetail, etc.
-│       │   ├── dashboard/     # DashboardStats (cards, bars, trends)
-│       │   ├── admin/         # UserManagement, MasterDataManagement
-│       │   └── ui/            # Modal, Pagination, ErrorBoundary, LoadingSpinner, etc.
-│       └── pages/             # 10 pages (login, tickets, detail, create-ticket, dashboard, notifications, my-account, admin-users, admin-master, admin-maintenance)
+├── scripts/                   # backup.sh
+├── nginx/                     # reverse proxy + security headers
+├── backend/                   # NestJS API (Prisma, Redis, WebSocket)
+├── frontend/                  # React SPA (Vite, TanStack Query, Zustand, Tailwind)
 └── uploads/                   # File attachments volume
 ```
 
+See [ARCHITECTURE.md §4 Folder Structure](./ARCHITECTURE.md#4-folder-structure) for the full file-level tree.
+
 ## Database Schema
 
-10 tables with proper indexes and foreign keys:
+10 tables with proper indexes and foreign keys (users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config).
 
-- **users** — roles: EndUser, ITSupport, Admin; composite index on (role, isActive)
-- **tickets** — status workflow, SLA tracking, indexes on (status, assignedTo, requesterId, createdAt, slaDueAt)
-- **comments** — PUBLIC/INTERNAL types, linked to attachments
-- **attachments** — magic-byte/MIME validation, max size enforcement, optional FK to comments, `visibility` (`PUBLIC`/`INTERNAL`)
-- **categories** / **sub_categories** — hierarchical master data
-- **sla_configs** — unique (categoryId, priority)
-- **ticket_history** — audit trail for all state changes; indexed on (userId, createdAt)
-- **notifications** — per-user with read/unread status
-- **telegram_config** — singleton (unique `key` column, atomic upsert) Telegram bot config (token, events, templates) stored as JSON
+See [ARCHITECTURE.md §3 Database Schema](./ARCHITECTURE.md#3-database-schema-erd-textual) for the full ERD with fields, indexes, and relationships.
 
 ## Quick Start
 
@@ -471,18 +388,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md#6-scaling-suggestions) for detailed scal
 
 ## Security
 
-This project implements defense-in-depth security measures. See [CODE_REVIEW.md](./CODE_REVIEW.md) for the full security audit.
-
-### Key Security Controls
-- **Auth**: bcrypt cost 12, JWT access (15min) + refresh (7d) tokens, httpOnly + sameSite=strict cookies, refresh rotation with Redis reuse detection
-- **Account lockout**: 10 failed login attempts → 15-minute lock (Redis)
-- **Timing attack mitigation**: dummy bcrypt compare for non-existent users
-- **Global auth guard**: `JwtAuthGuard` is fail-closed; `@Public()` decorator exempts only health, auth, and maintenance-mode endpoints
-- **File upload**: extension whitelist, magic byte verification, MIME type integrity check, path traversal prevention, size limits
-- **Attachment visibility**: `AttachmentVisibilityPolicy` — EndUser sees only PUBLIC attachments on PUBLIC comments; `path` field never exposed
-- **Nginx**: security headers (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy), dotfile deny, default_server for unmatched Host
-- **Docker**: `no-new-privileges`, `cap_drop: ALL`, resource limits, least-privilege env files
-- **Secrets**: `.env` permission `600`, `.gitignore` covers `.env.*` variants, strong credentials via `openssl rand`
+This project implements defense-in-depth security measures. See [ARCHITECTURE.md §7 Security Architecture](./ARCHITECTURE.md#7-security-architecture) for the full security architecture (auth, file upload, infrastructure).
 
 ### Security Environment Variables
 | Variable | Required | Description |
