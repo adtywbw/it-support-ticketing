@@ -213,7 +213,7 @@ The Quick Start section covers local HTTP development. Production requires HTTPS
 ### Prerequisites
 
 - **TLS termination** — either an external reverse proxy (nginx, Caddy, Traefik, Cloudflare, ALB) in front of the bundled nginx, or mkcert-issued certificates for an internal network. See [TLS Options](#tls-options) below.
-- **Strong secrets** — generate with `openssl rand -base64 24` (passwords) or `openssl rand -hex 32` (JWT).
+- **Strong secrets** — generate with `openssl rand -hex 24` (passwords, URL-safe for `DATABASE_URL`/`REDIS_URL`) or `openssl rand -hex 32` (JWT). Avoid `-base64` for passwords: its `/`, `+`, `=` characters are reserved in URIs and break connection strings unless URL-encoded.
 - **Seed passwords** — `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` for first-run seeding.
 
 ### 1. Configure Environment
