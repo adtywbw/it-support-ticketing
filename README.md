@@ -62,6 +62,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ### SLA Management
 - Configurable SLA per category + priority
 - `slaDueAt` auto-calculated on ticket creation
+- Partial updates validate merged `responseTimeMinutes`/`resolutionTimeMinutes` (resolution must be ≥ response)
 - Background cron every 5 minutes checks SLA breach (Redis lock for horizontal scaling)
 - SLA status: `OnTrack`, `AtRisk` (≤20% remaining), `Breached`
 
@@ -70,6 +71,7 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - Daily trends (7d and 30d)
 - SLA compliance rate
 - Average resolution time per category (smart unit: hours/minutes/seconds)
+- Redis-cached (30s TTL) with event-driven invalidation on ticket create/status/assign/priority/delete
 
 ### Notifications
 - In-app notification system (table-based)
@@ -110,15 +112,15 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 - JWT auth with short-lived access tokens (in-memory) + rotating refresh tokens (httpOnly cookie, Redis-backed)
 - Logout revokes the active refresh token from Redis; inactive users are rejected at login/refresh/JWT validation
 - Env validation at startup — app throws if `JWT_SECRET`, `DATABASE_URL`, or `REDIS_URL` is missing; production also requires `REDIS_PASSWORD` and rejects known weak `JWT_SECRET` placeholders
-- WebSocket gateway authenticates connections via JWT verification + checks `isActive` in DB
+- WebSocket gateway authenticates connections via JWT verification + checks `isActive` in DB; sessions are bounded to access-token expiry (auto-disconnect at `exp`)
 - bcrypt password hashing (cost 12)
 - Self-service password change (current password verification)
-- class-validator DTO validation with `whitelist` + `forbidNonWhitelisted`
+- class-validator DTO validation with `whitelist` + `forbidNonWhitelisted`; text fields trimmed + `@IsNotEmpty()` + `@MinLength()` to reject whitespace-only payloads
 - Role-based access control + ownership-based guards (EndUser restricted to own tickets/comments/attachments only)
 - Internal comments and internal attachments are hidden from EndUser responses/downloads
 - EndUser ticket `_count` reflects only visible comments/attachments, not internal counts
 - Upload filenames generated server-side (`uuid + safe extension`); download filenames are sanitized and `LocalStorageService` validates path containment
-- Upload endpoints enforce Multer size/count/MIME limits before service persistence
+- Upload endpoints enforce Multer size/count/MIME limits before service persistence; magic-byte validation with compatibility map for Office containers (OOXML `.docx`/`.xlsx` detected as ZIP, legacy `.xls` shares OLE2 signature)
 - CSV export neutralizes spreadsheet formula injection
 - Nginx + NestJS rate limiting (10 req/s per IP each layer)
 - EndUser status changes restricted to closing own resolved tickets
@@ -131,7 +133,6 @@ Full-stack ticketing application for internal IT support, built with **NestJS**,
 ```
 it-support-ticketing/
 ├── docker-compose.yml         # Multi-container setup
-├── .env.example               # Environment variables template
 ├── scripts/
 │   └── backup.sh              # Backup PostgreSQL dump + uploads volume
 ├── nginx/
@@ -191,7 +192,7 @@ it-support-ticketing/
 - **sla_configs** — unique (categoryId, priority)
 - **ticket_history** — audit trail for all state changes; indexed on (userId, createdAt)
 - **notifications** — per-user with read/unread status
-- **telegram_config** — global Telegram bot config (token, events, templates) stored as JSON
+- **telegram_config** — singleton (unique `key` column, atomic upsert) Telegram bot config (token, events, templates) stored as JSON
 
 ## Quick Start
 
@@ -432,20 +433,29 @@ The API image installs `postgresql-client-16` to match the PostgreSQL 16 server.
 cd backend
 npm run test
 
-# Frontend lint (zero warnings policy)
+# Frontend tests + lint (zero warnings policy)
 cd frontend
+npm test
 npm run lint
 ```
 
-Unit test for TicketsService covers:
-- `create()` — happy path, category not found error, ticket number format, SLA calculation
-- `findAll()` — pagination, search filtering
-- `updateStatus()` — valid transitions, invalid transitions (BadRequestException), not found
+Backend unit tests (13 suites, 126 tests) cover:
+- `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
+- `AuthService` / `AuthController` — login, refresh, lockout, token rotation
+- `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
+- `MaintenanceService` / `MaintenanceGuard` — backup/restore failure paths, admin bypass, Redis fail-open
+- `SLAService` — partial update merged-value validation, not-found, isActive-only patches
+- `MIME validation` — magic-byte detection, Office file compatibility (OOXML/OLE2), spoofing rejection, text null-byte check
+- `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
+- `CreateTicketDto` / `CreateCommentDto` — whitespace rejection, trim-before-validate, min-length enforcement
+- `TelegramConfigRepository` — singleton atomic upsert, concurrent findOrCreate safety
+- `DashboardService` — cache invalidation, event-driven invalidation, Redis failure resilience
 
-Unit test for AttachmentVisibilityPolicy covers:
-- `buildVisibleAttachmentWhere` — returns undefined for ITSupport/Admin, returns visibility=PUBLIC filter for EndUser
-- `buildVisibleAttachmentCountWhere` — returns filter requiring PUBLIC visibility
-- `isAttachmentVisible` — EndUser sees only PUBLIC direct attachments and PUBLIC comment attachments; ITSupport/Admin see all
+Frontend tests (4 suites, 13 tests) cover:
+- `auth-store` — login, logout, token persistence
+- `ProtectedRoute` — refresh envelope, unauthenticated redirect, role gating
+- `use-notifications` — unread count fetch, paginated notifications list
+- `Pagination` — page info, no "All" option, Next/Previous button states
 
 ## Scaling
 
@@ -478,7 +488,7 @@ This project implements defense-in-depth security measures. See [CODE_REVIEW.md]
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `JWT_SECRET` | Yes (min 32 chars) | JWT signing secret |
-| `COOKIE_SECURE` | Yes in production | `true` for HTTPS, `false` for local HTTP dev |
+| `COOKIE_SECURE` | Yes in production | `true` for HTTPS, `false` for local HTTP dev (enforced `true` when `NODE_ENV=production`; `.env.compose.example` ships `false` for bundled HTTP-only nginx) |
 | `REDIS_PASSWORD` | Yes in production | Redis authentication |
 | `REDIS_TLS` | No | Set `true` for Redis over TLS |
 | `SEED_ON_START` | No | Set `true` to auto-seed in production (requires `SEED_ADMIN_PASSWORD`/`SEED_SUPPORT_PASSWORD`) |
