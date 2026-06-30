@@ -9,6 +9,14 @@ import { Priority, SLAStatus, TicketStatus } from '@prisma/client';
 
 @Injectable()
 export class SLAService {
+  private static readonly RELEASE_LOCK_SCRIPT = `
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+      return redis.call('del', KEYS[1])
+    else
+      return 0
+    end
+  `;
+
   private readonly logger = new Logger(SLAService.name);
 
   constructor(
@@ -125,7 +133,11 @@ export class SLAService {
     } catch (error) {
       this.logger.error('SLA check failed', error);
     } finally {
-      await this.redisService.del(lockKey);
+      await this.redisService.eval(
+        SLAService.RELEASE_LOCK_SCRIPT,
+        [lockKey],
+        [lockToken],
+      );
     }
   }
 
