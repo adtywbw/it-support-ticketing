@@ -567,3 +567,16 @@ Eksekusi `AI_AGENT_REVIEW_TASKS.md` — 10 task selesai, production readiness ga
 ### Residual (deferred)
 - 13 moderate vulnerabilities butuh NestJS 11 upgrade (breaking). `file-type` (ZIP bomb DoS) paling relevan karena app proses upload.
 - E2E / integration tests belum ada.
+
+## Review Fixes — Batch 1 (Session 6)
+
+### Backup Permissions Hardening
+- **BPH-01**: `createBackup()` — tambah `{ mode: 0o700 }` di `fs.mkdir`; tambah `fs.chmod(..., 0o600)` untuk `db.sql.gz`, `uploads.tar.gz`, `manifest.txt`. Sebelumnya backup files ikut default umask yang bisa `0644` (world-readable). Error asli di `catch` juga di-log via `this.logger.error()` — sebelumnya error ditelan.
+- **BPH-02**: Test mock `fs/promises` tambah `chmod` mock agar test tidak `TypeError` jika ada unit test `createBackup()`.
+
+### SLA Cron Lock Safety
+- **SLS-01**: `SLAService.checkSLA()` ganti `del(lockKey)` unconditional → compare-and-delete Lua script. Mencegah worker lain merelease lock yang bukan miliknya saat lock TTL expire sebelum `finally`.
+
+### Frontend Auth Cookie Handling
+- **AUTH-03**: `apiClient` axios tambah `withCredentials: true`. Sebelumnya hanya refresh endpoint (`axios.post(...)`) yang explicit set credentials, login/logout cookie tidak terkirim untuk cross-origin deployment.
+- **AUTH-04**: Password-change (`MyAccountPage`) dan restore-success (`AdminMaintenancePage`) sekarang panggil `/auth/logout` (`apiClient.post(..., .catch(() => {}))`) sebelum client-side cleanup (`logout()`, `queryClient.clear()`). Sebelumnya cuma client cleanup, refresh cookie tetap valid di server.
