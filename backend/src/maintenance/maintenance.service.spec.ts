@@ -10,6 +10,7 @@ jest.mock('fs/promises', () => ({
   rename: jest.fn().mockResolvedValue(undefined),
   stat: jest.fn().mockRejectedValue(new Error('not found')),
   writeFile: jest.fn().mockResolvedValue(undefined),
+  chmod: jest.fn().mockResolvedValue(undefined),
   access: jest.fn().mockRejectedValue(new Error('not found')),
 }));
 
