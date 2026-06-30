@@ -122,7 +122,7 @@ export class MaintenanceService {
     const manifestPath = path.join(backupPath, 'manifest.txt');
 
     try {
-      await fs.mkdir(backupPath, { recursive: true });
+      await fs.mkdir(backupPath, { recursive: true, mode: 0o700 });
       const pgDump = this.createPgDumpOptions(databaseUrl, dbSqlPath);
 
       await execFileAsync('pg_dump', pgDump.args, {
@@ -132,10 +132,12 @@ export class MaintenanceService {
       await execFileAsync('gzip', ['-f', dbSqlPath], {
         maxBuffer: EXEC_MAX_BUFFER,
       });
+      await fs.chmod(dbSqlPath.replace(/\.sql$/, '.sql.gz'), 0o600);
 
       await execFileAsync('tar', ['-czf', uploadsPath, '-C', this.uploadDir, '.'], {
         maxBuffer: EXEC_MAX_BUFFER,
       });
+      await fs.chmod(uploadsPath, 0o600);
 
       await fs.writeFile(
         manifestPath,
@@ -146,7 +148,9 @@ export class MaintenanceService {
           '',
         ].join('\n'),
       );
-    } catch {
+      await fs.chmod(manifestPath, 0o600);
+    } catch (error) {
+      this.logger.error(`Backup failed: ${(error as Error).message}`, (error as Error).stack);
       await fs.rm(backupPath, { recursive: true, force: true });
       throw new BadRequestException('Backup failed. See server logs for details.');
     } finally {
