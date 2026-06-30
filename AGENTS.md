@@ -145,7 +145,7 @@ postgres/postgresql.conf
 - Template variables: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`.
 
 ## Docker & HTTP Notes
-- Docker local is HTTP only; nginx listens on port 80 for development. Production HTTPS uses the `docker-compose.prod.yml` override (`nginx/nginx.ssl.conf` on port 443 + TLS) — no manual edits to `nginx.conf` or `docker-compose.yml` needed.
+- Docker local is HTTP only; nginx listens on port 80 for development. Production HTTPS uses the `docker-compose.prod.yml` override (`nginx/nginx.ssl.conf` on port 443 + TLS) — no manual edits to `nginx.conf` or `docker-compose.yml` needed. `nginx.ssl.conf` includes TLS hardening: `ssl_ciphers HIGH:!aNULL:!MD5`, `ssl_prefer_server_ciphers`, `ssl_session_cache`, `ssl_session_tickets off`, HSTS header, separate WebSocket rate limit zone (`ws_limit` 5r/s), and tightened CSP (no `ws: wss:` on static assets).
 - `backend/.env.compose.example` ships with local HTTP defaults (`NODE_ENV=development`, `COOKIE_SECURE=false`) matching the bundled HTTP-only nginx. Production behind an HTTPS reverse proxy requires `NODE_ENV=production`, `COOKIE_SECURE=true`, and HTTPS `CORS_ORIGIN` — documented in the example file header.
 - Domain: `helpdesk.rsmch.internal` via AdGuard Home DNS rewrite.
 - Cert files under `nginx/certs/` are gitignored; consumed by `docker-compose.prod.yml` for mkcert TLS.

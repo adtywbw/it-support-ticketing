@@ -272,7 +272,7 @@ mkcert -cert-file nginx/certs/helpdesk.rsmch.internal.pem \
        helpdesk.rsmch.internal
 ```
 
-The repo ships `nginx/nginx.ssl.conf` and `docker-compose.prod.yml` — no manual file editing needed. The production override swaps the HTTP nginx config for the SSL variant (port 80 → 301 redirect, 443 with TLS) and mounts the certs directory.
+The repo ships `nginx/nginx.ssl.conf` and `docker-compose.prod.yml` — no manual file editing needed. The production override swaps the HTTP nginx config for the SSL variant (port 80 → 301 redirect, 443 with TLS) and mounts the certs directory. The SSL config includes TLS hardening (strong ciphers, session cache, HSTS), rate limiting (API + WebSocket zones), and tightened CSP on static assets.
 
 1. **DNS** — point `helpdesk.rsmch.internal` to your server (e.g., via AdGuard Home, dnsmasq, or `/etc/hosts`).
 
