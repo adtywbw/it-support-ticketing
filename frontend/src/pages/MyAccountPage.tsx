@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import PasswordInput from '@/components/ui/PasswordInput';
 import { getErrorMessage, getUserDisplayName, getUserInitials } from '@/lib/utils';
+import apiClient from '@/lib/axios';
 
 const EVENT_LABELS: Record<string, string> = {
   'ticket.created': 'New Ticket Created',
@@ -112,6 +113,7 @@ export default function MyAccountPage() {
 
     try {
       await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
+      await apiClient.post('/auth/logout').catch(() => {});
       logout();
       queryClient.clear();
       navigate('/login', { state: { message: 'Password changed successfully. Please login again with your new password.' } });

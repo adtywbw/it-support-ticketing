@@ -9,6 +9,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from '@/components/ui/Modal';
 import { getErrorMessage } from '@/lib/utils';
+import apiClient from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
 import type { BackupInfo } from '@/types';
 
@@ -101,6 +102,7 @@ export default function AdminMaintenancePage() {
         confirmation: restoreConfirmation,
       });
       toast.success('Backup restored successfully. Please log in again.');
+      await apiClient.post('/auth/logout').catch(() => {});
       queryClient.clear();
       logout();
       navigate('/login', { replace: true });
