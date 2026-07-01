@@ -11,7 +11,7 @@ import * as path from 'path';
 import { Express } from 'express';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
-import { StorageService } from './interfaces/storage-service.interface';
+import { StorageService, STORAGE_SERVICE } from './interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
@@ -36,11 +36,11 @@ export class AttachmentsService {
   constructor(
     private readonly attachmentRepository: AttachmentRepository,
     private readonly ticketRepository: TicketRepository,
-    @Inject('StorageService')
+    @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
 
-  async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string, visibility?: string) {
+  async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string, visibility?: AttachmentVisibility) {
     const ticket = await this.ticketRepository.findUnique({
       where: { id: ticketId },
       select: { id: true, requesterId: true },
@@ -71,9 +71,9 @@ export class AttachmentsService {
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
     const filePath = buildSafeUploadPath(uploadDir, file.originalname);
 
-    const resolvedVisibility = userRole === Role.EndUser
+    const resolvedVisibility: AttachmentVisibility = userRole === Role.EndUser
       ? AttachmentVisibility.PUBLIC
-      : (visibility === 'INTERNAL' ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC);
+      : (visibility === AttachmentVisibility.INTERNAL ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC);
 
     await this.storageService.save(file, filePath);
 

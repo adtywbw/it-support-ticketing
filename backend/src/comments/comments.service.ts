@@ -12,7 +12,7 @@ import { Role, CommentType, AttachmentVisibility, Prisma } from '@prisma/client'
 import { CommentRepository } from '../common/repositories/comment.repository';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
-import { StorageService } from '../attachments/interfaces/storage-service.interface';
+import { StorageService, STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
@@ -27,7 +27,7 @@ export class CommentsService {
     private readonly commentRepository: CommentRepository,
     private readonly attachmentRepository: AttachmentRepository,
     private readonly ticketRepository: TicketRepository,
-    @Inject('StorageService')
+    @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
 
@@ -64,13 +64,6 @@ export class CommentsService {
       );
     }
 
-    const existingAttachmentCount = await this.attachmentRepository.count({ ticketId });
-    if (existingAttachmentCount + files.length > MAX_FILES_PER_TICKET) {
-      throw new BadRequestException(
-        `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
-      );
-    }
-
     for (const file of files) {
       if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
         throw new BadRequestException(
@@ -100,6 +93,13 @@ export class CommentsService {
       }
 
       return await this.commentRepository.transaction(async (tx) => {
+        const existingAttachmentCount = await tx.attachment.count({ where: { ticketId } });
+        if (existingAttachmentCount + files.length > MAX_FILES_PER_TICKET) {
+          throw new BadRequestException(
+            `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
+          );
+        }
+
         const comment = await tx.comment.create({
           data: {
             ticket: { connect: { id: ticketId } },
@@ -178,28 +178,37 @@ export class CommentsService {
     const actualLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 20;
     const skip = (normalizedPage - 1) * actualLimit;
 
+    // For EndUser, push the attachment visibility filter into the Prisma
+    // query so DB returns only visible attachments (no in-memory filter,
+    // and INTERNAL attachments never leave the DB for EndUser).
+    const attachmentsWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentWhere(userRole as any);
+    const include = attachmentsWhere
+      ? {
+          user: { select: { id: true, name: true, email: true, role: true, avatarUrl: true } },
+          attachments: {
+            where: attachmentsWhere,
+            select: {
+              id: true,
+              ticketId: true,
+              commentId: true,
+              userId: true,
+              originalName: true,
+              mimeType: true,
+              size: true,
+              visibility: true,
+              createdAt: true,
+              user: { select: { id: true, name: true } },
+            },
+          },
+        }
+      : undefined;
+
     const [comments, total] = await Promise.all([
-      this.commentRepository.findByTicketId(ticketId, where, { skip, take: actualLimit }),
+      this.commentRepository.findByTicketId(ticketId, where, { skip, take: actualLimit }, include),
       this.commentRepository.countByTicketId(ticketId, where),
     ]);
 
-    let result = comments;
-    if (userRole === Role.EndUser) {
-      result = comments.map((comment: any) => ({
-        ...comment,
-        attachments: (comment.attachments || []).filter((att: any) =>
-          AttachmentVisibilityPolicy.isAttachmentVisible(
-            {
-              comment: { type: comment.type },
-              visibility: att.visibility,
-            },
-            'EndUser',
-          )
-        ),
-      }));
-    }
-
     const totalPages = Math.ceil(total / actualLimit) || 1;
-    return { data: result, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
+    return { data: comments, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
   }
 }

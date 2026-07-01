@@ -14,31 +14,37 @@ export class CommentRepository {
     return this.prisma.comment.findUnique({ where: { id }, include }) as any;
   }
 
-  async findByTicketId(ticketId: string, where?: Record<string, unknown>, pagination?: { skip: number; take: number }) {
+  async findByTicketId(
+    ticketId: string,
+    where?: Record<string, unknown>,
+    pagination?: { skip: number; take: number },
+    include?: Prisma.CommentInclude,
+  ) {
+    const defaultInclude: Prisma.CommentInclude = {
+      user: {
+        select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+      },
+      attachments: {
+        select: {
+          id: true,
+          ticketId: true,
+          commentId: true,
+          userId: true,
+          originalName: true,
+          mimeType: true,
+          size: true,
+          visibility: true,
+          createdAt: true,
+          user: { select: { id: true, name: true } },
+        },
+      },
+    };
     return this.prisma.comment.findMany({
       where: { ticketId, ...where } as any,
       orderBy: { createdAt: 'asc' },
       skip: pagination?.skip,
       take: pagination?.take,
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
-        },
-        attachments: {
-          select: {
-            id: true,
-            ticketId: true,
-            commentId: true,
-            userId: true,
-            originalName: true,
-            mimeType: true,
-            size: true,
-            visibility: true,
-            createdAt: true,
-            user: { select: { id: true, name: true } },
-          },
-        },
-      },
+      include: include ?? defaultInclude,
     }) as any;
   }
 

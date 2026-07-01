@@ -8,16 +8,18 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TicketRepository } from '../common/repositories/ticket.repository';
+import { TicketRepository, TicketAccessScope } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { UserRepository } from '../common/repositories/user.repository';
+import { SLAService } from '../sla/sla.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
 import { TicketStatus, Priority, SLAStatus,       CommentType, Prisma } from '@prisma/client';
+import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 
@@ -36,15 +38,14 @@ export class TicketsService {
     private readonly categoryRepository: CategoryRepository,
     private readonly subCategoryRepository: SubCategoryRepository,
     private readonly userRepository: UserRepository,
+    private readonly slaService: SLAService,
     private readonly eventEmitter: EventEmitter2,
-    @Inject('StorageService')
+    @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
 
   async create(createTicketDto: CreateTicketDto, requesterId: string) {
-    const category = await this.categoryRepository.findById(createTicketDto.categoryId, {
-      slaConfigs: { where: { priority: createTicketDto.priority || Priority.Medium, isActive: true } },
-    });
+    const category = await this.categoryRepository.findById(createTicketDto.categoryId, {});
 
     if (!category || !category.isActive) {
       throw new BadRequestException('Category not found');
@@ -57,7 +58,14 @@ export class TicketsService {
       }
     }
 
-    const slaConfig = category.slaConfigs?.[0];
+    // Use SLAService.getSLAConfig so the priority-fallback rule
+    // (lowest-resolutionTime active config) is applied consistently.
+    // Previously this method fetched only the priority-specific config
+    // and used a hardcoded 24h default if absent.
+    const slaConfig = await this.slaService.getSLAConfig(
+      createTicketDto.categoryId,
+      createTicketDto.priority || Priority.Medium,
+    );
     const slaDueAt = slaConfig
       ? new Date(Date.now() + slaConfig.resolutionTimeMinutes * 60 * 1000)
       : new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -99,10 +107,6 @@ export class TicketsService {
 
     const where: Record<string, unknown> = {};
 
-    if (userRole === 'EndUser') {
-      where.requesterId = userId;
-    }
-
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (categoryId) where.categoryId = categoryId;
@@ -136,8 +140,10 @@ export class TicketsService {
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const orderBy: Record<string, string> = { [orderField]: sortOrder };
 
+    const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
+
     const [tickets, total] = await Promise.all([
-      this.ticketRepository.findMany({
+      this.ticketRepository.findManyForUser({
         where: where as any,
         skip: limit > 0 ? (page - 1) * limit : 0,
         take: limit > 0 ? limit : undefined,
@@ -149,8 +155,8 @@ export class TicketsService {
           subCategory: { select: { id: true, name: true } },
           _count: { select: { comments: true, attachments: true } },
         },
-      }),
-      this.ticketRepository.count(where as any),
+      }, scope),
+      this.ticketRepository.countForUser(where as any, scope),
     ]);
 
     if (userRole === 'EndUser' && tickets.length > 0) {
@@ -182,7 +188,6 @@ export class TicketsService {
 
     const where: Record<string, unknown> = {};
 
-    if (userRole === 'EndUser') where.requesterId = userId;
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (categoryId) where.categoryId = categoryId;
@@ -226,11 +231,12 @@ export class TicketsService {
 
     let cursorId: string | undefined;
     let totalExported = 0;
+    const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
 
     while (totalExported < MAX_EXPORT_ROWS) {
       const cursorWhere = cursorId ? { ...where, id: { [orderDir === 'asc' ? 'gt' : 'lt']: cursorId } } : where;
 
-      const batch = await this.ticketRepository.findMany({
+      const batch = await this.ticketRepository.findManyForUser({
         where: cursorWhere as any,
         orderBy: { id: orderDir === 'asc' ? 'asc' : 'desc' },
         take: BATCH_SIZE,
@@ -240,7 +246,7 @@ export class TicketsService {
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
         },
-      });
+      }, scope);
 
       if (batch.length === 0) break;
 

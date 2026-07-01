@@ -2,6 +2,35 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 8 Review (sesi9/quick-wins branch)
+
+Baseline review menemukan 21 Important + 50 Minor issues. Sesi 9 apply 17 quick-win fixes (1 commit per logical change):
+
+### Backend Infrastructure
+- **INFRA-I-1**: `user.repository.ts:79` & `notification.repository.ts:30` — `totalPages = Math.ceil(total / limit) || 1` agar empty page tidak return `totalPages: 0`. Konsisten dengan `attachments.service.ts:144`.
+- **INFRA-I-2**: `skip-maintenance.decorator.ts` — export `SKIP_MAINTENANCE_KEY` constant; `maintenance.guard.ts` import. Hindari string-literal typo.
+- **INFRA-I-3**: `storage-service.interface.ts` — tambah `STORAGE_SERVICE` Symbol. 3 service + module + 1 test ganti `@Inject('StorageService')` → `@Inject(STORAGE_SERVICE)`.
+- **INFRA-I-6**: `prisma.service.ts` — validate `DATABASE_URL` (empty/invalid) di constructor dengan error message eksplisit.
+
+### Backend Security
+- **SEC-I-1**: `maintenance.guard.ts:73` — `verifyAsync` dengan explicit `{ secret, algorithms: ['HS256'] }`. Hindari algorithm-downgrade jika `JwtModule` options berubah.
+- **SEC-I-2**: `ticket.repository.ts` — `findManyForUser` + `countForUser` + `TicketAccessScope` + `buildTicketAccessWhere` helper. EndUser scope tidak bisa dilupakan caller baru.
+- **SEC-I-3**: `comment.repository.ts:17-46` + `comments.service.ts:172-209` — visibility filter EndUser di-push ke Prisma `attachments.where` (bukan in-memory setelah fetch).
+- **SEC-I-4**: `upload-attachment.dto.ts` (new) — `@IsEnum(AttachmentVisibility)`. `attachments.service.ts:43` parameter typed `AttachmentVisibility` bukan `string`.
+- **SEC-I-5**: `comments.service.ts:102-109` — `MAX_FILES_PER_TICKET` count di dalam transaction (`tx.attachment.count`). Hindari race condition 2 concurrent comment-with-files.
+- **SEC-I-6**: `auth.service.ts:151-156` — hapus direct `revokeAllRefreshTokens` di `changePassword`. Event handler (`@OnEvent('user.password_changed')`) yang handle, sync dispatch.
+
+### Backend Business
+- **BIZ-I-1**: `tickets.service.ts:45-77` — pakai `SLAService.getSLAConfig()` (priority-fallback ke lowest-resolutionTime). Konsisten dengan service SLA, bukan hardcoded 24h. `tickets.module.ts` import `SLAModule`.
+- **BIZ-I-2**: `maintenance.service.ts:105-119` — `createBackup` reject jika `RESTORE_LOCK_KEY` set (kecuali `source='pre-restore'`). Hindari `pg_dump` terhadap schema yang sedang di-DROP.
+- **BIZ-I-3**: `AGENTS.md` — tambah section "Category Field-Set by Role" lock contract EndUser+ITSupport minimal / Admin full. Code is correct per CHANGELOG P1-06.
+
+### Frontend
+- **FE-I-1**: `use-notifications.ts:40-52` — `useMarkAsRead.onSuccess` panggil `notificationStore.decrement()` untuk instant badge update.
+- **FE-I-2**: `LoginPage.tsx` — render `location.state.message` di amber banner di atas form. Password change / restore success message tidak hilang.
+- **FE-I-3**: `use-socket.ts:32-33,41-42` — `console.log` di guard dengan `import.meta.env.DEV`.
+- **FE-I-4**: `use-change-password.test.tsx` (3 cases) + `use-socket.test.tsx` (5 cases). Test count: 13 → 21.
+
 ## Docker / TLS Refactor
 
 - **DR-01**: Production TLS via compose override — added `nginx/nginx.ssl.conf` (HTTPS variant: port 80→301 redirect, 443 SSL, TLS 1.2/1.3) and `docker-compose.prod.yml` (override: port 443, certs mount, swap to SSL config). Eliminates manual editing of `nginx.conf`/`docker-compose.yml` for mkcert deployments. Dev: `docker compose up` (HTTP). Prod: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d` (HTTPS). Updated README, AGENTS.md, ARCHITECTURE.md, and `.env.compose.example` accordingly.
