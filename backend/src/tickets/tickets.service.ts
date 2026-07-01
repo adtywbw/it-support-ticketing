@@ -12,6 +12,7 @@ import { TicketRepository, TicketAccessScope } from '../common/repositories/tick
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { UserRepository } from '../common/repositories/user.repository';
+import { SLAService } from '../sla/sla.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -37,15 +38,14 @@ export class TicketsService {
     private readonly categoryRepository: CategoryRepository,
     private readonly subCategoryRepository: SubCategoryRepository,
     private readonly userRepository: UserRepository,
+    private readonly slaService: SLAService,
     private readonly eventEmitter: EventEmitter2,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
 
   async create(createTicketDto: CreateTicketDto, requesterId: string) {
-    const category = await this.categoryRepository.findById(createTicketDto.categoryId, {
-      slaConfigs: { where: { priority: createTicketDto.priority || Priority.Medium, isActive: true } },
-    });
+    const category = await this.categoryRepository.findById(createTicketDto.categoryId, {});
 
     if (!category || !category.isActive) {
       throw new BadRequestException('Category not found');
@@ -58,7 +58,14 @@ export class TicketsService {
       }
     }
 
-    const slaConfig = category.slaConfigs?.[0];
+    // Use SLAService.getSLAConfig so the priority-fallback rule
+    // (lowest-resolutionTime active config) is applied consistently.
+    // Previously this method fetched only the priority-specific config
+    // and used a hardcoded 24h default if absent.
+    const slaConfig = await this.slaService.getSLAConfig(
+      createTicketDto.categoryId,
+      createTicketDto.priority || Priority.Medium,
+    );
     const slaDueAt = slaConfig
       ? new Date(Date.now() + slaConfig.resolutionTimeMinutes * 60 * 1000)
       : new Date(Date.now() + 24 * 60 * 60 * 1000);

@@ -10,6 +10,7 @@ import { TicketRepository, buildTicketAccessWhere } from '../common/repositories
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { UserRepository } from '../common/repositories/user.repository';
+import { SLAService } from '../sla/sla.service';
 import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 
 describe('TicketsService', () => {
@@ -55,6 +56,10 @@ describe('TicketsService', () => {
     getForValidation: jest.fn(),
   };
 
+  const mockSlaService = {
+    getSLAConfig: jest.fn().mockResolvedValue(null),
+  };
+
   const mockEventEmitter = {
     emit: jest.fn(),
   };
@@ -73,6 +78,7 @@ describe('TicketsService', () => {
         { provide: CategoryRepository, useValue: mockCategoryRepository },
         { provide: SubCategoryRepository, useValue: mockSubCategoryRepository },
         { provide: UserRepository, useValue: mockUserRepository },
+        { provide: SLAService, useValue: mockSlaService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: STORAGE_SERVICE, useValue: mockStorageService },
       ],
@@ -177,11 +183,12 @@ describe('TicketsService', () => {
 
       expect(mockCategoryRepository.findById).toHaveBeenCalledWith(
         createTicketDto.categoryId,
-        expect.objectContaining({
-          slaConfigs: expect.objectContaining({
-            where: { priority: Priority.High, isActive: true },
-          }),
-        }),
+        {},
+      );
+
+      expect(mockSlaService.getSLAConfig).toHaveBeenCalledWith(
+        createTicketDto.categoryId,
+        createTicketDto.priority || Priority.Medium,
       );
 
       expect(mockTicketRepository.transaction).toHaveBeenCalledWith(
@@ -322,17 +329,16 @@ describe('TicketsService', () => {
         id: 'cat-1',
         name: 'Network',
         isActive: true,
-        slaConfigs: [
-          {
-            id: 'sla-1',
-            priority: Priority.High,
-            isActive: true,
-            resolutionTimeMinutes,
-          },
-        ],
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
+      mockSlaService.getSLAConfig.mockResolvedValueOnce({
+        id: 'sla-1',
+        categoryId: 'cat-1',
+        priority: Priority.High,
+        isActive: true,
+        resolutionTimeMinutes,
+      });
       mockTicketRepository.findFirst.mockResolvedValue(null);
 
       await service.create(createTicketDto, requesterId);
@@ -350,10 +356,10 @@ describe('TicketsService', () => {
         id: 'cat-1',
         name: 'Network',
         isActive: true,
-        slaConfigs: [],
       };
 
       mockCategoryRepository.findById.mockResolvedValue(mockCategory);
+      mockSlaService.getSLAConfig.mockResolvedValueOnce(null);
       mockTicketRepository.findFirst.mockResolvedValue(null);
 
       const expectedSlaDue = new Date(now.getTime() + 24 * 60 * 60 * 1000);
