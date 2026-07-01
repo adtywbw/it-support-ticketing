@@ -10,10 +10,10 @@ import { Request } from 'express';
 import { Role } from '@prisma/client';
 import { RedisService } from '../../redis/redis.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { SKIP_MAINTENANCE_KEY } from '../decorators/skip-maintenance.decorator';
 
 const MAINTENANCE_KEY = 'maintenance:enabled';
 const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
-const SKIP_MAINTENANCE_KEY = 'skipMaintenance';
 
 @Injectable()
 export class MaintenanceGuard implements CanActivate {
