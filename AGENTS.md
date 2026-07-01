@@ -176,12 +176,12 @@ postgres/postgresql.conf
 - Auth: `POST /api/auth/login|refresh|logout|change-password`.
 - Tickets: `GET|POST /api/tickets`, `GET|PATCH|DELETE /api/tickets/:id`, `PATCH /api/tickets/:id/status|assign|priority`, `GET /api/tickets/export/csv`.
 - Ticket children: `GET|POST /api/tickets/:id/comments|attachments`; EndUser sees only own visible resources.
-- Categories: `GET|POST|PATCH|DELETE /api/categories` and `/api/categories/:categoryId/sub-categories`.
+- Categories: `GET|POST|PATCH|DELETE /api/categories`, `GET /api/categories/:id`, and `/api/categories/:categoryId/sub-categories`.
 - Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path.
 - SLA: `GET|POST|PATCH /api/sla-configs`.
 - Dashboard: `GET /api/dashboard/stats`.
-- Users: `GET|POST|PATCH|DELETE /api/users`; `GET ?includeInactive=true` includes inactive users.
-- Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, and mark-read operations.
+- Users: `GET|POST|PATCH|DELETE /api/users`, `GET /api/users/:id`, `GET /api/users/assignable`; `GET ?includeInactive=true` includes inactive users.
+- Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, and unread-count operations.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
 - Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
 

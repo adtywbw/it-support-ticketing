@@ -91,7 +91,7 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ telegramCodeAt             DateTime? (nullable)
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
-│ INDEXES: (email), (role), (role, isActive)
+│ INDEXES: (email), (role), (role, isActive), (createdAt)
 │ 1──< tickets (requesterId)
 │ 1──< tickets (assignedToId)
 │ 1──< comments
@@ -120,7 +120,9 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
 │ INDEXES: (status), (assignedToId), (requesterId), (createdAt),
-│          (slaDueAt), (priority)
+│          (slaDueAt), (priority), (categoryId), (subCategoryId),
+│          (slaStatus), (updatedAt), (requesterId, createdAt),
+│          (assignedToId, status), (status, slaStatus)
 │ 1──< comments
 │ 1──< attachments
 │ 1──< ticket_history
@@ -161,7 +163,7 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ type                       CommentType (PUBLIC|INTERNAL)
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
-│ INDEXES: (ticketId), (createdAt)
+│ INDEXES: (ticketId), (createdAt), (ticketId, createdAt), (userId)
 │ 1──< attachments (commentId)
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -177,7 +179,7 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ path                       VARCHAR
 │ visibility                 AttachmentVisibility (PUBLIC|INTERNAL)
 │ createdAt                  DateTime
-│ INDEXES: (ticketId), (commentId)
+│ INDEXES: (ticketId), (commentId), (ticketId, visibility), (userId)
 │ NOTE: EndUser responses exclude INTERNAL attachments and attachments from INTERNAL comments
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -203,7 +205,7 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ oldValue                   VARCHAR? (nullable)
 │ newValue                   VARCHAR? (nullable)
 │ createdAt                  DateTime
-│ INDEXES: (ticketId), (createdAt), (userId)
+│ INDEXES: (ticketId), (userId), (createdAt), (ticketId, createdAt)
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -215,7 +217,7 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ data                       JSON? (nullable)
 │ isRead                     Boolean  (default: false)
 │ createdAt                  DateTime
-│ INDEXES: (userId, isRead), (createdAt)
+│ INDEXES: (userId, isRead), (createdAt), (userId, isRead, createdAt)
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -267,16 +269,19 @@ it-support-ticketing/
 │       ├── common/
 │       │   ├── decorators/
 │       │   │   ├── current-user.decorator.ts
+│       │   │   ├── public.decorator.ts
 │       │   │   └── roles.decorator.ts
 │       │   ├── filters/
 │       │   │   └── http-exception.filter.ts
 │       │   ├── guards/
 │       │   │   ├── jwt-auth.guard.ts
+│       │   │   ├── maintenance.guard.ts
 │       │   │   └── roles.guard.ts
 │       │   ├── interceptors/
 │       │   │   └── transform.interceptor.ts
 │       │   ├── interfaces/
-│       │   │   └── storage-service.interface.ts
+│       │   │   ├── api-response.interface.ts
+│       │   │   └── jwt-payload.interface.ts
 │       │   ├── policies/
 │       │   │   └── attachment-visibility.policy.ts
 │       │   ├── utils/

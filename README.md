@@ -356,6 +356,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/notifications` | List (paginated) |
+| GET | `/api/notifications/unread-count` | Get unread notification count |
 | PATCH | `/api/notifications/:id/read` | Mark as read |
 | PATCH | `/api/notifications/read-all` | Mark all as read |
 | DELETE | `/api/notifications` | Clear all notifications |
@@ -364,6 +365,8 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/users` | List (ITSupport & Admin, `?includeInactive=true` for all) |
+| GET | `/api/users/:id` | Get user by ID (ITSupport & Admin) |
+| GET | `/api/users/assignable` | List users eligible for ticket assignment |
 | POST/PATCH/DELETE | `/api/users/:id` | Create / Update / Hard-delete (Admin only) |
 | GET/POST | `/api/categories` | List / Create categories |
 | PATCH/DELETE | `/api/categories/:id` | Update / Delete category |
