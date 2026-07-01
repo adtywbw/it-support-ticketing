@@ -14,6 +14,8 @@ export default function LoginPage() {
     return <Navigate to={`${safePath}${from?.search || ''}`} replace />;
   }
 
+  const message = (location.state as { message?: string } | null)?.message;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <div className="w-full max-w-sm">
@@ -26,6 +28,15 @@ export default function LoginPage() {
             Enter your credentials to access the ticketing system
           </p>
         </div>
+
+        {message && (
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+          >
+            {message}
+          </div>
+        )}
 
         <div className="card p-6">
           <LoginForm />
