@@ -2,6 +2,32 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 14 — Review Fixes Batch 2 (review-fixes-batch-2 branch)
+
+9 task hasil project review July 2026. Backend: 246/246 tests, frontend: 25/25 tests, all builds/lint pass.
+
+### Security Hardening
+- **Task 1**: JWT verification pinned ke `HS256` di semua path — `AuthService.refresh()`, `revokeRefreshToken()`, `NotificationsGateway.handleConnection()`, dan `NotificationsModule`. Sebelumnya hanya di `JwtStrategy` dan `MaintenanceGuard`.
+- **Task 7**: `validateStartupEnv()` diekstrak ke `env-validation.util.ts`. Production sekarang reject `CORS_ORIGIN` yang bukan `https://` (selain dev mode).
+
+### Behavior Consistency
+- **Task 3**: `updatePriority()` sekarang reuse `SLAService.getSLAConfig()` untuk SLA fallback — konsisten dengan `create()` yang sudah pakai sejak Sesi 9. Sebelumnya fallback hardcoded 24 jam di priority update.
+- **Task 4**: CSV export `GET /api/tickets/export/csv` sekarang honor `sortBy`/`sortOrder` (sama seperti list view), dengan `id` sebagai deterministic secondary sort. Sebelumnya selalu sort by `id`.
+
+### Test Coverage
+- **Task 2**: Ticket repository access scope test yang sebelumnya `it.skip` diganti 4 test aktif (`buildTicketAccessWhere`, `findManyForUser`, `countForUser`). Tidak ada `it.skip` tersisa di backend specs.
+
+### Frontend Fixes
+- **Task 5**: `useCategories()` dan `useCategory()` query key sekarang include `role` — caches tidak tercampur antar role (Admin vs EndUser response shape berbeda).
+- **Task 6**: `NotificationsPage` sekarang tampilkan error state (`ErrorMessage` + retry) saat query gagal, bukan "No notifications". Pagination pakai `meta.totalPages` dari backend, bukan recompute lokal.
+- `.eslintignore` ditambahkan dengan `dist` — `npm run lint` sebelumnya gagal setelah `npm run build` karena memindai output bundle.
+
+### Ops
+- **Task 8**: `scripts/backup.sh` sekarang cek `maintenance:restore:lock` (refuse jika restore aktif) dan akuisisi `maintenance:backup:lock` via `SET NX EX 600` dengan Lua compare-and-delete release + `trap EXIT`. Sebelumnya hanya cek `maintenance:enabled`.
+
+### Repo Health
+- **Task 9**: `backend/package.json` — hapus script `test:e2e` (config tidak pernah ada). CI — hapus `--passWithNoTests` dari test commands. README seed description diperbaiki. ARCHITECTURE Alpine wording diperbaiki.
+
 ## Session 9 — Apply Quick-Win Fixes (sesi9/quick-wins branch)
 
 Baseline review menemukan 21 Important + 50 Minor issues. Sesi 9 apply 17 quick-win fixes (1 commit per logical change):

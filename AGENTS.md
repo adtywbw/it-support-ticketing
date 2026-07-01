@@ -55,8 +55,9 @@
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/policies/attachment-visibility.policy.ts
-backend/src/common/utils/{upload,mime-validation,time,concurrency}.util.ts
+backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation}.util.ts
 frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
+frontend/.eslintignore
 postgres/postgresql.conf
 ```
 
@@ -87,7 +88,7 @@ postgres/postgresql.conf
 ## Auth & Security
 - Access token is memory-only in Zustand auth state.
 - Access token has `tokenType: 'access'` claim; refresh token has `tokenType: 'refresh'`.
-- JWT signing/verification pinned to `HS256` algorithm in both `JwtModule` and `JwtStrategy` to prevent algorithm-downgrade attacks.
+- JWT signing/verification pinned to `HS256` algorithm in all verification paths — `JwtModule`, `JwtStrategy`, `AuthService.refresh()`, `AuthService.revokeRefreshToken()`, `NotificationsGateway.handleConnection()`, and `MaintenanceGuard` — to prevent algorithm-downgrade attacks.
 - Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`. Refresh token rotation uses atomic Lua GETDEL to prevent replay.
 - Refresh TTL via `JWT_REFRESH_TOKEN_EXPIRY` env; cookie maxAge follows env.
 - Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
@@ -96,7 +97,7 @@ postgres/postgresql.conf
 - Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
 - `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.
 - Account locks after 10 failed logins (Redis tracking, 15-min window). Lockout counter uses atomic Lua INCR+EXPIRE to prevent permanent lock on partial Redis failure.
-- `CORS_ORIGIN` is comma-separated. Code currently defaults to `https://helpdesk.rsmch.internal`; Docker local is HTTP-only, so set env explicitly when using an HTTP origin.
+- `CORS_ORIGIN` is comma-separated (parsed via `getCorsOrigins()` from `env-validation.util.ts`). Production rejects non-`https://` origins. Defaults to `https://helpdesk.rsmch.internal`; Docker local is HTTP-only, so set env explicitly when using an HTTP origin.
 - Non-HTTP exceptions must not leak internal messages to clients.
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
 - `POST /api/auth/change-password` is restricted to ITSupport & Admin via `RolesGuard`; EndUser cannot change own password (must request Admin/ITSupport). Frontend hides the Change Password section in My Account for EndUser.
@@ -168,6 +169,7 @@ postgres/postgresql.conf
 - Backup output lives in `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` and `backups/` is gitignored.
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
+- `scripts/backup.sh` (manual CLI backup) now also checks Redis `maintenance:restore:lock` and acquires `maintenance:backup:lock` via `SET NX EX 600` before proceeding, preventing races with API-initiated backups/restores.
 - API image includes `postgresql-client-16`, `gzip`, `tar`, and `gosu`; entrypoint chowns `/app/uploads` and `/app/backups`, runs migrations with 3-retry loop, runs seed (dev mode or `SEED_ON_START=true`), then runs as `node`.
 - Redis has no persistence volume. Refresh tokens and maintenance flags are lost on `cache` container recreate. This is an intentional tradeoff: mass logout on Redis restart is acceptable for this deployment.
 
