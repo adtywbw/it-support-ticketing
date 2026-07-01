@@ -2,6 +2,40 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 10 — Test Coverage (sesi10/test-coverage branch)
+
+Session 8 review menemukan 8/9 repository tanpa unit test. Sesi 10 add comprehensive coverage untuk semua repository dan service yang sebelumnya tidak ter-test.
+
+### Repository Unit Tests (8 files, 99 new cases)
+- `user.repository.spec.ts` (13): findById / findByIdWithPassword / findByEmail (safe select tanpa `password`), findAll (filter, search, pagination), getForValidation, findAssignable, findSupportUsers, existsByEmail (reactivation check), findTelegramLinkedUsers, findWithTelegramCode, getTelegramChatId, transactionDelete (4-step atomic).
+- `notification.repository.spec.ts` (12): create, findByUserId (pagination, unreadOnly filter, envelope shape), markAsRead (id+userId scoping), markAllAsRead, clearAll, getUnreadCount, deleteMany.
+- `ticket.repository.spec.ts` (10 + 1 skipped): raw queries (countPublicCommentsByTicketIds, countVisibleAttachmentsByTicketIds, getSLAStats, getDailyTrends, getAvgResolutionTimeByCategory), updateMany, transaction. `findManyForUser` test skipped — method added in Sesi 9.
+- `comment.repository.spec.ts` (9): create, findById, findByTicketId (default + where merge + pagination), countByTicketId, deleteMany, transaction. `findByTicketId` 4-arg overload skipped (Sesi 9).
+- `attachment.repository.spec.ts` (10): create, findByTicketId (default + custom where + skip/take + select-preferred-over-include), findById, count, deleteMany, transaction.
+- `sla-config.repository.spec.ts` (5): findUnique composite-key, findFirst priority-fallback, findAll (with category include + ordering), create, update.
+- `category.repository.spec.ts` (10): findAll (Admin full), findAllForTicketForm (EndUser/ITSupport minimal select vs include), findByIdForTicketForm (findFirst not findUnique), findById default vs custom include, findByName, create, update, delete.
+- `sub-category.repository.spec.ts` (5): findByCategoryId, findByCategoryAndName composite unique, create, findById, update, delete.
+
+### Service Tests (2 new files, 20 cases)
+- `dashboard.service.spec.ts` (+10): getStats() cache hit / miss / forceRefresh, statusCounts initialization, SLA compliance rate (100% when total=0, ratio otherwise), daily trends (7d + 30d parallel), category resolution BigInt→Number coercion.
+- `categories.service.spec.ts` (17): findAll/findById role-based shape (Admin full vs ITSupport/EndUser minimal), create (unique + conflict + intentional resurrection of inactive duplicate), update (self-exclusion), delete (hard vs soft when relations exist).
+
+### SLA Cron Tests (+11 cases, in sla.service.spec.ts)
+- SET NX EX 300 lock acquisition
+- skip when lock already held (concurrent run)
+- compare-and-delete Lua release in finally block
+- lock release even on performSLACheck throw
+- keyset pagination (id > lastId) for batch 500
+- status transitions: OnTrack (60% remaining), AtRisk (10%), Breached (past)
+- skip if no matching SLA config
+- skip updateMany if status unchanged
+- only query open/in-progress tickets
+
+### Notes
+- Total tests: 126 → 238 (+112)
+- Test suites: 13 → 21 (+8)
+- 2 tests skipped (Sesi 9 method signatures — will be re-enabled after Sesi 9 merge)
+- All commits pass `npm test` and `npm run build`
 ## Session 8 Review (sesi9/quick-wins branch)
 
 Baseline review menemukan 21 Important + 50 Minor issues. Sesi 9 apply 17 quick-win fixes (1 commit per logical change):

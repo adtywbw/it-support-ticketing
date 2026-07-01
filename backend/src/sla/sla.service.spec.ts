@@ -30,6 +30,7 @@ describe('SLAService', () => {
   const mockRedisService = {
     setNx: jest.fn(),
     del: jest.fn(),
+    eval: jest.fn(),
   };
 
   const mockCategoryRepository = {
@@ -156,6 +157,185 @@ describe('SLAService', () => {
 
       expect(result.responseTimeMinutes).toBe(120);
       expect(result.resolutionTimeMinutes).toBe(120);
+    });
+  });
+
+  describe('checkSLA() cron', () => {
+    // Helper to build a ticket row for cron iteration
+    const makeTicket = (overrides: any = {}) => ({
+      id: 't-1',
+      ticketNumber: 'TKT-001',
+      priority: Priority.High,
+      status: 'Open',
+      slaDueAt: new Date(Date.now() + 60 * 60 * 1000), // 1h in future
+      slaStatus: 'OnTrack',
+      createdAt: new Date(),
+      category: {
+        slaConfigs: [
+          { priority: Priority.High, isActive: true, resolutionTimeMinutes: 60 },
+        ],
+      },
+      ...overrides,
+    });
+
+    it('should acquire lock via SET NX EX 300', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      ticketRepository.findMany.mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(redisService.setNx).toHaveBeenCalledWith(
+        'sla:check:lock',
+        expect.stringMatching(/^lock:\d+:.+/),
+        300,
+      );
+    });
+
+    it('should skip performSLACheck if lock not acquired (concurrent run)', async () => {
+      redisService.setNx.mockResolvedValueOnce(false);
+
+      await service.checkSLA();
+
+      expect(ticketRepository.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should release lock via compare-and-delete Lua in finally', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      ticketRepository.findMany.mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(redisService.eval).toHaveBeenCalledTimes(1);
+      const [script, keys, args] = redisService.eval.mock.calls[0];
+      expect(keys).toEqual(['sla:check:lock']);
+      expect(args).toHaveLength(1);
+      expect(typeof args[0]).toBe('string');
+      // Script must use compare-and-delete (return 0 if token mismatch)
+      expect(script).toContain("redis.call('get', KEYS[1])");
+      expect(script).toContain('ARGV[1]');
+      expect(script).toContain("redis.call('del'");
+    });
+
+    it('should release lock even if performSLACheck throws', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      ticketRepository.findMany.mockRejectedValueOnce(new Error('DB down'));
+
+      await service.checkSLA();
+
+      expect(redisService.eval).toHaveBeenCalledTimes(1);
+    });
+
+    it('should process tickets in batches of 500 with keyset pagination', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      // First batch returns 500 items, second returns empty
+      const batch1 = Array.from({ length: 500 }, (_, i) => makeTicket({ id: `t-${i}`, slaDueAt: new Date(Date.now() + 60 * 60 * 1000) }));
+      ticketRepository.findMany
+        .mockResolvedValueOnce(batch1)
+        .mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      // First call: no id cursor yet
+      expect(ticketRepository.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ take: 500, where: { status: { notIn: ['Resolved', 'Closed'] } } }),
+      );
+      // Second call: id > 't-499' cursor
+      expect(ticketRepository.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          take: 500,
+          where: { id: { gt: 't-499' }, status: { notIn: ['Resolved', 'Closed'] } },
+        }),
+      );
+    });
+
+    it('should mark ticket as OnTrack when remaining > 20% of window', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      // Start as AtRisk so transition to OnTrack fires
+      const ticket = makeTicket({ slaStatus: 'AtRisk', slaDueAt: new Date(Date.now() + 36 * 60 * 1000) });
+      ticketRepository.findMany.mockResolvedValueOnce([ticket]).mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(ticketRepository.updateMany).toHaveBeenCalledWith(
+        { id: { in: ['t-1'] } },
+        { slaStatus: 'OnTrack' },
+      );
+    });
+
+    it('should mark ticket as AtRisk when remaining <= 20% of window', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      // 10% of 60min remaining = 6min in future
+      const ticket = makeTicket({ slaDueAt: new Date(Date.now() + 6 * 60 * 1000) });
+      ticketRepository.findMany.mockResolvedValueOnce([ticket]).mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(ticketRepository.updateMany).toHaveBeenCalledWith(
+        { id: { in: ['t-1'] } },
+        { slaStatus: 'AtRisk' },
+      );
+    });
+
+    it('should mark ticket as Breached when slaDueAt is in the past', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      // SLA already breached
+      const ticket = makeTicket({ slaDueAt: new Date(Date.now() - 60 * 1000) });
+      ticketRepository.findMany.mockResolvedValueOnce([ticket]).mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(ticketRepository.updateMany).toHaveBeenCalledWith(
+        { id: { in: ['t-1'] } },
+        { slaStatus: 'Breached' },
+      );
+    });
+
+    it('should skip ticket if no matching SLA config in category', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      const ticket = makeTicket({
+        category: { slaConfigs: [{ priority: Priority.Low, isActive: true, resolutionTimeMinutes: 60 }] },
+      });
+      ticketRepository.findMany.mockResolvedValueOnce([ticket]).mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(ticketRepository.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should skip updateMany if status has not changed (no-op)', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      // Ticket already OnTrack, 60% remaining -> still OnTrack
+      const ticket = makeTicket({ slaStatus: 'OnTrack', slaDueAt: new Date(Date.now() + 36 * 60 * 1000) });
+      ticketRepository.findMany.mockResolvedValueOnce([ticket]).mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(ticketRepository.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should only query open/in-progress tickets (skip Resolved/Closed)', async () => {
+      redisService.setNx.mockResolvedValueOnce(true);
+      redisService.eval.mockResolvedValueOnce(1);
+      ticketRepository.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.checkSLA();
+
+      expect(ticketRepository.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { notIn: ['Resolved', 'Closed'] },
+          }),
+        }),
+      );
     });
   });
 });
