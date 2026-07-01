@@ -30,7 +30,9 @@ export function useSocket() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('[Socket] connected to /notifications');
+      if (import.meta.env.DEV) {
+        console.log('[Socket] connected to /notifications');
+      }
     });
 
     socket.on('notification', () => {
@@ -39,7 +41,9 @@ export function useSocket() {
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('[Socket] disconnected:', reason);
+      if (import.meta.env.DEV) {
+        console.log('[Socket] disconnected:', reason);
+      }
     });
 
     socket.on('connect_error', (err) => {
