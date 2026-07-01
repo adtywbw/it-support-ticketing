@@ -64,13 +64,6 @@ export class CommentsService {
       );
     }
 
-    const existingAttachmentCount = await this.attachmentRepository.count({ ticketId });
-    if (existingAttachmentCount + files.length > MAX_FILES_PER_TICKET) {
-      throw new BadRequestException(
-        `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
-      );
-    }
-
     for (const file of files) {
       if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
         throw new BadRequestException(
@@ -100,6 +93,13 @@ export class CommentsService {
       }
 
       return await this.commentRepository.transaction(async (tx) => {
+        const existingAttachmentCount = await tx.attachment.count({ where: { ticketId } });
+        if (existingAttachmentCount + files.length > MAX_FILES_PER_TICKET) {
+          throw new BadRequestException(
+            `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
+          );
+        }
+
         const comment = await tx.comment.create({
           data: {
             ticket: { connect: { id: ticketId } },
