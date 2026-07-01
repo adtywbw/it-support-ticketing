@@ -8,7 +8,7 @@
 ## Stack Snapshot
 - Backend: NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, Socket.IO notifications.
 - Frontend: React 18, Vite 5, TanStack Query 5, Zustand, Tailwind.
-- API success: `{ data, meta? }` (enforced globally via `TransformInterceptor`); paginated `meta` is `{ page, limit, total, totalPages? }`.
+- API success: `{ data, meta? }` (enforced globally via `TransformInterceptor`); paginated `meta` is `{ page, limit, total, totalPages }` (always includes `totalPages`).
 - API error: `{ error: { code, message } }` via `HttpExceptionFilter` (stable codes: `BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.).
 
 ## Work Style
@@ -86,10 +86,12 @@ postgres/postgresql.conf
 ## Auth & Security
 - Access token is memory-only in Zustand auth state.
 - Access token has `tokenType: 'access'` claim; refresh token has `tokenType: 'refresh'`.
+- JWT signing/verification pinned to `HS256` algorithm in both `JwtModule` and `JwtStrategy` to prevent algorithm-downgrade attacks.
 - Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`. Refresh token rotation uses atomic Lua GETDEL to prevent replay.
 - Refresh TTL via `JWT_REFRESH_TOKEN_EXPIRY` env; cookie maxAge follows env.
 - Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
 - `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET).
+- `RolesGuard` uses the shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks.
 - Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
 - `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.
 - Account locks after 10 failed logins (Redis tracking, 15-min window). Lockout counter uses atomic Lua INCR+EXPIRE to prevent permanent lock on partial Redis failure.
@@ -205,6 +207,8 @@ postgres/postgresql.conf
 - Backend errors: wrap Redis/Prisma calls that may fail during maintenance (e.g. `redisService.eval()`, `usersService.findById()`) in try/catch — non-`HttpException` errors produce 500 instead of graceful 401. The `HttpExceptionFilter` only catches `HttpException` subclasses.
 - MIME validation: `assertMimeTypeIntegrity()` uses a `MIME_COMPATIBILITY_MAP` — OOXML files (`.docx`/`.xlsx`) are ZIP containers detected as `application/zip`, and legacy `.xls` shares the OLE CFB signature with `application/msword`. Do not reject these compatible mismatches; update the map if new container types are added.
 - DTO validation: `CreateTicketDto` and `CreateCommentDto` use `@Transform(trimString)` + `@IsNotEmpty()` + `@MinLength()` — direct API clients cannot send whitespace-only payloads. Match these constraints when adding new text-field DTOs.
+- Pagination `meta`: tickets, users, and notifications repositories always include `totalPages` (`Math.ceil(total / limit)`). New paginated endpoints must follow the same shape — do not omit `totalPages` even when `total === 0` (use `1` for the empty case).
+- Telegram config response: the `TelegramConfig` response from `GET /api/telegram/config` contains only `hasBotToken` + `hasGroupChatId` + `settings` (with `groupChatId` stripped). Do not add a `botToken` field even an empty string — it is a contract smell and risks copy-paste leaks.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`

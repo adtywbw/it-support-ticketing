@@ -581,3 +581,42 @@ Eksekusi `AI_AGENT_REVIEW_TASKS.md` — 10 task selesai, production readiness ga
 ### Frontend Auth Cookie Handling
 - **AUTH-03**: `apiClient` axios tambah `withCredentials: true`. Sebelumnya hanya refresh endpoint (`axios.post(...)`) yang explicit set credentials, login/logout cookie tidak terkirim untuk cross-origin deployment.
 - **AUTH-04**: Password-change (`MyAccountPage`) dan restore-success (`AdminMaintenancePage`) sekarang panggil `/auth/logout` (`apiClient.post(..., .catch(() => {}))`) sebelum client-side cleanup (`logout()`, `queryClient.clear()`). Sebelumnya cuma client cleanup, refresh cookie tetap valid di server.
+
+## Review Fixes — Batch 2 (Session 7)
+
+Code review paralel 5 agent (security, architecture, frontend, privacy, maintenance/infra) menemukan 1 issue **Important** + 18 issue **Minor**. Semua diperbaiki dan diverifikasi (126 backend tests, frontend build, frontend lint, all green). Tidak ada issue **Critical**.
+
+### Important
+- **REV-I1**: `DashboardService` sebelumnya inject `PrismaService` langsung untuk tiga `$queryRaw` (SLA stats, daily trends, avg resolution time) — langgar aturan `service -> repository` flow. Fix: pindahkan tiga query ke `TicketRepository.getSLAStats()`, `TicketRepository.getDailyTrends(days)`, `TicketRepository.getAvgResolutionTimeByCategory()`. Service sekarang pure consumer repository.
+
+### Security Hardening
+- **REV-M1**: JWT signing/verification sebelumnya tidak pin `algorithms` — library default saat ini HS256, tapi bisa widen di masa depan (downgrade attack). Fix: tambah `algorithms: ['HS256']` di `JwtStrategy` dan `algorithm: 'HS256'` di `JwtModule.registerAsync.useFactory`.
+- **REV-M3**: `RolesGuard` dan `Roles` decorator pakai string literal `'roles'` — typo silent-disable role checks. Fix: export `ROLES_KEY` constant dari `roles.decorator.ts`, import di guard.
+
+### Architecture Consistency
+- **REV-M8**: `HealthController` sebelumnya inject `PrismaService` langsung untuk `SELECT 1`. Fix: tambah `PrismaService.healthCheck()` method dengan try/catch internal, controller jadi tidak bergantung detail Prisma.
+- **REV-M10**: `tickets.service`, `user.repository`, `notification.repository` sebelumnya return `meta: { page, limit, total }` tanpa `totalPages` — inconsistent dengan `comments`/`attachments` (yang sudah include). Fix: tiga endpoint paginated sekarang selalu include `totalPages = Math.ceil(total / limit)`.
+- **REV-M11**: `NotificationsController.getUnreadCount` manual wrap `{ data: { count } }` — duplicate dengan `TransformInterceptor`. Fix: return raw `{ count }` biarkan interceptor wrap.
+- **REV-M12**: `UsersController` dan `NotificationsController` pakai local `new ValidationPipe({...})` yang kehilangan `forbidNonWhitelisted` (override global). Fix: hapus local pipe, andalkan global `ValidationPipe`.
+
+### DTO Validation Tightening
+- **REV-M13**: `UpdateSubCategoryDto.name` sebelumnya hanya `@IsString() + @MaxLength(255)` — whitespace-only `name` lolos. Fix: tambah `@Transform(trimString)` + `@IsNotEmpty()` (match pattern `create-sub-category.dto.ts`).
+- **REV-M14**: `RestoreBackupDto.confirmation` whitespace-only lolos (`@IsString + @IsNotEmpty` tidak trim). Fix: tambah `@Transform(trimString)`.
+
+### Telegram Contract
+- **REV-M15**: `TelegramService.getConfig()` return `botToken: ''` (empty string field) — misleading type. Fix: drop field dari response. Frontend `TelegramConfig` interface di `use-telegram.ts` hapus `botToken: string`. Frontend `MyAccountPage` sebelumnya tidak pernah reference `telegramConfig.data?.botToken` — no migration needed.
+
+### Maintenance Flow
+- **REV-M17**: `MaintenanceGuard.isAllowedDuringMaintenance` pakai `req.url` (termasuk query string) — exact match `/health` gagal untuk `/health?check=deep` (latent bug). Fix: pakai `req.path ?? req.url` (path-only, fallback aman untuk plain object test mocks).
+- **REV-M18**: `MaintenanceService.getMaintenanceMode` pakai 2 sequential `redis.get()` — endpoint public yang di-poll frontend tiap 15s. Fix: pakai `redis.mget([KEY, MESSAGE])` seperti guard.
+
+### Frontend UX
+- **REV-M19**: `LoginForm` tampilkan error 2x (inline `<div>` + `toast.error()` dari `useLogin`). Fix: hapus inline error block, biar toast dari `useLogin` saja (AGENTS.md prefer toast).
+
+### Test Updates
+- `tickets.service.spec.ts` — update expected meta tambah `totalPages: 1` (match production behavior).
+- `maintenance.guard.spec.ts` — tanpa perubahan kode test, fallback `req.path ?? req.url` di guard handle plain mock req.
+
+### Test Suite Status
+- Backend: 13/13 suites, 126/126 tests pass.
+- Frontend: build + lint pass (no test changes in this batch).

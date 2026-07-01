@@ -518,7 +518,7 @@ it-support-ticketing/
 - Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only. `LocalStorageService` validates path containment as defense-in-depth.
 - CSV export escapes every field and neutralizes formula injection prefixes before download.
 - `MaintenanceGuard` (global `APP_GUARD`) blocks non-essential API requests when maintenance mode is enabled. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis access, so Redis outages do not block essential endpoints. If Redis is unreachable, the guard defaults to "allow" (fail-open) to prevent total system lockout. When maintenance is enabled, the guard verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
-- `TransformInterceptor` (global `APP_INTERCEPTOR`) wraps all success responses in `{ data, meta? }` envelope. Skips wrap for stream/CSV/blob responses. Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers to extract data from the envelope.
+- `TransformInterceptor` (global `APP_INTERCEPTOR`) wraps all success responses in `{ data, meta? }` envelope. Skips wrap for stream/CSV/blob responses. Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers to extract data from the envelope. Paginated `meta` always includes `{ page, limit, total, totalPages }` — `totalPages` is provided even when `total === 0` (use `1` for empty page).
 - `HttpExceptionFilter` returns stable error codes (`BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.) via `resp.code` or `getCodeFromStatus()` fallback.
 - Dashboard stats are cached in Redis (`dashboard:stats:v1`, 30s TTL). `DashboardService` listens to `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, and `ticket.deleted` events via `EventEmitter2` and invalidates the cache so stats stay fresh without waiting for the TTL.
 - Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.
@@ -562,8 +562,9 @@ it-support-ticketing/
 ## 7. Security Architecture
 
 ### Authentication & Authorization
-- **JWT tokens**: access (15min, `tokenType: 'access'`) + refresh (7d, `tokenType: 'refresh'`, httpOnly cookie). Both signed with `JWT_SECRET`. `tokenType` is required in payload — tokens without it are rejected.
+- **JWT tokens**: access (15min, `tokenType: 'access'`) + refresh (7d, `tokenType: 'refresh'`, httpOnly cookie). Both signed with `JWT_SECRET` using `HS256` algorithm (pinned in both `JwtModule.registerAsync` and `JwtStrategy` to prevent algorithm-downgrade attacks). `tokenType` is required in payload — tokens without it are rejected.
 - **Global auth guard**: `JwtAuthGuard` registered as `APP_GUARD` in `app.module.ts`. Fail-closed: any controller without `@Public()` requires authentication. `@Public()` applied to `HealthController`, `AuthController` (login/refresh/logout), `MaintenanceController.getMode()`.
+- **Role guard key**: `RolesGuard` reads metadata via shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks.
 - **Role-based access**: `RolesGuard` checks `@Roles(...)` metadata. EndUser restricted from dashboard, users, master data, maintenance.
 - **Account lockout**: 10 failed login attempts → 15-minute Redis lock (`login:locked:{email}`). Prevents distributed brute-force.
 - **Timing attack mitigation**: `validateUser()` performs dummy bcrypt compare for non-existent users to equalize response time.
