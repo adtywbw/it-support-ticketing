@@ -19,6 +19,7 @@ describe('NotificationsGateway', () => {
   };
 
   beforeEach(async () => {
+    process.env.JWT_SECRET = 'test-secret-key-for-gateway-unit-tests-1234';
     jest.useFakeTimers();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -39,6 +40,7 @@ describe('NotificationsGateway', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+    delete process.env.JWT_SECRET;
   });
 
   function makeMockSocket(id: string) {
@@ -130,6 +132,10 @@ describe('NotificationsGateway', () => {
 
       expect(client.join).toHaveBeenCalledWith('user:user-1');
       expect(client.disconnect).not.toHaveBeenCalled();
+      expect(jwtService.verify).toHaveBeenCalledWith('valid-token', {
+        secret: process.env.JWT_SECRET!,
+        algorithms: ['HS256'],
+      });
     });
   });
 

@@ -138,9 +138,14 @@ describe('AuthService', () => {
       const token = jwtService.sign(payload, { expiresIn: '7d' });
       redisService.eval.mockResolvedValue(token);
       usersService.findById.mockResolvedValue(mockUser);
+      const verifySpy = jest.spyOn(jwtService, 'verify');
 
       const result = await service.refresh(token);
 
+      expect(verifySpy).toHaveBeenCalledWith(token, {
+        secret: process.env.JWT_SECRET!,
+        algorithms: ['HS256'],
+      });
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result).toHaveProperty('user');
@@ -206,9 +211,14 @@ describe('AuthService', () => {
         jti: 'revoke-jti',
       };
       const token = jwtService.sign(payload, { expiresIn: '7d' });
+      const verifySpy = jest.spyOn(jwtService, 'verify');
 
       await service.revokeRefreshToken(token);
 
+      expect(verifySpy).toHaveBeenCalledWith(token, {
+        secret: process.env.JWT_SECRET!,
+        algorithms: ['HS256'],
+      });
       expect(redisService.del).toHaveBeenCalledWith('refresh:user-1:revoke-jti');
     });
 

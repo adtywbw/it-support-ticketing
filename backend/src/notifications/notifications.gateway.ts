@@ -52,7 +52,10 @@ export class NotificationsGateway
     }
 
     try {
-      const payload = this.jwtService.verify<JwtPayload>(token);
+      const payload = this.jwtService.verify<JwtPayload>(token, {
+        secret: process.env.JWT_SECRET!,
+        algorithms: ['HS256'],
+      });
 
       if (payload.tokenType !== 'access') {
         client.disconnect();
