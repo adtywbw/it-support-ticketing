@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
+import { createReadStream } from 'fs';
+import { mkdir, writeFile, unlink } from 'fs/promises';
 import * as path from 'path';
 import { Express } from 'express';
 import { StorageService } from '../interfaces/storage-service.interface';
@@ -10,24 +10,24 @@ export class LocalStorageService implements StorageService {
   async save(file: Express.Multer.File, filePath: string): Promise<void> {
     const uploadRoot = path.resolve(process.env.UPLOAD_DIR || './uploads');
     const resolvedPath = path.resolve(filePath);
-    if (!resolvedPath.startsWith(uploadRoot + path.sep) && resolvedPath !== uploadRoot) {
+    if (!resolvedPath.startsWith(uploadRoot + path.sep)) {
       throw new BadRequestException('File path outside upload directory');
     }
 
     const dir = path.dirname(resolvedPath);
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(resolvedPath, file.buffer);
+    await mkdir(dir, { recursive: true });
+    await writeFile(resolvedPath, file.buffer);
   }
 
   async delete(filePath: string): Promise<void> {
     try {
-      await fs.unlink(filePath);
+      await unlink(filePath);
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
   }
 
   getReadStream(filePath: string): NodeJS.ReadableStream {
-    return fsSync.createReadStream(filePath);
+    return createReadStream(filePath);
   }
 }

@@ -113,7 +113,7 @@ describe('TicketRepository', () => {
         { day: '2026-06-26', count: 5 },
       ]);
 
-      const result = await repository.getDailyTrends(7);
+      const result = await repository.getDailyTrends(new Date(), new Date());
 
       expect(result).toEqual([
         { day: '2026-06-25', count: 3 },

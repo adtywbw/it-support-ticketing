@@ -475,7 +475,7 @@ npm test
 npm run lint
 ```
 
-Backend unit tests (21 suites, 238 tests) cover:
+Backend unit tests (21 suites, 237 tests) cover:
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries

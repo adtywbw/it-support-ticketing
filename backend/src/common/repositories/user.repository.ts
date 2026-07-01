@@ -1,6 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
+
+const USER_SAFE_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  isActive: true,
+  avatarUrl: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const USER_SAFE_SELECT_WITH_PASSWORD = {
+  ...USER_SAFE_SELECT,
+  password: true,
+} as const;
 
 @Injectable()
 export class UserRepository {
@@ -9,50 +25,21 @@ export class UserRepository {
   async findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        isActive: true,
-        avatarUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: USER_SAFE_SELECT,
     }) as any;
   }
 
   async findByIdWithPassword(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        password: true,
-        name: true,
-        role: true,
-        isActive: true,
-        avatarUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: USER_SAFE_SELECT_WITH_PASSWORD,
     }) as any;
   }
 
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
-      select: {
-        id: true,
-        email: true,
-        password: true,
-        name: true,
-        role: true,
-        isActive: true,
-        avatarUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: USER_SAFE_SELECT_WITH_PASSWORD,
     }) as any;
   }
 
@@ -74,7 +61,13 @@ export class UserRepository {
       ];
     }
     const [users, total] = await Promise.all([
-      this.prisma.user.findMany({ where: where as any, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, name: true, role: true, isActive: true, avatarUrl: true, createdAt: true, updatedAt: true } }),
+      this.prisma.user.findMany({
+        where: where as any,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: USER_SAFE_SELECT,
+      }),
       this.prisma.user.count({ where: where as any }),
     ]);
     const totalPages = Math.ceil(total / limit) || 1;
@@ -82,11 +75,26 @@ export class UserRepository {
   }
 
   async create(data: Record<string, unknown>) {
-    return this.prisma.user.create({ data: data as any, select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true, updatedAt: true } }) as any;
+    return this.prisma.user.create({
+      data: data as any,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }) as any;
   }
 
   async update(id: string, data: Record<string, unknown>) {
-    return this.prisma.user.update({ where: { id }, data: data as any, select: { id: true, email: true, name: true, role: true, isActive: true, avatarUrl: true, createdAt: true, updatedAt: true } }) as any;
+    return this.prisma.user.update({
+      where: { id },
+      data: data as any,
+      select: USER_SAFE_SELECT,
+    }) as any;
   }
 
   async getForValidation(id: string) {

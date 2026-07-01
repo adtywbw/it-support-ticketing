@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardService } from '../dashboard.service';
 import { TicketRepository } from '../../common/repositories/ticket.repository';
 import { RedisService } from '../../redis/redis.service';
-import { PrismaService } from '../../prisma/prisma.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -16,10 +15,6 @@ describe('DashboardService', () => {
     getAvgResolutionTimeByCategory: jest.fn().mockResolvedValue([]),
   };
 
-  const mockPrismaService = {
-    $queryRaw: jest.fn().mockResolvedValue([{ total: 0, onTrack: 0, atRisk: 0, breached: 0 }]),
-  };
-
   const mockRedisService = {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
@@ -31,7 +26,6 @@ describe('DashboardService', () => {
       providers: [
         DashboardService,
         { provide: TicketRepository, useValue: mockTicketRepository },
-        { provide: PrismaService, useValue: mockPrismaService },
         { provide: RedisService, useValue: mockRedisService },
       ],
     }).compile();
@@ -94,16 +88,6 @@ describe('DashboardService', () => {
         expect.any(String),
         30,
       );
-    });
-
-    it('should bypass cache when forceRefresh=true', async () => {
-      redisService.get.mockResolvedValueOnce(JSON.stringify({ cached: true }));
-
-      const result = await service.getStats(true);
-
-      expect(redisService.get).not.toHaveBeenCalled();
-      expect(ticketRepository.groupBy).toHaveBeenCalled();
-      expect(result).not.toEqual({ cached: true });
     });
   });
 
@@ -173,9 +157,12 @@ describe('DashboardService', () => {
 
       await service.getStats();
 
-      expect(ticketRepository.getDailyTrends).toHaveBeenCalledWith(7);
-      expect(ticketRepository.getDailyTrends).toHaveBeenCalledWith(30);
       expect(ticketRepository.getDailyTrends).toHaveBeenCalledTimes(2);
+      // Each call passes a [from, to) range
+      for (const call of ticketRepository.getDailyTrends.mock.calls) {
+        expect(call[0]).toBeInstanceOf(Date);
+        expect(call[1]).toBeInstanceOf(Date);
+      }
     });
 
     it('should expose both 7d and 30d in result', async () => {

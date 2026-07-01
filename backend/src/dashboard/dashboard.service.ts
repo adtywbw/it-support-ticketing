@@ -112,15 +112,17 @@ export class DashboardService {
   }
 
   private async getDailyTrends(days: number) {
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-    since.setHours(0, 0, 0, 0);
+    const to = new Date();
+    to.setHours(23, 59, 59, 999);
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    from.setHours(0, 0, 0, 0);
 
-    const rows = await this.ticketRepository.getDailyTrends(days);
+    const rows = await this.ticketRepository.getDailyTrends(from, to);
 
     const trends: Record<string, number> = {};
     for (let i = 0; i < days; i++) {
-      const date = new Date(since);
+      const date = new Date(from);
       date.setDate(date.getDate() + i);
       const key = date.toISOString().split('T')[0];
       trends[key] = 0;

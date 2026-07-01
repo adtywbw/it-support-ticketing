@@ -299,6 +299,7 @@ it-support-ticketing/
 │       │   ├── auth.module.ts
 │       │   ├── auth.controller.ts
 │       │   ├── auth.service.ts
+│       │   ├── cookie-options.ts
 │       │   ├── dto/
 │       │   │   ├── login.dto.ts
 │       │   │   ├── refresh.dto.ts

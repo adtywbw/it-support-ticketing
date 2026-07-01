@@ -130,16 +130,13 @@ export class TicketRepository {
     return rows[0];
   }
 
-  async getDailyTrends(days: number) {
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-    since.setHours(0, 0, 0, 0);
-
+  async getDailyTrends(from: Date, to: Date) {
     return this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
       SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day,
              COUNT(*)::int AS count
       FROM tickets
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${from}
+        AND "createdAt" < ${to}
       GROUP BY date_trunc('day', "createdAt")
       ORDER BY day ASC
     `;

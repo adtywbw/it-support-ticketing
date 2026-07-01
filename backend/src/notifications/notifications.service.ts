@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { Prisma } from '@prisma/client';
 import { NotificationRepository } from '../common/repositories/notification.repository';
 import { UserRepository } from '../common/repositories/user.repository';
 import { runWithConcurrency } from '../common/utils/concurrency.util';
@@ -22,7 +23,7 @@ export class NotificationsService {
       user: { connect: { id: data.userId } },
       title: data.title,
       message: data.message,
-      data: data.data as any,
+      data: data.data as Prisma.InputJsonValue,
     });
 
     this.eventEmitter.emit('notification.created', notification);

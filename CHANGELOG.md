@@ -97,8 +97,34 @@ Code review polish round: extract shared utils, remove dead code, tighten valida
 - Backend: 126 tests, build clean.
 - Frontend: build clean, lint 0 issues.
 
-### Renumbering Note
-The CHANGELOG entry that originally was titled `## Session 8 Review (sesi9/quick-wins branch)` (in Sesi 9 squash-merged commit `13d664f`) was mis-titled. The work is **Sesi 9 — Apply Quick-Win Fixes**, not Session 8. The original `Session 8` work was the full baseline review (a report, no code changes). This merge resolves the heading to `## Session 9 — Apply Quick-Win Fixes (sesi9/quick-wins branch)` (as above).
+## Session 12 — More Polish & Dead Code Removal
+
+Continuing from Sesi 11 Minor fixes. Cleanup dead code, tighten validation, type safety, and code quality.
+
+### Code Quality
+- `auth/cookie-options.ts` — NEW shared module extracting `getCookieSecure`, `getRefreshCookieMaxAge`, `getRefreshCookieOptions`, and `REFRESH_COOKIE` constant. Replaces inline helpers in `auth.controller.ts`.
+- `local-storage.service.ts` — remove dead `=== uploadRoot` branch (callers always pass a file path, not a directory). Switch from `* as fs from 'fs'` + `* as fsSync from 'fs'` to named imports (`createReadStream` from `fs`, `mkdir`/`writeFile`/`unlink` from `fs/promises`).
+- `dashboard.service.ts` + `ticket.repository.ts` — `getDailyTrends(days)` → `getDailyTrends(from: Date, to: Date)`. Service computes the explicit `[from, to)` range and passes it down; repository no longer duplicates the `since` calculation. Adds `to` upper bound to the SQL query for consistency.
+
+### Validation Tightening
+- `maintenance/dto/maintenance-mode.dto.ts` — add `@IsNotEmpty()` to `message` field. Empty string now rejected at validation layer (in addition to service-level guard added in Sesi 11).
+
+### Type Safety
+- `notifications.service.ts` — `data.data as any` → `Prisma.InputJsonValue` for the JSON `data` column.
+- `user.repository.ts` — extract `USER_SAFE_SELECT` and `USER_SAFE_SELECT_WITH_PASSWORD` constants. Used by `findById`, `findByIdWithPassword`, `findByEmail`, `findAll`, and `update` (5 methods). Single source of truth for safe user fields.
+
+### Behavior Tightening
+- `telegram.service.ts` — `updateConfig()` only restarts polling on `botToken` / `enableGroupChat` / `groupChatId` changes. Template-only edits no longer trigger a restart (avoids brief stale-loop gap).
+- `notifications.gateway.ts` — `WS_CORS_ORIGIN` const → `getCorsOrigin()` function. Env now read at decoration time, not module-load.
+
+### Test Updates (signature changes)
+- `dashboard.service.spec.ts` — remove stale `forceRefresh=true` test case (parameter removed in Sesi 11). Update `getDailyTrends` mock to assert `[from, to)` Date range.
+- `ticket.repository.spec.ts` — update `getDailyTrends` mock call to pass `new Date(), new Date()`.
+
+### Notes
+- No production behavior changes — only code quality and test signature updates.
+- Backend: 237 tests pass (1 skipped placeholder), build clean.
+- Frontend: not touched in Sesi 12.
 
 ## Docker / TLS Refactor
 

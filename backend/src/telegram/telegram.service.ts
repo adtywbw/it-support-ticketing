@@ -213,7 +213,18 @@ export class TelegramService
     }
 
     await this.telegramConfigRepository.update(update);
-    await this.startBot();
+
+    // Only restart the polling loop when bot token or group-chat config
+    // changes. Template-only edits don't require a restart and would
+    // otherwise cause a brief stale-loop gap.
+    const needsRestart =
+      data.botToken !== undefined ||
+      data.settings?.enableGroupChat !== undefined ||
+      data.settings?.groupChatId !== undefined;
+
+    if (needsRestart) {
+      await this.startBot();
+    }
 
     return this.getConfig();
   }
