@@ -40,7 +40,7 @@ export class AttachmentsService {
     private readonly storageService: StorageService,
   ) {}
 
-  async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string, visibility?: string) {
+  async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string, visibility?: AttachmentVisibility) {
     const ticket = await this.ticketRepository.findUnique({
       where: { id: ticketId },
       select: { id: true, requesterId: true },
@@ -71,9 +71,9 @@ export class AttachmentsService {
     const uploadDir = process.env.UPLOAD_DIR || './uploads';
     const filePath = buildSafeUploadPath(uploadDir, file.originalname);
 
-    const resolvedVisibility = userRole === Role.EndUser
+    const resolvedVisibility: AttachmentVisibility = userRole === Role.EndUser
       ? AttachmentVisibility.PUBLIC
-      : (visibility === 'INTERNAL' ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC);
+      : (visibility === AttachmentVisibility.INTERNAL ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC);
 
     await this.storageService.save(file, filePath);
 

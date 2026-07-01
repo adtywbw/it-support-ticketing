@@ -19,6 +19,7 @@ import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { UploadAttachmentDto } from './dto/upload-attachment.dto';
 import { ALLOWED_MIME_TYPES } from '../common/utils/mime-validation.util';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -43,12 +44,12 @@ export class AttachmentsController {
     @Param('ticketId') ticketId: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: { id: string; role: string },
-    @Body('visibility') visibility?: string,
+    @Body() body: UploadAttachmentDto,
   ) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
-    return this.attachmentsService.upload(ticketId, file, user.id, user.role, visibility);
+    return this.attachmentsService.upload(ticketId, file, user.id, user.role, body.visibility);
   }
 
   @Get('tickets/:ticketId/attachments')
