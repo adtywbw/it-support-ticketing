@@ -178,28 +178,37 @@ export class CommentsService {
     const actualLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 100) : 20;
     const skip = (normalizedPage - 1) * actualLimit;
 
+    // For EndUser, push the attachment visibility filter into the Prisma
+    // query so DB returns only visible attachments (no in-memory filter,
+    // and INTERNAL attachments never leave the DB for EndUser).
+    const attachmentsWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentWhere(userRole as any);
+    const include = attachmentsWhere
+      ? {
+          user: { select: { id: true, name: true, email: true, role: true, avatarUrl: true } },
+          attachments: {
+            where: attachmentsWhere,
+            select: {
+              id: true,
+              ticketId: true,
+              commentId: true,
+              userId: true,
+              originalName: true,
+              mimeType: true,
+              size: true,
+              visibility: true,
+              createdAt: true,
+              user: { select: { id: true, name: true } },
+            },
+          },
+        }
+      : undefined;
+
     const [comments, total] = await Promise.all([
-      this.commentRepository.findByTicketId(ticketId, where, { skip, take: actualLimit }),
+      this.commentRepository.findByTicketId(ticketId, where, { skip, take: actualLimit }, include),
       this.commentRepository.countByTicketId(ticketId, where),
     ]);
 
-    let result = comments;
-    if (userRole === Role.EndUser) {
-      result = comments.map((comment: any) => ({
-        ...comment,
-        attachments: (comment.attachments || []).filter((att: any) =>
-          AttachmentVisibilityPolicy.isAttachmentVisible(
-            {
-              comment: { type: comment.type },
-              visibility: att.visibility,
-            },
-            'EndUser',
-          )
-        ),
-      }));
-    }
-
     const totalPages = Math.ceil(total / actualLimit) || 1;
-    return { data: result, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
+    return { data: comments, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
   }
 }
