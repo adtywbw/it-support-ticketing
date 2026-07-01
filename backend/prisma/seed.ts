@@ -6,20 +6,23 @@ const prisma = new PrismaClient();
 async function main() {
   const isProduction = process.env.NODE_ENV?.toLowerCase() === 'production';
 
-  const adminPasswordRaw = isProduction
-    ? process.env.SEED_ADMIN_PASSWORD
-    : 'Admin123!';
-  const itsupportPasswordRaw = isProduction
-    ? process.env.SEED_SUPPORT_PASSWORD
-    : 'Support123!';
+  let adminPassword: string;
+  let itsupportPassword: string;
 
-  if (isProduction && (!adminPasswordRaw || !itsupportPasswordRaw)) {
-    throw new Error(
-      'Production seed requires SEED_ADMIN_PASSWORD and SEED_SUPPORT_PASSWORD environment variables.',
-    );
+  if (isProduction) {
+    const raw = process.env.SEED_ADMIN_PASSWORD;
+    const supportRaw = process.env.SEED_SUPPORT_PASSWORD;
+    if (!raw || !supportRaw) {
+      throw new Error(
+        'Production seed requires SEED_ADMIN_PASSWORD and SEED_SUPPORT_PASSWORD environment variables.',
+      );
+    }
+    adminPassword = await bcrypt.hash(raw, 12);
+    itsupportPassword = await bcrypt.hash(supportRaw, 12);
+  } else {
+    adminPassword = await bcrypt.hash('Admin123!', 12);
+    itsupportPassword = await bcrypt.hash('Support123!', 12);
   }
-
-  const adminPassword = await bcrypt.hash(adminPasswordRaw!, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@company.com' },
@@ -31,8 +34,6 @@ async function main() {
       role: Role.Admin,
     },
   });
-
-  const itsupportPassword = await bcrypt.hash(itsupportPasswordRaw!, 12);
 
   const itsupport = await prisma.user.upsert({
     where: { email: 'support@company.com' },

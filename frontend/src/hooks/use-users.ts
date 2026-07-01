@@ -8,6 +8,7 @@ export function useUsers(options?: { enabled?: boolean; page?: number; limit?: n
   const limit = options?.limit ?? 10;
   return useQuery({
     queryKey: ['users', page, limit],
+    staleTime: STALE_TIME_ASSIGNABLE_USERS,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<User[]>>(`/users?includeInactive=true&page=${page}&limit=${limit}`);
       return unwrapPage(response);

@@ -4,13 +4,11 @@ import {
   ExecutionContext,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { Role } from '@prisma/client';
 import { RedisService } from '../../redis/redis.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
-import { SKIP_MAINTENANCE_KEY } from '../decorators/skip-maintenance.decorator';
 
 const MAINTENANCE_KEY = 'maintenance:enabled';
 const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
@@ -23,17 +21,10 @@ export class MaintenanceGuard implements CanActivate {
 
   constructor(
     private readonly redis: RedisService,
-    private readonly reflector: Reflector,
     private readonly jwtService: JwtService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const skip = this.reflector.getAllAndOverride<boolean>(SKIP_MAINTENANCE_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (skip) return true;
-
     const req = context.switchToHttp().getRequest<Request>();
 
     if (this.isAllowedDuringMaintenance(req)) return true;

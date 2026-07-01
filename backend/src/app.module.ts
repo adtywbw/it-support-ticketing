@@ -52,9 +52,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
   providers: [
     {
       provide: APP_GUARD,
-      useFactory: (redis: RedisService, reflector: Reflector, jwtService: JwtService) =>
-        new MaintenanceGuard(redis, reflector, jwtService),
-      inject: [RedisService, Reflector, JwtService],
+      useFactory: (redis: RedisService, jwtService: JwtService) =>
+        new MaintenanceGuard(redis, jwtService),
+      inject: [RedisService, JwtService],
     },
     {
       provide: APP_GUARD,

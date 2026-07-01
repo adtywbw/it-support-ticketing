@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import type { Ticket, TicketFilters, CreateTicketPayload, Comment, Attachment, TicketStatus, TicketPriority } from '@/types';
+import { STALE_TIME_TICKETS } from '@/lib/constants';
 
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
@@ -12,6 +13,7 @@ export function useTickets(filters: TicketFilters) {
 
   return useQuery({
     queryKey: ['tickets', filters],
+    staleTime: STALE_TIME_TICKETS,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Ticket[]>>(`/tickets?${params.toString()}`);
       return unwrapPage(response);

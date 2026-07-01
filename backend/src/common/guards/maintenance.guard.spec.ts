@@ -1,5 +1,4 @@
 import { ExecutionContext, ServiceUnavailableException } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import { MaintenanceGuard } from './maintenance.guard';
@@ -13,15 +12,12 @@ function createMockContext(url: string, authHeader?: string): ExecutionContext {
         headers: authHeader ? { authorization: authHeader } : {},
       }),
     }),
-    getHandler: () => ({}),
-    getClass: () => ({}),
   } as ExecutionContext;
 }
 
 describe('MaintenanceGuard', () => {
   let guard: MaintenanceGuard;
   let redis: { mget: jest.Mock; get: jest.Mock };
-  let reflector: { getAllAndOverride: jest.Mock };
   let jwtService: { verifyAsync: jest.Mock };
 
   beforeEach(() => {
@@ -29,15 +25,11 @@ describe('MaintenanceGuard', () => {
       mget: jest.fn(),
       get: jest.fn(),
     };
-    reflector = {
-      getAllAndOverride: jest.fn().mockReturnValue(false),
-    };
     jwtService = {
       verifyAsync: jest.fn(),
     };
     guard = new MaintenanceGuard(
       redis as unknown as RedisService,
-      reflector as unknown as Reflector,
       jwtService as unknown as JwtService,
     );
   });
@@ -54,17 +46,6 @@ describe('MaintenanceGuard', () => {
 
       expect(result).toBe(true);
       expect(jwtService.verifyAsync).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('when @SkipMaintenance() is set', () => {
-    it('allows the request regardless of maintenance state', async () => {
-      reflector.getAllAndOverride.mockReturnValue(true);
-      redis.mget.mockResolvedValue(['1', 'maintenance message']);
-
-      const result = await guard.canActivate(createMockContext('/tickets'));
-
-      expect(result).toBe(true);
     });
   });
 

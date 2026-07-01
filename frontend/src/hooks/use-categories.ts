@@ -17,6 +17,7 @@ export function useCategories() {
 export function useCategory(id: string) {
   return useQuery({
     queryKey: ['category', id],
+    staleTime: STALE_TIME_CATEGORIES,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Category>>(`/categories/${id}`);
       return unwrapData(response);

@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import type { DashboardStats } from '@/types';
+import { STALE_TIME_DASHBOARD } from '@/lib/constants';
 
 export function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard', 'stats'],
+    staleTime: STALE_TIME_DASHBOARD,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<{
         statusCounts: Record<string, number>;

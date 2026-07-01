@@ -126,6 +126,29 @@ Continuing from Sesi 11 Minor fixes. Cleanup dead code, tighten validation, type
 - Backend: 237 tests pass (1 skipped placeholder), build clean.
 - Frontend: not touched in Sesi 12.
 
+## Session 13 — Minor Fixes: Dead Code, Validation, Consistency
+
+Continuing from Sesi 12. Cleanup dead code, add missing validation, consistent staleTime.
+
+### Dead Code Removal
+- `skip-maintenance.decorator.ts` — DELETED. `@SkipMaintenance()` was never applied to any controller (superseded by `@Public()` since Session 4). Removed the decorator, `SKIP_MAINTENANCE_KEY` import + reflector check from `maintenance.guard.ts`, and the `Reflector` dependency from the guard constructor + `app.module.ts`. Updated `maintenance.guard.spec.ts` to remove the `@SkipMaintenance()` test case. Removed AGENTS.md reference. Guard is now simpler (no reflector needed).
+
+### Validation
+- `prisma/seed.ts` — restructure password handling to eliminate non-null assertions (`!`). Production env vars validated and narrowed within dedicated `if (isProduction)` block; dev defaults handled in `else` branch. TypeScript narrows cleanly without `!` or `as string`.
+
+### Frontend Consistency
+- New staleTime constants in `lib/constants.ts`: `STALE_TIME_TICKETS` (30s), `STALE_TIME_DASHBOARD` (10s).
+- `use-categories.ts` — `useCategory(id)` now uses `STALE_TIME_CATEGORIES` (same as `useCategories()` list).
+- `use-users.ts` — `useUsers()` now uses `STALE_TIME_ASSIGNABLE_USERS` (same as `useAssignableUsers()`).
+- `use-telegram.ts` — `useTelegramStatus()` now uses `STALE_TIME_TELEGRAM_CONFIG` (same as `useTelegramConfig()`).
+- `use-tickets.ts` — `useTickets()` now uses `STALE_TIME_TICKETS` (30s, operational data).
+- `use-dashboard.ts` — `useDashboardStats()` now uses `STALE_TIME_DASHBOARD` (10s, server-side cached).
+
+### Notes
+- No production behavior changes — dead code removal + validation + frontend cache consistency.
+- Backend: 237 tests pass (1 skipped), build clean.
+- Frontend: build clean, lint 0 issues.
+
 ## Docker / TLS Refactor
 
 - **DR-01**: Production TLS via compose override — added `nginx/nginx.ssl.conf` (HTTPS variant: port 80→301 redirect, 443 SSL, TLS 1.2/1.3) and `docker-compose.prod.yml` (override: port 443, certs mount, swap to SSL config). Eliminates manual editing of `nginx.conf`/`docker-compose.yml` for mkcert deployments. Dev: `docker compose up` (HTTP). Prod: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d` (HTTPS). Updated README, AGENTS.md, ARCHITECTURE.md, and `.env.compose.example` accordingly.

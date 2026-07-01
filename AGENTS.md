@@ -79,6 +79,7 @@ postgres/postgresql.conf
 
 ## State Management
 - TanStack Query owns server state: tickets, users, categories, notifications, dashboard stats.
+- StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Hooks without staleTime default to 0 (refetch on mount/focus).
 - Zustand persisted state: theme only.
 - Zustand non-persisted state: auth user/accessToken and notification count.
 - React state owns form and component-local UI state.
@@ -133,7 +134,6 @@ postgres/postgresql.conf
 - `MaintenanceGuard` uses a 2-second in-memory cache + Redis `mget` to reduce round-trips. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis; if Redis is unreachable, guard defaults to allow (fail-open).
 - Always allowed during maintenance: `/api/health`, `/api/maintenance/*`, `/api/auth/*`.
 - When maintenance is enabled, `MaintenanceGuard` verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
-- Use `@SkipMaintenance()` to skip checks on specific handlers.
 - `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded. On failure, logs the original error via `Logger` and keeps maintenance enabled with the pre-restore backup ID in the error message.
 - `restoreUploads()` creates its tempDir **inside** `uploadDir` (same Docker volume) to avoid `EXDEV` cross-device rename errors; the tempDir basename is excluded from the upload dir clear step.
 - Frontend `MaintenanceBanner` polls `/api/maintenance/mode` every 15 seconds (authenticated users only). Admin sees a small non-blocking banner; non-admin sees a full-screen overlay that blocks interaction.
