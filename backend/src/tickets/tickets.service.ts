@@ -18,6 +18,7 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
 import { TicketStatus, Priority, SLAStatus,       CommentType, Prisma } from '@prisma/client';
+import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 
@@ -37,7 +38,7 @@ export class TicketsService {
     private readonly subCategoryRepository: SubCategoryRepository,
     private readonly userRepository: UserRepository,
     private readonly eventEmitter: EventEmitter2,
-    @Inject('StorageService')
+    @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
 

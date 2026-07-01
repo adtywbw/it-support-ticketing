@@ -10,6 +10,7 @@ import { TicketRepository } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { UserRepository } from '../common/repositories/user.repository';
+import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 
 describe('TicketsService', () => {
   let service: TicketsService;
@@ -69,7 +70,7 @@ describe('TicketsService', () => {
         { provide: SubCategoryRepository, useValue: mockSubCategoryRepository },
         { provide: UserRepository, useValue: mockUserRepository },
         { provide: EventEmitter2, useValue: mockEventEmitter },
-        { provide: 'StorageService', useValue: mockStorageService },
+        { provide: STORAGE_SERVICE, useValue: mockStorageService },
       ],
     }).compile();
 

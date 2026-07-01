@@ -12,7 +12,7 @@ import { Role, CommentType, AttachmentVisibility, Prisma } from '@prisma/client'
 import { CommentRepository } from '../common/repositories/comment.repository';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
-import { StorageService } from '../attachments/interfaces/storage-service.interface';
+import { StorageService, STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
@@ -27,7 +27,7 @@ export class CommentsService {
     private readonly commentRepository: CommentRepository,
     private readonly attachmentRepository: AttachmentRepository,
     private readonly ticketRepository: TicketRepository,
-    @Inject('StorageService')
+    @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
 
