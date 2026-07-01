@@ -5,50 +5,10 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-
-function validateEnv() {
-  const required = ['JWT_SECRET', 'DATABASE_URL', 'REDIS_URL'];
-  const missing = required.filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(', ')}`,
-    );
-  }
-
-  if (process.env.NODE_ENV?.toLowerCase() === 'production') {
-    const jwtSecret = process.env.JWT_SECRET || '';
-    const weakSecrets = [
-      'your-super-secret-jwt-key-change-in-production',
-      'change-this-to-random-secret',
-      'secret',
-      'changeme',
-      'password',
-    ];
-    if (weakSecrets.includes(jwtSecret.toLowerCase().trim())) {
-      throw new Error(
-        'JWT_SECRET is too weak for production. Please set a strong, unique secret.',
-      );
-    }
-    if (jwtSecret.length < 32) {
-      throw new Error(
-        'JWT_SECRET must be at least 32 characters in production.',
-      );
-    }
-    if (!process.env.REDIS_PASSWORD) {
-      throw new Error(
-        'REDIS_PASSWORD is required in production.',
-      );
-    }
-    if (process.env.COOKIE_SECURE !== 'true') {
-      throw new Error(
-        'COOKIE_SECURE must be "true" in production. Set to "false" only for local HTTP development.',
-      );
-    }
-  }
-}
+import { getCorsOrigins, validateStartupEnv } from './common/utils/env-validation.util';
 
 async function bootstrap() {
-  validateEnv();
+  validateStartupEnv();
   const app = await NestFactory.create(AppModule);
 
   app.use(cookieParser());
@@ -57,9 +17,8 @@ async function bootstrap() {
 
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
-  const corsOrigin = process.env.CORS_ORIGIN || 'https://helpdesk.rsmch.internal';
   app.enableCors({
-    origin: corsOrigin.split(',').map((o) => o.trim()),
+    origin: getCorsOrigins(),
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

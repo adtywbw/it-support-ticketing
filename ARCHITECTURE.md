@@ -40,7 +40,7 @@
 | Database | PostgreSQL 16 | Mature, JSON support, excellent Prisma integration. |
 | Cache | Redis 7 | Password-protected refresh token store, maintenance flags, backup lock, cron job lock for horizontal scaling. |
 | Reverse Proxy | Nginx | Single entry point, rate limiting, security headers, static file serving, reverse proxy. |
-| Containerization | Docker (Debian bookworm-slim) | Reproducible deployment, identical dev/prod environment. Debian base chosen over Alpine for native OpenSSL 3.x compatibility with Prisma engines. |
+| Containerization | Docker | Reproducible deployment, identical dev/prod environment. The API runtime uses a Debian/bookworm-slim Node image to avoid native-module and Prisma engine compatibility issues. Supporting services and the frontend static build/export path intentionally use Alpine-based images where the current Compose/Dockerfiles already specify them (`nginx:alpine`, `postgres:16-alpine`, `redis:7-alpine`, and the frontend builder/runtime image). |
 | ORM | Prisma | Type-safe query builder, auto-generated types, migrations. |
 | Repository Pattern | Domain Repositories | Abstraction layer over PrismaService — services depend on repositories instead of ORM directly. Enables testability and DB-agnostic business logic. |
 
@@ -461,7 +461,7 @@ it-support-ticketing/
 
 ### Base Image Choice
 - **Production runtime**: `node:20-bookworm-slim` (Debian 12) — required for native Prisma engine binary compatibility with OpenSSL 3.x.
-- Alpine images are not used because newer Alpine versions (≥3.19) dropped OpenSSL 1.1 compat packages, which Prisma engines (compiled against `libssl.so.1.1`) depend on.
+- The API runtime uses a Debian/bookworm-slim Node image to avoid native-module and Prisma engine compatibility issues. Supporting services and the frontend static build/export path intentionally use Alpine-based images where the current Compose/Dockerfiles already specify them (`nginx:alpine`, `postgres:16-alpine`, `redis:7-alpine`, and the frontend builder/runtime image).
 
 ### Database Migration
 - The container's entry point (`docker-entrypoint.sh`) runs `npx --no-install prisma migrate deploy` with a 3-retry loop (10s delay between attempts, 30s sleep before final exit) before starting the app.

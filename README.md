@@ -194,7 +194,7 @@ The seed script creates:
 - 2 categories (Hardware, Software) with SLA configs
 - 1 sample ticket
 
-Production containers do not run seed automatically. If the seed script is run manually, existing default users keep their current password and the sample ticket is skipped when `NODE_ENV=production`.
+Production containers do not run seed automatically. If the seed script is run manually in production, `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` are required and the default admin/support passwords are updated to those values. The sample ticket is skipped when `NODE_ENV=production`.
 
 **Production seed**: requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` environment variables. If either is missing, seed throws an error. Production credentials are never logged to stdout.
 

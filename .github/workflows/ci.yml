@@ -22,7 +22,7 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run build
-      - run: npm test -- --passWithNoTests
+      - run: npm test
       - run: npm audit --audit-level=high
 
   frontend:
@@ -40,5 +40,5 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
-      - run: npx vitest run --passWithNoTests
+      - run: npm test
       - run: npm audit --audit-level=high

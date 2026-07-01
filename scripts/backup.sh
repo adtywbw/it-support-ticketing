@@ -19,6 +19,10 @@ fi
 
 cd "$ROOT_DIR"
 
+redis_cli() {
+  docker compose exec -T cache sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli "$@"' sh "$@"
+}
+
 # OPS-09: Parse only required env vars instead of sourcing entire .env
 # This avoids issues with undefined vars (set -u) and shell syntax in .env
 if [ -f "$ROOT_DIR/backend/.env" ]; then
@@ -30,7 +34,7 @@ POSTGRES_USER="${POSTGRES_USER:-ticketing}"
 POSTGRES_DB="${POSTGRES_DB:-ticketing}"
 
 if [ "$LIVE_OK" != "true" ]; then
-  MAINTENANCE_ENABLED="$(docker compose exec -T cache sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli get maintenance:enabled' | tr -d '\r')"
+  MAINTENANCE_ENABLED="$(redis_cli get maintenance:enabled | tr -d '\r')"
   if [ "$MAINTENANCE_ENABLED" != "1" ]; then
     echo "Refusing manual backup because maintenance mode is not enabled." >&2
     echo "Enable maintenance from /admin/maintenance, or rerun with --live-ok only after accepting inconsistent live-backup risk." >&2
@@ -39,6 +43,24 @@ if [ "$LIVE_OK" != "true" ]; then
 else
   echo "WARNING: --live-ok skips maintenance preflight; backup may be inconsistent while app is live." >&2
 fi
+
+RESTORE_LOCK="$(redis_cli get maintenance:restore:lock | tr -d '\r')"
+if [ -n "$RESTORE_LOCK" ]; then
+  echo "Refusing manual backup because a restore is already in progress." >&2
+  exit 1
+fi
+
+BACKUP_LOCK_TOKEN="manual-$TIMESTAMP-$$"
+BACKUP_LOCK_ACQUIRED="$(redis_cli set maintenance:backup:lock "$BACKUP_LOCK_TOKEN" EX 600 NX | tr -d '\r')"
+if [ "$BACKUP_LOCK_ACQUIRED" != "OK" ]; then
+  echo "Refusing manual backup because another backup is already in progress." >&2
+  exit 1
+fi
+
+release_backup_lock() {
+  redis_cli eval "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end" 1 maintenance:backup:lock "$BACKUP_LOCK_TOKEN" >/dev/null || true
+}
+trap release_backup_lock EXIT
 
 mkdir -p "$BACKUP_PATH"
 chmod 700 "$BACKUP_PATH"

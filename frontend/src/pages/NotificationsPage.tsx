@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, getErrorMessage } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorMessage from '@/components/ui/ErrorMessage';
 import Pagination from '@/components/ui/Pagination';
 
 export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
-  const { data: notifData, isLoading } = useNotifications(page, limit);
+  const { data: notifData, isLoading, isError, error, refetch } = useNotifications(page, limit);
   const notifications = notifData?.data ?? [];
   const meta = notifData?.meta;
   const markAsRead = useMarkAsRead();
@@ -20,6 +21,18 @@ export default function NotificationsPage() {
     return (
       <div className="card p-12">
         <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="card">
+        <ErrorMessage
+          title="Failed to load notifications"
+          message={getErrorMessage(error, 'Unable to load notifications. Please try again.')}
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
@@ -86,7 +99,7 @@ export default function NotificationsPage() {
       {meta && (
         <Pagination
           page={page}
-          totalPages={Math.ceil(meta.total / limit) || 1}
+          totalPages={meta.totalPages ?? 1}
           onPageChange={(p) => setPage(p)}
           limit={limit}
           onLimitChange={(l) => { setLimit(l); setPage(1); }}

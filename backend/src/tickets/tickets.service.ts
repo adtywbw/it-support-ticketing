@@ -229,17 +229,20 @@ export class TicketsService {
     const headers = ['Ticket #', 'Subject', 'Status', 'Priority', 'Category', 'Sub Category', 'Created By', 'Assigned To', 'Created At', 'Resolved At', 'SLA Status'];
     res.write(headers.map(escapeCsv).join(',') + '\n');
 
-    let cursorId: string | undefined;
     let totalExported = 0;
+    let offset = 0;
     const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
+    const orderBy = [
+      { [orderField]: orderDir },
+      { id: orderDir },
+    ];
 
     while (totalExported < MAX_EXPORT_ROWS) {
-      const cursorWhere = cursorId ? { ...where, id: { [orderDir === 'asc' ? 'gt' : 'lt']: cursorId } } : where;
-
       const batch = await this.ticketRepository.findManyForUser({
-        where: cursorWhere as any,
-        orderBy: { id: orderDir === 'asc' ? 'asc' : 'desc' },
-        take: BATCH_SIZE,
+        where: where as any,
+        orderBy: orderBy as any,
+        skip: offset,
+        take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
         include: {
           requester: { select: { id: true, name: true, email: true } },
           assignedTo: { select: { id: true, name: true, email: true } },
@@ -268,7 +271,7 @@ export class TicketsService {
         totalExported++;
       }
 
-      cursorId = batch[batch.length - 1].id;
+      offset += batch.length;
       if (batch.length < BATCH_SIZE) break;
     }
 
@@ -448,13 +451,7 @@ export class TicketsService {
   }
 
   async updatePriority(id: string, updatePriorityDto: UpdatePriorityDto, userId: string) {
-    const ticket = await this.ticketRepository.findById(id, {
-      category: {
-        include: {
-          slaConfigs: { where: { isActive: true } },
-        },
-      },
-    });
+    const ticket = await this.ticketRepository.findById(id, {});
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
@@ -462,8 +459,9 @@ export class TicketsService {
     const oldPriority = ticket.priority;
     const newPriority = updatePriorityDto.priority;
 
-    const slaConfig = ticket.category.slaConfigs.find(
-      (c: any) => c.priority === newPriority,
+    const slaConfig = await this.slaService.getSLAConfig(
+      ticket.categoryId,
+      newPriority,
     );
 
     const createdAt = new Date(ticket.createdAt).getTime();

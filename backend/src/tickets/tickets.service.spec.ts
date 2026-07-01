@@ -666,4 +666,105 @@ describe('TicketsService', () => {
       ).rejects.toThrow('Ticket status changed');
     });
   });
+
+  describe('updatePriority', () => {
+    const ticketId = 'ticket-1';
+    const userId = 'admin-1';
+    const createdAt = new Date('2026-06-18T12:00:00Z');
+    const now = new Date('2026-06-18T12:10:00Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(now);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should use SLAService fallback config instead of hardcoded 24h when exact priority config is absent', async () => {
+      const existingTicket = {
+        id: ticketId,
+        ticketNumber: 'TKT-001',
+        priority: Priority.Low,
+        categoryId: 'cat-1',
+        createdAt,
+        category: { slaConfigs: [] },
+      };
+      const fallbackConfig = {
+        id: 'sla-fallback',
+        categoryId: 'cat-1',
+        priority: Priority.Medium,
+        responseTimeMinutes: 30,
+        resolutionTimeMinutes: 60,
+        isActive: true,
+      };
+      const expectedSlaDueAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
+
+      mockTicketRepository.findById.mockResolvedValue(existingTicket);
+      mockSlaService.getSLAConfig.mockResolvedValueOnce(fallbackConfig);
+      mockTicketRepository.update.mockImplementation(async (_id: string, data: any) => ({
+        ...existingTicket,
+        ...data,
+      }));
+
+      await service.updatePriority(ticketId, { priority: Priority.High }, userId);
+
+      expect(mockSlaService.getSLAConfig).toHaveBeenCalledWith('cat-1', Priority.High);
+      expect(mockTicketRepository.update).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          priority: Priority.High,
+          slaDueAt: expectedSlaDueAt,
+          slaStatus: SLAStatus.OnTrack,
+        }),
+      );
+    });
+  });
+
+  describe('exportCsvToResponse', () => {
+    function makeResponse() {
+      return {
+        write: jest.fn(),
+        end: jest.fn(),
+      } as any;
+    }
+
+    it('should honor allowed sortBy and sortOrder with id as deterministic secondary sort', async () => {
+      const res = makeResponse();
+      mockTicketRepository.findManyForUser.mockResolvedValueOnce([
+        {
+          id: 'ticket-1',
+          ticketNumber: 'TKT-001',
+          subject: 'VPN issue',
+          status: TicketStatus.Open,
+          priority: Priority.High,
+          category: { name: 'Network' },
+          subCategory: null,
+          requester: { name: 'Requester' },
+          assignedTo: null,
+          createdAt: new Date('2026-06-18T12:00:00Z'),
+          resolvedAt: null,
+          slaStatus: SLAStatus.OnTrack,
+        },
+      ]).mockResolvedValueOnce([]);
+
+      await service.exportCsvToResponse(
+        res,
+        { sortBy: 'priority', sortOrder: 'asc' },
+        'Admin',
+        'admin-1',
+      );
+
+      expect(mockTicketRepository.findManyForUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ priority: 'asc' }, { id: 'asc' }],
+          skip: 0,
+          take: 500,
+        }),
+        { userId: 'admin-1', role: 'Admin' },
+      );
+      expect(res.end).toHaveBeenCalled();
+    });
+  });
 });

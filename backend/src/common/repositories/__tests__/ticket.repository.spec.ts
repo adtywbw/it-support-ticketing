@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { TicketRepository } from '../ticket.repository';
+import { TicketRepository, buildTicketAccessWhere } from '../ticket.repository';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 describe('TicketRepository', () => {
@@ -38,12 +38,57 @@ describe('TicketRepository', () => {
     mockPrisma.$queryRaw.mockResolvedValue([]);
   });
 
-  describe('findManyForUser (Sesi 9 SEC-I-2 — added in Sesi 9 branch)', () => {
-    // Tests for findManyForUser/countForUser added in Sesi 9 are not included
-    // here because this branch is based on pre-Sesi 9 main. They will be
-    // added when Sesi 9 commits are pulled in.
-    it.skip('placeholder — see Sesi 9 commit 4fa68c4', () => {
-      expect(true).toBe(true);
+  describe('findManyForUser/countForUser access scope', () => {
+    it('should force EndUser queries to requesterId even if caller passes another requesterId', () => {
+      const result = buildTicketAccessWhere(
+        { userId: 'end-user-1', role: 'EndUser' },
+        { status: 'Open', requesterId: 'malicious-user' },
+      );
+
+      expect(result).toEqual({
+        status: 'Open',
+        requesterId: 'end-user-1',
+      });
+    });
+
+    it('should leave ITSupport query filters unchanged', () => {
+      const where = { status: 'Open', assignedToId: 'support-1' };
+
+      const result = buildTicketAccessWhere(
+        { userId: 'support-1', role: 'ITSupport' },
+        where,
+      );
+
+      expect(result).toBe(where);
+    });
+
+    it('should scope findManyForUser for EndUser before calling Prisma', async () => {
+      prisma.ticket.findMany.mockResolvedValueOnce([{ id: 'ticket-1' }]);
+
+      const result = await repository.findManyForUser(
+        { where: { priority: 'High' }, take: 10 },
+        { userId: 'end-user-1', role: 'EndUser' },
+      );
+
+      expect(result).toEqual([{ id: 'ticket-1' }]);
+      expect(prisma.ticket.findMany).toHaveBeenCalledWith({
+        where: { priority: 'High', requesterId: 'end-user-1' },
+        take: 10,
+      });
+    });
+
+    it('should scope countForUser for EndUser before calling Prisma', async () => {
+      prisma.ticket.count.mockResolvedValueOnce(3);
+
+      const result = await repository.countForUser(
+        { status: 'Open' },
+        { userId: 'end-user-1', role: 'EndUser' },
+      );
+
+      expect(result).toBe(3);
+      expect(prisma.ticket.count).toHaveBeenCalledWith({
+        where: { status: 'Open', requesterId: 'end-user-1' },
+      });
     });
   });
 
