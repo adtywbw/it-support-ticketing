@@ -402,7 +402,7 @@ describe('TicketsService', () => {
 
       expect(result).toEqual({
         data: mockTickets,
-        meta: { page: 1, limit: 10, total: 1 },
+        meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
       });
     });
 

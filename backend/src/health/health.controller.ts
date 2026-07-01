@@ -16,12 +16,7 @@ export class HealthController {
   async check(@Res() res: Response) {
     const checks: Record<string, string> = {};
 
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      checks.database = 'healthy';
-    } catch {
-      checks.database = 'unhealthy';
-    }
+    checks.database = (await this.prisma.healthCheck()) ? 'healthy' : 'unhealthy';
 
     try {
       const redisOk = await this.redisService.ping();

@@ -167,7 +167,8 @@ export class TicketsService {
       }
     }
 
-    return { data: tickets, meta: { page: limit > 0 ? page : 1, limit, total } };
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+    return { data: tickets, meta: { page: limit > 0 ? page : 1, limit, total, totalPages } };
   }
 
   async exportCsvToResponse(res: Response, queryTicketDto: QueryTicketDto, userRole: string, userId: string) {

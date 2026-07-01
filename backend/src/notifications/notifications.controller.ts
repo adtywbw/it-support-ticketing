@@ -6,12 +6,11 @@ import {
   Param,
   Query,
   UseGuards,
-  ValidationPipe,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { PaginationQueryDto, QueryNotificationsDto } from '../common/dto/pagination-query.dto';
+import { QueryNotificationsDto } from '../common/dto/pagination-query.dto';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
@@ -23,7 +22,7 @@ export class NotificationsController {
   @Get()
   async findAll(
     @CurrentUser('id') userId: string,
-    @Query(new ValidationPipe({ transform: true, whitelist: true })) query: QueryNotificationsDto,
+    @Query() query: QueryNotificationsDto,
   ) {
     return this.notificationsService.findByUserId(userId, {
       page: query.page,
@@ -35,7 +34,7 @@ export class NotificationsController {
   @Get('unread-count')
   async getUnreadCount(@CurrentUser('id') userId: string) {
     const count = await this.notificationsService.getUnreadCount(userId);
-    return { data: { count } };
+    return { count };
   }
 
   @Patch(':id/read')

@@ -10,7 +10,6 @@ export interface TelegramSettings {
 }
 
 export interface TelegramConfig {
-  botToken: string;
   hasBotToken: boolean;
   hasGroupChatId: boolean;
   settings: TelegramSettings;

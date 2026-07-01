@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { PrismaService } from '../prisma/prisma.service';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { RedisService } from '../redis/redis.service';
-import { TicketStatus, SLAStatus } from '@prisma/client';
+import { TicketStatus } from '@prisma/client';
 
 const DASHBOARD_CACHE_KEY = 'dashboard:stats:v1';
 const DASHBOARD_CACHE_TTL = 30;
@@ -14,7 +13,6 @@ export class DashboardService {
 
   constructor(
     private readonly ticketRepository: TicketRepository,
-    private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
   ) {}
 
@@ -105,22 +103,7 @@ export class DashboardService {
   }
 
   private async getSLAStats() {
-    const rows = await this.prisma.$queryRaw<Array<{
-      total: number;
-      onTrack: number;
-      atRisk: number;
-      breached: number;
-    }>>`
-      SELECT
-        COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE "slaStatus" = 'OnTrack')::int AS "onTrack",
-        COUNT(*) FILTER (WHERE "slaStatus" = 'AtRisk')::int AS "atRisk",
-        COUNT(*) FILTER (WHERE "slaStatus" = 'Breached')::int AS breached
-      FROM tickets
-      WHERE status NOT IN ('Closed', 'Resolved')
-    `;
-
-    const stats = rows[0];
+    const stats = await this.ticketRepository.getSLAStats();
     return {
       total: stats.total,
       onTrack: stats.onTrack,
@@ -135,14 +118,7 @@ export class DashboardService {
     since.setDate(since.getDate() - days);
     since.setHours(0, 0, 0, 0);
 
-    const rows = await this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
-      SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day,
-             COUNT(*)::int AS count
-      FROM tickets
-      WHERE "createdAt" >= ${since}
-      GROUP BY date_trunc('day', "createdAt")
-      ORDER BY day ASC
-    `;
+    const rows = await this.ticketRepository.getDailyTrends(days);
 
     const trends: Record<string, number> = {};
     for (let i = 0; i < days; i++) {
@@ -159,23 +135,7 @@ export class DashboardService {
   }
 
   private async getAvgResolutionTimeByCategory() {
-    const rows = await this.prisma.$queryRaw<Array<{
-      categoryId: string;
-      categoryName: string;
-      avgResolutionMinutes: number;
-      ticketCount: bigint;
-    }>>`
-      SELECT
-        t."categoryId" AS "categoryId",
-        c.name AS "categoryName",
-        ROUND(AVG(EXTRACT(EPOCH FROM (t."resolvedAt" - t."createdAt")) / 60))::int AS "avgResolutionMinutes",
-        COUNT(*)::int AS "ticketCount"
-      FROM tickets t
-      JOIN categories c ON c.id = t."categoryId"
-      WHERE t."resolvedAt" IS NOT NULL
-        AND t.status IN ('Resolved', 'Closed')
-      GROUP BY t."categoryId", c.name
-    `;
+    const rows = await this.ticketRepository.getAvgResolutionTimeByCategory();
 
     return rows.map((r) => ({
       categoryId: r.categoryId,

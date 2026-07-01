@@ -36,19 +36,8 @@ export default function LoginForm() {
     loginMutation.mutate({ email: email.trim(), password });
   };
 
-  const errorMessage = loginMutation.error
-    ? (loginMutation.error as { response?: { data?: { message?: string } } }).response?.data
-        ?.message || 'Login failed. Please try again.'
-    : null;
-
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {errorMessage && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">
-          {errorMessage}
-        </div>
-      )}
-
       <div>
         <label htmlFor="email" className="label">
           Email

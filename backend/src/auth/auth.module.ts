@@ -14,6 +14,7 @@ import { UsersModule } from '../users/users.module';
         secret: process.env.JWT_SECRET!,
         signOptions: {
           expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRY || '15m',
+          algorithm: 'HS256',
         },
       }),
     }),

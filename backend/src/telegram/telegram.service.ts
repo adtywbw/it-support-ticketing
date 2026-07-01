@@ -184,7 +184,6 @@ export class TelegramService
     const settings = this.normalizeSettings(config.settings as Record<string, unknown> | null | undefined);
     const { groupChatId: _, ...safeSettings } = settings;
     return {
-      botToken: '',
       hasBotToken: !!config.botToken,
       hasGroupChatId: !!settings.groupChatId,
       settings: safeSettings,

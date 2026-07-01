@@ -76,7 +76,8 @@ export class UserRepository {
       this.prisma.user.findMany({ where: where as any, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' }, select: { id: true, email: true, name: true, role: true, isActive: true, avatarUrl: true, createdAt: true, updatedAt: true } }),
       this.prisma.user.count({ where: where as any }),
     ]);
-    return { data: users, meta: { page, limit, total } } as any;
+    const totalPages = Math.ceil(total / limit);
+    return { data: users, meta: { page, limit, total, totalPages } } as any;
   }
 
   async create(data: Record<string, unknown>) {

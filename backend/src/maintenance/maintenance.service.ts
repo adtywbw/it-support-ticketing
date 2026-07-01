@@ -89,8 +89,7 @@ export class MaintenanceService {
   }
 
   async getMaintenanceMode(): Promise<{ enabled: boolean; message: string | null }> {
-    const enabled = await this.redis.get(MAINTENANCE_KEY);
-    const message = await this.redis.get(MAINTENANCE_MESSAGE_KEY);
+    const [enabled, message] = await this.redis.mget([MAINTENANCE_KEY, MAINTENANCE_MESSAGE_KEY]);
     return {
       enabled: enabled === '1',
       message: message || null,

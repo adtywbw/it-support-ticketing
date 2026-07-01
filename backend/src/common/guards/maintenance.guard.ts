@@ -92,7 +92,7 @@ export class MaintenanceGuard implements CanActivate {
   }
 
   private isAllowedDuringMaintenance(req: Request): boolean {
-    const url = req.url;
+    const url = req.path ?? req.url;
 
     if (url === '/health') return true;
     if (url.startsWith('/maintenance/')) return true;

@@ -8,7 +8,6 @@ import {
   Param,
   Query,
   UseGuards,
-  ValidationPipe,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { UsersService } from './users.service';
@@ -18,7 +17,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { PaginationQueryDto, QueryUsersDto } from '../common/dto/pagination-query.dto';
+import { QueryUsersDto } from '../common/dto/pagination-query.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -28,7 +27,7 @@ export class UsersController {
   @Get()
   @Roles(Role.Admin)
   async findAll(
-    @Query(new ValidationPipe({ transform: true, whitelist: true })) query: QueryUsersDto,
+    @Query() query: QueryUsersDto,
   ) {
     return this.usersService.findAll({
       page: query.page,

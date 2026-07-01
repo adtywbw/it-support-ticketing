@@ -27,7 +27,8 @@ export class NotificationRepository {
       }),
       this.prisma.notification.count({ where }),
     ]);
-    return { data: notifications, meta: { page, limit, total } };
+    const totalPages = Math.ceil(total / limit);
+    return { data: notifications, meta: { page, limit, total, totalPages } };
   }
 
   async markAsRead(id: string, userId: string) {
