@@ -39,12 +39,14 @@ export function useNotifications(page = 1, limit = 20) {
 
 export function useMarkAsRead() {
   const queryClient = useQueryClient();
+  const decrement = useNotificationStore((s) => s.decrement);
 
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.patch(`/notifications/${id}/read`);
     },
     onSuccess: () => {
+      decrement();
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
