@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, unwrapBlob, type ApiEnvelope } from '@/lib/axios';
 import type { BackupInfo, MaintenanceStatus } from '@/types';
+import { MAINTENANCE_POLL_MS } from '@/lib/constants';
 
 export function useMaintenanceMode(options?: { enabled?: boolean }) {
   return useQuery({
@@ -10,7 +11,7 @@ export function useMaintenanceMode(options?: { enabled?: boolean }) {
       const response = await apiClient.get<ApiEnvelope<MaintenanceStatus>>('/maintenance/mode');
       return unwrapData(response);
     },
-    refetchInterval: 15000,
+    refetchInterval: MAINTENANCE_POLL_MS,
   });
 }
 

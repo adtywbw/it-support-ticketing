@@ -79,7 +79,7 @@ export class MaintenanceService {
       }
     }
     await this.redis.set(MAINTENANCE_KEY, enabled ? '1' : '0');
-    if (message !== undefined) {
+    if (message !== undefined && message.trim() !== '') {
       await this.redis.set(MAINTENANCE_MESSAGE_KEY, message);
     } else if (enabled) {
       await this.redis.set(MAINTENANCE_MESSAGE_KEY, 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.');
@@ -264,7 +264,6 @@ export class MaintenanceService {
       await this.restoreDatabase(dbPath);
       await this.restoreUploads(uploadsPath);
 
-      await this.releaseLock(lock).catch(() => {});
       await this.setMaintenanceMode(false);
       return preRestoreBackup;
     } catch (error) {

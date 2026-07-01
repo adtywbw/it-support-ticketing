@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import { TelegramConfigRepository } from '../common/repositories/telegram-config.repository';
 import { UserRepository } from '../common/repositories/user.repository';
 import { TelegramSettingsDto } from './dto/telegram-config.dto';
+import { runWithConcurrency } from '../common/utils/concurrency.util';
 
 export interface TelegramSettings {
   enabledEvents: string[];
@@ -211,7 +212,7 @@ export class TelegramService
       );
     }
 
-    await this.telegramConfigRepository.update(config.id, update);
+    await this.telegramConfigRepository.update(update);
     await this.startBot();
 
     return this.getConfig();
@@ -278,19 +279,11 @@ export class TelegramService
     const users = await this.userRepository.findTelegramLinkedUsers();
 
     const queue = users.filter((u: any) => u.telegramChatId);
-    const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
-      while (queue.length > 0) {
-        const user = queue.shift();
-        if (user?.telegramChatId) {
-          try {
-            await this.sendMessage(token, Number(user.telegramChatId), message);
-          } catch {
-            // Individual send failure should not block others
-          }
-        }
+    await runWithConcurrency(queue, 3, async (user: any) => {
+      if (user.telegramChatId) {
+        await this.sendMessage(token, Number(user.telegramChatId), message);
       }
     });
-    await Promise.allSettled(workers);
   }
 
   async sendToUser(userId: string, message: string) {

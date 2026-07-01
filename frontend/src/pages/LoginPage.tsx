@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
+import { safeRedirectPath } from '@/lib/utils';
 import LoginForm from '@/auth/LoginForm';
 
 export default function LoginPage() {
@@ -8,10 +9,7 @@ export default function LoginPage() {
 
   if (isAuthenticated) {
     const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
-    const safePath = from?.pathname && from.pathname.startsWith('/') && !from.pathname.startsWith('//')
-      ? from.pathname
-      : '/tickets';
-    return <Navigate to={`${safePath}${from?.search || ''}`} replace />;
+    return <Navigate to={safeRedirectPath(from)} replace />;
   }
 
   const message = (location.state as { message?: string } | null)?.message;

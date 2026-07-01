@@ -44,9 +44,9 @@ export class TelegramConfigRepository {
     }) as any;
   }
 
-  async update(id: string, data: Record<string, unknown>) {
+  async update(data: Record<string, unknown>) {
     return this.prisma.telegramConfig.update({
-      where: { id },
+      where: { key: DEFAULT_KEY },
       data,
     });
   }

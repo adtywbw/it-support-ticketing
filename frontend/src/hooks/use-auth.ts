@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
-import { getErrorMessage } from '@/lib/utils';
+import { getErrorMessage, safeRedirectPath } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 import type { LoginCredentials, AuthResponse } from '@/types';
 
@@ -20,10 +20,7 @@ export function useLogin() {
       const user = { ...data.user, name: data.user.name || `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim() };
       login(user, data.accessToken);
       const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
-      const safePath = from?.pathname && from.pathname.startsWith('/') && !from.pathname.startsWith('//')
-        ? `${from.pathname}${from.search || ''}`
-        : '/tickets';
-      navigate(safePath, { replace: true });
+      navigate(safeRedirectPath(from), { replace: true });
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, 'Login failed. Please try again.'));

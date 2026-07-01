@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import type { Category } from '@/types';
+import { STALE_TIME_CATEGORIES } from '@/lib/constants';
 
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
-    staleTime: 1000 * 60 * 30,
+    staleTime: STALE_TIME_CATEGORIES,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Category[]>>('/categories');
       return unwrapData(response);

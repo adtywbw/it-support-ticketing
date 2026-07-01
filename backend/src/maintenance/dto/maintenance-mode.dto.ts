@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class MaintenanceModeDto {
   @IsBoolean()
@@ -6,5 +6,6 @@ export class MaintenanceModeDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000, { message: 'Maintenance message must not exceed 1000 characters' })
   message?: string;
 }

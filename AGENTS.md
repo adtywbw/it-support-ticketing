@@ -55,7 +55,7 @@
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/policies/attachment-visibility.policy.ts
-backend/src/common/utils/{upload,mime-validation}.util.ts
+backend/src/common/utils/{upload,mime-validation,time,concurrency}.util.ts
 frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
 postgres/postgresql.conf
 ```
@@ -64,7 +64,7 @@ postgres/postgresql.conf
 - Backend module files live in `backend/src/{module}/` with `module.ts`, `controller.ts`, `service.ts`, and `dto/`.
 - Backend repositories live in `backend/src/common/repositories/`.
 - Backend policies live in `backend/src/common/policies/` (e.g., `AttachmentVisibilityPolicy`).
-- Backend shared utilities live in `backend/src/common/utils/` (e.g., `upload.util.ts`, `mime-validation.util.ts`).
+- Backend shared utilities live in `backend/src/common/utils/` (e.g., `upload.util.ts`, `mime-validation.util.ts`, `time.util.ts`, `concurrency.util.ts`).
 - Frontend pages: `frontend/src/pages/`.
 - Frontend components: `frontend/src/components/{domain}/`.
 - Frontend hooks: `frontend/src/hooks/` for TanStack Query hooks.

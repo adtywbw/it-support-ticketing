@@ -13,6 +13,7 @@ import { RedisService } from '../redis/redis.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { AuthResponse } from './interfaces/auth-response.interface';
+import { parseExpiryToMs } from '../common/utils/time.util';
 
 const MAX_FAILED_ATTEMPTS = 10;
 const LOCK_DURATION_SEC = 900;
@@ -42,17 +43,8 @@ export class AuthService {
     private readonly redisService: RedisService,
   ) {
     const expiryStr = process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d';
-    this.refreshTokenExpiryMs = this.parseExpiryToMs(expiryStr);
+    this.refreshTokenExpiryMs = parseExpiryToMs(expiryStr);
     this.dummyHash = bcrypt.hashSync('dummy-password-for-timing', 12);
-  }
-
-  private parseExpiryToMs(expiry: string): number {
-    const match = expiry.match(/^(\d+)([smhd])$/);
-    if (!match) return 7 * 24 * 60 * 60 * 1000;
-    const value = parseInt(match[1], 10);
-    const unit = match[2];
-    const multipliers: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-    return value * (multipliers[unit] || multipliers.d);
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {

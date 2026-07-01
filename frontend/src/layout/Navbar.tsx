@@ -8,6 +8,7 @@ import { useThemeStore } from '@/stores/theme-store';
 import { useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { useLogout } from '@/hooks/use-auth';
 import { formatRelativeTime, getUserDisplayName, getUserInitials } from '@/lib/utils';
+import { STALE_TIME_NOTIFICATION_DROPDOWN } from '@/lib/constants';
 import type { Notification } from '@/types';
 
 interface NavbarProps {
@@ -31,7 +32,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
   const { data } = useQuery({
     queryKey: ['notifications', 'dropdown'],
     enabled: notifOpen,
-    staleTime: 30_000,
+    staleTime: STALE_TIME_NOTIFICATION_DROPDOWN,
     queryFn: async () => {
       const res = await apiClient.get<ApiEnvelope<Notification[]>>('/notifications?page=1&limit=5');
       return unwrapData(res);

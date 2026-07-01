@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import type { User, CreateUserPayload, UpdateUserPayload } from '@/types';
+import { STALE_TIME_ASSIGNABLE_USERS } from '@/lib/constants';
 
 export function useUsers(options?: { enabled?: boolean; page?: number; limit?: number }) {
   const page = options?.page ?? 1;
@@ -18,7 +19,7 @@ export function useUsers(options?: { enabled?: boolean; page?: number; limit?: n
 export function useAssignableUsers(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users', 'assignable'],
-    staleTime: 1000 * 60 * 10,
+    staleTime: STALE_TIME_ASSIGNABLE_USERS,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Array<{ id: string; name: string; email: string; role: string }>>>('/users/assignable');
       return unwrapData(response);

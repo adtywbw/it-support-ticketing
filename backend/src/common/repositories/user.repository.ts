@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class UserRepository {
@@ -97,7 +98,7 @@ export class UserRepository {
 
   async findSupportUsers() {
     return this.prisma.user.findMany({
-      where: { role: { in: ['ITSupport', 'Admin'] } as any, isActive: true },
+      where: { role: { in: [Role.ITSupport, Role.Admin] }, isActive: true },
       select: { id: true },
     });
   }
@@ -106,7 +107,7 @@ export class UserRepository {
     return this.prisma.user.findMany({
       where: {
         isActive: true,
-        role: { in: ['ITSupport', 'Admin'] } as any,
+        role: { in: [Role.ITSupport, Role.Admin] },
       },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: 'asc' },
@@ -116,7 +117,7 @@ export class UserRepository {
   async findTelegramLinkedUsers() {
     return this.prisma.user.findMany({
       where: {
-        role: { in: ['ITSupport', 'Admin'] } as any,
+        role: { in: [Role.ITSupport, Role.Admin] },
         isActive: true,
         telegramChatId: { not: null },
       },

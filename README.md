@@ -475,22 +475,26 @@ npm test
 npm run lint
 ```
 
-Backend unit tests (13 suites, 126 tests) cover:
+Backend unit tests (21 suites, 238 tests) cover:
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
 - `MaintenanceService` / `MaintenanceGuard` — backup/restore failure paths, admin bypass, Redis fail-open
-- `SLAService` — partial update merged-value validation, not-found, isActive-only patches
+- `SLAService` — partial update merged-value validation, not-found, isActive-only patches, cron lock release
 - `MIME validation` — magic-byte detection, Office file compatibility (OOXML/OLE2), spoofing rejection, text null-byte check
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
 - `CreateTicketDto` / `CreateCommentDto` — whitespace rejection, trim-before-validate, min-length enforcement
 - `TelegramConfigRepository` — singleton atomic upsert, concurrent findOrCreate safety
-- `DashboardService` — cache invalidation, event-driven invalidation, Redis failure resilience
+- `DashboardService` — cache hit/miss/forceRefresh, getStats() 6-way parallel query, event-driven invalidation
+- `CategoriesService` — role-based shape (Admin full vs EndUser minimal), hard-delete vs soft-delete
+- All 9 repositories — `UserRepository`, `NotificationRepository`, `TicketRepository`, `CommentRepository`, `AttachmentRepository`, `SlaConfigRepository`, `CategoryRepository`, `SubCategoryRepository` safe select + pagination + where-clause correctness
 
-Frontend tests (4 suites, 13 tests) cover:
+Frontend tests (6 suites, 21 tests) cover:
 - `auth-store` — login, logout, token persistence
 - `ProtectedRoute` — refresh envelope, unauthenticated redirect, role gating
-- `use-notifications` — unread count fetch, paginated notifications list
+- `use-notifications` — unread count fetch, paginated notifications list, mark-as-read
+- `use-change-password` — payload POST, error surfacing, isError state
+- `use-socket` — connect with auth token, auth-error disconnect, non-auth no-disconnect, unmount cleanup
 - `Pagination` — page info, no "All" option, Next/Previous button states
 
 ## Scaling

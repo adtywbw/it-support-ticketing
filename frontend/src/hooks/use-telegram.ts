@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
+import { STALE_TIME_TELEGRAM_CONFIG } from '@/lib/constants';
 
 export interface TelegramSettings {
   enabledEvents: string[];
@@ -58,7 +59,7 @@ export function useUnlinkTelegram() {
 export function useTelegramConfig(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['telegram-config'],
-    staleTime: 1000 * 60 * 5,
+    staleTime: STALE_TIME_TELEGRAM_CONFIG,
     queryFn: async () => {
       const res = await apiClient.get<ApiEnvelope<TelegramConfig>>('/telegram/config');
       return unwrapData(res);

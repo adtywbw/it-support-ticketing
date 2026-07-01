@@ -2,6 +2,35 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 9 — Apply Quick-Win Fixes (sesi9/quick-wins branch)
+
+Baseline review menemukan 21 Important + 50 Minor issues. Sesi 9 apply 17 quick-win fixes (1 commit per logical change):
+
+### Backend Infrastructure
+- **INFRA-I-1**: `user.repository.ts:79` & `notification.repository.ts:30` — `totalPages = Math.ceil(total / limit) || 1` agar empty page tidak return `totalPages: 0`. Konsisten dengan `attachments.service.ts:144`.
+- **INFRA-I-2**: `skip-maintenance.decorator.ts` — export `SKIP_MAINTENANCE_KEY` constant; `maintenance.guard.ts` import. Hindari string-literal typo.
+- **INFRA-I-3**: `storage-service.interface.ts` — tambah `STORAGE_SERVICE` Symbol. 3 service + module + 1 test ganti `@Inject('StorageService')` → `@Inject(STORAGE_SERVICE)`.
+- **INFRA-I-6**: `prisma.service.ts` — validate `DATABASE_URL` (empty/invalid) di constructor dengan error message eksplisit.
+
+### Backend Security
+- **SEC-I-1**: `maintenance.guard.ts:73` — `verifyAsync` dengan explicit `{ secret, algorithms: ['HS256'] }`. Hindari algorithm-downgrade jika `JwtModule` options berubah.
+- **SEC-I-2**: `ticket.repository.ts` — `findManyForUser` + `countForUser` + `TicketAccessScope` + `buildTicketAccessWhere` helper. EndUser scope tidak bisa dilupakan caller baru.
+- **SEC-I-3**: `comment.repository.ts:17-46` + `comments.service.ts:172-209` — visibility filter EndUser di-push ke Prisma `attachments.where` (bukan in-memory setelah fetch).
+- **SEC-I-4**: `upload-attachment.dto.ts` (new) — `@IsEnum(AttachmentVisibility)`. `attachments.service.ts:43` parameter typed `AttachmentVisibility` bukan `string`.
+- **SEC-I-5**: `comments.service.ts:102-109` — `MAX_FILES_PER_TICKET` count di dalam transaction (`tx.attachment.count`). Hindari race condition 2 concurrent comment-with-files.
+- **SEC-I-6**: `auth.service.ts:151-156` — hapus direct `revokeAllRefreshTokens` di `changePassword`. Event handler (`@OnEvent('user.password_changed')`) yang handle, sync dispatch.
+
+### Backend Business
+- **BIZ-I-1**: `tickets.service.ts:45-77` — pakai `SLAService.getSLAConfig()` (priority-fallback ke lowest-resolutionTime). Konsisten dengan service SLA, bukan hardcoded 24h. `tickets.module.ts` import `SLAModule`.
+- **BIZ-I-2**: `maintenance.service.ts:105-119` — `createBackup` reject jika `RESTORE_LOCK_KEY` set (kecuali `source='pre-restore'`). Hindari `pg_dump` terhadap schema yang sedang di-DROP.
+- **BIZ-I-3**: `AGENTS.md` — tambah section "Category Field-Set by Role" lock contract EndUser+ITSupport minimal / Admin full. Code is correct per CHANGELOG P1-06.
+
+### Frontend
+- **FE-I-1**: `use-notifications.ts:40-52` — `useMarkAsRead.onSuccess` panggil `notificationStore.decrement()` untuk instant badge update.
+- **FE-I-2**: `LoginPage.tsx` — render `location.state.message` di amber banner di atas form. Password change / restore success message tidak hilang.
+- **FE-I-3**: `use-socket.ts:32-33,41-42` — `console.log` di guard dengan `import.meta.env.DEV`.
+- **FE-I-4**: `use-change-password.test.tsx` (3 cases) + `use-socket.test.tsx` (5 cases). Test count: 13 → 21.
+
 ## Session 10 — Test Coverage (sesi10/test-coverage branch)
 
 Session 8 review menemukan 8/9 repository tanpa unit test. Sesi 10 add comprehensive coverage untuk semua repository dan service yang sebelumnya tidak ter-test.
@@ -36,34 +65,40 @@ Session 8 review menemukan 8/9 repository tanpa unit test. Sesi 10 add comprehen
 - Test suites: 13 → 21 (+8)
 - 2 tests skipped (Sesi 9 method signatures — will be re-enabled after Sesi 9 merge)
 - All commits pass `npm test` and `npm run build`
-## Session 8 Review (sesi9/quick-wins branch)
 
-Baseline review menemukan 21 Important + 50 Minor issues. Sesi 9 apply 17 quick-win fixes (1 commit per logical change):
+## Session 11 — Polish & Minor Fixes
 
-### Backend Infrastructure
-- **INFRA-I-1**: `user.repository.ts:79` & `notification.repository.ts:30` — `totalPages = Math.ceil(total / limit) || 1` agar empty page tidak return `totalPages: 0`. Konsisten dengan `attachments.service.ts:144`.
-- **INFRA-I-2**: `skip-maintenance.decorator.ts` — export `SKIP_MAINTENANCE_KEY` constant; `maintenance.guard.ts` import. Hindari string-literal typo.
-- **INFRA-I-3**: `storage-service.interface.ts` — tambah `STORAGE_SERVICE` Symbol. 3 service + module + 1 test ganti `@Inject('StorageService')` → `@Inject(STORAGE_SERVICE)`.
-- **INFRA-I-6**: `prisma.service.ts` — validate `DATABASE_URL` (empty/invalid) di constructor dengan error message eksplisit.
+Code review polish round: extract shared utils, remove dead code, tighten validation, type safety.
 
-### Backend Security
-- **SEC-I-1**: `maintenance.guard.ts:73` — `verifyAsync` dengan explicit `{ secret, algorithms: ['HS256'] }`. Hindari algorithm-downgrade jika `JwtModule` options berubah.
-- **SEC-I-2**: `ticket.repository.ts` — `findManyForUser` + `countForUser` + `TicketAccessScope` + `buildTicketAccessWhere` helper. EndUser scope tidak bisa dilupakan caller baru.
-- **SEC-I-3**: `comment.repository.ts:17-46` + `comments.service.ts:172-209` — visibility filter EndUser di-push ke Prisma `attachments.where` (bukan in-memory setelah fetch).
-- **SEC-I-4**: `upload-attachment.dto.ts` (new) — `@IsEnum(AttachmentVisibility)`. `attachments.service.ts:43` parameter typed `AttachmentVisibility` bukan `string`.
-- **SEC-I-5**: `comments.service.ts:102-109` — `MAX_FILES_PER_TICKET` count di dalam transaction (`tx.attachment.count`). Hindari race condition 2 concurrent comment-with-files.
-- **SEC-I-6**: `auth.service.ts:151-156` — hapus direct `revokeAllRefreshTokens` di `changePassword`. Event handler (`@OnEvent('user.password_changed')`) yang handle, sync dispatch.
+### Shared Utils (reduce code duplication)
+- `backend/src/common/utils/time.util.ts` — `parseExpiryToMs()` shared duration parser. Eliminates duplicate in `auth.service.ts` and `auth.controller.ts`.
+- `backend/src/common/utils/concurrency.util.ts` — `runWithConcurrency()` shared async concurrency limiter. Eliminates duplicate in `notifications.service.ts` and refactors `telegram.service.ts` hand-rolled worker pool.
+- `frontend/src/lib/utils.ts` — add `safeRedirectPath()` helper. Eliminates duplicate `startsWith('/') && !startsWith('//')` guard in `use-auth.ts` and `LoginPage.tsx`.
 
-### Backend Business
-- **BIZ-I-1**: `tickets.service.ts:45-77` — pakai `SLAService.getSLAConfig()` (priority-fallback ke lowest-resolutionTime). Konsisten dengan service SLA, bukan hardcoded 24h. `tickets.module.ts` import `SLAModule`.
-- **BIZ-I-2**: `maintenance.service.ts:105-119` — `createBackup` reject jika `RESTORE_LOCK_KEY` set (kecuali `source='pre-restore'`). Hindari `pg_dump` terhadap schema yang sedang di-DROP.
-- **BIZ-I-3**: `AGENTS.md` — tambah section "Category Field-Set by Role" lock contract EndUser+ITSupport minimal / Admin full. Code is correct per CHANGELOG P1-06.
+### Dead Code Removal
+- `dashboard.service.ts` — remove unused `forceRefresh` parameter from `getStats()`. Controller never passes it.
+- `maintenance.service.ts:260` — remove redundant `releaseLock(lock)` in `restoreBackup()` success path. `finally` block at line 274 already releases.
 
-### Frontend
-- **FE-I-1**: `use-notifications.ts:40-52` — `useMarkAsRead.onSuccess` panggil `notificationStore.decrement()` untuk instant badge update.
-- **FE-I-2**: `LoginPage.tsx` — render `location.state.message` di amber banner di atas form. Password change / restore success message tidak hilang.
-- **FE-I-3**: `use-socket.ts:32-33,41-42` — `console.log` di guard dengan `import.meta.env.DEV`.
-- **FE-I-4**: `use-change-password.test.tsx` (3 cases) + `use-socket.test.tsx` (5 cases). Test count: 13 → 21.
+### Validation & Empty-Case Tightening
+- `maintenance/dto/maintenance-mode.dto.ts` — add `@MaxLength(1000)` to `message` field.
+- `maintenance.service.ts:82` — treat empty string `message` as "use default" (previously `message !== undefined` only checked `undefined`, not `''`).
+- `redis.service.ts:12-13` — replace fragile `url.replace('redis://', ...)` with `new URL(url).password = ...`. Supports `rediss://`, paths, query strings.
+
+### Type Safety
+- `user.repository.ts` — replace `role: { in: ['ITSupport', 'Admin'] } as any` with typed `[Role.ITSupport, Role.Admin]` in 3 methods (`findSupportUsers`, `findAssignable`, `findTelegramLinkedUsers`).
+- `telegram-config.repository.ts` — `update(data)` now uses `where: { key: DEFAULT_KEY }` instead of `where: { id }`. Caller changed from `config.id` to bare `update`.
+
+### Frontend Constants Extraction
+- `lib/constants.ts` — add named constants for poll intervals and stale times: `UNREAD_NOTIFICATIONS_POLL_MS`, `MAINTENANCE_POLL_MS`, `STALE_TIME_CATEGORIES`, `STALE_TIME_ASSIGNABLE_USERS`, `STALE_TIME_TELEGRAM_CONFIG`, `STALE_TIME_NOTIFICATION_DROPDOWN`.
+- 6 hooks/layout files updated to import from `constants.ts` instead of inline magic numbers.
+
+### Notes
+- No production behavior changes — all changes are code-quality, not logic changes.
+- Backend: 126 tests, build clean.
+- Frontend: build clean, lint 0 issues.
+
+### Renumbering Note
+The CHANGELOG entry that originally was titled `## Session 8 Review (sesi9/quick-wins branch)` (in Sesi 9 squash-merged commit `13d664f`) was mis-titled. The work is **Sesi 9 — Apply Quick-Win Fixes**, not Session 8. The original `Session 8` work was the full baseline review (a report, no code changes). This merge resolves the heading to `## Session 9 — Apply Quick-Win Fixes (sesi9/quick-wins branch)` (as above).
 
 ## Docker / TLS Refactor
 

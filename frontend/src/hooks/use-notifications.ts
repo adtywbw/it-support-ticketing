@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import { useNotificationStore } from '@/stores/notification-store';
 import type { Notification } from '@/types';
+import { UNREAD_NOTIFICATIONS_POLL_MS } from '@/lib/constants';
 import { useEffect } from 'react';
 
 export function useUnreadNotificationCount() {
@@ -13,7 +14,7 @@ export function useUnreadNotificationCount() {
       const response = await apiClient.get<ApiEnvelope<{ count: number }>>('/notifications/unread-count');
       return unwrapData(response);
     },
-    refetchInterval: 30000,
+    refetchInterval: UNREAD_NOTIFICATIONS_POLL_MS,
   });
 
   useEffect(() => {

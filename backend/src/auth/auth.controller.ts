@@ -17,6 +17,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { parseExpiryToMs } from '../common/utils/time.util';
 
 const REFRESH_COOKIE = 'refresh_token';
 
@@ -29,12 +30,7 @@ function getCookieSecure(req: Request): boolean {
 
 function getRefreshCookieMaxAge(): number {
   const expiryStr = process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d';
-  const match = expiryStr.match(/^(\d+)([smhd])$/);
-  if (!match) return 7 * 24 * 60 * 60 * 1000;
-  const value = parseInt(match[1], 10);
-  const unit = match[2];
-  const multipliers: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-  return value * (multipliers[unit] || multipliers.d);
+  return parseExpiryToMs(expiryStr);
 }
 
 function getRefreshCookieOptions(req: Request, maxAge?: number) {

@@ -16,12 +16,10 @@ export class DashboardService {
     private readonly redisService: RedisService,
   ) {}
 
-  async getStats(forceRefresh = false) {
-    if (!forceRefresh) {
-      const cached = await this.redisService.get(DASHBOARD_CACHE_KEY);
-      if (cached) {
-        return JSON.parse(cached);
-      }
+  async getStats() {
+    const cached = await this.redisService.get(DASHBOARD_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
     }
 
     const [

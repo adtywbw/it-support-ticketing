@@ -10,7 +10,9 @@ export class RedisService implements OnModuleDestroy {
     let url = process.env.REDIS_URL;
     if (url) {
       if (process.env.REDIS_PASSWORD && !url.includes('@')) {
-        url = url.replace('redis://', `redis://:${process.env.REDIS_PASSWORD}@`);
+        const parsedUrl = new URL(url);
+        parsedUrl.password = process.env.REDIS_PASSWORD;
+        url = parsedUrl.toString();
       }
       this.client = new Redis(url, {
         retryStrategy: (times) => Math.min(times * 50, 2000),

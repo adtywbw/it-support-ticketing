@@ -2,17 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { NotificationRepository } from '../common/repositories/notification.repository';
 import { UserRepository } from '../common/repositories/user.repository';
-
-async function runWithConcurrency<T>(items: T[], limit: number, task: (item: T) => Promise<void>) {
-  const queue = [...items];
-  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
-    while (queue.length > 0) {
-      const item = queue.shift();
-      if (item) await task(item);
-    }
-  });
-  await Promise.allSettled(workers);
-}
+import { runWithConcurrency } from '../common/utils/concurrency.util';
 
 @Injectable()
 export class NotificationsService {

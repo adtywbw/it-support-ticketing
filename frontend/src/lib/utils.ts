@@ -78,6 +78,17 @@ export function getErrorMessage(err: unknown, fallback = 'Something went wrong')
   return fallback;
 }
 
+/**
+ * Safely resolve a redirect path from react-router's `from` state.
+ * Prevents open-redirect attacks by rejecting paths starting with '//'.
+ */
+export function safeRedirectPath(from: { pathname?: string; search?: string } | null | undefined): string {
+  if (from?.pathname && from.pathname.startsWith('/') && !from.pathname.startsWith('//')) {
+    return `${from.pathname}${from.search || ''}`;
+  }
+  return '/tickets';
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes == null || isNaN(bytes) || bytes < 0) return '0 B';
   if (bytes === 0) return '0 B';
