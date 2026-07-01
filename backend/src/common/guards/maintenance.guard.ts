@@ -70,7 +70,10 @@ export class MaintenanceGuard implements CanActivate {
 
     const token = authHeader.slice(7);
     try {
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
+        secret: process.env.JWT_SECRET,
+        algorithms: ['HS256'],
+      });
       return payload.role === Role.Admin;
     } catch {
       return true;
