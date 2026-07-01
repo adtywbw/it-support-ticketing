@@ -111,6 +111,12 @@ postgres/postgresql.conf
 | ITSupport | Yes | Yes | Yes | No | No | No |
 | Admin | Yes | Yes | Yes | Yes | Yes | Yes |
 
+### Category Field-Set by Role
+
+`GET /api/categories` returns different field sets by role (intentional, per CHANGELOG P1-06):
+- **Admin**: full data including `_count` and `slaConfigs` (used by Master Data management page).
+- **ITSupport & EndUser**: minimal field set (id, name, description, active sub-categories) — used by ticket create form and filters. ITSupport does not have a Master Data UI, so full shape is not needed.
+
 ## Ticket Rules
 - EndUser can create own tickets, view only own tickets, and close own `Resolved -> Closed` tickets.
 - EndUser cannot comment, upload, or list attachments for tickets owned by another user.

@@ -149,7 +149,11 @@ export class AuthService {
     }
 
     await this.usersService.update(userId, { password: newPassword });
-    await this.revokeAllRefreshTokens(userId);
+    // Refresh tokens are revoked via the @OnEvent('user.password_changed')
+    // handler below. EventEmitter2 dispatches synchronously by default, so
+    // the revoke completes before this method returns. Do NOT call
+    // revokeAllRefreshTokens directly here — that would SCAN+delete the
+    // same keyspace twice.
   }
 
   async revokeAllRefreshTokens(userId: string): Promise<void> {

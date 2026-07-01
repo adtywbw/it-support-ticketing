@@ -107,6 +107,13 @@ export class MaintenanceService {
       if (!enabled) {
         throw new BadRequestException('Maintenance mode must be enabled before creating a backup');
       }
+
+      // Reject if a restore is mid-flight; otherwise pg_dump could run against
+      // a half-dropped schema (the restore does DROP SCHEMA + psql import).
+      const restoreLock = await this.redis.get(RESTORE_LOCK_KEY);
+      if (restoreLock) {
+        throw new BadRequestException('Cannot create backup during an active restore');
+      }
     }
 
     const lock = await this.acquireLock(BACKUP_LOCK_KEY, BACKUP_LOCK_TTL);
