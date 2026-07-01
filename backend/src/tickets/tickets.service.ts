@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TicketRepository } from '../common/repositories/ticket.repository';
+import { TicketRepository, TicketAccessScope } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { UserRepository } from '../common/repositories/user.repository';
@@ -100,10 +100,6 @@ export class TicketsService {
 
     const where: Record<string, unknown> = {};
 
-    if (userRole === 'EndUser') {
-      where.requesterId = userId;
-    }
-
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (categoryId) where.categoryId = categoryId;
@@ -137,8 +133,10 @@ export class TicketsService {
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const orderBy: Record<string, string> = { [orderField]: sortOrder };
 
+    const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
+
     const [tickets, total] = await Promise.all([
-      this.ticketRepository.findMany({
+      this.ticketRepository.findManyForUser({
         where: where as any,
         skip: limit > 0 ? (page - 1) * limit : 0,
         take: limit > 0 ? limit : undefined,
@@ -150,8 +148,8 @@ export class TicketsService {
           subCategory: { select: { id: true, name: true } },
           _count: { select: { comments: true, attachments: true } },
         },
-      }),
-      this.ticketRepository.count(where as any),
+      }, scope),
+      this.ticketRepository.countForUser(where as any, scope),
     ]);
 
     if (userRole === 'EndUser' && tickets.length > 0) {
@@ -183,7 +181,6 @@ export class TicketsService {
 
     const where: Record<string, unknown> = {};
 
-    if (userRole === 'EndUser') where.requesterId = userId;
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (categoryId) where.categoryId = categoryId;
@@ -227,11 +224,12 @@ export class TicketsService {
 
     let cursorId: string | undefined;
     let totalExported = 0;
+    const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
 
     while (totalExported < MAX_EXPORT_ROWS) {
       const cursorWhere = cursorId ? { ...where, id: { [orderDir === 'asc' ? 'gt' : 'lt']: cursorId } } : where;
 
-      const batch = await this.ticketRepository.findMany({
+      const batch = await this.ticketRepository.findManyForUser({
         where: cursorWhere as any,
         orderBy: { id: orderDir === 'asc' ? 'asc' : 'desc' },
         take: BATCH_SIZE,
@@ -241,7 +239,7 @@ export class TicketsService {
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
         },
-      });
+      }, scope);
 
       if (batch.length === 0) break;
 

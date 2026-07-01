@@ -2,6 +2,27 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
+export type TicketAccessScope = {
+  userId: string;
+  role: 'EndUser' | 'ITSupport' | 'Admin';
+};
+
+/**
+ * Builds the base `where` clause for a tickets query that respects the
+ * caller's role. EndUser is automatically scoped to their own tickets;
+ * ITSupport/Admin see all tickets. Caller-provided `where` fields are
+ * merged on top (so explicit filters still apply).
+ */
+export function buildTicketAccessWhere(
+  scope: TicketAccessScope,
+  where: Record<string, unknown> = {},
+): Record<string, unknown> {
+  if (scope.role === 'EndUser') {
+    return { ...where, requesterId: scope.userId };
+  }
+  return where;
+}
+
 @Injectable()
 export class TicketRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -20,6 +41,27 @@ export class TicketRepository {
 
   async findMany(args: Prisma.TicketFindManyArgs) {
     return this.prisma.ticket.findMany(args) as any;
+  }
+
+  /**
+   * Like findMany but automatically scopes EndUser to their own tickets.
+   * Use this for any list/CSV/export endpoint that takes a user request,
+   * so the EndUser filter cannot be forgotten by a new caller.
+   */
+  async findManyForUser(
+    args: Prisma.TicketFindManyArgs,
+    scope: TicketAccessScope,
+  ) {
+    return this.prisma.ticket.findMany({
+      ...args,
+      where: buildTicketAccessWhere(scope, args.where as Record<string, unknown>) as any,
+    }) as any;
+  }
+
+  async countForUser(where: Prisma.TicketWhereInput, scope: TicketAccessScope) {
+    return this.prisma.ticket.count({
+      where: buildTicketAccessWhere(scope, where as Record<string, unknown>) as any,
+    });
   }
 
   async findFirst(args: Prisma.TicketFindFirstArgs) {

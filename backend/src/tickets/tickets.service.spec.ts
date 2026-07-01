@@ -6,7 +6,7 @@ import { TicketStatus, Priority, SLAStatus } from '@prisma/client';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
-import { TicketRepository } from '../common/repositories/ticket.repository';
+import { TicketRepository, buildTicketAccessWhere } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { UserRepository } from '../common/repositories/user.repository';
@@ -25,8 +25,12 @@ describe('TicketsService', () => {
     findById: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
+    findManyForUser: jest.fn().mockImplementation((args: any, scope: any) => {
+      return Promise.resolve(buildTicketAccessWhere(scope, args.where) === args.where ? [] : []);
+    }),
     findFirst: jest.fn(),
     count: jest.fn(),
+    countForUser: jest.fn().mockResolvedValue(0),
     update: jest.fn(),
     updateMany: jest.fn(),
     transaction: jest.fn(),
@@ -385,21 +389,25 @@ describe('TicketsService', () => {
     ];
 
     it('should return paginated tickets with default pagination', async () => {
-      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
-      mockTicketRepository.count.mockResolvedValue(1);
+      mockTicketRepository.findManyForUser.mockResolvedValue(mockTickets);
+      mockTicketRepository.countForUser.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {};
       const result = await service.findAll(queryTicketDto, 'Admin', 'admin-1');
 
-      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
+      expect(mockTicketRepository.findManyForUser).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 0,
           take: 10,
           where: {},
         }),
+        expect.objectContaining({ userId: 'admin-1', role: 'Admin' }),
       );
 
-      expect(mockTicketRepository.count).toHaveBeenCalledWith({});
+      expect(mockTicketRepository.countForUser).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ userId: 'admin-1', role: 'Admin' }),
+      );
 
       expect(result).toEqual({
         data: mockTickets,
@@ -408,8 +416,8 @@ describe('TicketsService', () => {
     });
 
     it('should apply filters correctly', async () => {
-      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
-      mockTicketRepository.count.mockResolvedValue(1);
+      mockTicketRepository.findManyForUser.mockResolvedValue(mockTickets);
+      mockTicketRepository.countForUser.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {
         status: TicketStatus.Open,
@@ -421,7 +429,7 @@ describe('TicketsService', () => {
 
       await service.findAll(queryTicketDto, 'Admin', 'admin-1');
 
-      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
+      expect(mockTicketRepository.findManyForUser).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             status: TicketStatus.Open,
@@ -431,18 +439,22 @@ describe('TicketsService', () => {
           skip: 5,
           take: 5,
         }),
+        expect.any(Object),
       );
 
-      expect(mockTicketRepository.count).toHaveBeenCalledWith({
-        status: TicketStatus.Open,
-        priority: Priority.High,
-        categoryId: 'cat-1',
-      });
+      expect(mockTicketRepository.countForUser).toHaveBeenCalledWith(
+        {
+          status: TicketStatus.Open,
+          priority: Priority.High,
+          categoryId: 'cat-1',
+        },
+        expect.any(Object),
+      );
     });
 
     it('should search by subject using case-insensitive contains', async () => {
-      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
-      mockTicketRepository.count.mockResolvedValue(1);
+      mockTicketRepository.findManyForUser.mockResolvedValue(mockTickets);
+      mockTicketRepository.countForUser.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {
         search: 'vpn',
@@ -450,7 +462,7 @@ describe('TicketsService', () => {
 
       await service.findAll(queryTicketDto, 'Admin', 'admin-1');
 
-      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
+      expect(mockTicketRepository.findManyForUser).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
             OR: [
@@ -460,12 +472,13 @@ describe('TicketsService', () => {
             ],
           },
         }),
+        expect.any(Object),
       );
     });
 
     it('should restrict to requester tickets for EndUser role', async () => {
-      mockTicketRepository.findMany.mockResolvedValue(mockTickets);
-      mockTicketRepository.count.mockResolvedValue(1);
+      mockTicketRepository.findManyForUser.mockResolvedValue(mockTickets);
+      mockTicketRepository.countForUser.mockResolvedValue(1);
       mockTicketRepository.findUnique.mockResolvedValue({
         _count: { comments: 0, attachments: 0 },
       });
@@ -473,12 +486,13 @@ describe('TicketsService', () => {
       const queryTicketDto: QueryTicketDto = {};
       await service.findAll(queryTicketDto, 'EndUser', 'user-1');
 
-      expect(mockTicketRepository.findMany).toHaveBeenCalledWith(
+      // The service passes the where WITHOUT requesterId; the repository
+      // is responsible for adding it via the scope (see buildTicketAccessWhere).
+      expect(mockTicketRepository.findManyForUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {
-            requesterId: 'user-1',
-          },
+          where: {},
         }),
+        expect.objectContaining({ userId: 'user-1', role: 'EndUser' }),
       );
     });
   });
