@@ -249,7 +249,7 @@ export class MaintenanceService {
     await this.validateGzipFile(dbPath, 'Database backup is invalid');
     await this.validateGzipFile(uploadsPath, 'Uploads backup is invalid');
 
-    const lock = await this.acquireLock(RESTORE_LOCK_KEY, 1800);
+    let lock = await this.acquireLock(RESTORE_LOCK_KEY, 1800);
     if (!lock) {
       throw new BadRequestException('A restore operation is already in progress');
     }
@@ -264,6 +264,8 @@ export class MaintenanceService {
       await this.restoreDatabase(dbPath);
       await this.restoreUploads(uploadsPath);
 
+      await this.releaseLock(lock);
+      lock = null;
       await this.setMaintenanceMode(false);
       return preRestoreBackup;
     } catch (error) {
@@ -278,7 +280,9 @@ export class MaintenanceService {
         `${message}${preRestoreDetail} See server logs for details.`,
       );
     } finally {
-      await this.releaseLock(lock).catch(() => {});
+      if (lock) {
+        await this.releaseLock(lock).catch(() => {});
+      }
     }
   }
 
@@ -346,9 +350,26 @@ export class MaintenanceService {
       { env: { ...process.env, ...pg.env }, maxBuffer: 1024 * 1024 },
     );
 
+    const schemaIdentifier = this.formatPgDumpIdentifier(pg.schema);
+    const createSchemaStatement = `CREATE SCHEMA ${schemaIdentifier};`;
+    const createSchemaIfNotExistsStatement = `CREATE SCHEMA IF NOT EXISTS ${schemaIdentifier};`;
+    const createPgTrgmExtensionStatement = `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA ${schemaIdentifier};`;
+    const restoreSqlRewrite = [
+      `$0 == ${JSON.stringify(createSchemaStatement)} && !done {`,
+      `print ${JSON.stringify(createSchemaIfNotExistsStatement)};`,
+      `print ${JSON.stringify(createPgTrgmExtensionStatement)};`,
+      'done=1;',
+      'next;',
+      '}',
+      '{ print }',
+    ].join(' ');
+
     await execFileAsync(
       'sh',
-      ['-c', 'gzip -dc "$DB_BACKUP_PATH" | psql -v ON_ERROR_STOP=1'],
+      [
+        '-c',
+        `gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1`,
+      ],
       {
         env: { ...process.env, ...pg.env, DB_BACKUP_PATH: dbPath },
         maxBuffer: EXEC_MAX_BUFFER,
@@ -456,6 +477,18 @@ export class MaintenanceService {
 
   private quoteIdentifier(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
+  }
+
+  private formatPgDumpIdentifier(value: string): string {
+    if (/^[a-z_][a-z0-9_]*$/.test(value)) {
+      return value;
+    }
+
+    return this.quoteIdentifier(value);
+  }
+
+  private shellQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
   }
 
   private createPgDumpOptions(

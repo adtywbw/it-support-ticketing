@@ -2,6 +2,13 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 16 — Maintenance Restore Regression Fixes
+
+- Restore DB backup yang berisi trigram indexes (`gin_trgm_ops`) sekarang menyisipkan `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;` saat import. Root cause: backup dibuat dengan `pg_dump --schema public`, sehingga extension `pg_trgm` tidak ikut dump; setelah `DROP SCHEMA public CASCADE`, index trigram gagal dibuat karena operator class hilang.
+- Restore success path sekarang melepas `maintenance:restore:lock` sebelum memanggil `setMaintenanceMode(false)`. Sebelumnya disable maintenance ditolak oleh guard service sendiri (`Cannot disable maintenance during active restore`), membuat restore yang sudah selesai tetap dilaporkan gagal dan maintenance tertahan.
+- Regression tests ditambahkan di `maintenance.service.spec.ts` untuk urutan release-lock-before-disable dan pg_trgm restore SQL rewrite.
+- Verification: backend `maintenance.service.spec.ts` 5/5 pass; full backend tests 248/248 pass; API image rebuilt and service healthy.
+
 ## Session 15 — Frontend Test Infrastructure
 
 - Vitest dipasang sebagai test runner; `vite.config.ts` update dengan test config; `src/test/setup.ts` buat `@testing-library/jest-dom`.

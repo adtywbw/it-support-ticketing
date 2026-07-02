@@ -132,7 +132,8 @@ postgres/postgresql.conf
 - `MaintenanceGuard` uses a 2-second in-memory cache + Redis `mget` to reduce round-trips. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis; if Redis is unreachable, guard defaults to allow (fail-open).
 - Always allowed during maintenance: `/api/health`, `/api/maintenance/*`, `/api/auth/*`.
 - When maintenance is enabled, `MaintenanceGuard` verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
-- `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded. On failure, logs the original error via `Logger` and keeps maintenance enabled with the pre-restore backup ID in the error message.
+- `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded. On success, release `maintenance:restore:lock` before disabling maintenance; otherwise `setMaintenanceMode(false)` rejects with `Cannot disable maintenance during active restore`. On failure, logs the original error via `Logger` and keeps maintenance enabled with the pre-restore backup ID in the error message.
+- Restore DB import handles schema-only dumps that omit extensions: it rewrites `CREATE SCHEMA public;` to idempotent schema creation and injects `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;` before trigram indexes (`gin_trgm_ops`) are created.
 - `restoreUploads()` creates its tempDir **inside** `uploadDir` (same Docker volume) to avoid `EXDEV` cross-device rename errors; the tempDir basename is excluded from the upload dir clear step.
 - Frontend `MaintenanceBanner` polls `/api/maintenance/mode` every 15 seconds (authenticated users only). Admin sees a small non-blocking banner; non-admin sees a full-screen overlay that blocks interaction.
 - Frontend axios 503 handler redirects only Admin to `/admin/maintenance`; non-admin requests are rejected without redirect (no redirect loop).
@@ -219,4 +220,3 @@ postgres/postgresql.conf
 - `admin@company.com / Admin123!`
 - `support@company.com / Support123!`
 - Production seed requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` env vars.
-

@@ -22,6 +22,7 @@ jest.mock('child_process', () => ({
 }));
 
 const fs = require('fs/promises') as jest.Mocked<typeof import('fs/promises')>;
+const childProcess = require('child_process') as jest.Mocked<typeof import('child_process')>;
 
 describe('MaintenanceService restore safety', () => {
   let service: MaintenanceService;
@@ -91,6 +92,31 @@ describe('MaintenanceService restore safety', () => {
       'Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.',
     );
   });
+
+  it('releases restore lock before disabling maintenance after successful restore', async () => {
+    jest.spyOn(service as any, 'createBackup').mockResolvedValue({
+      id: '20260627-115900',
+      createdAt: '2026-06-27T11:59:00.000Z',
+      files: {
+        db: { exists: true, size: 1 },
+        uploads: { exists: true, size: 1 },
+      },
+    });
+    jest.spyOn(service as any, 'restoreDatabase').mockResolvedValue(undefined);
+    jest.spyOn(service as any, 'restoreUploads').mockResolvedValue(undefined);
+
+    await service.restoreBackup('20260627-120000', '20260627-120000');
+
+    const disableMaintenanceCall = (service.setMaintenanceMode as jest.Mock).mock.calls.findIndex(
+      (call: [boolean, string?]) => call[0] === false,
+    );
+    const disableMaintenanceOrder = (service.setMaintenanceMode as jest.Mock).mock.invocationCallOrder[disableMaintenanceCall];
+    const releaseLockOrder = ((service as any).releaseLock as jest.Mock).mock.invocationCallOrder[0];
+
+    expect(disableMaintenanceCall).toBeGreaterThanOrEqual(0);
+    expect((service as any).releaseLock).toHaveBeenCalledTimes(1);
+    expect(releaseLockOrder).toBeLessThan(disableMaintenanceOrder);
+  });
 });
 
 describe('MaintenanceService restoreUploads tempDir placement', () => {
@@ -114,5 +140,37 @@ describe('MaintenanceService restoreUploads tempDir placement', () => {
     );
     expect(tempDirCall).toBeDefined();
     expect(path.dirname(tempDirCall![0] as string)).toBe(uploadDir);
+  });
+});
+
+describe('MaintenanceService restoreDatabase pg_trgm support', () => {
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.DATABASE_URL = 'postgresql://ticketing:secret@db:5432/ticketing?schema=public';
+  });
+
+  afterEach(() => {
+    if (originalDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
+    jest.restoreAllMocks();
+  });
+
+  it('restores schema backups with pg_trgm extension before trigram indexes are created', async () => {
+    const service: any = new MaintenanceService({} as any);
+
+    await service.restoreDatabase('/app/backups/20260702-014500/db.sql.gz');
+
+    const restoreCall = (childProcess.execFile as unknown as jest.Mock).mock.calls.find(
+      (call: any[]) => call[0] === 'sh' && call[1]?.[0] === '-c',
+    );
+
+    expect(restoreCall).toBeDefined();
+    expect(restoreCall![1][1]).toContain('CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;');
+    expect(restoreCall![1][1]).toContain('CREATE SCHEMA IF NOT EXISTS public;');
   });
 });
