@@ -15,12 +15,12 @@
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
-    "@nestjs/common": "^10.3.0",
+    "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
     "@nestjs/event-emitter": "^3.1.0",
-    "@nestjs/jwt": "^10.2.0",
+    "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
-    "@nestjs/passport": "^10.0.3",
+    "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.27",
     "@nestjs/platform-socket.io": "^11.1.27",
     "@nestjs/schedule": "^6.1.3",

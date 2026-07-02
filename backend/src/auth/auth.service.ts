@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { OnEvent } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import type { StringValue } from 'ms';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { LoginDto } from './dto/login.dto';
@@ -200,7 +201,7 @@ export class AuthService {
       },
       {
         secret: process.env.JWT_SECRET!,
-        expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d',
+        expiresIn: (process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d') as StringValue,
       },
     );
 
