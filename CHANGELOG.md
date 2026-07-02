@@ -2,6 +2,30 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 17 — CI Pipeline Fixes & NestJS 11 Upgrade Completion
+
+CI pipeline gagal terus di kedua job (backend + frontend). Root cause dan fix:
+
+### Backend
+- **CI-01**: `npm ci` gagal — `@nestjs/common` masih v10 sementara `@nestjs/core` sudah v11, peer dependency conflict. Fix: upgrade `@nestjs/common` ke v11.1.27.
+- **CI-02**: `npm ci` gagal — `@nestjs/jwt@10` dan `@nestjs/passport@10` peer deps hanya support NestJS 8–10, belum v11. Fix: upgrade `@nestjs/jwt` ke v11.0.2 dan `@nestjs/passport` ke v11.0.5.
+- **CI-03**: `npm run build` gagal setelah upgrade `@nestjs/jwt@11` — `expiresIn` type lebih strict (butuh `StringValue` dari `ms`, bukan plain `string`). Fix: cast `expiresIn` ke `StringValue` di `auth.module.ts` dan `auth.service.ts`.
+- **CI-04**: `npm test` 2 suite failed (`auth.service.spec.ts`, `auth.controller.spec.ts`) — `uuid@14` ESM-only, Jest CommonJS tidak bisa parse `export` syntax. Fix: tambah `transformIgnorePatterns: ["node_modules/(?!uuid)"]` di Jest config (`package.json`).
+
+### Frontend
+- **CI-05**: `npm audit --audit-level=high` gagal — 6 high severity vulnerabilities di `minimatch` (ReDoS), dependency dari `@typescript-eslint/*` v6. Fix: upgrade `@typescript-eslint/eslint-plugin` dan `@typescript-eslint/parser` ke v7.18.0, `eslint` ke v8.57.0. `npm audit --audit-level=high` sekarang 0 vulnerabilities.
+
+### CI Workflow
+- **CI-06**: GitHub Actions `actions/checkout@v4` dan `actions/setup-node@v4` target Node.js 20 (deprecated, dipaksa jalan di Node.js 24). Fix: upgrade kedua actions ke v5.
+
+### Residual Items Resolved
+- 13 moderate vulnerabilities yang ditangguhkan di Session 6 (Residual/deferred) dan CRT-01 — NestJS 11 upgrade sekarang selesai, `npm audit --audit-level=high` 0 vulnerabilities untuk backend dan frontend.
+- `multer` high vulnerability yang disebut di Session 4 (Security Review Fixes) — sudah resolved dengan NestJS 11 upgrade + multer v2 override sebelumnya.
+
+### Verification
+- Backend: `npm ci` ✅, `npm run build` ✅, `npm test` 248/248 pass ✅, `npm audit --audit-level=high` 0 vulns ✅
+- Frontend: `npm ci` ✅, `npm run lint` ✅, `npm run build` ✅, `npm test` 25/25 pass ✅, `npm audit --audit-level=high` 0 vulns ✅
+
 ## Session 16 — Maintenance Restore Regression Fixes
 
 - Restore DB backup yang berisi trigram indexes (`gin_trgm_ops`) sekarang menyisipkan `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;` saat import. Root cause: backup dibuat dengan `pg_dump --schema public`, sehingga extension `pg_trgm` tidak ikut dump; setelah `DROP SCHEMA public CASCADE`, index trigram gagal dibuat karena operator class hilang.
