@@ -2,6 +2,43 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 19 — Balanced Dashboard
+
+### Feature
+- Dashboard untuk ITSupport/Admin sekarang memakai layout balanced: **Current Snapshot**, **Need Attention**, dan **Historical Analytics**.
+- Current Snapshot menampilkan active tickets, open, in progress, SLA risk, dan unassigned secara real-time/current.
+- Need Attention menampilkan maksimal 5 ticket per kategori: SLA Risk, Critical/High Priority, dan Unassigned. Item ticket langsung link ke `/tickets/:id`.
+- Historical Analytics mendukung filter periode `7d`, `30d`, `90d`, dan custom date range.
+
+### Backend Behavior Change
+- `GET /api/dashboard/stats` sekarang menerima query `range=7d|30d|90d|custom` dengan `from`/`to` untuk custom range.
+- Response dashboard berubah dari shape flat lama menjadi `{ current, attention, analytics }`.
+- Cache dashboard naik ke key `dashboard:stats:v2:<range>` dengan TTL 30 detik. Event ticket tetap meng-invalidasi seluruh key `dashboard:stats:v2:*` via `RedisService.deleteByPattern()`.
+- Query dashboard dipindahkan ke repository methods khusus di `TicketRepository`: current snapshot, attention tickets, range status/priority counts, range SLA stats, range avg resolution by category, dan top categories.
+
+### Files Changed (backend)
+- `backend/src/dashboard/dto/query-dashboard-stats.dto.ts` — **new** — validates dashboard range query params.
+- `backend/src/dashboard/dashboard.controller.ts` — passes dashboard query DTO to service.
+- `backend/src/dashboard/dashboard.service.ts` — v2 response shape, range resolution, per-range cache keys, attention serialization.
+- `backend/src/common/repositories/ticket.repository.ts` — dashboard-specific query methods.
+- `backend/src/dashboard/__tests__/dashboard.service.spec.ts` — 14 tests covering v2 cache/range behavior, validation, response shaping, attention cap/date serialization, and Redis invalidation failure handling.
+
+### Files Changed (frontend)
+- `frontend/src/types/index.ts` — structured dashboard types (`DashboardStatsQuery`, `DashboardCurrentSnapshot`, `DashboardAttention`, `DashboardAnalytics`, etc.).
+- `frontend/src/hooks/use-dashboard.ts` — query-aware `useDashboardStats(query)` and `buildDashboardStatsPath()`.
+- `frontend/src/hooks/__tests__/use-dashboard.test.tsx` — **new** — 3 hook/path tests.
+- `frontend/src/components/dashboard/DashboardRangeFilter.tsx` — **new** — preset/custom range filter with toast validation.
+- `frontend/src/components/dashboard/__tests__/DashboardRangeFilter.test.tsx` — **new** — 3 component tests.
+- `frontend/src/components/dashboard/CurrentSnapshotCards.tsx` — **new**.
+- `frontend/src/components/dashboard/NeedAttentionSection.tsx` — **new**.
+- `frontend/src/components/dashboard/AnalyticsSection.tsx` — **new**.
+- `frontend/src/components/dashboard/DashboardStats.tsx` — split into orchestration + focused sub-components.
+- `frontend/src/pages/DashboardPage.tsx` — owns dashboard range state.
+
+### Verification
+- Backend dashboard focused tests: 14/14 pass; backend build: ✅.
+- Frontend dashboard focused tests: 6/6 pass; frontend lint: ✅; frontend build: ✅.
+
 ## Session 18 — Admin SLA Configuration
 
 ### Feature

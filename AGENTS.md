@@ -50,6 +50,7 @@
 ## Project Structure
 ```
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
+backend/src/dashboard/dto/query-dashboard-stats.dto.ts
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/policies/attachment-visibility.policy.ts
 backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation}.util.ts
@@ -81,6 +82,7 @@ postgres/postgresql.conf
 - Zustand persisted state: theme only.
 - Zustand non-persisted state: auth user/accessToken and notification count.
 - React state owns form and component-local UI state.
+- Dashboard page owns range state (`DashboardStatsQuery`) and passes it down; `useDashboardStats(query)` key changes trigger refetch.
 
 ## Auth & Security
 - Access token is memory-only in Zustand auth state.
@@ -124,7 +126,7 @@ postgres/postgresql.conf
 - EndUser sees only PUBLIC direct attachments and attachments from PUBLIC comments.
 - ITSupport/Admin can access dashboard and operational ticket workflows.
 - `updateStatus()` is atomic: conditional `updateMany({ where: { id, status: oldStatus } })` → 409 Conflict on race.
-- Ticket mutation events: `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, `ticket.deleted` are emitted via `EventEmitter2`. `DashboardService` listens to all five and invalidates its Redis cache (`dashboard:stats:v1`) so stats stay fresh without waiting for the 30s TTL.
+- Ticket mutation events: `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, `ticket.deleted` are emitted via `EventEmitter2`. `DashboardService` listens to all five and invalidates its Redis cache (`dashboard:stats:v2:*` via `deleteByPattern`) so stats stay fresh without waiting for the 30s TTL.
 
 ## Maintenance Mode
 - Flags live in Redis: `maintenance:enabled`, `maintenance:message`; Redis is not restored from backups.
@@ -179,7 +181,7 @@ postgres/postgresql.conf
 - Categories: `GET|POST|PATCH|DELETE /api/categories`, `GET /api/categories/:id`, and `/api/categories/:categoryId/sub-categories`.
 - Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path.
 - SLA: `GET|POST|PATCH /api/sla-configs`. Create and timing update auto-recalculate affected non-terminal tickets.
-- Dashboard: `GET /api/dashboard/stats`.
+- Dashboard: `GET /api/dashboard/stats` supports range query (`?range=7d|30d|90d|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`); returns `{ current, attention, analytics }`.
 - Users: `GET|POST|PATCH|DELETE /api/users`, `GET /api/users/:id`, `GET /api/users/assignable`; `GET ?includeInactive=true` includes inactive users.
 - Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, and unread-count operations.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
@@ -216,6 +218,7 @@ postgres/postgresql.conf
 - Pagination `meta`: tickets, users, and notifications repositories always include `totalPages` (`Math.ceil(total / limit)`). New paginated endpoints must follow the same shape — do not omit `totalPages` even when `total === 0` (use `1` for the empty case).
 - Telegram config response: the `TelegramConfig` response from `GET /api/telegram/config` contains only `hasBotToken` + `hasGroupChatId` + `settings` (with `groupChatId` stripped). Do not add a `botToken` field even an empty string — it is a contract smell and risks copy-paste leaks.
 - SLA recalculation: `SLAService` automatically recalculates `slaDueAt` and `slaStatus` for non-terminal tickets when SLA config timing is created or changed. `isActive`-only updates do not trigger recalculation. Frontend `SLAConfigManager` sends timing on every edit — the backend correctly skips recalculation if timing hasn't actually changed.
+- Dashboard: the `TicketRepository` now has dashboard-specific methods (`getDashboardCurrentSnapshot`, `getDashboardAttentionTickets`, `getDashboardStatusCounts`, `getDashboardPriorityCounts`, `getDashboardSLAStatsForRange`, `getAvgResolutionTimeByCategoryForRange`, `getTopCategories`). Do not duplicate these query patterns; reuse the repository methods.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`

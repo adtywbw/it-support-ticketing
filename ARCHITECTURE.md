@@ -372,7 +372,9 @@ it-support-ticketing/
 │       ├── dashboard/
 │       │   ├── dashboard.module.ts
 │       │   ├── dashboard.controller.ts
-│       │   └── dashboard.service.ts
+│       │   ├── dashboard.service.ts
+│       │   └── dto/
+│       │       └── query-dashboard-stats.dto.ts
 │       └── health/
 │           ├── health.module.ts
 │           └── health.controller.ts
@@ -432,7 +434,11 @@ it-support-ticketing/
 │       │   │   ├── StatusBadge.tsx
 │       │   │   └── PriorityBadge.tsx
 │       │   ├── dashboard/
-│       │   │   └── DashboardStats.tsx
+│       │   │   ├── DashboardStats.tsx
+│       │   │   ├── DashboardRangeFilter.tsx
+│       │   │   ├── CurrentSnapshotCards.tsx
+│       │   │   ├── NeedAttentionSection.tsx
+│       │   │   └── AnalyticsSection.tsx
 │       │   ├── admin/
 │       │   │   ├── UserManagement.tsx
 │       │   │   ├── MasterDataManagement.tsx
@@ -534,7 +540,7 @@ it-support-ticketing/
 - `MaintenanceGuard` (global `APP_GUARD`) blocks non-essential API requests when maintenance mode is enabled. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis access, so Redis outages do not block essential endpoints. If Redis is unreachable, the guard defaults to "allow" (fail-open) to prevent total system lockout. When maintenance is enabled, the guard verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
 - `TransformInterceptor` (global `APP_INTERCEPTOR`) wraps all success responses in `{ data, meta? }` envelope. Skips wrap for stream/CSV/blob responses. Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers to extract data from the envelope. Paginated `meta` always includes `{ page, limit, total, totalPages }` — `totalPages` is provided even when `total === 0` (use `1` for empty page).
 - `HttpExceptionFilter` returns stable error codes (`BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.) via `resp.code` or `getCodeFromStatus()` fallback.
-- Dashboard stats are cached in Redis (`dashboard:stats:v1`, 30s TTL). `DashboardService` listens to `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, and `ticket.deleted` events via `EventEmitter2` and invalidates the cache so stats stay fresh without waiting for the TTL.
+- Dashboard stats are cached in Redis with range-aware keys (`dashboard:stats:v2:<range>`, 30s TTL). `DashboardService` returns `{ current, attention, analytics }`, supports `7d`/`30d`/`90d`/custom ranges for analytics, and listens to `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, and `ticket.deleted` events via `EventEmitter2` to invalidate `dashboard:stats:v2:*` via `deleteByPattern` so stats stay fresh without waiting for the TTL.
 - Maintenance mode flag stored in Redis (`maintenance:enabled`, `maintenance:message`) — not in DB, so it survives DB restore but not Redis flush.
 - Health endpoint always accessible (no auth required) and includes `maintenance: { enabled, message }` in its response for frontend polling.
 - Restore does not disable maintenance mode on failure — maintenance stays active until restore completes successfully. The original error is logged via `Logger` so "See server logs for details" in the error message is actionable.

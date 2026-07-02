@@ -46,11 +46,11 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - Admin UI: **SLA Configuration** tab in Master Data for CRUD by category/priority with human-readable time inputs (minutes/hours/days)
 
 ### Dashboard & Statistics
-- Ticket counts by status and priority
-- Daily trends (7d and 30d)
-- SLA compliance rate
-- Average resolution time per category (smart unit: hours/minutes/seconds)
-- Redis-cached (30s TTL) with event-driven invalidation on ticket create/status/assign/priority/delete
+- Current operational snapshot: active tickets, open, in progress, SLA risk, and unassigned
+- Need Attention lists: SLA Risk, Critical/High Priority, and Unassigned tickets with direct links to ticket detail
+- Historical analytics with 7d / 30d / 90d / custom range filter
+- Ticket trend, status/priority distribution, SLA compliance rate, top categories, and average resolution time per category
+- Redis-cached (30s TTL, `dashboard:stats:v2:<range>`) with event-driven invalidation on ticket create/status/assign/priority/delete
 
 ### Notifications
 - In-app notification system (table-based)
@@ -387,7 +387,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 ### Dashboard
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/dashboard/stats` | All dashboard statistics |
+| GET | `/api/dashboard/stats?range=7d\|30d\|90d\|custom&from=YYYY-MM-DD&to=YYYY-MM-DD` | Dashboard `{ current, attention, analytics }` stats (ITSupport/Admin) |
 
 ### Telegram
 | Method | Path | Description |
@@ -413,7 +413,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | `/tickets` | Ticket list (own/all) | Authenticated |
 | `/tickets/new` | Create ticket form | Authenticated |
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
-| `/dashboard` | Statistics & charts | ITSupport, Admin |
+| `/dashboard` | Current snapshot, attention lists, and range-filtered analytics | ITSupport, Admin |
 | `/notifications` | In-app notifications | Authenticated |
 | `/my-account` | Profile info and self-service password change | Authenticated |
 | `/admin/users` | User management | Admin |
@@ -480,7 +480,7 @@ npm test
 npm run lint
 ```
 
-Backend unit tests (22 suites, 253 tests) cover:
+Backend unit tests cover:
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
@@ -490,11 +490,11 @@ Backend unit tests (22 suites, 253 tests) cover:
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
 - `CreateTicketDto` / `CreateCommentDto` — whitespace rejection, trim-before-validate, min-length enforcement
 - `TelegramConfigRepository` — singleton atomic upsert, concurrent findOrCreate safety
-- `DashboardService` — cache hit/miss/forceRefresh, getStats() 6-way parallel query, event-driven invalidation
+- `DashboardService` — v2 range cache keys, `{ current, attention, analytics }` response shaping, custom range validation, event-driven invalidation
 - `CategoriesService` — role-based shape (Admin full vs EndUser minimal), hard-delete vs soft-delete
 - All 9 repositories — `UserRepository`, `NotificationRepository`, `TicketRepository`, `CommentRepository`, `AttachmentRepository`, `SlaConfigRepository`, `CategoryRepository`, `SubCategoryRepository` safe select + pagination + where-clause correctness
 
-Frontend tests (10 suites, 34 tests) cover:
+Frontend tests cover:
 - `auth-store` — login, logout, token persistence
 - `ProtectedRoute` — refresh envelope, unauthenticated redirect, role gating
 - `use-categories` — role-aware cache keys for category list and detail
@@ -502,6 +502,8 @@ Frontend tests (10 suites, 34 tests) cover:
 - `use-change-password` — payload POST, error surfacing, isError state
 - `use-socket` — connect with auth token, auth-error disconnect, non-auth no-disconnect, unmount cleanup
 - `use-sla-configs` — SLA config fetch with envelope unwrap, create/update mutations with cache invalidation
+- `use-dashboard` — default/custom dashboard stats path building and envelope unwrap
+- `DashboardRangeFilter` — preset selection, invalid custom range toast, valid custom range apply
 - `sla-time` — duration conversion, format, and validation helpers
 - `SLAConfigManager` — table rendering, create modal with time unit conversion, active-category filtering
 - `Pagination` — page info, no "All" option, Next/Previous button states
