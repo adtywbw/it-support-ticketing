@@ -6,8 +6,8 @@
 - Read `CHANGELOG.md` for regression context and historical changes (performance, bug fixes, security sessions 2–4); do not duplicate that history here.
 
 ## Stack Snapshot
-- Backend: NestJS 10, Prisma 5, PostgreSQL 16, Redis 7, Socket.IO notifications.
-- Frontend: React 18, Vite 5, TanStack Query 5, Zustand, Tailwind.
+- Backend: NestJS 11, Prisma 5, PostgreSQL 16, Redis 7, Socket.IO notifications.
+- Frontend: React 18, Vite 8, TanStack Query 5, Zustand, Tailwind.
 - API success: `{ data, meta? }` (enforced globally via `TransformInterceptor`); paginated `meta` is `{ page, limit, total, totalPages }` (always includes `totalPages`).
 - API error: `{ error: { code, message } }` via `HttpExceptionFilter` (stable codes: `BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.).
 
