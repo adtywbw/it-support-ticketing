@@ -9,6 +9,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { getErrorMessage } from '@/lib/utils';
 import { useCategories } from '@/hooks/use-categories';
+import SLAConfigManager from '@/components/admin/SLAConfigManager';
 import type {
   Category,
   SubCategory,
@@ -18,7 +19,7 @@ import type {
   UpdateSubCategoryPayload,
 } from '@/types';
 
-type Tab = 'categories' | 'subcategories';
+type Tab = 'categories' | 'subcategories' | 'sla';
 
 export default function MasterDataManagement() {
   const [activeTab, setActiveTab] = useState<Tab>('categories');
@@ -47,10 +48,22 @@ export default function MasterDataManagement() {
           >
             Sub-categories
           </button>
+          <button
+            onClick={() => setActiveTab('sla')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'sla'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            SLA Configuration
+          </button>
         </nav>
       </div>
 
-      {activeTab === 'categories' ? <CategoryManager /> : <SubCategoryManager />}
+      {activeTab === 'categories' && <CategoryManager />}
+      {activeTab === 'subcategories' && <SubCategoryManager />}
+      {activeTab === 'sla' && <SLAConfigManager />}
     </div>
   );
 }

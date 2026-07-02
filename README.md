@@ -40,8 +40,10 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - Configurable SLA per category + priority
 - `slaDueAt` auto-calculated on ticket creation
 - Partial updates validate merged `responseTimeMinutes`/`resolutionTimeMinutes` (resolution must be ≥ response)
+- Auto-recalculation of affected open tickets when SLA timing is created or changed
 - Background cron every 5 minutes checks SLA breach (Redis lock for horizontal scaling)
 - SLA status: `OnTrack`, `AtRisk` (≤20% remaining), `Breached`
+- Admin UI: **SLA Configuration** tab in Master Data for CRUD by category/priority with human-readable time inputs (minutes/hours/days)
 
 ### Dashboard & Statistics
 - Ticket counts by status and priority
@@ -478,12 +480,12 @@ npm test
 npm run lint
 ```
 
-Backend unit tests (21 suites, 237 tests) cover:
+Backend unit tests (22 suites, 253 tests) cover:
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
 - `MaintenanceService` / `MaintenanceGuard` — backup/restore failure paths, admin bypass, Redis fail-open
-- `SLAService` — partial update merged-value validation, not-found, isActive-only patches, cron lock release
+- `SLAService` — partial update merged-value validation, not-found, isActive-only patches, cron lock release, auto-recalculation on create/timing update
 - `MIME validation` — magic-byte detection, Office file compatibility (OOXML/OLE2), spoofing rejection, text null-byte check
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
 - `CreateTicketDto` / `CreateCommentDto` — whitespace rejection, trim-before-validate, min-length enforcement
@@ -492,12 +494,16 @@ Backend unit tests (21 suites, 237 tests) cover:
 - `CategoriesService` — role-based shape (Admin full vs EndUser minimal), hard-delete vs soft-delete
 - All 9 repositories — `UserRepository`, `NotificationRepository`, `TicketRepository`, `CommentRepository`, `AttachmentRepository`, `SlaConfigRepository`, `CategoryRepository`, `SubCategoryRepository` safe select + pagination + where-clause correctness
 
-Frontend tests (6 suites, 21 tests) cover:
+Frontend tests (10 suites, 34 tests) cover:
 - `auth-store` — login, logout, token persistence
 - `ProtectedRoute` — refresh envelope, unauthenticated redirect, role gating
+- `use-categories` — role-aware cache keys for category list and detail
 - `use-notifications` — unread count fetch, paginated notifications list, mark-as-read
 - `use-change-password` — payload POST, error surfacing, isError state
 - `use-socket` — connect with auth token, auth-error disconnect, non-auth no-disconnect, unmount cleanup
+- `use-sla-configs` — SLA config fetch with envelope unwrap, create/update mutations with cache invalidation
+- `sla-time` — duration conversion, format, and validation helpers
+- `SLAConfigManager` — table rendering, create modal with time unit conversion, active-category filtering
 - `Pagination` — page info, no "All" option, Next/Previous button states
 
 ## Scaling

@@ -194,6 +194,8 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
 │ UNIQUE: (categoryId, priority)
+│ NOTE: create and timing update auto-recalculate affected non-terminal
+│       tickets' slaDueAt and slaStatus via SLAService.
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -391,6 +393,7 @@ it-support-ticketing/
 │       ├── lib/
 │       │   ├── axios.ts
 │       │   ├── constants.ts
+│       │   ├── sla-time.ts
 │       │   └── utils.ts
 │       ├── types/
 │       │   └── index.ts
@@ -407,6 +410,7 @@ it-support-ticketing/
 │       │   ├── use-notifications.ts
 │       │   ├── use-telegram.ts
 │       │   ├── use-maintenance.ts
+│       │   ├── use-sla-configs.ts
 │       │   ├── use-change-password.ts
 │       │   └── use-socket.ts
 │       ├── auth/
@@ -431,7 +435,8 @@ it-support-ticketing/
 │       │   │   └── DashboardStats.tsx
 │       │   ├── admin/
 │       │   │   ├── UserManagement.tsx
-│       │   │   └── MasterDataManagement.tsx
+│       │   │   ├── MasterDataManagement.tsx
+│       │   │   └── SLAConfigManager.tsx
 │       │   └── ui/
 │       │       ├── Modal.tsx
 │       │       ├── Pagination.tsx

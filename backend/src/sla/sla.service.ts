@@ -60,12 +60,20 @@ export class SLAService {
     }
 
     try {
-      return await this.slaConfigRepository.create({
+      const config = await this.slaConfigRepository.create({
         category: { connect: { id: data.categoryId } },
         priority: data.priority,
         responseTimeMinutes: data.responseTimeMinutes,
         resolutionTimeMinutes: data.resolutionTimeMinutes,
       });
+
+      await this.recalculateOpenTicketsForConfig({
+        categoryId: config.categoryId,
+        priority: config.priority,
+        resolutionTimeMinutes: config.resolutionTimeMinutes,
+      });
+
+      return config;
     } catch (error) {
       this.handlePrismaWriteError(error);
     }
@@ -84,14 +92,26 @@ export class SLAService {
       throw new NotFoundException('SLA config not found');
     }
 
-    if (data.responseTimeMinutes !== undefined || data.resolutionTimeMinutes !== undefined) {
+    const shouldRecalculate = data.responseTimeMinutes !== undefined || data.resolutionTimeMinutes !== undefined;
+
+    if (shouldRecalculate) {
       const responseTimeMinutes = data.responseTimeMinutes ?? existing.responseTimeMinutes;
       const resolutionTimeMinutes = data.resolutionTimeMinutes ?? existing.resolutionTimeMinutes;
       this.assertSlaWindow(responseTimeMinutes, resolutionTimeMinutes);
     }
 
     try {
-      return await this.slaConfigRepository.update(id, data);
+      const updated = await this.slaConfigRepository.update(id, data);
+
+      if (shouldRecalculate) {
+        await this.recalculateOpenTicketsForConfig({
+          categoryId: updated.categoryId,
+          priority: updated.priority,
+          resolutionTimeMinutes: updated.resolutionTimeMinutes,
+        });
+      }
+
+      return updated;
     } catch (error) {
       this.handlePrismaWriteError(error);
     }
@@ -100,6 +120,69 @@ export class SLAService {
   private assertSlaWindow(responseTimeMinutes: number, resolutionTimeMinutes: number) {
     if (resolutionTimeMinutes < responseTimeMinutes) {
       throw new BadRequestException('Resolution time must be greater than or equal to response time');
+    }
+  }
+
+  private calculateSlaStatus(
+    slaDueAt: Date,
+    resolutionTimeMinutes: number,
+    now: Date,
+  ): SLAStatus {
+    const totalWindowMs = resolutionTimeMinutes * 60 * 1000;
+    const remainingMs = slaDueAt.getTime() - now.getTime();
+
+    if (remainingMs <= 0) {
+      return SLAStatus.Breached;
+    }
+
+    if (remainingMs / totalWindowMs <= 0.2) {
+      return SLAStatus.AtRisk;
+    }
+
+    return SLAStatus.OnTrack;
+  }
+
+  private async recalculateOpenTicketsForConfig(config: {
+    categoryId: string;
+    priority: Priority;
+    resolutionTimeMinutes: number;
+  }) {
+    const batchSize = 500;
+    let lastId: string | undefined;
+
+    const now = new Date();
+
+    while (true) {
+      const tickets = await this.ticketRepository.findMany({
+        where: {
+          categoryId: config.categoryId,
+          priority: config.priority,
+          status: {
+            notIn: [TicketStatus.Resolved, TicketStatus.Closed],
+          },
+          ...(lastId ? { id: { gt: lastId } } : {}),
+        },
+        select: { id: true, createdAt: true },
+        take: batchSize,
+        orderBy: { id: 'asc' },
+      });
+
+      if (tickets.length === 0) break;
+
+      lastId = tickets[tickets.length - 1].id;
+
+      await Promise.all(
+        tickets.map((ticket: { id: string; createdAt: Date }) => {
+          const slaDueAt = new Date(
+            ticket.createdAt.getTime() + config.resolutionTimeMinutes * 60 * 1000,
+          );
+
+          return this.ticketRepository.update(ticket.id, {
+            slaDueAt,
+            slaStatus: this.calculateSlaStatus(slaDueAt, config.resolutionTimeMinutes, now),
+          });
+        }),
+      );
     }
   }
 

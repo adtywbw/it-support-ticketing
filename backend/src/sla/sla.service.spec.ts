@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { SLAService } from './sla.service';
 import { SlaConfigRepository } from '../common/repositories/sla-config.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { RedisService } from '../redis/redis.service';
-import { Priority } from '@prisma/client';
+import { Priority, SLAStatus, TicketStatus } from '@prisma/client';
 
 describe('SLAService', () => {
   let service: SLAService;
@@ -25,6 +25,7 @@ describe('SLAService', () => {
   const mockTicketRepository = {
     findMany: jest.fn(),
     updateMany: jest.fn(),
+    update: jest.fn(),
   };
 
   const mockRedisService = {
@@ -54,7 +55,100 @@ describe('SLAService', () => {
     redisService = module.get(RedisService);
     categoryRepository = module.get(CategoryRepository);
 
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    ticketRepository.findMany.mockResolvedValue([]);
+    ticketRepository.update.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe('create()', () => {
+    const newConfig = {
+      id: 'config-1',
+      categoryId: 'cat-1',
+      priority: Priority.High,
+      responseTimeMinutes: 60,
+      resolutionTimeMinutes: 240,
+      isActive: true,
+    };
+
+    it('should recalculate related non-terminal tickets after creating a config', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000Z'));
+      categoryRepository.findById.mockResolvedValue({ id: 'cat-1' });
+      slaConfigRepository.create.mockResolvedValue(newConfig);
+      ticketRepository.findMany
+        .mockResolvedValueOnce([
+          { id: 'ticket-1', createdAt: new Date('2026-01-01T09:00:00.000Z') },
+          { id: 'ticket-2', createdAt: new Date('2025-12-31T12:00:00.000Z') },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.create({
+        categoryId: 'cat-1',
+        priority: Priority.High,
+        responseTimeMinutes: 60,
+        resolutionTimeMinutes: 240,
+      });
+
+      expect(result).toEqual(newConfig);
+      expect(ticketRepository.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: {
+            categoryId: 'cat-1',
+            priority: Priority.High,
+            status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
+          },
+          select: { id: true, createdAt: true },
+          take: 500,
+          orderBy: { id: 'asc' },
+        }),
+      );
+      expect(ticketRepository.update).toHaveBeenCalledWith('ticket-1', {
+        slaDueAt: new Date('2026-01-01T13:00:00.000Z'),
+        slaStatus: SLAStatus.OnTrack,
+      });
+      expect(ticketRepository.update).toHaveBeenCalledWith('ticket-2', {
+        slaDueAt: new Date('2025-12-31T16:00:00.000Z'),
+        slaStatus: SLAStatus.Breached,
+      });
+    });
+
+    it('should throw NotFoundException and skip recalculation when category does not exist', async () => {
+      categoryRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          categoryId: 'missing-cat',
+          priority: Priority.High,
+          responseTimeMinutes: 60,
+          resolutionTimeMinutes: 240,
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(slaConfigRepository.create).not.toHaveBeenCalled();
+      expect(ticketRepository.findMany).not.toHaveBeenCalled();
+      expect(ticketRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should map duplicate category-priority configs to ConflictException and skip recalculation', async () => {
+      categoryRepository.findById.mockResolvedValue({ id: 'cat-1' });
+      slaConfigRepository.create.mockRejectedValue({ code: 'P2002' });
+
+      await expect(
+        service.create({
+          categoryId: 'cat-1',
+          priority: Priority.High,
+          responseTimeMinutes: 60,
+          resolutionTimeMinutes: 240,
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(ticketRepository.findMany).not.toHaveBeenCalled();
+      expect(ticketRepository.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('update()', () => {
@@ -116,6 +210,7 @@ describe('SLAService', () => {
 
       expect(result.responseTimeMinutes).toBe(120);
       expect(slaConfigRepository.update).toHaveBeenCalledWith('config-1', { responseTimeMinutes: 120 });
+      expect(ticketRepository.findMany).toHaveBeenCalled();
     });
 
     it('should validate merged values when only resolutionTimeMinutes is patched', async () => {
@@ -137,6 +232,7 @@ describe('SLAService', () => {
 
       expect(result.resolutionTimeMinutes).toBe(480);
       expect(slaConfigRepository.update).toHaveBeenCalledWith('config-1', { resolutionTimeMinutes: 480 });
+      expect(ticketRepository.findMany).toHaveBeenCalled();
     });
 
     it('should allow patching isActive without time validation', async () => {
@@ -147,6 +243,52 @@ describe('SLAService', () => {
 
       expect(result.isActive).toBe(false);
       expect(slaConfigRepository.update).toHaveBeenCalledWith('config-1', { isActive: false });
+    });
+
+    it('should recalculate related tickets when timing fields are updated', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000Z'));
+      const updatedConfig = {
+        ...existingConfig,
+        responseTimeMinutes: 120,
+        resolutionTimeMinutes: 480,
+      };
+      slaConfigRepository.findUnique.mockResolvedValue(existingConfig);
+      slaConfigRepository.update.mockResolvedValue(updatedConfig);
+      ticketRepository.findMany
+        .mockResolvedValueOnce([
+          { id: 'ticket-1', createdAt: new Date('2026-01-01T05:00:00.000Z') },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.update('config-1', {
+        responseTimeMinutes: 120,
+        resolutionTimeMinutes: 480,
+      });
+
+      expect(result).toEqual(updatedConfig);
+      expect(ticketRepository.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            categoryId: 'cat-1',
+            priority: Priority.High,
+            status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
+          },
+        }),
+      );
+      expect(ticketRepository.update).toHaveBeenCalledWith('ticket-1', {
+        slaDueAt: new Date('2026-01-01T13:00:00.000Z'),
+        slaStatus: SLAStatus.AtRisk,
+      });
+    });
+
+    it('should not recalculate tickets when only isActive is updated', async () => {
+      slaConfigRepository.findUnique.mockResolvedValue(existingConfig);
+      slaConfigRepository.update.mockResolvedValue({ ...existingConfig, isActive: false });
+
+      await service.update('config-1', { isActive: false });
+
+      expect(ticketRepository.findMany).not.toHaveBeenCalled();
+      expect(ticketRepository.update).not.toHaveBeenCalled();
     });
 
     it('should allow equal response and resolution times', async () => {

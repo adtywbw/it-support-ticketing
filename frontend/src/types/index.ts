@@ -215,3 +215,28 @@ export interface UpdateSubCategoryPayload {
   description?: string;
   isActive?: boolean;
 }
+
+export interface SLAConfig {
+  id: string;
+  categoryId: string;
+  category?: Pick<Category, 'id' | 'name'>;
+  priority: TicketPriority;
+  responseTimeMinutes: number;
+  resolutionTimeMinutes: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSLAConfigPayload {
+  categoryId: string;
+  priority: TicketPriority;
+  responseTimeMinutes: number;
+  resolutionTimeMinutes: number;
+}
+
+export interface UpdateSLAConfigPayload {
+  responseTimeMinutes?: number;
+  resolutionTimeMinutes?: number;
+  isActive?: boolean;
+}

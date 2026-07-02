@@ -2,6 +2,42 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 18 — Admin SLA Configuration
+
+### Feature
+- Admin can manage SLA configs via a new **SLA Configuration** tab in Admin - Master Data.
+- Table list UI: each row shows category name, priority (color-coded), response time, resolution time (human-readable), status badge (active/inactive), and Edit/Activate/Deactivate actions.
+- Create modal: active categories only, priority selector (Low/Medium/High/Critical), response/resolution time with value + unit (minutes/hours/days).
+- Edit modal: pre-fills existing values, editable time fields, read-only category/priority info.
+- Activate/deactivate via ConfirmDialog — no permanent delete.
+- Frontend validates: category required, valid numbers, resolution >= response, duplicate category+priority check.
+
+### Backend Behavior Change
+- **Auto-recalculation**: `SLAService.create()` and `SLAService.update()` now automatically recalculate `slaDueAt` and `slaStatus` for affected non-terminal tickets when SLA timing (`responseTimeMinutes`/`resolutionTimeMinutes`) is created or changed.
+- Recalculation uses keyset pagination (batch 500) with consistent `now` timestamp across all batches.
+- `isActive`-only updates do NOT trigger recalculation.
+- Recalculation skips `Resolved`/`Closed` tickets.
+
+### Files Changed (backend)
+- `backend/src/sla/sla.service.ts` — added `calculateSlaStatus()`, `recalculateOpenTicketsForConfig()`; updated `create()` and `update()` to trigger recalculation.
+- `backend/src/sla/sla.service.spec.ts` — added 5 tests for recalculation, 2 augmented existing tests.
+
+### Files Changed (frontend)
+- `frontend/src/types/index.ts` — added `SLAConfig`, `CreateSLAConfigPayload`, `UpdateSLAConfigPayload`.
+- `frontend/src/lib/constants.ts` — added `STALE_TIME_SLA_CONFIGS`.
+- `frontend/src/lib/sla-time.ts` — **new** — `toMinutes`, `splitMinutesForInput`, `formatSLADuration`, `isValidSLAWindow`.
+- `frontend/src/lib/__tests__/sla-time.test.ts` — **new** — 4 unit tests.
+- `frontend/src/hooks/use-sla-configs.ts` — **new** — `useSLAConfigs`, `useCreateSLAConfig`, `useUpdateSLAConfig`.
+- `frontend/src/hooks/__tests__/use-sla-configs.test.tsx` — **new** — 3 hook tests.
+- `frontend/src/components/admin/SLAConfigManager.tsx` — **new** — full SLA config management component.
+- `frontend/src/components/admin/__tests__/SLAConfigManager.test.tsx` — **new** — 2 component tests.
+- `frontend/src/components/admin/MasterDataManagement.tsx` — added SLA Configuration tab.
+
+### Verification
+- Backend: 25/25 SLA service tests pass, full suite 253/253 pass.
+- Frontend: 9/9 focused tests (sla-time + use-sla-configs + SLAConfigManager) pass, full suite 34/34 pass.
+- Frontend build: ✅, lint: ✅, backend build: ✅.
+
 ## Session 17 — CI Pipeline Fixes & NestJS 11 Upgrade Completion
 
 CI pipeline gagal terus di kedua job (backend + frontend). Root cause dan fix:

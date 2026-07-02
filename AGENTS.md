@@ -53,7 +53,7 @@ backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboa
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/policies/attachment-visibility.policy.ts
 backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation}.util.ts
-frontend/src/{auth,layout,pages,components,hooks,stores,types,lib}
+frontend/src/{auth,layout,pages,components/admin,components/ui,components/tickets,components/dashboard,hooks,stores,types,lib}
 frontend/.eslintignore
 postgres/postgresql.conf
 ```
@@ -67,7 +67,7 @@ postgres/postgresql.conf
 - Frontend components: `frontend/src/components/{domain}/`.
 - Frontend hooks: `frontend/src/hooks/` for TanStack Query hooks.
 - Frontend stores: `frontend/src/stores/` for Zustand.
-- Frontend `types/` and `lib/` hold shared types, axios client, and utilities.
+- Frontend `types/` and `lib/` hold shared types, axios client, and utilities (including `sla-time.ts` for SLA duration conversion).
 - Use `kebab-case` files, `PascalCase` components/classes, and `camelCase` variables/functions.
 - Frontend uses functional components, named exports, Tailwind utilities, and `@/` alias.
 - Do not add CSS modules or styled-components.
@@ -76,7 +76,7 @@ postgres/postgresql.conf
 - Throw `BadRequestException`/`NotFoundException` on backend; use `toast.error()` on frontend.
 
 ## State Management
-- TanStack Query owns server state: tickets, users, categories, notifications, dashboard stats.
+- TanStack Query owns server state: tickets, users, categories, sla-configs, notifications, dashboard stats.
 - StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Hooks without staleTime default to 0 (refetch on mount/focus).
 - Zustand persisted state: theme only.
 - Zustand non-persisted state: auth user/accessToken and notification count.
@@ -178,7 +178,7 @@ postgres/postgresql.conf
 - Ticket children: `GET|POST /api/tickets/:id/comments|attachments`; EndUser sees only own visible resources.
 - Categories: `GET|POST|PATCH|DELETE /api/categories`, `GET /api/categories/:id`, and `/api/categories/:categoryId/sub-categories`.
 - Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path.
-- SLA: `GET|POST|PATCH /api/sla-configs`.
+- SLA: `GET|POST|PATCH /api/sla-configs`. Create and timing update auto-recalculate affected non-terminal tickets.
 - Dashboard: `GET /api/dashboard/stats`.
 - Users: `GET|POST|PATCH|DELETE /api/users`, `GET /api/users/:id`, `GET /api/users/assignable`; `GET ?includeInactive=true` includes inactive users.
 - Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, and unread-count operations.
@@ -197,9 +197,9 @@ postgres/postgresql.conf
 - `Ticket`: `ticketNumber` (from sequence, not MAX), `status`, `priority`; `visibility` does not exist on the Ticket model — visibility belongs to `Attachment`.
 - `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (for display only), filename on disk = uuid + safe extension.
 - `Comment`: there is no `isInternal` boolean field — use the `type: CommentType` field (`PUBLIC`|`INTERNAL`). Internal attachment visibility is controlled via `AttachmentVisibilityPolicy`.
+- `SLAConfig`: unique constraint on `(categoryId, priority)`. `SLAService.create()` and `SLAService.update()` auto-recalculate affected non-terminal tickets' `slaDueAt` and `slaStatus` after timing changes (`responseTimeMinutes`/`resolutionTimeMinutes`). `isActive`-only updates do NOT trigger recalculation. Recalculation skips `Resolved`/`Closed` tickets.
 - `TelegramConfig`: singleton, always accessed via `key = "default"`, use `findOrCreate()` (atomic `upsert`) from the repository — do not call `findFirst()` or `create()` directly.
 - `Notification`: clear-all, read-all, mark-read are supported by the API — check the API Map before adding new endpoints.
-- `SLAConfig`: unique constraint on `(categoryId, priority)` — upsert on create/update. `SLAService.update()` loads existing config and validates merged `responseTimeMinutes`/`resolutionTimeMinutes` before persisting partial patches.
 
 ## Common Pitfalls
 - Do not inject `PrismaService` directly into new services; always go through the repository in `common/repositories/`.
@@ -215,6 +215,7 @@ postgres/postgresql.conf
 - DTO validation: `CreateTicketDto` and `CreateCommentDto` use `@Transform(trimString)` + `@IsNotEmpty()` + `@MinLength()` — direct API clients cannot send whitespace-only payloads. Match these constraints when adding new text-field DTOs.
 - Pagination `meta`: tickets, users, and notifications repositories always include `totalPages` (`Math.ceil(total / limit)`). New paginated endpoints must follow the same shape — do not omit `totalPages` even when `total === 0` (use `1` for the empty case).
 - Telegram config response: the `TelegramConfig` response from `GET /api/telegram/config` contains only `hasBotToken` + `hasGroupChatId` + `settings` (with `groupChatId` stripped). Do not add a `botToken` field even an empty string — it is a contract smell and risks copy-paste leaks.
+- SLA recalculation: `SLAService` automatically recalculates `slaDueAt` and `slaStatus` for non-terminal tickets when SLA config timing is created or changed. `isActive`-only updates do not trigger recalculation. Frontend `SLAConfigManager` sends timing on every edit — the backend correctly skips recalculation if timing hasn't actually changed.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`
