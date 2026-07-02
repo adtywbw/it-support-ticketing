@@ -16,15 +16,12 @@
 - Frontend bug: page -> related hook/component -> API/backend only if evidence points there.
 - API bug: controller -> service -> repository.
 - Backend change: keep service -> repository flow; new services inject repositories, not `PrismaService`.
-- Verify narrowly with relevant test/build/lint only; do not run the whole stack unless needed.
 - Preserve user changes; never revert/reset/checkout files without explicit request.
 
-## Mandatory Agentic Loop
-- Phase 1 — Context: use the Project Structure & API Map here as the initial map; look up specific files directly, do not recursively scan first. Read at most 3–5 files before Planning. No edits before context gathering is complete.
-- Phase 2 — Planning: for >1-file tasks, write a change plan first (`path/to/file.ts` → 1-sentence change; for bugs, root cause in 1 sentence; flag behavior changes; readable in 30s). Ask confirmation only if info cannot be derived from codebase/AGENTS.md — max 1 question per cycle.
-- Phase 3 — Execution: narrowest change within scope; no unrequested features/refactors; prefer reversible actions; avoid destructive ops without confirmation; one logical change = one commit.
-- Phase 4 — Verification: run test/lint/build relevant to the changed area; if not relevant/cannot run, report why; on failure, analyze→fix→repeat; never declare done until verification passes or limitations explained.
-- Phase 5 — Reporting: summarize files changed, reasons, verification run + evidence; explicitly flag behavior changes humans must know.
+## Workflow
+- Context: use the Project Structure & API Map below as initial map; look up specific files directly, no recursive scan. Read at most 3–5 files before planning. No edits before context complete.
+- Execution: narrowest change within scope; no unrequested features/refactors; prefer reversible actions; no destructive ops without confirmation; one logical change = one commit.
+- Reporting: summarize files changed + reasons + verification evidence; flag behavior changes humans must know.
 
 ## Non-Negotiable Rules
 - Do not persist access tokens in `localStorage`, `sessionStorage`, or other persistent storage.
