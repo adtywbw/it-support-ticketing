@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, Priority, SLAStatus, TicketStatus } from '@prisma/client';
 
 export type TicketAccessScope = {
   userId: string;
@@ -22,6 +22,40 @@ export function buildTicketAccessWhere(
   }
   return where;
 }
+
+export type DashboardTicketSummary = {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  priority: Priority;
+  status: TicketStatus;
+  slaStatus: SLAStatus | null;
+  slaDueAt: Date | null;
+  assignedTo: { id: string; name: string } | null;
+  createdAt: Date;
+};
+
+export type DashboardAttentionTickets = {
+  slaRisk: DashboardTicketSummary[];
+  highPriority: DashboardTicketSummary[];
+  unassigned: DashboardTicketSummary[];
+};
+
+const activeDashboardWhere: Prisma.TicketWhereInput = {
+  status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
+};
+
+const dashboardTicketSummarySelect = {
+  id: true,
+  ticketNumber: true,
+  subject: true,
+  priority: true,
+  status: true,
+  slaStatus: true,
+  slaDueAt: true,
+  assignedTo: { select: { id: true, name: true } },
+  createdAt: true,
+} satisfies Prisma.TicketSelect;
 
 @Injectable()
 export class TicketRepository {
@@ -72,6 +106,66 @@ export class TicketRepository {
     return this.prisma.ticket.count({ where });
   }
 
+  async getDashboardCurrentSnapshot() {
+    const [activeTickets, open, inProgress, slaRisk, unassigned] = await Promise.all([
+      this.prisma.ticket.count({ where: activeDashboardWhere }),
+      this.prisma.ticket.count({ where: { status: TicketStatus.Open } }),
+      this.prisma.ticket.count({ where: { status: TicketStatus.InProgress } }),
+      this.prisma.ticket.count({
+        where: {
+          ...activeDashboardWhere,
+          slaStatus: { in: [SLAStatus.AtRisk, SLAStatus.Breached] },
+        },
+      }),
+      this.prisma.ticket.count({
+        where: {
+          ...activeDashboardWhere,
+          assignedToId: null,
+        },
+      }),
+    ]);
+
+    return { activeTickets, open, inProgress, slaRisk, unassigned };
+  }
+
+  async getDashboardAttentionTickets(): Promise<DashboardAttentionTickets> {
+    const [slaRisk, highPriority, unassigned] = await Promise.all([
+      this.prisma.ticket.findMany({
+        where: {
+          ...activeDashboardWhere,
+          slaStatus: { in: [SLAStatus.Breached, SLAStatus.AtRisk] },
+        },
+        select: dashboardTicketSummarySelect,
+        orderBy: [{ slaStatus: 'desc' }, { slaDueAt: 'asc' }, { createdAt: 'asc' }],
+        take: 5,
+      }),
+      this.prisma.ticket.findMany({
+        where: {
+          ...activeDashboardWhere,
+          priority: { in: [Priority.Critical, Priority.High] },
+        },
+        select: dashboardTicketSummarySelect,
+        orderBy: [{ priority: 'desc' }, { slaDueAt: 'asc' }, { createdAt: 'asc' }],
+        take: 5,
+      }),
+      this.prisma.ticket.findMany({
+        where: {
+          ...activeDashboardWhere,
+          assignedToId: null,
+        },
+        select: dashboardTicketSummarySelect,
+        orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+        take: 5,
+      }),
+    ]);
+
+    return {
+      slaRisk: slaRisk as DashboardTicketSummary[],
+      highPriority: highPriority as DashboardTicketSummary[],
+      unassigned: unassigned as DashboardTicketSummary[],
+    };
+  }
+
   async update(id: string, data: Prisma.TicketUpdateInput) {
     return this.prisma.ticket.update({ where: { id }, data }) as any;
   }
@@ -110,6 +204,84 @@ export class TicketRepository {
 
   async groupBy(args: any) {
     return this.prisma.ticket.groupBy(args) as any;
+  }
+
+  async getDashboardStatusCounts(from: Date, to: Date) {
+    return this.prisma.ticket.groupBy({
+      by: ['status'],
+      where: { createdAt: { gte: from, lt: to } },
+      _count: { id: true },
+    }) as any;
+  }
+
+  async getDashboardPriorityCounts(from: Date, to: Date) {
+    return this.prisma.ticket.groupBy({
+      by: ['priority'],
+      where: { createdAt: { gte: from, lt: to } },
+      _count: { id: true },
+    }) as any;
+  }
+
+  async getDashboardSLAStatsForRange(from: Date, to: Date) {
+    const rows = await this.prisma.$queryRaw<Array<{
+      total: number;
+      onTrack: number;
+      atRisk: number;
+      breached: number;
+    }>>`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE "slaStatus" = 'OnTrack')::int AS "onTrack",
+        COUNT(*) FILTER (WHERE "slaStatus" = 'AtRisk')::int AS "atRisk",
+        COUNT(*) FILTER (WHERE "slaStatus" = 'Breached')::int AS breached
+      FROM tickets
+      WHERE "createdAt" >= ${from}
+        AND "createdAt" < ${to}
+    `;
+    return rows[0];
+  }
+
+  async getAvgResolutionTimeByCategoryForRange(from: Date, to: Date) {
+    return this.prisma.$queryRaw<Array<{
+      categoryId: string;
+      categoryName: string;
+      avgResolutionMinutes: number;
+      ticketCount: bigint;
+    }>>`
+      SELECT
+        t."categoryId" AS "categoryId",
+        c.name AS "categoryName",
+        ROUND(AVG(EXTRACT(EPOCH FROM (t."resolvedAt" - t."createdAt")) / 60))::int AS "avgResolutionMinutes",
+        COUNT(*)::int AS "ticketCount"
+      FROM tickets t
+      JOIN categories c ON c.id = t."categoryId"
+      WHERE t."resolvedAt" IS NOT NULL
+        AND t.status IN ('Resolved', 'Closed')
+        AND t."resolvedAt" >= ${from}
+        AND t."resolvedAt" < ${to}
+      GROUP BY t."categoryId", c.name
+      ORDER BY "avgResolutionMinutes" DESC
+    `;
+  }
+
+  async getTopCategories(from: Date, to: Date) {
+    return this.prisma.$queryRaw<Array<{
+      categoryId: string;
+      categoryName: string;
+      count: bigint;
+    }>>`
+      SELECT
+        t."categoryId" AS "categoryId",
+        c.name AS "categoryName",
+        COUNT(*)::int AS count
+      FROM tickets t
+      JOIN categories c ON c.id = t."categoryId"
+      WHERE t."createdAt" >= ${from}
+        AND t."createdAt" < ${to}
+      GROUP BY t."categoryId", c.name
+      ORDER BY count DESC, c.name ASC
+      LIMIT 5
+    `;
   }
 
   async getSLAStats() {

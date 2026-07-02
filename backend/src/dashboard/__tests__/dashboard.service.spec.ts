@@ -1,4 +1,6 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Priority, SLAStatus, TicketStatus } from '@prisma/client';
 import { DashboardService } from '../dashboard.service';
 import { TicketRepository } from '../../common/repositories/ticket.repository';
 import { RedisService } from '../../redis/redis.service';
@@ -9,16 +11,46 @@ describe('DashboardService', () => {
   let ticketRepository: any;
 
   const mockTicketRepository = {
-    groupBy: jest.fn().mockResolvedValue([]),
-    getSLAStats: jest.fn().mockResolvedValue({ total: 0, onTrack: 0, atRisk: 0, breached: 0 }),
-    getDailyTrends: jest.fn().mockResolvedValue([]),
-    getAvgResolutionTimeByCategory: jest.fn().mockResolvedValue([]),
+    getDashboardCurrentSnapshot: jest.fn(),
+    getDashboardAttentionTickets: jest.fn(),
+    getDashboardStatusCounts: jest.fn(),
+    getDashboardPriorityCounts: jest.fn(),
+    getDashboardSLAStatsForRange: jest.fn(),
+    getDailyTrends: jest.fn(),
+    getAvgResolutionTimeByCategoryForRange: jest.fn(),
+    getTopCategories: jest.fn(),
   };
 
   const mockRedisService = {
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
-    del: jest.fn().mockResolvedValue(undefined),
+    get: jest.fn(),
+    set: jest.fn(),
+    deleteByPattern: jest.fn(),
+  };
+
+  const baseCurrent = {
+    activeTickets: 4,
+    open: 2,
+    inProgress: 1,
+    slaRisk: 1,
+    unassigned: 1,
+  };
+
+  const baseAttention = {
+    slaRisk: [
+      {
+        id: 'ticket-1',
+        ticketNumber: 'TKT-001',
+        subject: 'VPN down',
+        priority: Priority.Critical,
+        status: TicketStatus.Open,
+        slaStatus: SLAStatus.Breached,
+        slaDueAt: new Date('2026-07-01T12:00:00.000Z'),
+        assignedTo: null,
+        createdAt: new Date('2026-07-01T08:00:00.000Z'),
+      },
+    ],
+    highPriority: [],
+    unassigned: [],
   };
 
   beforeEach(async () => {
@@ -35,163 +67,154 @@ describe('DashboardService', () => {
     ticketRepository = module.get(TicketRepository);
 
     jest.resetAllMocks();
-    // Restore default mock implementations after reset
-    mockTicketRepository.groupBy.mockResolvedValue([]);
-    mockTicketRepository.getSLAStats.mockResolvedValue({ total: 0, onTrack: 0, atRisk: 0, breached: 0 });
-    mockTicketRepository.getDailyTrends.mockResolvedValue([]);
-    mockTicketRepository.getAvgResolutionTimeByCategory.mockResolvedValue([]);
-    mockRedisService.get.mockResolvedValue(null);
-    mockRedisService.set.mockResolvedValue(undefined);
-    mockRedisService.del.mockResolvedValue(undefined);
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-02T10:00:00.000Z'));
+
+    ticketRepository.getDashboardCurrentSnapshot.mockResolvedValue(baseCurrent);
+    ticketRepository.getDashboardAttentionTickets.mockResolvedValue(baseAttention);
+    ticketRepository.getDashboardStatusCounts.mockResolvedValue([{ status: TicketStatus.Open, _count: { id: 2 } }]);
+    ticketRepository.getDashboardPriorityCounts.mockResolvedValue([{ priority: Priority.Critical, _count: { id: 1 } }]);
+    ticketRepository.getDashboardSLAStatsForRange.mockResolvedValue({ total: 4, onTrack: 3, atRisk: 1, breached: 0 });
+    ticketRepository.getDailyTrends.mockResolvedValue([{ day: '2026-07-02', count: 2 }]);
+    ticketRepository.getAvgResolutionTimeByCategoryForRange.mockResolvedValue([
+      { categoryId: 'cat-1', categoryName: 'Network', avgResolutionMinutes: 90, ticketCount: 2n },
+    ]);
+    ticketRepository.getTopCategories.mockResolvedValue([{ categoryId: 'cat-1', categoryName: 'Network', count: 3n }]);
+    redisService.get.mockResolvedValue(null);
+    redisService.set.mockResolvedValue(undefined);
+    redisService.deleteByPattern.mockResolvedValue(1);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('invalidateCache()', () => {
-    it('should delete the dashboard cache key from Redis', async () => {
+    it('deletes all v2 dashboard cache keys', async () => {
       await service.invalidateCache();
 
-      expect(redisService.del).toHaveBeenCalledWith('dashboard:stats:v1');
-    });
-  });
-
-  describe('handleTicketChanged() — event-driven invalidation', () => {
-    it('should invalidate cache when called', async () => {
-      await service.handleTicketChanged();
-
-      expect(redisService.del).toHaveBeenCalledWith('dashboard:stats:v1');
+      expect(redisService.deleteByPattern).toHaveBeenCalledWith('dashboard:stats:v2:*');
     });
 
-    it('should not throw if Redis del fails', async () => {
-      redisService.del.mockRejectedValue(new Error('Redis down'));
+    it('logs warning and does not throw when Redis deleteByPattern fails', async () => {
+      redisService.deleteByPattern.mockRejectedValueOnce(new Error('Redis down'));
 
       await expect(service.handleTicketChanged()).resolves.not.toThrow();
     });
   });
 
-  describe('getStats() — cache behavior', () => {
-    it('should return cached value if Redis has the key', async () => {
-      const cached = { statusCounts: { Open: 5 } };
+  describe('getStats() range and cache behavior', () => {
+    it('defaults to 30d and writes the v2 30d cache key', async () => {
+      const result = await service.getStats({});
+
+      expect(redisService.get).toHaveBeenCalledWith('dashboard:stats:v2:30d');
+      expect(redisService.set).toHaveBeenCalledWith('dashboard:stats:v2:30d', expect.any(String), 30);
+      expect(result.analytics.range).toEqual({ preset: '30d', from: '2026-06-03', to: '2026-07-02' });
+    });
+
+    it('uses separate cache keys for preset ranges', async () => {
+      await service.getStats({ range: '7d' });
+      await service.getStats({ range: '90d' });
+
+      expect(redisService.get).toHaveBeenNthCalledWith(1, 'dashboard:stats:v2:7d');
+      expect(redisService.get).toHaveBeenNthCalledWith(2, 'dashboard:stats:v2:90d');
+    });
+
+    it('uses from and to in the custom cache key', async () => {
+      const result = await service.getStats({ range: 'custom', from: '2026-06-01', to: '2026-06-30' });
+
+      expect(redisService.get).toHaveBeenCalledWith('dashboard:stats:v2:custom:2026-06-01:2026-06-30');
+      expect(result.analytics.range).toEqual({ preset: 'custom', from: '2026-06-01', to: '2026-06-30' });
+    });
+
+    it('returns cached JSON without querying repositories', async () => {
+      const cached = { current: baseCurrent, attention: { slaRisk: [], highPriority: [], unassigned: [] }, analytics: { range: { preset: '30d', from: '2026-06-03', to: '2026-07-02' } } };
       redisService.get.mockResolvedValueOnce(JSON.stringify(cached));
 
-      const result = await service.getStats();
+      const result = await service.getStats({ range: '30d' });
 
       expect(result).toEqual(cached);
-      expect(ticketRepository.groupBy).not.toHaveBeenCalled();
+      expect(ticketRepository.getDashboardCurrentSnapshot).not.toHaveBeenCalled();
     });
 
-    it('should compute stats on cache miss and store in Redis with 30s TTL', async () => {
-      redisService.get.mockResolvedValueOnce(null);
+    it('returns current snapshot independent from analytics range', async () => {
+      const result = await service.getStats({ range: '7d' });
 
-      await service.getStats();
-
-      expect(redisService.set).toHaveBeenCalledWith(
-        'dashboard:stats:v1',
-        expect.any(String),
-        30,
-      );
+      expect(result.current).toEqual(baseCurrent);
+      expect(ticketRepository.getDashboardCurrentSnapshot).toHaveBeenCalledWith();
+      expect(ticketRepository.getDashboardStatusCounts).toHaveBeenCalledWith(expect.any(Date), expect.any(Date));
     });
-  });
 
-  describe('getStats() — status counts (all enum values initialized to 0)', () => {
-    it('should return all TicketStatus values with default 0', async () => {
-      redisService.get.mockResolvedValueOnce(null);
+    it('serializes attention ticket dates and caps each attention list at five items', async () => {
+      const sixTickets = Array.from({ length: 6 }, (_, index) => ({
+        id: `ticket-${index + 1}`,
+        ticketNumber: `TKT-00${index + 1}`,
+        subject: `Issue ${index + 1}`,
+        priority: Priority.Critical,
+        status: TicketStatus.Open,
+        slaStatus: SLAStatus.Breached,
+        slaDueAt: new Date('2026-07-01T12:00:00.000Z'),
+        assignedTo: null,
+        createdAt: new Date('2026-07-01T08:00:00.000Z'),
+      }));
+      ticketRepository.getDashboardAttentionTickets.mockResolvedValueOnce({
+        slaRisk: sixTickets,
+        highPriority: sixTickets,
+        unassigned: sixTickets,
+      });
 
-      const result = await service.getStats();
+      const result = await service.getStats({ range: '30d' });
 
-      expect(result.statusCounts).toEqual({
-        Open: 0,
+      expect(result.attention.slaRisk).toHaveLength(5);
+      expect(result.attention.slaRisk[0].createdAt).toBe('2026-07-01T08:00:00.000Z');
+      expect(result.attention.slaRisk[0].slaDueAt).toBe('2026-07-01T12:00:00.000Z');
+    });
+
+    it('builds analytics counts with zeroes for missing enum values', async () => {
+      const result = await service.getStats({ range: '30d' });
+
+      expect(result.analytics.statusCounts).toEqual({
+        Open: 2,
         InProgress: 0,
         OnHold: 0,
         Resolved: 0,
         Closed: 0,
       });
-    });
-
-    it('should populate counts from groupBy result', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-      ticketRepository.groupBy.mockResolvedValueOnce([
-        { status: 'Open', _count: { id: 3 } },
-        { status: 'Resolved', _count: { id: 7 } },
-      ]);
-
-      const result = await service.getStats();
-
-      expect(result.statusCounts).toEqual({
-        Open: 3,
-        InProgress: 0,
-        OnHold: 0,
-        Resolved: 7,
-        Closed: 0,
+      expect(result.analytics.priorityCounts).toEqual({
+        Low: 0,
+        Medium: 0,
+        High: 0,
+        Critical: 1,
       });
     });
-  });
 
-  describe('getStats() — SLA stats + compliance rate', () => {
-    it('should return 100% compliance when no active tickets', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-      ticketRepository.getSLAStats.mockResolvedValueOnce({ total: 0, onTrack: 0, atRisk: 0, breached: 0 });
+    it('calculates SLA compliance as onTrack divided by total', async () => {
+      ticketRepository.getDashboardSLAStatsForRange.mockResolvedValueOnce({ total: 10, onTrack: 7, atRisk: 2, breached: 1 });
 
-      const result = await service.getStats();
+      const result = await service.getStats({ range: '30d' });
 
-      expect(result.slaStats.complianceRate).toBe(100);
+      expect(result.analytics.slaComplianceRate).toBe(70);
     });
 
-    it('should compute compliance rate as onTrack/total percentage', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-      ticketRepository.getSLAStats.mockResolvedValueOnce({ total: 10, onTrack: 7, atRisk: 2, breached: 1 });
+    it('returns 100 SLA compliance when no tickets are tracked in the range', async () => {
+      ticketRepository.getDashboardSLAStatsForRange.mockResolvedValueOnce({ total: 0, onTrack: 0, atRisk: 0, breached: 0 });
 
-      const result = await service.getStats();
+      const result = await service.getStats({ range: '30d' });
 
-      expect(result.slaStats).toEqual({
-        total: 10,
-        onTrack: 7,
-        atRisk: 2,
-        breached: 1,
-        complianceRate: 70,
-      });
+      expect(result.analytics.slaComplianceRate).toBe(100);
     });
   });
 
-  describe('getStats() — daily trends (7d + 30d parallel)', () => {
-    it('should query getDailyTrends twice (7 + 30 days) in parallel', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-
-      await service.getStats();
-
-      expect(ticketRepository.getDailyTrends).toHaveBeenCalledTimes(2);
-      // Each call passes a [from, to) range
-      for (const call of ticketRepository.getDailyTrends.mock.calls) {
-        expect(call[0]).toBeInstanceOf(Date);
-        expect(call[1]).toBeInstanceOf(Date);
-      }
+  describe('getStats() validation', () => {
+    it('rejects custom ranges without from and to', async () => {
+      await expect(service.getStats({ range: 'custom' })).rejects.toThrow(BadRequestException);
     });
 
-    it('should expose both 7d and 30d in result', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-      ticketRepository.getDailyTrends
-        .mockResolvedValueOnce([{ day: '2026-06-25', count: 3 }])
-        .mockResolvedValueOnce([{ day: '2026-06-01', count: 5 }]);
-
-      const result = await service.getStats();
-
-      // Service fills missing days with 0; just check the reported counts.
-      expect(result.dailyTrends.last7Days['2026-06-25']).toBe(3);
-      expect(result.dailyTrends.last30Days['2026-06-01']).toBe(5);
+    it('rejects custom ranges where from is after to', async () => {
+      await expect(service.getStats({ range: 'custom', from: '2026-07-10', to: '2026-07-01' })).rejects.toThrow(BadRequestException);
     });
-  });
 
-  describe('getStats() — category resolution time', () => {
-    it('should pass through ticketCount as Number (not BigInt)', async () => {
-      redisService.get.mockResolvedValueOnce(null);
-      ticketRepository.getAvgResolutionTimeByCategory.mockResolvedValueOnce([
-        { categoryId: 'c1', categoryName: 'Network', avgResolutionMinutes: 120, ticketCount: 42n },
-      ]);
-
-      const result = await service.getStats();
-
-      expect(result.categoryResolution).toEqual([
-        { categoryId: 'c1', categoryName: 'Network', avgResolutionMinutes: 120, ticketCount: 42 },
-      ]);
-      expect(typeof result.categoryResolution[0].ticketCount).toBe('number');
+    it('rejects invalid direct service range values', async () => {
+      await expect(service.getStats({ range: '365d' as any })).rejects.toThrow(BadRequestException);
     });
   });
 });

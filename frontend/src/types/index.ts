@@ -135,13 +135,67 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export interface DashboardStats {
-  totalTickets: number;
-  ticketsByStatus: { status: string; count: number }[];
-  ticketsByPriority: { priority: string; count: number }[];
+export type DashboardRangePreset = '7d' | '30d' | '90d' | 'custom';
+
+export interface DashboardStatsQuery {
+  range: DashboardRangePreset;
+  from?: string;
+  to?: string;
+}
+
+export interface DashboardTicketSummary {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  slaStatus: SLAStatus | null;
+  slaDueAt: string | null;
+  assignedTo: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface DashboardCurrentSnapshot {
+  activeTickets: number;
+  open: number;
+  inProgress: number;
+  slaRisk: number;
+  unassigned: number;
+}
+
+export interface DashboardAttention {
+  slaRisk: DashboardTicketSummary[];
+  highPriority: DashboardTicketSummary[];
+  unassigned: DashboardTicketSummary[];
+}
+
+export interface DashboardAnalytics {
+  range: {
+    preset: DashboardRangePreset;
+    from: string;
+    to: string;
+  };
+  trend: { date: string; count: number }[];
+  statusCounts: Record<TicketStatus, number>;
+  priorityCounts: Record<TicketPriority, number>;
   slaComplianceRate: number;
-  avgResolutionTimeByCategory: { category: string; avgMinutes: number }[];
-  ticketsTrend: { date: string; count: number }[];
+  avgResolutionTimeByCategory: {
+    categoryId: string;
+    categoryName: string;
+    avgResolutionMinutes: number;
+    ticketCount: number;
+  }[];
+  topCategories: {
+    categoryId: string;
+    categoryName: string;
+    count: number;
+  }[];
+}
+
+export interface DashboardStats {
+  current: DashboardCurrentSnapshot;
+  attention: DashboardAttention;
+  analytics: DashboardAnalytics;
 }
 
 export interface LoginCredentials {

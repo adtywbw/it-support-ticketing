@@ -1,33 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
-import type { DashboardStats } from '@/types';
 import { STALE_TIME_DASHBOARD } from '@/lib/constants';
+import type { DashboardStats, DashboardStatsQuery } from '@/types';
 
-export function useDashboardStats() {
+export const DEFAULT_DASHBOARD_QUERY: DashboardStatsQuery = { range: '30d' };
+
+export function buildDashboardStatsPath(query: DashboardStatsQuery = DEFAULT_DASHBOARD_QUERY) {
+  const params = new URLSearchParams();
+  params.set('range', query.range);
+  if (query.range === 'custom') {
+    if (query.from) params.set('from', query.from);
+    if (query.to) params.set('to', query.to);
+  }
+  const qs = params.toString();
+  return `/dashboard/stats${qs ? `?${qs}` : ''}`;
+}
+
+export function useDashboardStats(query: DashboardStatsQuery = DEFAULT_DASHBOARD_QUERY) {
   return useQuery({
-    queryKey: ['dashboard', 'stats'],
+    queryKey: ['dashboard', 'stats', query],
     staleTime: STALE_TIME_DASHBOARD,
     queryFn: async () => {
-      const response = await apiClient.get<ApiEnvelope<{
-        statusCounts: Record<string, number>;
-        priorityCounts: Record<string, number>;
-        slaStats: { total: number; onTrack: number; atRisk: number; breached: number; complianceRate: number };
-        dailyTrends: { last7Days: Record<string, number>; last30Days: Record<string, number> };
-          categoryResolution: { categoryId: string; categoryName: string; avgResolutionMinutes: number }[];
-      }>>('/dashboard/stats');
-      const raw = unwrapData(response);
-      const stats: DashboardStats = {
-        totalTickets: Object.values(raw.statusCounts).reduce((a, b) => a + b, 0),
-        ticketsByStatus: Object.entries(raw.statusCounts).map(([status, count]) => ({ status, count })),
-        ticketsByPriority: Object.entries(raw.priorityCounts).map(([priority, count]) => ({ priority, count })),
-        slaComplianceRate: raw.slaStats.complianceRate / 100,
-        avgResolutionTimeByCategory: raw.categoryResolution.map((c) => ({
-          category: c.categoryName,
-          avgMinutes: c.avgResolutionMinutes,
-        })),
-        ticketsTrend: Object.entries(raw.dailyTrends.last7Days).map(([date, count]) => ({ date, count })),
-      };
-      return stats;
+      const response = await apiClient.get<ApiEnvelope<DashboardStats>>(buildDashboardStatsPath(query));
+      return unwrapData(response);
     },
   });
 }

@@ -1,11 +1,38 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { TicketRepository } from '../common/repositories/ticket.repository';
+import { Priority, TicketStatus } from '@prisma/client';
+import {
+  DashboardAttentionTickets,
+  DashboardTicketSummary,
+  TicketRepository,
+} from '../common/repositories/ticket.repository';
 import { RedisService } from '../redis/redis.service';
-import { TicketStatus } from '@prisma/client';
+import {
+  DASHBOARD_RANGE_PRESETS,
+  DashboardRangePreset,
+  QueryDashboardStatsDto,
+} from './dto/query-dashboard-stats.dto';
 
-const DASHBOARD_CACHE_KEY = 'dashboard:stats:v1';
+const DASHBOARD_CACHE_KEY_PREFIX = 'dashboard:stats:v2';
 const DASHBOARD_CACHE_TTL = 30;
+
+type ResolvedDashboardRange = {
+  preset: DashboardRangePreset;
+  from: Date;
+  toExclusive: Date;
+  displayTo: Date;
+  cacheKeySuffix: string;
+};
+
+type DashboardCountRow = {
+  _count: { id: number };
+  [key: string]: unknown;
+};
+
+type SerializedDashboardTicketSummary = Omit<DashboardTicketSummary, 'createdAt' | 'slaDueAt'> & {
+  createdAt: string;
+  slaDueAt: string | null;
+};
 
 @Injectable()
 export class DashboardService {
@@ -16,46 +43,68 @@ export class DashboardService {
     private readonly redisService: RedisService,
   ) {}
 
-  async getStats() {
-    const cached = await this.redisService.get(DASHBOARD_CACHE_KEY);
+  async getStats(query: QueryDashboardStatsDto = {}) {
+    const range = this.resolveRange(query);
+    const cacheKey = `${DASHBOARD_CACHE_KEY_PREFIX}:${range.cacheKeySuffix}`;
+    const cached = await this.redisService.get(cacheKey);
     if (cached) {
       return JSON.parse(cached);
     }
 
     const [
+      current,
+      attention,
       statusCounts,
       priorityCounts,
       slaStats,
-      dailyTrends7d,
-      dailyTrends30d,
+      dailyTrendRows,
       categoryResolution,
+      topCategories,
     ] = await Promise.all([
-      this.getStatusCounts(),
-      this.getPriorityCounts(),
-      this.getSLAStats(),
-      this.getDailyTrends(7),
-      this.getDailyTrends(30),
-      this.getAvgResolutionTimeByCategory(),
+      this.ticketRepository.getDashboardCurrentSnapshot(),
+      this.ticketRepository.getDashboardAttentionTickets(),
+      this.ticketRepository.getDashboardStatusCounts(range.from, range.toExclusive),
+      this.ticketRepository.getDashboardPriorityCounts(range.from, range.toExclusive),
+      this.ticketRepository.getDashboardSLAStatsForRange(range.from, range.toExclusive),
+      this.ticketRepository.getDailyTrends(range.from, range.toExclusive),
+      this.ticketRepository.getAvgResolutionTimeByCategoryForRange(range.from, range.toExclusive),
+      this.ticketRepository.getTopCategories(range.from, range.toExclusive),
     ]);
 
     const result = {
-      statusCounts,
-      priorityCounts,
-      slaStats,
-      dailyTrends: {
-        last7Days: dailyTrends7d,
-        last30Days: dailyTrends30d,
+      current,
+      attention: this.serializeAttention(attention),
+      analytics: {
+        range: {
+          preset: range.preset,
+          from: this.formatDateKey(range.from),
+          to: this.formatDateKey(range.displayTo),
+        },
+        trend: this.fillDailyTrend(range.from, range.toExclusive, dailyTrendRows),
+        statusCounts: this.buildEnumCounts(Object.values(TicketStatus), statusCounts, 'status'),
+        priorityCounts: this.buildEnumCounts(Object.values(Priority), priorityCounts, 'priority'),
+        slaComplianceRate: this.calculateComplianceRate(slaStats),
+        avgResolutionTimeByCategory: categoryResolution.map((row) => ({
+          categoryId: row.categoryId,
+          categoryName: row.categoryName,
+          avgResolutionMinutes: row.avgResolutionMinutes,
+          ticketCount: Number(row.ticketCount),
+        })),
+        topCategories: topCategories.map((row) => ({
+          categoryId: row.categoryId,
+          categoryName: row.categoryName,
+          count: Number(row.count),
+        })),
       },
-      categoryResolution,
     };
 
-    await this.redisService.set(DASHBOARD_CACHE_KEY, JSON.stringify(result), DASHBOARD_CACHE_TTL);
+    await this.redisService.set(cacheKey, JSON.stringify(result), DASHBOARD_CACHE_TTL);
 
     return result;
   }
 
   async invalidateCache() {
-    await this.redisService.del(DASHBOARD_CACHE_KEY);
+    await this.redisService.deleteByPattern(`${DASHBOARD_CACHE_KEY_PREFIX}:*`);
   }
 
   @OnEvent('ticket.created')
@@ -71,77 +120,116 @@ export class DashboardService {
     }
   }
 
-  private async getStatusCounts() {
-    const counts = await this.ticketRepository.groupBy({
-      by: ['status'],
-      _count: { id: true },
-    } as any);
-
-    const result: Record<string, number> = {};
-    for (const status of Object.values(TicketStatus)) {
-      result[status] = 0;
+  private resolveRange(query: QueryDashboardStatsDto): ResolvedDashboardRange {
+    const preset = query.range ?? '30d';
+    if (!DASHBOARD_RANGE_PRESETS.includes(preset)) {
+      throw new BadRequestException('range must be one of 7d, 30d, 90d, custom');
     }
-    for (const item of counts as any[]) {
-      result[item.status] = item._count.id;
+
+    if (preset === 'custom') {
+      if (!query.from || !query.to) {
+        throw new BadRequestException('Custom dashboard range requires from and to dates');
+      }
+      const from = this.parseDateStart(query.from, 'from');
+      const displayTo = this.parseDateStart(query.to, 'to');
+      if (from.getTime() > displayTo.getTime()) {
+        throw new BadRequestException('from must be before or equal to to');
+      }
+      return {
+        preset,
+        from,
+        toExclusive: this.addDays(displayTo, 1),
+        displayTo,
+        cacheKeySuffix: `custom:${this.formatDateKey(from)}:${this.formatDateKey(displayTo)}`,
+      };
     }
-    return result;
-  }
 
-  private async getPriorityCounts() {
-    const counts = await this.ticketRepository.groupBy({
-      by: ['priority'],
-      _count: { id: true },
-    } as any);
+    const daysByPreset: Record<Exclude<DashboardRangePreset, 'custom'>, number> = {
+      '7d': 7,
+      '30d': 30,
+      '90d': 90,
+    };
+    const displayTo = this.startOfDay(new Date());
+    const from = this.addDays(displayTo, -(daysByPreset[preset] - 1));
 
-    const result: Record<string, number> = {};
-    for (const item of counts as any[]) {
-      result[item.priority] = item._count.id;
-    }
-    return result;
-  }
-
-  private async getSLAStats() {
-    const stats = await this.ticketRepository.getSLAStats();
     return {
-      total: stats.total,
-      onTrack: stats.onTrack,
-      atRisk: stats.atRisk,
-      breached: stats.breached,
-      complianceRate: stats.total > 0 ? Math.round((stats.onTrack / stats.total) * 100) : 100,
+      preset,
+      from,
+      toExclusive: this.addDays(displayTo, 1),
+      displayTo,
+      cacheKeySuffix: preset,
     };
   }
 
-  private async getDailyTrends(days: number) {
-    const to = new Date();
-    to.setHours(23, 59, 59, 999);
-    const from = new Date();
-    from.setDate(from.getDate() - days);
-    from.setHours(0, 0, 0, 0);
-
-    const rows = await this.ticketRepository.getDailyTrends(from, to);
-
-    const trends: Record<string, number> = {};
-    for (let i = 0; i < days; i++) {
-      const date = new Date(from);
-      date.setDate(date.getDate() + i);
-      const key = date.toISOString().split('T')[0];
-      trends[key] = 0;
-    }
-    for (const row of rows) {
-      trends[row.day] = row.count;
-    }
-
-    return trends;
+  private serializeAttention(attention: DashboardAttentionTickets) {
+    return {
+      slaRisk: attention.slaRisk.slice(0, 5).map((ticket) => this.serializeTicket(ticket)),
+      highPriority: attention.highPriority.slice(0, 5).map((ticket) => this.serializeTicket(ticket)),
+      unassigned: attention.unassigned.slice(0, 5).map((ticket) => this.serializeTicket(ticket)),
+    };
   }
 
-  private async getAvgResolutionTimeByCategory() {
-    const rows = await this.ticketRepository.getAvgResolutionTimeByCategory();
+  private serializeTicket(ticket: DashboardTicketSummary): SerializedDashboardTicketSummary {
+    return {
+      ...ticket,
+      slaDueAt: ticket.slaDueAt ? ticket.slaDueAt.toISOString() : null,
+      createdAt: ticket.createdAt.toISOString(),
+    };
+  }
 
-    return rows.map((r) => ({
-      categoryId: r.categoryId,
-      categoryName: r.categoryName,
-      avgResolutionMinutes: r.avgResolutionMinutes,
-      ticketCount: Number(r.ticketCount),
-    }));
+  private buildEnumCounts<T extends string>(
+    values: T[],
+    rows: DashboardCountRow[],
+    key: string,
+  ): Record<T, number> {
+    const result = values.reduce((acc, value) => ({ ...acc, [value]: 0 }), {} as Record<T, number>);
+    for (const row of rows) {
+      const rowKey = row[key];
+      if (typeof rowKey === 'string' && values.includes(rowKey as T)) {
+        result[rowKey as T] = row._count.id;
+      }
+    }
+    return result;
+  }
+
+  private calculateComplianceRate(stats: { total: number; onTrack: number }) {
+    return stats.total > 0 ? Math.round((stats.onTrack / stats.total) * 100) : 100;
+  }
+
+  private fillDailyTrend(from: Date, toExclusive: Date, rows: Array<{ day: string; count: number }>) {
+    const countByDay = new Map(rows.map((row) => [row.day, row.count]));
+    const trend: Array<{ date: string; count: number }> = [];
+    for (let cursor = new Date(from); cursor.getTime() < toExclusive.getTime(); cursor = this.addDays(cursor, 1)) {
+      const key = this.formatDateKey(cursor);
+      trend.push({ date: key, count: countByDay.get(key) ?? 0 });
+    }
+    return trend;
+  }
+
+  private parseDateStart(value: string, label: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException(`${label} must be a valid date`);
+    }
+    return this.startOfDay(date);
+  }
+
+  private startOfDay(date: Date) {
+    const result = new Date(date);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  private addDays(date: Date, days: number) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  }
+
+  private formatDateKey(date: Date) {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }
