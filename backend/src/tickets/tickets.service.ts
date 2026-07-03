@@ -136,26 +136,46 @@ export class TicketsService {
       ];
     }
 
-    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status'];
+    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status', 'slaStatus'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const orderBy: Record<string, string> = { [orderField]: sortOrder };
 
     const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
+    const include = {
+      requester: { select: { id: true, name: true, email: true } },
+      assignedTo: { select: { id: true, name: true, email: true } },
+      category: { select: { id: true, name: true } },
+      subCategory: { select: { id: true, name: true } },
+      _count: { select: { comments: true, attachments: true } },
+    };
 
     const [tickets, total] = await Promise.all([
-      this.ticketRepository.findManyForUser({
-        where: where as any,
-        skip: limit > 0 ? (page - 1) * limit : 0,
-        take: limit > 0 ? limit : undefined,
-        orderBy,
-        include: {
-          requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true } },
-          category: { select: { id: true, name: true } },
-          subCategory: { select: { id: true, name: true } },
-          _count: { select: { comments: true, attachments: true } },
-        },
-      }, scope),
+      orderField === 'slaStatus'
+        ? this.ticketRepository.findManySortedBySlaStatus({
+            scope,
+            filters: {
+              status,
+              priority,
+              categoryId,
+              assignedToId,
+              requesterId: userRole !== 'EndUser' ? requesterId : undefined,
+              slaStatus,
+              dateFrom,
+              dateTo,
+              search,
+            },
+            skip: limit > 0 ? (page - 1) * limit : 0,
+            take: limit > 0 ? limit : undefined,
+            sortOrder,
+            include,
+          })
+        : this.ticketRepository.findManyForUser({
+            where: where as any,
+            skip: limit > 0 ? (page - 1) * limit : 0,
+            take: limit > 0 ? limit : undefined,
+            orderBy,
+            include,
+          }, scope),
       this.ticketRepository.countForUser(where as any, scope),
     ]);
 

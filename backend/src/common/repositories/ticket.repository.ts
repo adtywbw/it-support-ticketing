@@ -98,6 +98,93 @@ export class TicketRepository {
     });
   }
 
+  async findManySortedBySlaStatus(args: {
+    scope: TicketAccessScope;
+    filters: {
+      status?: TicketStatus;
+      priority?: Priority;
+      categoryId?: string;
+      assignedToId?: string;
+      requesterId?: string;
+      slaStatus?: SLAStatus;
+      dateFrom?: string;
+      dateTo?: string;
+      search?: string;
+    };
+    skip: number;
+    take: number | undefined;
+    sortOrder: 'asc' | 'desc';
+    include: Prisma.TicketInclude;
+  }): Promise<any[]> {
+    const conditions: Prisma.Sql[] = [];
+
+    if (args.scope.role === 'EndUser') {
+      conditions.push(Prisma.sql`"requesterId" = ${args.scope.userId}`);
+    }
+
+    const f = args.filters;
+    if (f.status) conditions.push(Prisma.sql`"status"::text = ${f.status}`);
+    if (f.priority) conditions.push(Prisma.sql`"priority"::text = ${f.priority}`);
+    if (f.categoryId) conditions.push(Prisma.sql`"categoryId" = ${f.categoryId}`);
+    if (f.assignedToId) conditions.push(Prisma.sql`"assignedToId" = ${f.assignedToId}`);
+    if (f.requesterId) conditions.push(Prisma.sql`"requesterId" = ${f.requesterId}`);
+    if (f.slaStatus) conditions.push(Prisma.sql`"slaStatus"::text = ${f.slaStatus}`);
+
+    if (f.dateFrom) {
+      const startDate = new Date(f.dateFrom);
+      startDate.setUTCHours(0, 0, 0, 0);
+      conditions.push(Prisma.sql`"createdAt" >= ${startDate}`);
+    }
+    if (f.dateTo) {
+      const endDate = new Date(f.dateTo);
+      endDate.setUTCHours(23, 59, 59, 999);
+      conditions.push(Prisma.sql`"createdAt" <= ${endDate}`);
+    }
+
+    if (f.search) {
+      const pattern = `%${f.search}%`;
+      conditions.push(
+        Prisma.sql`("subject" ILIKE ${pattern} OR "description" ILIKE ${pattern} OR "ticketNumber" ILIKE ${pattern})`,
+      );
+    }
+
+    const whereClause =
+      conditions.length > 0
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+        : Prisma.empty;
+
+    const orderDir = Prisma.raw(args.sortOrder.toUpperCase());
+
+    const limitClause =
+      args.take !== undefined
+        ? Prisma.sql`LIMIT ${args.take} OFFSET ${args.skip}`
+        : Prisma.empty;
+
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM tickets
+      ${whereClause}
+      ORDER BY CASE "slaStatus"
+                WHEN 'Breached' THEN 0
+                WHEN 'AtRisk'   THEN 1
+                WHEN 'OnTrack'  THEN 2
+                ELSE 3
+               END ${orderDir},
+               "slaDueAt" ${orderDir}
+      ${limitClause}
+    `;
+
+    const sortedIds = rows.map((r) => r.id);
+    if (sortedIds.length === 0) return [];
+
+    const tickets = await this.prisma.ticket.findMany({
+      where: { id: { in: sortedIds } },
+      include: args.include,
+    });
+
+    const ticketMap = new Map(tickets.map((t: any) => [t.id, t]));
+    return sortedIds.map((id) => ticketMap.get(id)).filter(Boolean);
+  }
+
   async findFirst(args: Prisma.TicketFindFirstArgs) {
     return this.prisma.ticket.findFirst(args) as any;
   }

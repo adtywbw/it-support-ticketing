@@ -92,6 +92,74 @@ describe('TicketRepository', () => {
     });
   });
 
+  describe('findManySortedBySlaStatus', () => {
+    it('should call $queryRaw for sorted IDs then findMany with includes, re-sorted to match ID order', async () => {
+      // Step 1: raw query returns IDs in urgency order
+      prisma.$queryRaw.mockResolvedValueOnce([
+        { id: 't-breached' },
+        { id: 't-atrisk' },
+        { id: 't-ontrack' },
+      ]);
+      // Step 2: findMany returns tickets in arbitrary order
+      prisma.ticket.findMany.mockResolvedValueOnce([
+        { id: 't-ontrack', subject: 'On Track' },
+        { id: 't-breached', subject: 'Breached' },
+        { id: 't-atrisk', subject: 'At Risk' },
+      ]);
+
+      const result = await repository.findManySortedBySlaStatus({
+        scope: { userId: 'admin-1', role: 'Admin' },
+        filters: {},
+        skip: 0,
+        take: 10,
+        sortOrder: 'asc',
+        include: { requester: { select: { id: true } } },
+      });
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(prisma.ticket.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['t-breached', 't-atrisk', 't-ontrack'] } },
+        include: { requester: { select: { id: true } } },
+      });
+      // Re-sorted to match raw query ID order
+      expect(result.map((t: any) => t.id)).toEqual([
+        't-breached', 't-atrisk', 't-ontrack',
+      ]);
+    });
+
+    it('should return empty array when raw query returns no IDs', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([]);
+
+      const result = await repository.findManySortedBySlaStatus({
+        scope: { userId: 'admin-1', role: 'Admin' },
+        filters: {},
+        skip: 0,
+        take: 10,
+        sortOrder: 'asc',
+        include: {},
+      });
+
+      expect(result).toEqual([]);
+      expect(prisma.ticket.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should scope EndUser to own tickets in raw query', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([{ id: 't1' }]);
+      prisma.ticket.findMany.mockResolvedValueOnce([{ id: 't1' }]);
+
+      await repository.findManySortedBySlaStatus({
+        scope: { userId: 'end-user-1', role: 'EndUser' },
+        filters: {},
+        skip: 0,
+        take: 10,
+        sortOrder: 'asc',
+        include: {},
+      });
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('countPublicCommentsByTicketIds (raw query, PERF-03)', () => {
     it('should return empty array when no ticketIds given (avoid SQL with empty ANY)', async () => {
       const result = await repository.countPublicCommentsByTicketIds([]);

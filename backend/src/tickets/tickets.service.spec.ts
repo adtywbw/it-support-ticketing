@@ -29,6 +29,7 @@ describe('TicketsService', () => {
     findManyForUser: jest.fn().mockImplementation((args: any, scope: any) => {
       return Promise.resolve(buildTicketAccessWhere(scope, args.where) === args.where ? [] : []);
     }),
+    findManySortedBySlaStatus: jest.fn(),
     findFirst: jest.fn(),
     count: jest.fn(),
     countForUser: jest.fn().mockResolvedValue(0),
@@ -499,6 +500,68 @@ describe('TicketsService', () => {
           where: {},
         }),
         expect.objectContaining({ userId: 'user-1', role: 'EndUser' }),
+      );
+    });
+
+    it('should call findManySortedBySlaStatus when sortBy=slaStatus', async () => {
+      const slaSortedTickets = [
+        { id: 't1', slaStatus: SLAStatus.Breached, _count: { comments: 0, attachments: 0 } },
+        { id: 't2', slaStatus: SLAStatus.AtRisk, _count: { comments: 0, attachments: 0 } },
+        { id: 't3', slaStatus: SLAStatus.OnTrack, _count: { comments: 0, attachments: 0 } },
+      ];
+      mockTicketRepository.findManySortedBySlaStatus.mockResolvedValue(slaSortedTickets);
+      mockTicketRepository.countForUser.mockResolvedValue(3);
+
+      const queryTicketDto: QueryTicketDto = {
+        sortBy: 'slaStatus',
+        sortOrder: 'asc',
+      };
+
+      const result = await service.findAll(queryTicketDto, 'Admin', 'admin-1');
+
+      expect(mockTicketRepository.findManySortedBySlaStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scope: { userId: 'admin-1', role: 'Admin' },
+          sortOrder: 'asc',
+          skip: 0,
+          take: 10,
+        }),
+      );
+      expect(mockTicketRepository.findManyForUser).not.toHaveBeenCalled();
+      expect(result.data).toEqual(slaSortedTickets);
+    });
+
+    it('should still use findManyForUser when sortBy is not slaStatus (regression check)', async () => {
+      mockTicketRepository.findManyForUser.mockResolvedValue(mockTickets);
+      mockTicketRepository.countForUser.mockResolvedValue(1);
+
+      const queryTicketDto: QueryTicketDto = {
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      await service.findAll(queryTicketDto, 'Admin', 'admin-1');
+
+      expect(mockTicketRepository.findManyForUser).toHaveBeenCalled();
+      expect(mockTicketRepository.findManySortedBySlaStatus).not.toHaveBeenCalled();
+    });
+
+    it('should pass slaStatus filter to findManySortedBySlaStatus when combined with slaStatus sort', async () => {
+      mockTicketRepository.findManySortedBySlaStatus.mockResolvedValue([]);
+      mockTicketRepository.countForUser.mockResolvedValue(0);
+
+      const queryTicketDto: QueryTicketDto = {
+        sortBy: 'slaStatus',
+        sortOrder: 'asc',
+        slaStatus: SLAStatus.Breached,
+      };
+
+      await service.findAll(queryTicketDto, 'Admin', 'admin-1');
+
+      expect(mockTicketRepository.findManySortedBySlaStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filters: expect.objectContaining({ slaStatus: SLAStatus.Breached }),
+        }),
       );
     });
   });
