@@ -3,6 +3,8 @@ import { NotificationsService } from '../notifications.service';
 import { NotificationRepository } from '../../common/repositories/notification.repository';
 import { UserRepository } from '../../common/repositories/user.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Role } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -23,6 +25,7 @@ describe('NotificationsService', () => {
     mockUserRepository = {
       findSupportUsers: jest.fn(),
       getNotificationPreferences: jest.fn(),
+      setNotificationPreferences: jest.fn(),
     };
     mockEventEmitter = { emit: jest.fn() };
 
@@ -198,6 +201,79 @@ describe('NotificationsService', () => {
       });
 
       expect(createSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getPreferences', () => {
+    it('normalizes stored prefs per ITSupport role', async () => {
+      mockUserRepository.getNotificationPreferences.mockResolvedValue(
+        new Map([['u1', { 'ticket.created': false }]]),
+      );
+
+      const result = await service.getPreferences('u1', Role.ITSupport);
+
+      expect(result.preferences).toEqual({
+        'ticket.created': false,
+        'ticket.assigned': true,
+        'ticket.status.updated': true,
+      });
+      expect(result.availableEvents.map((e) => e.event)).toEqual([
+        'ticket.created',
+        'ticket.assigned',
+        'ticket.status.updated',
+      ]);
+    });
+
+    it('hides ticket.assigned from EndUser', async () => {
+      mockUserRepository.getNotificationPreferences.mockResolvedValue(
+        new Map([['u1', null]]),
+      );
+
+      const result = await service.getPreferences('u1', Role.EndUser);
+
+      expect(Object.keys(result.preferences)).toEqual([
+        'ticket.created',
+        'ticket.status.updated',
+      ]);
+      expect(
+        result.availableEvents.map((e) => e.event),
+      ).toEqual(['ticket.created', 'ticket.status.updated']);
+    });
+  });
+
+  describe('updatePreferences', () => {
+    it('stores a normalized full set, defaulting missing keys to true', async () => {
+      mockUserRepository.setNotificationPreferences.mockResolvedValue({});
+
+      const result = await service.updatePreferences('u1', Role.ITSupport, {
+        preferences: { 'ticket.created': false, 'ticket.assigned': true },
+      });
+
+      expect(mockUserRepository.setNotificationPreferences).toHaveBeenCalledWith(
+        'u1',
+        {
+          'ticket.created': false,
+          'ticket.assigned': true,
+          'ticket.status.updated': true,
+        },
+      );
+      expect(result.preferences['ticket.created']).toBe(false);
+    });
+
+    it('throws BadRequestException for an event not allowed for the role', async () => {
+      await expect(
+        service.updatePreferences('u1', Role.EndUser, {
+          preferences: { 'ticket.assigned': true },
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException for a non-boolean value', async () => {
+      await expect(
+        service.updatePreferences('u1', Role.ITSupport, {
+          preferences: { 'ticket.created': 'yes' as unknown as boolean },
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

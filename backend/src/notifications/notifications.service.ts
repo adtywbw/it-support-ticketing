@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { NotificationRepository } from '../common/repositories/notification.repository';
 import { UserRepository } from '../common/repositories/user.repository';
 import { runWithConcurrency } from '../common/utils/concurrency.util';
-import { isEventEnabled } from '../common/utils/notification-preference.util';
+import {
+  isEventEnabled,
+  getEventsForRole,
+  normalizePreferences,
+} from '../common/utils/notification-preference.util';
+import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -57,6 +62,53 @@ export class NotificationsService {
 
   async getUnreadCount(userId: string) {
     return this.notificationRepository.getUnreadCount(userId);
+  }
+
+  async getPreferences(userId: string, role: Role) {
+    const prefsMap = await this.userRepository.getNotificationPreferences([
+      userId,
+    ]);
+    const stored = prefsMap.get(userId);
+    return {
+      preferences: normalizePreferences(stored, role),
+      availableEvents: getEventsForRole(role),
+    };
+  }
+
+  async updatePreferences(
+    userId: string,
+    role: Role,
+    dto: UpdateNotificationPreferencesDto,
+  ) {
+    const allowed = new Set(getEventsForRole(role).map((e) => e.event));
+    const input = dto.preferences ?? {};
+    const normalized: Record<string, boolean> = {};
+
+    for (const [event, value] of Object.entries(input)) {
+      if (!allowed.has(event)) {
+        throw new BadRequestException(`Unknown notification event: ${event}`);
+      }
+      if (typeof value !== 'boolean') {
+        throw new BadRequestException(
+          `Preference for ${event} must be a boolean`,
+        );
+      }
+      normalized[event] = value;
+    }
+
+    // Default any missing role-relevant key to true (on).
+    for (const event of allowed) {
+      if (!(event in normalized)) {
+        normalized[event] = true;
+      }
+    }
+
+    await this.userRepository.setNotificationPreferences(userId, normalized);
+
+    return {
+      preferences: normalized,
+      availableEvents: getEventsForRole(role),
+    };
   }
 
   @OnEvent('ticket.created')
