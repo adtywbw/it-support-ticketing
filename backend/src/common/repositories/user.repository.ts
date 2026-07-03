@@ -107,7 +107,27 @@ export class UserRepository {
   async findSupportUsers() {
     return this.prisma.user.findMany({
       where: { role: { in: [Role.ITSupport, Role.Admin] }, isActive: true },
-      select: { id: true },
+      select: { id: true, notificationPreferences: true },
+    });
+  }
+
+  async getNotificationPreferences(userIds: string[]): Promise<Map<string, unknown>> {
+    if (userIds.length === 0) return new Map();
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, notificationPreferences: true },
+    });
+    return new Map(users.map((u) => [u.id, u.notificationPreferences]));
+  }
+
+  async setNotificationPreferences(
+    userId: string,
+    prefs: Record<string, boolean>,
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { notificationPreferences: prefs as Prisma.InputJsonValue },
+      select: { id: true, notificationPreferences: true },
     });
   }
 

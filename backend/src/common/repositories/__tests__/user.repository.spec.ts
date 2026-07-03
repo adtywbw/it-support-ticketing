@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserRepository } from '../user.repository';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { Role } from '@prisma/client';
 
 describe('UserRepository', () => {
   let repository: UserRepository;
@@ -218,6 +219,63 @@ describe('UserRepository', () => {
         'ticket-op',
         'user-op',
       ]);
+    });
+  });
+
+  describe('findSupportUsers', () => {
+    it('selects id and notificationPreferences for active ITSupport/Admin', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 's1', notificationPreferences: null },
+      ]);
+
+      const result = await repository.findSupportUsers();
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { role: { in: [Role.ITSupport, Role.Admin] }, isActive: true },
+        select: { id: true, notificationPreferences: true },
+      });
+      expect(result).toEqual([{ id: 's1', notificationPreferences: null }]);
+    });
+  });
+
+  describe('getNotificationPreferences', () => {
+    it('returns an empty map for empty input without querying', async () => {
+      const result = await repository.getNotificationPreferences([]);
+      expect(result.size).toBe(0);
+      expect(prisma.user.findMany).not.toHaveBeenCalled();
+    });
+
+    it('fetches prefs for the given ids and returns a map keyed by id', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'u1', notificationPreferences: { 'ticket.created': false } },
+        { id: 'u2', notificationPreferences: null },
+      ]);
+
+      const result = await repository.getNotificationPreferences(['u1', 'u2']);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['u1', 'u2'] } },
+        select: { id: true, notificationPreferences: true },
+      });
+      expect(result.get('u1')).toEqual({ 'ticket.created': false });
+      expect(result.get('u2')).toBeNull();
+    });
+  });
+
+  describe('setNotificationPreferences', () => {
+    it('updates the notificationPreferences column', async () => {
+      prisma.user.update.mockResolvedValue({
+        id: 'u1',
+        notificationPreferences: { 'ticket.created': false },
+      });
+
+      await repository.setNotificationPreferences('u1', { 'ticket.created': false });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { notificationPreferences: { 'ticket.created': false } },
+        select: { id: true, notificationPreferences: true },
+      });
     });
   });
 });
