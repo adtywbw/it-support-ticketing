@@ -89,6 +89,7 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ telegramChatId             VARCHAR? (nullable, UNIQUE)
 │ telegramCode               VARCHAR? (nullable, UNIQUE)
 │ telegramCodeAt             DateTime? (nullable)
+│ notificationPreferences    JSONB? (nullable — per-event enable/disable map)
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
 │ INDEXES: (email), (role), (role, isActive), (createdAt)
@@ -289,6 +290,7 @@ it-support-ticketing/
 │       │   ├── utils/
 │       │   │   ├── concurrency.util.ts
 │       │   │   ├── mime-validation.util.ts
+│       │   │   ├── notification-preference.util.ts
 │       │   │   ├── time.util.ts
 │       │   │   └── upload.util.ts
 │       │   └── repositories/
@@ -359,7 +361,9 @@ it-support-ticketing/
 │       │   ├── notifications.module.ts
 │       │   ├── notifications.controller.ts
 │       │   ├── notifications.gateway.ts
-│       │   └── notifications.service.ts
+│       │   ├── notifications.service.ts
+│       │   └── dto/
+│       │       └── update-notification-preferences.dto.ts
 │       ├── telegram/
 │       │   ├── telegram.module.ts
 │       │   ├── telegram.controller.ts
@@ -410,6 +414,7 @@ it-support-ticketing/
 │       │   ├── use-users.ts
 │       │   ├── use-dashboard.ts
 │       │   ├── use-notifications.ts
+│       │   ├── use-notification-preferences.ts
 │       │   ├── use-telegram.ts
 │       │   ├── use-maintenance.ts
 │       │   ├── use-sla-configs.ts
@@ -424,6 +429,8 @@ it-support-ticketing/
 │       │   └── Navbar.tsx
 │       ├── components/
 │       │   ├── MaintenanceBanner.tsx
+│       │   ├── account/
+│       │   │   └── NotificationPreferencesSection.tsx
 │       │   ├── tickets/
 │       │   │   ├── TicketList.tsx
 │       │   │   ├── TicketDetail.tsx

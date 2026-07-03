@@ -53,7 +53,7 @@ backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboa
 backend/src/dashboard/dto/query-dashboard-stats.dto.ts
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/policies/attachment-visibility.policy.ts
-backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation}.util.ts
+backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation,notification-preference}.util.ts
 frontend/src/{auth,layout,pages,components/admin,components/ui,components/tickets,components/dashboard,hooks,stores,types,lib}
 frontend/.eslintignore
 postgres/postgresql.conf
@@ -77,7 +77,7 @@ postgres/postgresql.conf
 - Throw `BadRequestException`/`NotFoundException` on backend; use `toast.error()` on frontend.
 
 ## State Management
-- TanStack Query owns server state: tickets, users, categories, sla-configs, notifications, dashboard stats.
+- TanStack Query owns server state: tickets, users, categories, sla-configs, notifications, dashboard stats, notification preferences.
 - StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Hooks without staleTime default to 0 (refetch on mount/focus).
 - Zustand persisted state: theme only.
 - Zustand non-persisted state: auth user/accessToken and notification count.
@@ -126,6 +126,7 @@ postgres/postgresql.conf
 - EndUser sees only PUBLIC direct attachments and attachments from PUBLIC comments.
 - ITSupport/Admin can access dashboard and operational ticket workflows.
 - `updateStatus()` is atomic: conditional `updateMany({ where: { id, status: oldStatus } })` → 409 Conflict on race.
+- Notification preferences: users can disable in-app notifications per event type. The toggle set is role-scoped (`notification-preference.util.ts`). `null`/absent prefs = all on. Filter applied at creation in `NotificationsService` handlers — unread-count, list queries, and WebSocket gateway stay untouched.
 - Ticket mutation events: `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, `ticket.deleted` are emitted via `EventEmitter2`. `DashboardService` listens to all five and invalidates its Redis cache (`dashboard:stats:v2:*` via `deleteByPattern`) so stats stay fresh without waiting for the 30s TTL.
 
 ## Maintenance Mode
@@ -183,12 +184,13 @@ postgres/postgresql.conf
 - SLA: `GET|POST|PATCH /api/sla-configs`. Create and timing update auto-recalculate affected non-terminal tickets.
 - Dashboard: `GET /api/dashboard/stats` supports range query (`?range=7d|30d|90d|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`); returns `{ current, attention, analytics }`.
 - Users: `GET|POST|PATCH|DELETE /api/users`, `GET /api/users/:id`, `GET /api/users/assignable`; `GET ?includeInactive=true` includes inactive users.
-- Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, and unread-count operations.
+- Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, unread-count, and preferences (`GET|PATCH /api/notifications/preferences`) operations.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
 - Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
 
 ## Models
 - Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig.
+- User has `notificationPreferences Json?` (nullable JSONB) — per-event enable/disable map; `null` = all on. Role-scoped toggle set defined in `notification-preference.util.ts`.
 - Ticket relates to requester user, assignee user, category, and sub-category.
 - Comment relates to ticket and user.
 - Attachment relates to ticket, user, optional comment, and has `visibility` (`PUBLIC`/`INTERNAL`).
@@ -219,6 +221,7 @@ postgres/postgresql.conf
 - Telegram config response: the `TelegramConfig` response from `GET /api/telegram/config` contains only `hasBotToken` + `hasGroupChatId` + `settings` (with `groupChatId` stripped). Do not add a `botToken` field even an empty string — it is a contract smell and risks copy-paste leaks.
 - SLA recalculation: `SLAService` automatically recalculates `slaDueAt` and `slaStatus` for non-terminal tickets when SLA config timing is created or changed. `isActive`-only updates do not trigger recalculation. Frontend `SLAConfigManager` sends timing on every edit — the backend correctly skips recalculation if timing hasn't actually changed.
 - Dashboard: the `TicketRepository` now has dashboard-specific methods (`getDashboardCurrentSnapshot`, `getDashboardAttentionTickets`, `getDashboardStatusCounts`, `getDashboardPriorityCounts`, `getDashboardSLAStatsForRange`, `getAvgResolutionTimeByCategoryForRange`, `getTopCategories`). Do not duplicate these query patterns; reuse the repository methods.
+- Notification preferences: `User.notificationPreferences` is nullable JSONB. `null`/absent means all events enabled — do not treat `null` as "all off". The shared util `isEventEnabled(prefs, event)` handles this logic. The frontend `NotificationPreferencesSection` component uses `useNotificationPreferences()` which normalizes stored prefs per role via the API. Do not add preference checks outside `NotificationsService` handlers.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`

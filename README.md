@@ -59,6 +59,7 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - Click notification → navigate to ticket
 - Triggers: new ticket, status change, assignment, new comment
 - Requester also notified on ticket creation and status updates (if not ITSupport/Admin)
+- **Notification Preferences**: users choose which in-app notification types appear in their notification panel. Toggle set scoped by role (EndUser: `ticket.created`, `ticket.status.updated`; ITSupport/Admin: all three). Default all ON; `null`/absent = enabled. Filter applied at creation — unread count and WebSocket gateway unchanged.
 - Event-driven design (`@nestjs/event-emitter`) — extensible to email/Slack
 
 ### Telegram Integration (Admin)
@@ -359,6 +360,8 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 |--------|------|-------------|
 | GET | `/api/notifications` | List (paginated) |
 | GET | `/api/notifications/unread-count` | Get unread notification count |
+| GET | `/api/notifications/preferences` | Get notification preferences (per-role normalized) |
+| PATCH | `/api/notifications/preferences` | Update notification preferences |
 | PATCH | `/api/notifications/:id/read` | Mark as read |
 | PATCH | `/api/notifications/read-all` | Mark all as read |
 | DELETE | `/api/notifications` | Clear all notifications |
@@ -415,7 +418,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | `/tickets/:id` | Ticket detail + comments | Authenticated |
 | `/dashboard` | Current snapshot, attention lists, and range-filtered analytics | ITSupport, Admin |
 | `/notifications` | In-app notifications | Authenticated |
-| `/my-account` | Profile info and self-service password change | Authenticated |
+| `/my-account` | Profile info, self-service password change, notification preferences | Authenticated |
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
 | `/admin/maintenance` | Backup create/list/download/delete/restore + restore instructions | Admin |
@@ -490,6 +493,8 @@ Backend unit tests cover:
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
 - `CreateTicketDto` / `CreateCommentDto` — whitespace rejection, trim-before-validate, min-length enforcement
 - `TelegramConfigRepository` — singleton atomic upsert, concurrent findOrCreate safety
+- `NotificationsService` — filter-at-creation by user preferences, getPreferences/updatePreferences CRUD, role-scoped validation
+- `notification-preference util` — event definitions, role filtering, enable check, normalization
 - `DashboardService` — v2 range cache keys, `{ current, attention, analytics }` response shaping, custom range validation, event-driven invalidation
 - `CategoriesService` — role-based shape (Admin full vs EndUser minimal), hard-delete vs soft-delete
 - All 9 repositories — `UserRepository`, `NotificationRepository`, `TicketRepository`, `CommentRepository`, `AttachmentRepository`, `SlaConfigRepository`, `CategoryRepository`, `SubCategoryRepository` safe select + pagination + where-clause correctness
@@ -502,10 +507,12 @@ Frontend tests cover:
 - `use-change-password` — payload POST, error surfacing, isError state
 - `use-socket` — connect with auth token, auth-error disconnect, non-auth no-disconnect, unmount cleanup
 - `use-sla-configs` — SLA config fetch with envelope unwrap, create/update mutations with cache invalidation
+- `use-notification-preferences` — preferences fetch with envelope unwrap, update mutation with cache invalidation
 - `use-dashboard` — default/custom dashboard stats path building and envelope unwrap
 - `DashboardRangeFilter` — preset selection, invalid custom range toast, valid custom range apply
 - `sla-time` — duration conversion, format, and validation helpers
 - `SLAConfigManager` — table rendering, create modal with time unit conversion, active-category filtering
+- `NotificationPreferencesSection` — checkbox rendering, save state, save mutation with toast
 - `Pagination` — page info, no "All" option, Next/Previous button states
 
 ## Scaling

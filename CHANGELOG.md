@@ -2,6 +2,47 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 20 — Notification Preferences per Role
+
+### Feature
+- Setiap user dapat memilih jenis notifikasi in-app yang ingin dilihat di notification panel.
+- Toggle set disesuaikan per role: EndUser hanya melihat `ticket.created` dan `ticket.status.updated`; ITSupport dan Admin melihat ketiga event (`ticket.created`, `ticket.assigned`, `ticket.status.updated`).
+- Default semua event aktif (`null`/absent = on); hanya `false` eksplisit yang mematikan.
+- Filter diterapkan saat notifikasi dibuat (filter-at-creation), sehingga unread-count, list queries, dan WebSocket gateway tidak berubah.
+
+### Backend Behavior Change
+- `User` model mendapat column `notificationPreferences Json?` (nullable JSONB). `null` berarti semua event aktif.
+- Shared util `notification-preference.util.ts`: `NOTIFICATION_EVENTS`, `getEventsForRole(role)`, `isEventEnabled(prefs, event)`, `normalizePreferences(prefs, role)`.
+- `UserRepository` tambah `getNotificationPreferences(userIds)` dan `setNotificationPreferences(userId, prefs)`. `findSupportUsers()` sekarang juga mengembalikan `notificationPreferences`.
+- `NotificationsService` handler (`handleTicketCreated`, `handleTicketAssigned`, `handleTicketStatusUpdated`) sekarang memeriksa `isEventEnabled()` sebelum membuat notifikasi.
+- `GET /api/notifications/preferences` mengembalikan `{ preferences, availableEvents }` yang dinormalisasi per role.
+- `PATCH /api/notifications/preferences` menerima `{ preferences: Record<string, boolean> }`, memvalidasi event yang diizinkan untuk role, dan menyimpan normalized result.
+
+### Files Changed (backend)
+- `backend/prisma/schema.prisma` — tambah `notificationPreferences Json?` ke `User` model.
+- `backend/prisma/migrations/20260703071831_add_notification_preferences/migration.sql` — **new** — `ALTER TABLE "users" ADD COLUMN "notificationPreferences" JSONB;`.
+- `backend/src/common/utils/notification-preference.util.ts` — **new** — shared util: events definition, role filtering, enable check, normalization.
+- `backend/src/common/utils/__tests__/notification-preference.util.spec.ts` — **new** — 15 unit tests.
+- `backend/src/common/repositories/user.repository.ts` — extended `findSupportUsers()`, added `getNotificationPreferences()` and `setNotificationPreferences()`.
+- `backend/src/common/repositories/__tests__/user.repository.spec.ts` — added 3 tests for new methods.
+- `backend/src/notifications/notifications.service.ts` — added `isEnabled()` helper, filter-at-creation in 3 handlers, added `getPreferences()` and `updatePreferences()` methods.
+- `backend/src/notifications/__tests__/notifications.service.spec.ts` — **new** — 12 unit tests covering filter-at-creation and preference CRUD.
+- `backend/src/notifications/dto/update-notification-preferences.dto.ts` — **new** — DTO with `@Transform` and `@IsObject`.
+- `backend/src/notifications/notifications.controller.ts` — added `GET /preferences` and `PATCH /preferences` endpoints.
+
+### Files Changed (frontend)
+- `frontend/src/types/index.ts` — added `NotificationEventOption`, `NotificationPreferencesMap`, `NotificationPreferencesResponse`.
+- `frontend/src/lib/constants.ts` — added `STALE_TIME_NOTIFICATION_PREFERENCES` (5 min).
+- `frontend/src/hooks/use-notification-preferences.ts` — **new** — `useNotificationPreferences()` query hook and `useUpdateNotificationPreferences()` mutation hook.
+- `frontend/src/hooks/__tests__/use-notification-preferences.test.tsx` — **new** — 2 hook tests.
+- `frontend/src/components/account/NotificationPreferencesSection.tsx` — **new** — checkbox UI per available event with save/disable state.
+- `frontend/src/components/account/__tests__/NotificationPreferencesSection.test.tsx` — **new** — 3 component tests.
+- `frontend/src/pages/MyAccountPage.tsx` — renders `NotificationPreferencesSection` for all roles after profile header.
+
+### Verification
+- Backend: 286/286 tests pass, build clean.
+- Frontend: 45/45 tests pass, build clean, lint clean.
+
 ## Session 19 — Balanced Dashboard
 
 ### Feature
