@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { NotificationRepository } from '../common/repositories/notification.repository';
 import { UserRepository } from '../common/repositories/user.repository';
 import { runWithConcurrency } from '../common/utils/concurrency.util';
+import { isEventEnabled } from '../common/utils/notification-preference.util';
 
 @Injectable()
 export class NotificationsService {
@@ -12,6 +13,10 @@ export class NotificationsService {
     private readonly userRepository: UserRepository,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  private isEnabled(prefs: unknown, event: string): boolean {
+    return isEventEnabled(prefs, event);
+  }
 
   async create(data: {
     userId: string;
@@ -64,6 +69,7 @@ export class NotificationsService {
     const itsupportUsers = await this.userRepository.findSupportUsers();
 
     await runWithConcurrency(itsupportUsers, 5, async (user) => {
+      if (!this.isEnabled(user.notificationPreferences, 'ticket.created')) return;
       await this.create({
         userId: user.id,
         title: 'New Ticket Created',
@@ -76,12 +82,18 @@ export class NotificationsService {
       (u) => u.id === payload.requesterId,
     );
     if (requesterIsNotSupport) {
-      await this.create({
-        userId: payload.requesterId,
-        title: 'Ticket Created',
-        message: `Your ticket ${payload.ticketNumber} has been created: ${payload.subject}`,
-        data: { ticketId: payload.ticketId, type: 'ticket_created' },
-      });
+      const prefsMap = await this.userRepository.getNotificationPreferences([
+        payload.requesterId,
+      ]);
+      const requesterPrefs = prefsMap.get(payload.requesterId);
+      if (this.isEnabled(requesterPrefs, 'ticket.created')) {
+        await this.create({
+          userId: payload.requesterId,
+          title: 'Ticket Created',
+          message: `Your ticket ${payload.ticketNumber} has been created: ${payload.subject}`,
+          data: { ticketId: payload.ticketId, type: 'ticket_created' },
+        });
+      }
     }
   }
 
@@ -92,12 +104,18 @@ export class NotificationsService {
     assignedToId: string;
     assignedBy: string;
   }) {
-    await this.create({
-      userId: payload.assignedToId,
-      title: 'Ticket Assigned',
-      message: `Ticket ${payload.ticketNumber} has been assigned to you`,
-      data: { ticketId: payload.ticketId, type: 'ticket_assigned' },
-    });
+    const prefsMap = await this.userRepository.getNotificationPreferences([
+      payload.assignedToId,
+    ]);
+    const assigneePrefs = prefsMap.get(payload.assignedToId);
+    if (this.isEnabled(assigneePrefs, 'ticket.assigned')) {
+      await this.create({
+        userId: payload.assignedToId,
+        title: 'Ticket Assigned',
+        message: `Ticket ${payload.ticketNumber} has been assigned to you`,
+        data: { ticketId: payload.ticketId, type: 'ticket_assigned' },
+      });
+    }
   }
 
   @OnEvent('ticket.status.updated')
@@ -110,35 +128,49 @@ export class NotificationsService {
     requesterId: string;
     updatedBy: string;
   }) {
+    const targetIds = [
+      payload.assignedToId,
+      payload.requesterId,
+    ].filter((id): id is string => !!id);
+    const uniqueIds = [...new Set(targetIds)];
+    const prefsMap =
+      await this.userRepository.getNotificationPreferences(uniqueIds);
+
     const notified = new Set<string>();
 
     if (payload.assignedToId) {
-      await this.create({
-        userId: payload.assignedToId,
-        title: 'Ticket Status Updated',
-        message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
-        data: {
-          ticketId: payload.ticketId,
-          type: 'ticket_status_updated',
-          oldStatus: payload.oldStatus,
-          newStatus: payload.newStatus,
-        },
-      });
-      notified.add(payload.assignedToId);
+      const assigneePrefs = prefsMap.get(payload.assignedToId);
+      if (this.isEnabled(assigneePrefs, 'ticket.status.updated')) {
+        await this.create({
+          userId: payload.assignedToId,
+          title: 'Ticket Status Updated',
+          message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
+          data: {
+            ticketId: payload.ticketId,
+            type: 'ticket_status_updated',
+            oldStatus: payload.oldStatus,
+            newStatus: payload.newStatus,
+          },
+        });
+        notified.add(payload.assignedToId);
+      }
     }
 
     if (!notified.has(payload.requesterId)) {
-      await this.create({
-        userId: payload.requesterId,
-        title: 'Ticket Status Updated',
-        message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
-        data: {
-          ticketId: payload.ticketId,
-          type: 'ticket_status_updated',
-          oldStatus: payload.oldStatus,
-          newStatus: payload.newStatus,
-        },
-      });
+      const requesterPrefs = prefsMap.get(payload.requesterId);
+      if (this.isEnabled(requesterPrefs, 'ticket.status.updated')) {
+        await this.create({
+          userId: payload.requesterId,
+          title: 'Ticket Status Updated',
+          message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
+          data: {
+            ticketId: payload.ticketId,
+            type: 'ticket_status_updated',
+            oldStatus: payload.oldStatus,
+            newStatus: payload.newStatus,
+          },
+        });
+      }
     }
   }
 }
