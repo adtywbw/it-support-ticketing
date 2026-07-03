@@ -16,6 +16,7 @@ import {
 } from '@/hooks/use-telegram';
 import toast from 'react-hot-toast';
 import PasswordInput from '@/components/ui/PasswordInput';
+import NotificationPreferencesSection from '@/components/account/NotificationPreferencesSection';
 import { getErrorMessage, getUserDisplayName, getUserInitials } from '@/lib/utils';
 import apiClient from '@/lib/axios';
 
@@ -196,6 +197,8 @@ export default function MyAccountPage() {
             </span>
           </div>
         </div>
+
+        <NotificationPreferencesSection />
 
         {user?.role !== 'EndUser' && (
           <>

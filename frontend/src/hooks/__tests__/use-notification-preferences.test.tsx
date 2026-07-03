@@ -13,6 +13,8 @@ vi.mock('@/lib/axios', () => ({
 }));
 
 const apiClient = (await import('@/lib/axios')).default;
+const mockGet = vi.mocked(apiClient.get);
+const mockPatch = vi.mocked(apiClient.patch);
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -33,14 +35,14 @@ describe('useNotificationPreferences', () => {
         { event: 'ticket.created', label: 'New Ticket Created' },
       ],
     };
-    (apiClient.get as any).mockResolvedValueOnce({ data: { data: payload } });
+    mockGet.mockResolvedValueOnce({ data: { data: payload } });
 
     const { result } = renderHook(() => useNotificationPreferences(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current.data).toEqual(payload));
-    expect(apiClient.get).toHaveBeenCalledWith('/notifications/preferences');
+    expect(mockGet).toHaveBeenCalledWith('/notifications/preferences');
   });
 });
 
@@ -52,7 +54,7 @@ describe('useUpdateNotificationPreferences', () => {
       preferences: { 'ticket.created': false },
       availableEvents: [],
     };
-    (apiClient.patch as any).mockResolvedValueOnce({ data: { data: updated } });
+    mockPatch.mockResolvedValueOnce({ data: { data: updated } });
 
     const { result } = renderHook(() => useUpdateNotificationPreferences(), {
       wrapper: createWrapper(),
@@ -60,7 +62,7 @@ describe('useUpdateNotificationPreferences', () => {
 
     await result.current.mutateAsync({ 'ticket.created': false });
 
-    expect(apiClient.patch).toHaveBeenCalledWith('/notifications/preferences', {
+    expect(mockPatch).toHaveBeenCalledWith('/notifications/preferences', {
       preferences: { 'ticket.created': false },
     });
   });
