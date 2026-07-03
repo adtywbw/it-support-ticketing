@@ -114,6 +114,20 @@ export interface MaintenanceStatus {
   message: string | null;
 }
 
+export interface NotificationEventOption {
+  event: string;
+  label: string;
+}
+
+export interface NotificationPreferencesMap {
+  [event: string]: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  preferences: NotificationPreferencesMap;
+  availableEvents: NotificationEventOption[];
+}
+
 export interface AuditTrailEntry {
   id: string;
   ticketId: string;
