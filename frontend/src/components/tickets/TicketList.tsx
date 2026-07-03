@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import type { TicketPriority } from '@/types';
 import StatusBadge from './StatusBadge';
 import PriorityBadge from './PriorityBadge';
+import SlaStatusBadge from './SlaStatusBadge';
 import Pagination from '@/components/ui/Pagination';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -73,6 +74,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     limit: filters.limit,
     ...(filters.status && { status: filters.status }),
     ...(filters.priority && { priority: filters.priority }),
+    ...(filters.slaStatus && { slaStatus: filters.slaStatus }),
     ...(filters.search && { search: filters.search }),
     ...(filters.categoryId && { categoryId: filters.categoryId }),
     ...(filters.assignedToMe && user?.id && { assignedToId: user.id }),
@@ -147,6 +149,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                   </th>
                   <SortHeader field="status" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Status</SortHeader>
                   <SortHeader field="priority" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Priority</SortHeader>
+                  <SortHeader field="slaStatus" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>SLA Status</SortHeader>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Assigned To
                   </th>
@@ -202,6 +205,9 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                       ) : (
                         <PriorityBadge priority={ticket.priority} />
                       )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <SlaStatusBadge status={ticket.slaStatus} dueAt={ticket.slaDueAt} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {canAssign ? (

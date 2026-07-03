@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { TicketStatus, TicketPriority } from '@/types';
+import type { TicketStatus, TicketPriority, SLAStatus } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -8,6 +8,7 @@ export type DatePreset = 'all' | 'today' | '7days' | '30days' | 'month' | 'custo
 export interface FilterValues {
   status: TicketStatus | '';
   priority: TicketPriority | '';
+  slaStatus: SLAStatus | '';
   search: string;
   categoryId: string | '';
   assignedToMe: boolean;
@@ -109,6 +110,13 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
     { value: 'Critical', label: 'Critical' },
   ];
 
+  const slaStatuses: { value: SLAStatus | ''; label: string }[] = [
+    { value: '', label: 'All SLA Statuses' },
+    { value: 'OnTrack', label: 'On Track' },
+    { value: 'AtRisk', label: 'At Risk' },
+    { value: 'Breached', label: 'Breached' },
+  ];
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex-1 min-w-[200px]">
@@ -141,6 +149,18 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         {priorities.map((p) => (
           <option key={p.value} value={p.value}>
             {p.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={local.slaStatus}
+        onChange={(e) => update({ slaStatus: e.target.value as SLAStatus | '' })}
+        className="input w-auto"
+      >
+        {slaStatuses.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
           </option>
         ))}
       </select>

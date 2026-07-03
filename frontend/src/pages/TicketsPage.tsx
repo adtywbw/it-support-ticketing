@@ -17,6 +17,7 @@ export default function TicketsPage() {
   const [filters, setFilters] = useState<FilterValues>({
     status: '',
     priority: '',
+    slaStatus: '',
     search: '',
     categoryId: '',
     assignedToMe: false,
@@ -42,6 +43,7 @@ export default function TicketsPage() {
     const params = new URLSearchParams();
     if (filters.status) params.append('status', filters.status);
     if (filters.priority) params.append('priority', filters.priority);
+    if (filters.slaStatus) params.append('slaStatus', filters.slaStatus);
     if (filters.search) params.append('search', filters.search);
     if (filters.categoryId) params.append('categoryId', filters.categoryId);
     if (filters.assignedToMe && user?.id) params.append('assignedToId', user.id);
