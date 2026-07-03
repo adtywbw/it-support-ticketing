@@ -18,6 +18,7 @@ model User {
   telegramChatId  String?   @unique
   telegramCode    String?   @unique
   telegramCodeAt  DateTime?
+  notificationPreferences Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
