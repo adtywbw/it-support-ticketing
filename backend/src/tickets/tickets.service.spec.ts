@@ -531,6 +531,34 @@ describe('TicketsService', () => {
       expect(result.data).toEqual(slaSortedTickets);
     });
 
+    it('should call findManySortedBySlaStatus with sortOrder=desc when sortBy=slaStatus', async () => {
+      const slaSortedTicketsDesc = [
+        { id: 't1', slaStatus: SLAStatus.OnTrack, _count: { comments: 0, attachments: 0 } },
+        { id: 't2', slaStatus: SLAStatus.AtRisk, _count: { comments: 0, attachments: 0 } },
+        { id: 't3', slaStatus: SLAStatus.Breached, _count: { comments: 0, attachments: 0 } },
+      ];
+      mockTicketRepository.findManySortedBySlaStatus.mockResolvedValue(slaSortedTicketsDesc);
+      mockTicketRepository.countForUser.mockResolvedValue(3);
+
+      const queryTicketDto: QueryTicketDto = {
+        sortBy: 'slaStatus',
+        sortOrder: 'desc',
+      };
+
+      const result = await service.findAll(queryTicketDto, 'Admin', 'admin-1');
+
+      expect(mockTicketRepository.findManySortedBySlaStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scope: { userId: 'admin-1', role: 'Admin' },
+          sortOrder: 'desc',
+          skip: 0,
+          take: 10,
+        }),
+      );
+      expect(mockTicketRepository.findManyForUser).not.toHaveBeenCalled();
+      expect(result.data).toEqual(slaSortedTicketsDesc);
+    });
+
     it('should still use findManyForUser when sortBy is not slaStatus (regression check)', async () => {
       mockTicketRepository.findManyForUser.mockResolvedValue(mockTickets);
       mockTicketRepository.countForUser.mockResolvedValue(1);

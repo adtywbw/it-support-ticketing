@@ -138,7 +138,6 @@ export class TicketsService {
 
     const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status', 'slaStatus'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    const orderBy: Record<string, string> = { [orderField]: sortOrder };
 
     const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
     const include = {
@@ -173,7 +172,7 @@ export class TicketsService {
             where: where as any,
             skip: limit > 0 ? (page - 1) * limit : 0,
             take: limit > 0 ? limit : undefined,
-            orderBy,
+            orderBy: { [orderField]: sortOrder },
             include,
           }, scope),
       this.ticketRepository.countForUser(where as any, scope),
@@ -252,10 +251,6 @@ export class TicketsService {
     let totalExported = 0;
     let offset = 0;
     const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
-    const orderBy = [
-      { [orderField]: orderDir },
-      { id: orderDir },
-    ];
 
     while (totalExported < MAX_EXPORT_ROWS) {
       const exportInclude = {
@@ -286,7 +281,10 @@ export class TicketsService {
           })
         : await this.ticketRepository.findManyForUser({
             where: where as any,
-            orderBy: orderBy as any,
+            orderBy: [
+              { [orderField]: orderDir },
+              { id: orderDir },
+            ] as any,
             skip: offset,
             take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
             include: exportInclude,
