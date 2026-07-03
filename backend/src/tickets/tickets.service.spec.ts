@@ -829,5 +829,43 @@ describe('TicketsService', () => {
       );
       expect(res.end).toHaveBeenCalled();
     });
+
+    it('should use findManySortedBySlaStatus when sortBy=slaStatus', async () => {
+      const res = makeResponse();
+      mockTicketRepository.findManySortedBySlaStatus.mockResolvedValueOnce([
+        {
+          id: 'ticket-1',
+          ticketNumber: 'TKT-001',
+          subject: 'Breached ticket',
+          status: TicketStatus.Open,
+          priority: Priority.High,
+          category: { name: 'Network' },
+          subCategory: null,
+          requester: { name: 'Requester' },
+          assignedTo: null,
+          createdAt: new Date('2026-06-18T12:00:00Z'),
+          resolvedAt: null,
+          slaStatus: SLAStatus.Breached,
+        },
+      ]).mockResolvedValueOnce([]);
+
+      await service.exportCsvToResponse(
+        res,
+        { sortBy: 'slaStatus', sortOrder: 'asc' },
+        'Admin',
+        'admin-1',
+      );
+
+      expect(mockTicketRepository.findManySortedBySlaStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scope: { userId: 'admin-1', role: 'Admin' },
+          sortOrder: 'asc',
+          skip: 0,
+          take: 500,
+        }),
+      );
+      expect(mockTicketRepository.findManyForUser).not.toHaveBeenCalled();
+      expect(res.end).toHaveBeenCalled();
+    });
   });
 });

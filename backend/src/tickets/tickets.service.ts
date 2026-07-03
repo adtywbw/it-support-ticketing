@@ -236,7 +236,7 @@ export class TicketsService {
       ];
     }
 
-    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority'];
+    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'slaStatus'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
 
@@ -258,18 +258,39 @@ export class TicketsService {
     ];
 
     while (totalExported < MAX_EXPORT_ROWS) {
-      const batch = await this.ticketRepository.findManyForUser({
-        where: where as any,
-        orderBy: orderBy as any,
-        skip: offset,
-        take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
-        include: {
-          requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true } },
-          category: { select: { id: true, name: true } },
-          subCategory: { select: { id: true, name: true } },
-        },
-      }, scope);
+      const exportInclude = {
+        requester: { select: { id: true, name: true, email: true } },
+        assignedTo: { select: { id: true, name: true, email: true } },
+        category: { select: { id: true, name: true } },
+        subCategory: { select: { id: true, name: true } },
+      };
+
+      const batch = orderField === 'slaStatus'
+        ? await this.ticketRepository.findManySortedBySlaStatus({
+            scope,
+            filters: {
+              status,
+              priority,
+              categoryId,
+              assignedToId,
+              requesterId: userRole !== 'EndUser' ? requesterId : undefined,
+              slaStatus,
+              dateFrom,
+              dateTo,
+              search,
+            },
+            skip: offset,
+            take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
+            sortOrder: orderDir,
+            include: exportInclude,
+          })
+        : await this.ticketRepository.findManyForUser({
+            where: where as any,
+            orderBy: orderBy as any,
+            skip: offset,
+            take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
+            include: exportInclude,
+          }, scope);
 
       if (batch.length === 0) break;
 
