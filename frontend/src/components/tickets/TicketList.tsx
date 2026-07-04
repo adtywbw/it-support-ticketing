@@ -38,7 +38,7 @@ function SortHeader({ field, children, className = '', sortBy, sortOrder, onSort
   const direction = isActive && sortOrder === 'asc' ? 'asc' : 'desc';
   return (
     <th
-      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors ${className}`}
+      className={`px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer select-none hover:text-slate-700 dark:hover:text-slate-300 transition-colors ${className}`}
       onClick={() => onSort(field)}
     >
       <span className="inline-flex items-center gap-1">
@@ -139,45 +139,45 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-800">
                 <tr>
                   <SortHeader field="ticketNumber" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Ticket #</SortHeader>
                   <SortHeader field="subject" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Subject</SortHeader>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Category
                   </th>
                   <SortHeader field="status" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Status</SortHeader>
                   <SortHeader field="priority" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Priority</SortHeader>
                   <SortHeader field="slaStatus" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>SLA Status</SortHeader>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Assigned To
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Created By
                   </th>
                   <SortHeader field="createdAt" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Created</SortHeader>
                   {isAdmin && (
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Actions
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
                 {tickets.map((ticket) => (
                   <tr
                     key={ticket.id}
                     onClick={() => navigate(`/tickets/${ticket.id}`)}
-                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600 dark:text-primary-400">
                       {ticket.ticketNumber}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 max-w-xs truncate">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100 max-w-xs truncate">
                       {ticket.subject}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                       {ticket.category?.name ?? '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -209,7 +209,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                     <td className="px-6 py-4 whitespace-nowrap">
                       <SlaStatusBadge status={ticket.slaStatus} dueAt={ticket.slaDueAt} />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                       {canAssign ? (
                         <select
                           value={ticket.assignedToId ?? ''}
@@ -238,10 +238,10 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                         ticket.assignedTo ? getUserDisplayName(ticket.assignedTo) : '-'
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                       {ticket.requester ? getUserDisplayName(ticket.requester) : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                       {formatDateTime(ticket.createdAt)}
                     </td>
                     {isAdmin && (

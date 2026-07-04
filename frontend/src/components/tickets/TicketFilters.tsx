@@ -212,12 +212,12 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
       )}
 
       {user && (user.role === 'ITSupport' || user.role === 'Admin') && (
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer whitespace-nowrap">
+        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap">
           <input
             type="checkbox"
             checked={local.assignedToMe}
             onChange={(e) => update({ assignedToMe: e.target.checked })}
-            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
           />
           Assigned to me
         </label>

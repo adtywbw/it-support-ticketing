@@ -6,7 +6,8 @@ import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
-import { formatRelativeTime, formatFileSize, getUserInitials, getUserDisplayName, getErrorMessage } from '@/lib/utils';
+import { formatRelativeTime, formatFileSize, getUserDisplayName, getErrorMessage } from '@/lib/utils';
+import Avatar from '@/components/ui/Avatar';
 import { ALLOWED_MIME_TYPES, MAX_COMMENT_ATTACHMENT_SIZE } from '@/lib/constants';
 
 interface CommentSectionProps {
@@ -56,14 +57,14 @@ function CommentFileThumbnail({ attachment, onPreview }: { attachment: { id: str
   }, [attachment.id, blobUrl]);
 
   if (blobUrl === '') return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500">
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
       </svg>
     </div>
   );
   if (blobUrl !== null) return <img src={blobUrl} alt={attachment.originalName} className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer" onClick={() => onPreview(attachment.id)} />;
-  return <div ref={imgRef} className="h-10 w-10 shrink-0 rounded bg-gray-200 animate-pulse dark:bg-gray-600" />;
+  return <div ref={imgRef} className="h-10 w-10 shrink-0 rounded bg-slate-200 animate-pulse dark:bg-slate-600" />;
 }
 
 export default function CommentSection({ ticketId }: CommentSectionProps) {
@@ -185,12 +186,12 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             {canSeeInternal && (
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer dark:text-gray-400">
+              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer dark:text-slate-400">
                 <input
                   type="checkbox"
                   checked={isInternal}
                   onChange={(e) => setIsInternal(e.target.checked)}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                 />
                 Internal note
               </label>
@@ -220,13 +221,13 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           <div className="space-y-1">
             {files.map((file, i) => (
               <div key={`${file.name}-${i}`}
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
                 <div className="flex items-center gap-2 min-w-0">
-                  <svg className="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                   </svg>
-                  <span className="text-sm text-gray-700 truncate dark:text-gray-300">{file.name}</span>
-                  <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                  <span className="text-sm text-slate-700 truncate dark:text-slate-300">{file.name}</span>
+                  <span className="text-xs text-slate-500">{formatFileSize(file.size)}</span>
                 </div>
                 <button type="button" onClick={() => removeFile(i)}
                   className="text-sm text-red-600 hover:text-red-800 shrink-0">Remove</button>
@@ -262,19 +263,17 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           <div
             key={comment.id}
             className={`rounded-lg border p-4 ${
-              comment.type === 'INTERNAL' ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+              comment.type === 'INTERNAL' ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'
             }`}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
-                  {comment.user ? getUserInitials(comment.user) : '??'}
-                </div>
+                <Avatar name={comment.user?.name ?? '?'} size="sm" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                     {comment.user ? getUserDisplayName(comment.user) : 'Unknown User'}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(comment.createdAt)}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{formatRelativeTime(comment.createdAt)}</p>
                 </div>
               </div>
               {comment.type === 'INTERNAL' && (
@@ -283,29 +282,29 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
                 </span>
               )}
             </div>
-            <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap dark:text-gray-300">{comment.content}</p>
+            <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap dark:text-slate-300">{comment.content}</p>
             {comment.attachments && comment.attachments.length > 0 && (
               <div className="mt-3 space-y-1">
                 {comment.attachments.map((attachment) => {
                   const isImage = attachment.mimeType?.startsWith('image/');
                   return (
                     <div key={attachment.id}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-600 dark:bg-gray-700/50">
+                      className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-600 dark:bg-slate-700/50">
                       <div className="flex items-center gap-2 min-w-0">
                         {isImage ? (
                           <CommentFileThumbnail attachment={attachment} onPreview={() => openPreview(attachment)} />
                         ) : (
-                          <svg className="h-8 w-8 shrink-0 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <svg className="h-8 w-8 shrink-0 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                           </svg>
                         )}
                         <div className="min-w-0">
                           {isImage ? (
-                            <button onClick={() => openPreview(attachment)} className="text-sm font-medium text-gray-900 truncate hover:underline dark:text-gray-100 text-left">{attachment.originalName}</button>
+                            <button onClick={() => openPreview(attachment)} className="text-sm font-medium text-slate-900 truncate hover:underline dark:text-slate-100 text-left">{attachment.originalName}</button>
                           ) : (
-                            <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">{attachment.originalName}</p>
+                            <p className="text-sm font-medium text-slate-900 truncate dark:text-slate-100">{attachment.originalName}</p>
                           )}
-                          <p className="text-xs text-gray-500">{formatFileSize(attachment.size)}</p>
+                          <p className="text-xs text-slate-500">{formatFileSize(attachment.size)}</p>
                         </div>
                       </div>
                       <button onClick={() => handleDownload(attachment)} className="btn-secondary btn-sm shrink-0">Download</button>
