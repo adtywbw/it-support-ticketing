@@ -171,6 +171,37 @@ async function main() {
     });
   }
 
+  if (!isProduction) {
+    const existingFaq = await prisma.faq.findFirst();
+    if (!existingFaq) {
+      await prisma.faq.createMany({
+        data: [
+          {
+            question: 'How do I reset my password?',
+            answer:
+              'End users cannot reset their own password. Please contact Admin or ITSupport to request a password reset.',
+            displayOrder: 0,
+            isActive: true,
+          },
+          {
+            question: 'What should I include in a ticket?',
+            answer:
+              'Provide a clear subject, select the relevant category and sub-category, and describe the issue with steps to reproduce and any error messages you see.',
+            displayOrder: 1,
+            isActive: true,
+          },
+          {
+            question: 'Who can see my tickets?',
+            answer:
+              'Only you and the IT support staff assigned to your ticket can view your tickets.',
+            displayOrder: 2,
+            isActive: true,
+          },
+        ],
+      });
+    }
+  }
+
   console.log('Seed data created successfully');
   if (!isProduction) {
     console.log(`Admin user: admin@company.com / Admin123!`);
