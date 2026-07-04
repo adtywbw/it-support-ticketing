@@ -33,10 +33,10 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
   };
 
   return (
-    <nav className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 px-4 py-3 sm:px-6">
+    <nav className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 px-4 py-3 sm:px-6">
       <div className="flex flex-1 items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <label htmlFor="limit-select" className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+          <label htmlFor="limit-select" className="text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap">
             Items per page:
           </label>
           <select
@@ -52,7 +52,7 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
             ))}
           </select>
           {totalItems !== undefined && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-slate-500 dark:text-slate-400">
               ({totalItems} {totalItems === 1 ? 'item' : 'items'})
             </span>
           )}
@@ -60,7 +60,7 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
 
         {limit > 0 && totalPages > 1 && (
           <>
-            <p className="hidden sm:block text-sm text-gray-700 dark:text-gray-300">
+            <p className="hidden sm:block text-sm text-slate-700 dark:text-slate-300">
               Page <span className="font-medium">{page}</span> of{' '}
               <span className="font-medium">{totalPages}</span>
             </p>
@@ -73,7 +73,7 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
               >
                 Prev
               </button>
-              <span className="text-sm text-gray-700 dark:text-gray-300 px-2">
+              <span className="text-sm text-slate-700 dark:text-slate-300 px-2">
                 {page}/{totalPages}
               </span>
               <button
@@ -95,7 +95,7 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
               </button>
               {getPages().map((p, idx) =>
                 p === '...' ? (
-                  <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 dark:text-gray-500">
+                  <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 dark:text-slate-500">
                     ...
                   </span>
                 ) : (

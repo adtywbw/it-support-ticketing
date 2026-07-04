@@ -24,14 +24,14 @@ export function getStatusColor(status: TicketStatus): string {
     InProgress: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
     OnHold: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
     Resolved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    Closed: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    Closed: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
   };
   return colors[status];
 }
 
 export function getPriorityColor(priority: TicketPriority): string {
   const colors: Record<TicketPriority, string> = {
-    Low: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    Low: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
     Medium: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
     High: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
     Critical: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
@@ -45,7 +45,7 @@ export function getSLAColor(status: string): string {
     AtRisk: 'text-yellow-600 dark:text-yellow-400',
     Breached: 'text-red-600 dark:text-red-400',
   };
-  return colors[status] || 'text-gray-600 dark:text-gray-400';
+  return colors[status] || 'text-slate-600 dark:text-slate-400';
 }
 
 export function getUserDisplayName(user?: { name?: string; firstName?: string; lastName?: string } | null): string {
