@@ -8,6 +8,7 @@ import { SubCategoryRepository } from './sub-category.repository';
 import { SlaConfigRepository } from './sla-config.repository';
 import { NotificationRepository } from './notification.repository';
 import { TelegramConfigRepository } from './telegram-config.repository';
+import { LandingPageConfigRepository } from './landing-page-config.repository';
 
 @Global()
 @Module({
@@ -21,6 +22,7 @@ import { TelegramConfigRepository } from './telegram-config.repository';
     SlaConfigRepository,
     NotificationRepository,
     TelegramConfigRepository,
+    LandingPageConfigRepository,
   ],
   exports: [
     UserRepository,
@@ -32,6 +34,7 @@ import { TelegramConfigRepository } from './telegram-config.repository';
     SlaConfigRepository,
     NotificationRepository,
     TelegramConfigRepository,
+    LandingPageConfigRepository,
   ],
 })
 export class RepositoriesModule {}
