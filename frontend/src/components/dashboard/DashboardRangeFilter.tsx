@@ -49,7 +49,7 @@ export default function DashboardRangeFilter({ value, onChange, disabled = false
             className={`border px-3 py-2 text-sm font-medium first:rounded-l-md last:rounded-r-md disabled:opacity-50 ${
               value.range === preset.value
                 ? 'border-primary-600 bg-primary-600 text-white'
-                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
             }`}
           >
             {preset.label}
@@ -66,7 +66,7 @@ export default function DashboardRangeFilter({ value, onChange, disabled = false
           className="input w-auto"
           aria-label="Dashboard custom start date"
         />
-        <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
+        <span className="text-sm text-slate-500 dark:text-slate-400">to</span>
         <input
           type="date"
           value={customTo}
