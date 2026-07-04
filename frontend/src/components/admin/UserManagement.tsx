@@ -8,7 +8,9 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import PasswordInput from '@/components/ui/PasswordInput';
 import Pagination from '@/components/ui/Pagination';
-import { getErrorMessage, getUserDisplayName, getUserInitials } from '@/lib/utils';
+import Avatar from '@/components/ui/Avatar';
+import Badge from '@/components/ui/Badge';
+import { getErrorMessage, getUserDisplayName } from '@/lib/utils';
 import type { User, UserRole, CreateUserPayload, UpdateUserPayload } from '@/types';
 
 type UserFormMode = 'create' | 'edit';
@@ -145,7 +147,7 @@ export default function UserManagement() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">User Management</h2>
+        <h2 className="text-lg font-semibold text-slate-900">User Management</h2>
         <button onClick={openCreate} className="btn-primary">
           Add User
         </button>
@@ -166,45 +168,33 @@ export default function UserManagement() {
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-800">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+              <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
-                          {getUserInitials(u)}
-                        </div>
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        <Avatar name={u.name} size="sm" />
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                           {getUserDisplayName(u)}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{u.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">{u.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        u.role === 'Admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
-                        u.role === 'ITSupport' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
-                        {u.role}
-                      </span>
+                      <Badge variant="primary">{u.role}</Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        u.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                      }`}>
-                        {u.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      {u.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button onClick={() => openEdit(u)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">

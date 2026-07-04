@@ -4,6 +4,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import Switch from '@/components/ui/Switch';
 import { getErrorMessage } from '@/lib/utils';
 import {
   useAllFaqs,
@@ -97,35 +98,22 @@ export default function FaqManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Question</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Order</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Active</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Question</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Order</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Active</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+            <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-800">
               {faqs.map((faq) => (
                 <tr key={faq.id}>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 max-w-md truncate">{faq.question}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{faq.displayOrder}</td>
+                  <td className="px-6 py-4 text-sm text-slate-900 dark:text-slate-100 max-w-md truncate">{faq.question}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{faq.displayOrder}</td>
                   <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleToggleActive(faq)}
-                      disabled={isPending}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        faq.isActive ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                      aria-label={faq.isActive ? 'Deactivate FAQ' : 'Activate FAQ'}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          faq.isActive ? 'translate-x-4' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
+                    <Switch checked={faq.isActive} onChange={() => handleToggleActive(faq)} disabled={isPending} label={"Toggle " + faq.question} />
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <button onClick={() => openEdit(faq)} className="btn-secondary btn-sm">Edit</button>
@@ -181,9 +169,9 @@ export default function FaqManager() {
                 type="checkbox"
                 checked={formActive}
                 onChange={(e) => setFormActive(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
+                className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 dark:border-slate-600 dark:bg-slate-800"
               />
-              <label htmlFor="faq-active" className="text-sm text-gray-700 dark:text-gray-300">Active (visible on login)</label>
+              <label htmlFor="faq-active" className="text-sm text-slate-700 dark:text-slate-300">Active (visible on login)</label>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">

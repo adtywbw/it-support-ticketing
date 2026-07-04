@@ -8,6 +8,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useCategories } from '@/hooks/use-categories';
 import { useCreateSLAConfig, useSLAConfigs, useUpdateSLAConfig } from '@/hooks/use-sla-configs';
 import { formatSLADuration, isValidSLAWindow, splitMinutesForInput, toMinutes, type SLATimeUnit } from '@/lib/sla-time';
+import Badge from '@/components/ui/Badge';
 import { getErrorMessage, getPriorityColor } from '@/lib/utils';
 import type { SLAConfig, TicketPriority } from '@/types';
 
@@ -183,32 +184,30 @@ export default function SLAConfigManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Priority</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Response Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Resolution Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Priority</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Response Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Resolution Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
               {slaConfigs.map((config) => (
-                <tr key={config.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{getCategoryName(config)}</td>
+                <tr key={config.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{getCategoryName(config)}</td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getPriorityColor(config.priority)}`}>
                       {config.priority}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{formatSLADuration(config.responseTimeMinutes)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{formatSLADuration(config.resolutionTimeMinutes)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{formatSLADuration(config.responseTimeMinutes)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{formatSLADuration(config.resolutionTimeMinutes)}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${config.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
-                      {config.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    {config.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                   </td>
                   <td className="px-6 py-4 text-right text-sm">
                     <button onClick={() => openEdit(config)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
@@ -251,7 +250,7 @@ export default function SLAConfigManager() {
           )}
 
           {editingItem && (
-            <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-gray-700/50 dark:text-gray-300">
+            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-700/50 dark:text-slate-300">
               Editing {getCategoryName(editingItem)} / {editingItem.priority}
             </div>
           )}

@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import Badge from '@/components/ui/Badge';
 import { getErrorMessage } from '@/lib/utils';
 import { useCategories } from '@/hooks/use-categories';
 import SLAConfigManager from '@/components/admin/SLAConfigManager';
@@ -27,14 +28,14 @@ export default function MasterDataManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="border-b border-gray-200 dark:border-gray-700">
+      <div className="border-b border-slate-200 dark:border-slate-700">
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab('categories')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'categories'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
             }`}
           >
             Categories
@@ -44,7 +45,7 @@ export default function MasterDataManagement() {
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'subcategories'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
             }`}
           >
             Sub-categories
@@ -54,7 +55,7 @@ export default function MasterDataManagement() {
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'sla'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
             }`}
           >
             SLA Configuration
@@ -64,7 +65,7 @@ export default function MasterDataManagement() {
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'faq'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
             }`}
           >
             FAQ
@@ -184,24 +185,22 @@ function CategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
               {categories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{cat.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{cat.description || '-'}</td>
+                <tr key={cat.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{cat.name}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{cat.description || '-'}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${cat.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
-                      {cat.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    {cat.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                   </td>
                   <td className="px-6 py-4 text-right text-sm">
                     <button onClick={() => openEdit(cat)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
@@ -361,26 +360,24 @@ function SubCategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-800">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+            <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
               {subCategories.map((sub) => (
-                <tr key={sub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{sub.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{getCategoryName(sub.categoryId)}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{sub.description || '-'}</td>
+                <tr key={sub.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{sub.name}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{getCategoryName(sub.categoryId)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{sub.description || '-'}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${sub.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>
-                      {sub.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    {sub.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                   </td>
                   <td className="px-6 py-4 text-right text-sm">
                     <button onClick={() => openEdit(sub)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
