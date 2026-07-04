@@ -17,6 +17,8 @@ const MyAccountPage = lazy(() => import('@/pages/MyAccountPage'));
 const AdminUsersPage = lazy(() => import('@/pages/AdminUsersPage'));
 const AdminMasterDataPage = lazy(() => import('@/pages/AdminMasterDataPage'));
 const AdminMaintenancePage = lazy(() => import('@/pages/AdminMaintenancePage'));
+const LandingPage = lazy(() => import('@/pages/LandingPage'));
+const AdminLandingPagePage = lazy(() => import('@/pages/AdminLandingPagePage'));
 
 const SuspenseFallback = () => (
   <div className="flex min-h-screen items-center justify-center">
@@ -43,6 +45,7 @@ export default function App() {
       <Suspense fallback={<SuspenseFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<LandingPage />} />
 
         <Route
           element={
@@ -95,9 +98,16 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/landing-page"
+            element={
+              <ProtectedRoute allowedRoles={['Admin']}>
+                <AdminLandingPagePage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
-        <Route path="/" element={<Navigate to="/tickets" replace />} />
         <Route path="*" element={<Navigate to="/tickets" replace />} />
       </Routes>
       </Suspense>
