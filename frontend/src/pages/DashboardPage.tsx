@@ -11,8 +11,8 @@ export default function DashboardPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Operational overview and support performance</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Operational overview and support performance</p>
         </div>
         <DashboardRangeFilter value={range} onChange={setRange} />
       </div>
