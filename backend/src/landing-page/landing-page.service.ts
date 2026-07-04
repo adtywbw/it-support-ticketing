@@ -37,16 +37,18 @@ export class LandingPageService {
   ) {}
 
   async getPublicContent(): Promise<LandingPageContent> {
-    const config = await this.landingPageConfigRepository.findOrCreate();
-    const contact = this.normalizeContact(config?.contact);
-    const faqs = this.filterActiveFaqs(config?.faqs);
+    const config = await this.landingPageConfigRepository.findUniqueByKey();
+    if (!config) return { contact: { ...DEFAULT_CONTACT }, faqs: [] };
+    const contact = this.normalizeContact(config.contact);
+    const faqs = this.filterActiveFaqs(config.faqs);
     return { contact, faqs };
   }
 
   async getContent(): Promise<LandingPageContent> {
-    const config = await this.landingPageConfigRepository.findOrCreate();
-    const contact = this.normalizeContact(config?.contact);
-    const faqs = this.sortFaqs(this.normalizeFaqs(config?.faqs));
+    const config = await this.landingPageConfigRepository.findUniqueByKey();
+    if (!config) return { contact: { ...DEFAULT_CONTACT }, faqs: [] };
+    const contact = this.normalizeContact(config.contact);
+    const faqs = this.sortFaqs(this.normalizeFaqs(config.faqs));
     return { contact, faqs };
   }
 
@@ -69,8 +71,11 @@ export class LandingPageService {
       update.faqs = existingFaqs;
     }
 
-    await this.landingPageConfigRepository.update(update as any);
-    return this.getContent();
+    const updated = await this.landingPageConfigRepository.update(update as any);
+    return {
+      contact: this.normalizeContact(updated?.contact),
+      faqs: this.sortFaqs(this.normalizeFaqs(updated?.faqs)),
+    };
   }
 
   private normalizeContact(raw: unknown): ContactInfo {

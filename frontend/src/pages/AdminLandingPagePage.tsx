@@ -5,7 +5,7 @@ import LandingContactForm from '@/components/admin/LandingContactForm';
 import LandingFaqEditor from '@/components/admin/LandingFaqEditor';
 
 export default function AdminLandingPagePage() {
-  const { data, isLoading, isError } = useLandingPageAdminContent();
+  const { data, isLoading, isError, refetch } = useLandingPageAdminContent();
 
   return (
     <div className="space-y-6">
@@ -16,7 +16,7 @@ export default function AdminLandingPagePage() {
       {isError && (
         <ErrorMessage
           message="Failed to load landing page content"
-          onRetry={() => window.location.reload()}
+          onRetry={() => refetch()}
         />
       )}
 

@@ -1,9 +1,14 @@
-import { IsBoolean, IsInt, IsNotEmpty, IsString, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 const trimString = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 
 export class FaqEntryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  id?: string;
+
   @Transform(trimString)
   @IsString()
   @IsNotEmpty()

@@ -61,6 +61,13 @@ describe('UpdateLandingPageContentDto', () => {
       expect(errors).toHaveLength(0);
     });
 
+    it('should pass with faq entry that includes id', async () => {
+      const errors = await validateDto({
+        faqs: [{ id: 'faq-1', question: 'Q', answer: 'A', order: 0, active: true }],
+      });
+      expect(errors).toHaveLength(0);
+    });
+
     it('should reject whitespace-only question', async () => {
       const errors = await validateDto({ faqs: [{ ...validFaq, question: '   ' }] });
       expect(errors.length).toBeGreaterThan(0);

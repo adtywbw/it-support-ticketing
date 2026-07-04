@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import apiClient, { unwrapData } from '@/lib/axios';
+import { useAuthStore } from '@/stores/auth-store';
 import { STALE_TIME_LANDING_PAGE, STALE_TIME_LANDING_PAGE_ADMIN } from '@/lib/constants';
 import type { LandingPageContent } from '@/types';
 
 export function useLandingPageContent() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery({
     queryKey: ['landing-page', 'content'],
     queryFn: async () => {
@@ -12,6 +14,7 @@ export function useLandingPageContent() {
     },
     staleTime: STALE_TIME_LANDING_PAGE,
     retry: 1,
+    enabled: !isAuthenticated,
   });
 }
 

@@ -8,6 +8,7 @@ describe('LandingPageService', () => {
   let repository: any;
 
   const mockRepository = {
+    findUniqueByKey: jest.fn(),
     findOrCreate: jest.fn(),
     update: jest.fn(),
   };
@@ -37,7 +38,7 @@ describe('LandingPageService', () => {
           { id: 'c', question: 'Q3', answer: 'A3', order: 2, active: false },
         ],
       };
-      repository.findOrCreate.mockResolvedValueOnce(config);
+      repository.findUniqueByKey.mockResolvedValueOnce(config);
 
       const result = await service.getPublicContent();
 
@@ -49,12 +50,7 @@ describe('LandingPageService', () => {
     });
 
     it('should return defaults when no row exists', async () => {
-      repository.findOrCreate.mockResolvedValueOnce({
-        id: '1',
-        key: 'default',
-        contact: { email: '', phone: '', hours: '', location: '' },
-        faqs: [],
-      });
+      repository.findUniqueByKey.mockResolvedValueOnce(null);
 
       const result = await service.getPublicContent();
 
@@ -74,7 +70,7 @@ describe('LandingPageService', () => {
           { id: 'b', question: 'Q1', answer: 'A1', order: 0, active: true },
         ],
       };
-      repository.findOrCreate.mockResolvedValueOnce(config);
+      repository.findUniqueByKey.mockResolvedValueOnce(config);
 
       const result = await service.getContent();
 
@@ -198,8 +194,6 @@ describe('LandingPageService', () => {
       repository.findOrCreate.mockResolvedValueOnce(existingConfig);
       const updated = { ...existingConfig, contact: { email: 'new@company.com', phone: '111', hours: '9-5', location: 'Office' } };
       repository.update.mockResolvedValueOnce(updated);
-      // updateContent calls this.getContent() which calls findOrCreate() again
-      repository.findOrCreate.mockResolvedValueOnce(updated);
 
       const result = await service.updateContent({ contact: { email: 'new@company.com' } });
 

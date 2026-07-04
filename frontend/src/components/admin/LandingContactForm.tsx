@@ -14,7 +14,11 @@ export default function LandingContactForm({ contact }: LandingContactFormProps)
   const mutation = useUpdateLandingPageContent();
 
   useEffect(() => {
-    setValues(contact);
+    // Only sync from server when there are no unsaved local changes
+    setValues((prev) => {
+      const isDirty = JSON.stringify(prev) !== JSON.stringify(contact);
+      return isDirty ? prev : contact;
+    });
   }, [contact]);
 
   const isDirty = JSON.stringify(values) !== JSON.stringify(contact);

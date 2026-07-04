@@ -14,7 +14,11 @@ export default function LandingFaqEditor({ faqs }: LandingFaqEditorProps) {
   const mutation = useUpdateLandingPageContent();
 
   useEffect(() => {
-    setEntries(faqs);
+    // Only sync from server when there are no unsaved local changes
+    setEntries((prev) => {
+      const isDirty = JSON.stringify(prev) !== JSON.stringify(faqs);
+      return isDirty ? prev : faqs;
+    });
   }, [faqs]);
 
   const isDirty = JSON.stringify(entries) !== JSON.stringify(faqs);
@@ -24,7 +28,7 @@ export default function LandingFaqEditor({ faqs }: LandingFaqEditorProps) {
       id: crypto.randomUUID(),
       question: '',
       answer: '',
-      order: entries.length,
+      order: Math.max(...entries.map((e) => e.order), -1) + 1,
       active: true,
     };
     setEntries((prev) => [...prev, newEntry]);
