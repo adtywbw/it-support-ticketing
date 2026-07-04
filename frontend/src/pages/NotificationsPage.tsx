@@ -40,7 +40,7 @@ export default function NotificationsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+        <h1 className="text-2xl font-bold text-navy-950 dark:text-blue-50">Notifications</h1>
         <div className="flex items-center gap-2">
           {notifications.length > 0 && (
             <button
@@ -81,11 +81,11 @@ export default function NotificationsPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className={`text-sm ${!notif.isRead ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
+                  <p className={`text-sm ${!notif.isRead ? 'font-semibold text-navy-950 dark:text-blue-50' : 'text-navy-700 dark:text-blue-200'}`}>
                     {notif.title}
                   </p>
-                  <p className="text-sm text-slate-500 mt-0.5">{notif.message}</p>
-                  <p className="text-xs text-slate-400 mt-1">{formatRelativeTime(notif.createdAt)}</p>
+                  <p className="text-sm text-navy-500 dark:text-blue-300 mt-0.5">{notif.message}</p>
+                  <p className="text-xs text-navy-400 dark:text-blue-400 mt-1">{formatRelativeTime(notif.createdAt)}</p>
                 </div>
                 {!notif.isRead && (
                   <span className="mt-1 h-2 w-2 rounded-full bg-primary-500 shrink-0" />

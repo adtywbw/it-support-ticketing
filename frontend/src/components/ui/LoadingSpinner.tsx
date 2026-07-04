@@ -16,7 +16,7 @@ export default function LoadingSpinner({ size = 'md', className }: LoadingSpinne
     <div className={cn('flex items-center justify-center', className)}>
       <div
         className={cn(
-          'animate-spin rounded-full border-2 border-slate-300 dark:border-slate-600 border-t-primary-600 dark:border-t-primary-600',
+          'animate-spin rounded-full border-2 border-blue-200 dark:border-navy-700 border-t-primary-600 dark:border-t-primary-600',
           sizeClasses[size],
         )}
       />

@@ -32,7 +32,7 @@ describe('FE-01: ProtectedRoute', () => {
     vi.mocked(axios.default.post).mockRejectedValue(new Error('Network error'));
 
     render(
-      <MemoryRouter initialEntries={['/tickets']}>
+      <MemoryRouter initialEntries={['/tickets']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ProtectedRoute>
           <div>Protected Content</div>
         </ProtectedRoute>
@@ -52,7 +52,7 @@ describe('FE-01: ProtectedRoute', () => {
     });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ProtectedRoute>
           <div>Protected Content</div>
         </ProtectedRoute>
@@ -70,7 +70,7 @@ describe('FE-01: ProtectedRoute', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/admin/users']}>
+      <MemoryRouter initialEntries={['/admin/users']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <ProtectedRoute allowedRoles={['Admin']}>
           <div>Admin Content</div>
         </ProtectedRoute>

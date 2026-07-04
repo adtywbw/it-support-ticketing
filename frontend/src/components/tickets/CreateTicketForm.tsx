@@ -248,14 +248,14 @@ export default function CreateTicketForm() {
               {files.map((file, i) => (
                 <div
                   key={`${file.name}-${i}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
+                  className="flex items-center justify-between rounded-lg border border-blue-100 bg-white px-3 py-2 dark:border-navy-800 dark:bg-navy-900"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <svg className="h-5 w-5 shrink-0 text-navy-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                     </svg>
-                    <span className="text-sm text-slate-700 truncate dark:text-slate-300">{file.name}</span>
-                    <span className="text-xs text-slate-500">{formatFileSize(file.size)}</span>
+                    <span className="text-sm text-navy-700 truncate dark:text-blue-200">{file.name}</span>
+                    <span className="text-xs text-navy-500">{formatFileSize(file.size)}</span>
                   </div>
                   <button
                     type="button"

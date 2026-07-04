@@ -147,7 +147,7 @@ export default function UserManagement() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">User Management</h2>
+        <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">User Management</h2>
         <button onClick={openCreate} className="btn-primary">
           Add User
         </button>
@@ -168,28 +168,28 @@ export default function UserManagement() {
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-800">
+            <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+              <thead className="bg-blue-50 dark:bg-navy-900">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
+              <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                  <tr key={u.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <Avatar name={u.name} size="sm" />
-                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        <span className="text-sm font-medium text-navy-950 dark:text-blue-50">
                           {getUserDisplayName(u)}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">{u.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-navy-500 dark:text-blue-300">{u.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge variant="primary">{u.role}</Badge>
                     </td>

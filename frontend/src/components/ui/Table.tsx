@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 export function Table({ children }: { children: React.ReactNode }) {
   return (
     <div className="card overflow-hidden">
-      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+      <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
         {children}
       </table>
     </div>
@@ -11,7 +11,7 @@ export function Table({ children }: { children: React.ReactNode }) {
 }
 
 export function THead({ children }: { children: React.ReactNode }) {
-  return <thead className="bg-slate-50 dark:bg-slate-800">{children}</thead>;
+  return <thead className="bg-blue-50 dark:bg-navy-900">{children}</thead>;
 }
 
 export function TH({
@@ -24,7 +24,7 @@ export function TH({
   return (
     <th
       className={cn(
-        'px-6 py-3 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400',
+        'px-6 py-3 text-xs font-medium uppercase tracking-wider text-navy-500 dark:text-blue-300',
         align === 'left' && 'text-left',
         align === 'right' && 'text-right',
         align === 'center' && 'text-center',
@@ -37,7 +37,7 @@ export function TH({
 
 export function TBody({ children }: { children: React.ReactNode }) {
   return (
-    <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-800">
+    <tbody className="divide-y divide-blue-100 bg-white dark:divide-navy-800 dark:bg-navy-900">
       {children}
     </tbody>
   );
@@ -45,7 +45,7 @@ export function TBody({ children }: { children: React.ReactNode }) {
 
 export function TR({ children }: { children: React.ReactNode }) {
   return (
-    <tr className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50">
+    <tr className="transition-colors hover:bg-blue-50 dark:hover:bg-navy-800/60">
       {children}
     </tr>
   );
@@ -63,7 +63,7 @@ export function TD({
   return (
     <td
       className={cn(
-        'px-6 py-4 text-sm text-slate-900 dark:text-slate-100',
+        'px-6 py-4 text-sm text-navy-950 dark:text-blue-50',
         align === 'left' && 'text-left',
         align === 'right' && 'text-right',
         align === 'center' && 'text-center',

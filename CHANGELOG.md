@@ -2,6 +2,33 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 23 — Blue Operations Frontend Redesign (2026-07-04)
+
+### Changed
+- Frontend visual system migrated from slate-dominant tokens to a **Blue Operations** palette: royal-blue primary actions, navy/blue-black dark surfaces, blue-tinted light surfaces, and sky/cyan accents.
+- Login page redesigned as an **Enterprise Portal — Support Assist** experience with a polished `SH` brand mark, secure access header, compact form area, support cards, and FAQ panel.
+- App shell, shared UI components, dashboard, ticket, admin, account, notification, and maintenance pages restyled to the Blue Operations palette while preserving existing behavior and role access rules.
+- Default neutral badge/status helper styling now uses blue/navy neutral classes instead of slate classes.
+- Test output cleaned up by opting test `MemoryRouter` instances into React Router future flags and wrapping Zustand auth-store test updates in `act()`.
+
+### Fixed
+- Restored global `.card-body` utility (`@apply p-6`) after the redesign migration. Dashboard and ticket detail cards still use this helper for spacing; removing it caused dashboard/card layouts to appear broken.
+
+### Files Changed (frontend highlights)
+- `frontend/tailwind.config.js` — added/updated `primary`, `navy`, and `surface` palettes.
+- `frontend/src/index.css` — updated global body/button/input/card classes and restored `.card-body`.
+- `frontend/src/components/ui/BrandMark.tsx` — **new** reusable polished `SH` mark.
+- `frontend/src/pages/LoginPage.tsx` — redesigned login portal.
+- `frontend/src/components/ui/FaqSection.tsx` — added `variant="portal"` support.
+- `frontend/src/layout/{Layout,Sidebar,Navbar}.tsx` — migrated app shell to navy/blue surfaces.
+- `frontend/src/components/{ui,dashboard,tickets,admin,account}` and `frontend/src/pages/*` — migrated neutral slate styling to Blue Operations tokens.
+- New/updated tests: `BrandMark`, `Badge`, `LoginPage`, `utils-theme`, `global-styles`, `SlaStatusBadge`, router tests, and category hook tests.
+
+### Verification
+- Frontend lint: ESLint no issues.
+- Frontend tests: 62/62 tests pass across 21 files with no React Router future flag or `act()` warnings.
+- Frontend build: `tsc && vite build` passes.
+
 ## Session 22 — Landing Page Removal (2026-07-04)
 
 ### Removed

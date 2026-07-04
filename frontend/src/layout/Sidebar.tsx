@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import BrandMark from '@/components/ui/BrandMark';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 import { getUserDisplayName, getUserInitials } from '@/lib/utils';
@@ -85,30 +86,28 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 z-40 bg-slate-950/60 lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-40 bg-navy-950/70 lg:hidden" onClick={onClose} />
       )}
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 border-r border-slate-800 transition-all duration-300 lg:static',
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-navy-950 border-r border-navy-900 transition-all duration-300 lg:static',
           collapsed ? 'w-16' : 'w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
         <div className={cn(
-          'flex h-16 items-center border-b border-slate-800',
+          'flex h-16 items-center border-b border-navy-900',
           collapsed ? 'justify-center px-0' : 'gap-2 px-6',
         )}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white font-bold text-sm">
-            SH
-          </div>
+          <BrandMark size="md" />
+          {!collapsed && <span className="text-lg font-semibold text-blue-50">Support Hub</span>}
           {!collapsed && (
             <>
-              <span className="text-lg font-semibold text-slate-100">Support Hub</span>
               <div className="flex-1" />
               <button
                 onClick={onToggleCollapse}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                className="rounded-lg p-1.5 text-blue-200 hover:bg-navy-800 hover:text-blue-50"
                 title="Minimize sidebar"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -120,7 +119,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           {collapsed && (
             <button
               onClick={onToggleCollapse}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              className="rounded-lg p-1.5 text-blue-200 hover:bg-navy-800 hover:text-blue-50"
               title="Expand sidebar"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -142,8 +141,8 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
                   'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   collapsed ? 'justify-center' : 'gap-3',
                   isActive
-                    ? 'bg-primary-600/15 text-primary-300'
-                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800',
+                    ? 'bg-primary-600 text-white shadow-soft'
+                    : 'text-blue-200 hover:text-blue-50 hover:bg-navy-800',
                 )
               }
               title={collapsed ? item.label : undefined}
@@ -154,7 +153,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           ))}
         </nav>
 
-        <div className="border-t border-slate-800 p-2 space-y-2">
+        <div className="border-t border-navy-900 p-2 space-y-2">
           <NavLink
             to="/my-account"
             onClick={onClose}
@@ -164,8 +163,8 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
                 'flex items-center rounded-lg text-sm font-medium transition-colors',
                 collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
                 isActive
-                  ? 'bg-primary-600/15 text-primary-300'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800',
+                  ? 'bg-primary-600 text-white shadow-soft'
+                  : 'text-blue-200 hover:text-blue-50 hover:bg-navy-800',
               )
             }
           >
@@ -174,10 +173,10 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-100 truncate">
+                <p className="text-sm font-medium text-blue-50 truncate">
                   {user ? getUserDisplayName(user) : 'User'}
                 </p>
-                <p className="text-xs text-slate-500 truncate">{user?.role}</p>
+                <p className="text-xs text-blue-300 truncate">{user?.role}</p>
               </div>
             )}
           </NavLink>

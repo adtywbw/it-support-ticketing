@@ -127,8 +127,8 @@ export default function AdminMaintenancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Admin - Maintenance</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="text-2xl font-bold text-navy-950 dark:text-blue-50">Admin - Maintenance</h1>
+        <p className="mt-1 text-sm text-navy-500 dark:text-blue-300">
           Create, download, restore, and delete operational backups.
         </p>
       </div>
@@ -136,8 +136,8 @@ export default function AdminMaintenancePage() {
       <section className="card p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Maintenance Mode</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">Maintenance Mode</h2>
+            <p className="mt-1 text-sm text-navy-500 dark:text-blue-300">
               Must be enabled before creating or restoring backups. Non-admin users cannot access the system while this is on.
             </p>
           </div>
@@ -169,8 +169,8 @@ export default function AdminMaintenancePage() {
       <section className="card p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Create Backup</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">Create Backup</h2>
+            <p className="mt-1 text-sm text-navy-500 dark:text-blue-300">
               Generates a compressed PostgreSQL dump and uploads archive under the server `backups/` directory.
             </p>
           </div>
@@ -186,8 +186,8 @@ export default function AdminMaintenancePage() {
       </section>
 
       <section className="card overflow-hidden">
-        <div className="border-b border-slate-200 p-6 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Available Backups</h2>
+        <div className="border-b border-blue-100 p-6 dark:border-navy-800">
+          <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">Available Backups</h2>
         </div>
 
         {isLoading ? (
@@ -204,23 +204,23 @@ export default function AdminMaintenancePage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-800">
+            <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+              <thead className="bg-blue-50 dark:bg-navy-900">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Created</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Backup ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Database</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Uploads</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-slate-500 dark:text-slate-400">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-navy-500 dark:text-blue-300">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-navy-500 dark:text-blue-300">Backup ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-navy-500 dark:text-blue-300">Database</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-navy-500 dark:text-blue-300">Uploads</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-navy-500 dark:text-blue-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-800">
+              <tbody className="divide-y divide-blue-100 bg-white dark:divide-navy-800 dark:bg-navy-900">
                 {backups.map((backup) => (
-                  <tr key={backup.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-900 dark:text-slate-100">{formatDate(backup.createdAt)}</td>
-                    <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-slate-500 dark:text-slate-400">{backup.id}</td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{formatBytes(backup.files.db.size)}</td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{formatBytes(backup.files.uploads.size)}</td>
+                  <tr key={backup.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-navy-950 dark:text-blue-50">{formatDate(backup.createdAt)}</td>
+                    <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-navy-500 dark:text-blue-300">{backup.id}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatBytes(backup.files.db.size)}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatBytes(backup.files.uploads.size)}</td>
                     <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                       <div className="flex items-center justify-end gap-3">
                         <button
@@ -266,11 +266,11 @@ export default function AdminMaintenancePage() {
       </section>
 
       <section className="card p-6">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Restore Notes</h2>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">Restore Notes</h2>
+        <p className="mt-2 text-sm text-navy-600 dark:text-blue-200">
           Restore replaces the current database and uploads with the selected backup. The system creates a fresh pre-restore backup first, then requires you to log in again.
         </p>
-        <pre className="mt-4 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
+        <pre className="mt-4 overflow-x-auto rounded-lg bg-navy-950 p-4 text-xs text-blue-50">
 {`export BACKUP_PATH=backups/<timestamp>
 docker compose stop api nginx frontend
 docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DROP SCHEMA IF EXISTS public CASCADE;"
@@ -296,7 +296,7 @@ docker compose up -d`}
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
             Restore will automatically enable <span className="font-semibold">maintenance mode</span> for the entire duration (typically 15-60 seconds). All non-admin users will be temporarily blocked.
           </div>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-navy-600 dark:text-blue-200">
             A fresh pre-restore backup will be created automatically before restore starts. Type the backup ID to confirm.
           </p>
           <div>

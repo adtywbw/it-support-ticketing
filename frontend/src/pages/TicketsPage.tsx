@@ -75,7 +75,7 @@ export default function TicketsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Tickets</h1>
+        <h1 className="text-2xl font-bold text-navy-950 dark:text-blue-50">Tickets</h1>
         <div className="flex items-center gap-2">
           {canExport && (
             <button onClick={handleExport} disabled={exporting} className="btn-secondary">

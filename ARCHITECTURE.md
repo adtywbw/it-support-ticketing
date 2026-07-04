@@ -450,8 +450,13 @@ it-support-ticketing/
 │       │   ├── admin/
 │       │   │   ├── UserManagement.tsx
 │       │   │   ├── MasterDataManagement.tsx
-│       │   │   └── SLAConfigManager.tsx
+│       │   │   ├── SLAConfigManager.tsx
+│       │   │   └── FaqManager.tsx
 │       │   └── ui/
+│       │       ├── BrandMark.tsx
+│       │       ├── Badge.tsx
+│       │       ├── Table.tsx
+│       │       ├── Switch.tsx
 │       │       ├── Modal.tsx
 │       │       ├── Pagination.tsx
 │       │       ├── LoadingSpinner.tsx
@@ -459,7 +464,8 @@ it-support-ticketing/
 │       │       ├── ErrorMessage.tsx
 │       │       ├── ErrorBoundary.tsx
 │       │       ├── ConfirmDialog.tsx
-│       │   └── PasswordInput.tsx
+│       │       ├── FaqSection.tsx
+│       │       └── PasswordInput.tsx
 │       └── pages/
 │           ├── LoginPage.tsx
 │           ├── TicketsPage.tsx
@@ -563,6 +569,7 @@ it-support-ticketing/
   4. At container runtime, the `frontend` service copies `/app/dist/*` to the `frontend_dist` named volume.
   5. The `nginx` service mounts the same volume at `/usr/share/nginx/html` and serves the SPA.
 - `postcss.config.js` and `tailwind.config.js` **must** be copied into the image — the Vite build silently skips PostCSS/Tailwind processing if they are absent, producing raw `@tailwind`/`@apply` directives that browsers cannot interpret.
+- Frontend theme tokens live in `tailwind.config.js` and `src/index.css`. The Blue Operations theme uses `primary` (royal blue), `navy` (brand/dark surfaces), and `surface` (blue-tinted light surfaces). Shared global component classes include `.card`, `.card-header`, and `.card-body`; dashboard and ticket detail cards depend on `.card-body` for spacing.
 - The `production` stage of the Dockerfile is retained for standalone use (e.g., CI/CD pipelines where the frontend image serves itself via nginx).
 
 ---

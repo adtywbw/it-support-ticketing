@@ -27,12 +27,13 @@ describe('SlaStatusBadge', () => {
     expect(badge.className).toContain('text-red-800');
   });
 
-  it('renders "N/A" with slate pill for null status', () => {
+  it('renders "N/A" with blue/navy neutral pill for null status', () => {
     render(<SlaStatusBadge status={null} />);
     const badge = screen.getByText('N/A');
     expect(badge).toBeInTheDocument();
-    expect(badge.className).toContain('bg-slate-100');
-    expect(badge.className).toContain('text-slate-700');
+    expect(badge.className).toContain('bg-blue-50');
+    expect(badge.className).toContain('text-navy-700');
+    expect(badge.className).not.toContain('slate');
   });
 
   it('renders "N/A" with slate pill for undefined status', () => {

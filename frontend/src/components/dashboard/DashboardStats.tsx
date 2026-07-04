@@ -29,7 +29,7 @@ export default function DashboardStats({ range }: DashboardStatsProps) {
   if (!stats) {
     return (
       <div className="card p-12">
-        <p className="text-center text-slate-500 dark:text-slate-400">No dashboard data available.</p>
+        <p className="text-center text-navy-500 dark:text-blue-300">No dashboard data available.</p>
       </div>
     );
   }

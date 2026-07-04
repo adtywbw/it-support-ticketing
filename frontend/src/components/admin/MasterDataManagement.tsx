@@ -28,14 +28,14 @@ export default function MasterDataManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="border-b border-slate-200 dark:border-slate-700">
+      <div className="border-b border-blue-100 dark:border-navy-800">
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab('categories')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'categories'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                : 'border-transparent text-navy-500 hover:text-navy-700 dark:text-blue-300 dark:hover:text-blue-200'
             }`}
           >
             Categories
@@ -45,7 +45,7 @@ export default function MasterDataManagement() {
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'subcategories'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                : 'border-transparent text-navy-500 hover:text-navy-700 dark:text-blue-300 dark:hover:text-blue-200'
             }`}
           >
             Sub-categories
@@ -55,7 +55,7 @@ export default function MasterDataManagement() {
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'sla'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                : 'border-transparent text-navy-500 hover:text-navy-700 dark:text-blue-300 dark:hover:text-blue-200'
             }`}
           >
             SLA Configuration
@@ -65,7 +65,7 @@ export default function MasterDataManagement() {
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'faq'
                 ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                : 'border-transparent text-navy-500 hover:text-navy-700 dark:text-blue-300 dark:hover:text-blue-200'
             }`}
           >
             FAQ
@@ -185,20 +185,20 @@ function CategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-800">
+          <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+            <thead className="bg-blue-50 dark:bg-navy-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
+            <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
               {categories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{cat.name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{cat.description || '-'}</td>
+                <tr key={cat.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                  <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{cat.name}</td>
+                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{cat.description || '-'}</td>
                   <td className="px-6 py-4">
                     {cat.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                   </td>
@@ -360,22 +360,22 @@ function SubCategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-800">
+          <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+            <thead className="bg-blue-50 dark:bg-navy-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
+            <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
               {subCategories.map((sub) => (
-                <tr key={sub.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{sub.name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{getCategoryName(sub.categoryId)}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{sub.description || '-'}</td>
+                <tr key={sub.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                  <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{sub.name}</td>
+                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{getCategoryName(sub.categoryId)}</td>
+                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{sub.description || '-'}</td>
                   <td className="px-6 py-4">
                     {sub.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                   </td>

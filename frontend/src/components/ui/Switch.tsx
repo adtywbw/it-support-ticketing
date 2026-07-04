@@ -46,9 +46,9 @@ export default function Switch({ checked, onChange, disabled, label, size = 'md'
       onClick={handleToggle}
       onKeyDown={handleKeyDown}
       className={cn(
-        'relative inline-flex shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
+        'relative inline-flex shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-navy-950',
         trackSize[size],
-        checked ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600',
+        checked ? 'bg-primary-600' : 'bg-blue-200 dark:bg-navy-700',
         disabled && 'cursor-not-allowed opacity-50',
         className,
       )}

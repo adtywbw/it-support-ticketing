@@ -180,7 +180,7 @@ export default function MyAccountPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">My Account</h1>
+      <h1 className="text-2xl font-bold text-navy-950 dark:text-blue-50">My Account</h1>
 
       <div className="card p-6">
         <div className="flex items-center gap-4 mb-6">
@@ -188,10 +188,10 @@ export default function MyAccountPage() {
             {user ? getUserInitials(user) : '?'}
           </div>
           <div>
-            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <p className="text-lg font-semibold text-navy-950 dark:text-blue-50">
               {user ? getUserDisplayName(user) : 'User'}
             </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
+            <p className="text-sm text-navy-500 dark:text-blue-300">{user?.email}</p>
             <span className="inline-block mt-1 rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/20 dark:text-primary-300">
               {user?.role}
             </span>
@@ -202,8 +202,8 @@ export default function MyAccountPage() {
 
         {user?.role !== 'EndUser' && (
           <>
-            <hr className="my-6 border-slate-200 dark:border-slate-700" />
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Change Password</h2>
+            <hr className="my-6 border-blue-100 dark:border-navy-800" />
+            <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50 mb-4">Change Password</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
@@ -251,8 +251,8 @@ export default function MyAccountPage() {
         )}
         {user?.role === 'Admin' && (
           <>
-            <hr className="my-6 border-slate-200 dark:border-slate-700" />
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Telegram</h2>
+            <hr className="my-6 border-blue-100 dark:border-navy-800" />
+            <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50 mb-4">Telegram</h2>
 
             {telegramStatus.data?.linked ? (
               <div className="space-y-3 mb-6">
@@ -285,7 +285,7 @@ export default function MyAccountPage() {
               </div>
             ) : (
               <div className="space-y-3 mb-6">
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-sm text-navy-600 dark:text-blue-300">
                   Get ticket notifications on Telegram.
                 </p>
                 {!showCode ? (
@@ -298,16 +298,16 @@ export default function MyAccountPage() {
                   </button>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <p className="text-sm font-medium text-navy-700 dark:text-blue-200">
                       Send this code to the bot:
                     </p>
-                    <div className="inline-block rounded-lg bg-slate-100 px-4 py-2 font-mono text-lg font-bold tracking-wider dark:bg-slate-800">
+                    <div className="inline-block rounded-lg bg-blue-50 px-4 py-2 font-mono text-lg font-bold tracking-wider dark:bg-navy-900">
                       {linkCode}
                     </div>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-navy-500 dark:text-blue-300">
                       1. Open Telegram and search for <strong>@your_bot_username</strong>
                       <br />
-                      2. Send <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">/start {linkCode}</code>
+                      2. Send <code className="bg-blue-50 dark:bg-navy-900 px-1 rounded">/start {linkCode}</code>
                       <br />
                       3. Expires in 5 minutes
                     </p>
@@ -322,8 +322,8 @@ export default function MyAccountPage() {
               </div>
             )}
 
-            <hr className="my-6 border-slate-200 dark:border-slate-700" />
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+            <hr className="my-6 border-blue-100 dark:border-navy-800" />
+            <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50 mb-4">
               Bot Settings
             </h2>
 
@@ -397,22 +397,22 @@ export default function MyAccountPage() {
                         type="checkbox"
                         checked={enabledEvents.includes(event)}
                         onChange={() => toggleEvent(event)}
-                        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        className="h-4 w-4 rounded border-blue-200 text-primary-600 focus:ring-primary-500"
                       />
-                      <span className="text-sm text-slate-700 dark:text-slate-300">
+                      <span className="text-sm text-navy-700 dark:text-blue-200">
                         {EVENT_LABELS[event]}
                       </span>
                     </label>
                   ))}
 
-                  <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-blue-100 dark:border-navy-800">
                     <input
                       type="checkbox"
                       checked={enableGroupChat}
                       onChange={(e) => { setEnableGroupChat(e.target.checked); setCheckResult(null); }}
-                      className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                      className="h-4 w-4 rounded border-blue-200 text-primary-600 focus:ring-primary-500"
                     />
-                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="text-sm text-navy-700 dark:text-blue-200">
                       Send to Group Chat
                     </span>
                   </label>
@@ -426,9 +426,9 @@ export default function MyAccountPage() {
                       type="checkbox"
                       checked={notifyIndividualsWhenGroupChat}
                       onChange={(e) => { setNotifyIndividualsWhenGroupChat(e.target.checked); setCheckResult(null); }}
-                      className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                      className="h-4 w-4 rounded border-blue-200 text-primary-600 focus:ring-primary-500"
                     />
-                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="text-sm text-navy-700 dark:text-blue-200">
                       Also notify individually
                     </span>
                   </label>
@@ -452,13 +452,13 @@ export default function MyAccountPage() {
 
               <div>
                 <label className="label">Message Templates</label>
-                <p className="text-xs text-slate-500 mb-2">
+                <p className="text-xs text-navy-500 dark:text-blue-300 mb-2">
                   Available variables: {'{ticketNumber}'}, {'{subject}'}, {'{priority}'}, {'{createdBy}'}, {'{oldStatus}'}, {'{newStatus}'}, {'{assignedBy}'}, {'{url}'}
                 </p>
                 <div className="space-y-3">
                   {EVENT_KEYS.map((event) => (
                     <div key={event}>
-                      <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">
+                      <label className="text-xs font-medium text-navy-600 dark:text-blue-300 mb-1 block">
                         {EVENT_LABELS[event]}
                       </label>
                       <textarea

@@ -50,19 +50,19 @@ export default function NotificationPreferencesSection() {
   if (isLoading) {
     return (
       <div className="space-y-2">
-        <div className="h-5 w-48 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
-        <div className="h-4 w-full animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+        <div className="h-5 w-48 animate-pulse rounded bg-blue-100 dark:bg-navy-800" />
+        <div className="h-4 w-full animate-pulse rounded bg-blue-100 dark:bg-navy-800" />
       </div>
     );
   }
 
   return (
     <>
-      <hr className="my-6 border-slate-200 dark:border-slate-700" />
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+      <hr className="my-6 border-blue-100 dark:border-navy-800" />
+      <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50 mb-2">
         Notification Preferences
       </h2>
-      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+      <p className="text-sm text-navy-600 dark:text-blue-300 mb-4">
         Choose which in-app notifications appear in your notification panel.
       </p>
       <div className="space-y-2">
@@ -75,9 +75,9 @@ export default function NotificationPreferencesSection() {
               type="checkbox"
               checked={preferences[event] ?? true}
               onChange={() => toggle(event)}
-              className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              className="h-4 w-4 rounded border-blue-200 text-primary-600 focus:ring-primary-500"
             />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="text-sm text-navy-700 dark:text-blue-200">
               {label}
             </span>
           </label>

@@ -71,6 +71,9 @@ postgres/postgresql.conf
 - Frontend `types/` and `lib/` hold shared types, axios client, and utilities (including `sla-time.ts` for SLA duration conversion).
 - Use `kebab-case` files, `PascalCase` components/classes, and `camelCase` variables/functions.
 - Frontend uses functional components, named exports, Tailwind utilities, and `@/` alias.
+- Frontend visual system uses the Blue Operations palette from `tailwind.config.js`: `primary` (royal blue), `navy` (brand/dark surfaces), and `surface` (blue-tinted backgrounds). Prefer these tokens over slate classes.
+- Shared frontend component utilities in `frontend/src/index.css` include `.card`, `.card-header`, and `.card-body`; keep `.card-body` because dashboard and ticket detail cards depend on it for spacing.
+- Use `frontend/src/components/ui/BrandMark.tsx` for the polished `SH` mark instead of duplicating logo markup.
 - Do not add CSS modules or styled-components.
 - Backend imports are relative within modules.
 - DTO validation uses `class-validator` with `whitelist` and `forbidNonWhitelisted`.
@@ -212,6 +215,7 @@ postgres/postgresql.conf
 - `TransformInterceptor` already wraps responses into `{ data, meta? }` globally — do not manually wrap in controllers.
 - `AttachmentVisibilityPolicy` is the single source of truth for attachment visibility — do not duplicate filter logic elsewhere.
 - Frontend errors: use `toast.error()`, not just `throw` or `console.error`.
+- Frontend redesign: do not remove global CSS helper classes just because Tailwind classes are preferred. `card-body` is intentionally global and has regression coverage in `frontend/src/__tests__/global-styles.test.ts`.
 - Backend errors: use `BadRequestException` / `NotFoundException` from `@nestjs/common`, not plain `Error`.
 - Do not create a separate subcategory endpoint for listing; derive subcategories from existing `useCategories()` data (which includes `subCategories`).
 - Telegram: do not send `botToken` or `groupChatId` to the frontend — only the `hasBotToken` / `hasGroupChatId` flags.

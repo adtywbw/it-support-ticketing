@@ -45,7 +45,7 @@ export default function PasswordInput({ className = '', error, ...props }: Passw
         onTouchStart={handleMouseDown}
         onTouchEnd={handleMouseUp}
         onTouchCancel={handleMouseLeave}
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:hover:text-slate-300"
+        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-navy-400 hover:text-navy-600 focus:outline-none dark:text-blue-300 dark:hover:text-blue-50"
         tabIndex={-1}
         aria-label={isRevealed ? 'Hide password' : 'Show password'}
       >

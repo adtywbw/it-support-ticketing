@@ -29,7 +29,7 @@ const statusFlows: Record<TicketStatus, TicketStatus[]> = {
 
 function AssignedToDisplay({ ticket }: { ticket: Ticket }) {
   return (
-    <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
+    <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">
       {ticket.assignedTo ? getUserDisplayName(ticket.assignedTo) : 'Unassigned'}
     </p>
   );
@@ -108,7 +108,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                 <StatusBadge status={ticket.status} />
                 <PriorityBadge priority={ticket.priority} />
               </div>
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{ticket.subject}</h1>
+              <h1 className="text-xl font-semibold text-navy-950 dark:text-blue-50">{ticket.subject}</h1>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -155,18 +155,18 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
         </div>
 
         <div className="card-body space-y-6">
-          <p className="text-sm text-slate-700 whitespace-pre-wrap dark:text-slate-300">{ticket.description}</p>
+          <p className="text-sm text-navy-700 whitespace-pre-wrap dark:text-blue-200">{ticket.description}</p>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Created By</label>
-              <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Created By</label>
+              <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">
                 {ticket.requester ? getUserDisplayName(ticket.requester) : 'Unknown'}
               </p>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Assigned To</label>
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Assigned To</label>
               {canAssign && assignableUsers ? (
                 <AssignedToSelect ticket={ticket} users={assignableUsers} />
               ) : (
@@ -175,15 +175,15 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Category</label>
-              <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">{ticket.category?.name ?? '-'}</p>
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category</label>
+              <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">{ticket.category?.name ?? '-'}</p>
               {ticket.subCategory && (
-                <p className="text-xs text-slate-500 dark:text-slate-400">{ticket.subCategory.name}</p>
+                <p className="text-xs text-navy-500 dark:text-blue-300">{ticket.subCategory.name}</p>
               )}
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase dark:text-slate-400">SLA Status</label>
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">SLA Status</label>
               <p className={`mt-1 text-sm font-medium ${getSLAColor(ticket.slaStatus || '')}`}>
                 {ticket.slaStatus || 'N/A'}
                 {ticket.slaDueAt && ` (by ${formatDateTime(ticket.slaDueAt)})`}
@@ -193,17 +193,17 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Created</label>
-              <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">{formatDateTime(ticket.createdAt)}</p>
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Created</label>
+              <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">{formatDateTime(ticket.createdAt)}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Updated</label>
-              <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">{formatDateTime(ticket.updatedAt)}</p>
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Updated</label>
+              <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">{formatDateTime(ticket.updatedAt)}</p>
             </div>
             {ticket.resolvedAt && (
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Resolved</label>
-                <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">{formatDateTime(ticket.resolvedAt)}</p>
+                <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Resolved</label>
+                <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">{formatDateTime(ticket.resolvedAt)}</p>
               </div>
             )}
           </div>
@@ -212,7 +212,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Comments</h2>
+          <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">Comments</h2>
         </div>
         <div className="card-body">
           <CommentSection ticketId={ticketId} />
@@ -221,7 +221,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
 
       <div className="card">
         <div className="card-header">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Attachments</h2>
+          <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">Attachments</h2>
         </div>
         <div className="card-body">
           <AttachmentList ticketId={ticketId} />
@@ -231,7 +231,7 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
       {ticket.histories && ticket.histories.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Audit Trail</h2>
+            <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50">Audit Trail</h2>
           </div>
           <div className="card-body">
             <div className="flow-root">
@@ -241,15 +241,15 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                     <div className="relative pb-8">
                       {idx < ticket.histories!.length - 1 && (
                         <span
-                          className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-slate-200 dark:bg-slate-700"
+                          className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-blue-100 dark:bg-navy-800"
                           aria-hidden="true"
                         />
                       )}
                       <div className="relative flex gap-3">
-                        <Avatar name={entry.user?.name ?? '?'} size="sm" className="ring-8 ring-white dark:ring-slate-800" />
+                        <Avatar name={entry.user?.name ?? '?'} size="sm" className="ring-8 ring-white dark:ring-navy-900" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-700 dark:text-slate-300">
-                            <span className="font-medium text-slate-900 dark:text-slate-100">
+                          <p className="text-sm text-navy-700 dark:text-blue-200">
+                            <span className="font-medium text-navy-950 dark:text-blue-50">
                               {entry.user ? getUserDisplayName(entry.user) : 'Unknown'}
                             </span>{' '}
                             {entry.field === 'status' ? 'changed status' :
@@ -259,12 +259,12 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                             {entry.oldValue && entry.newValue && (
                               <>
                                 {' '}
-                                from <span className="font-medium text-slate-500 dark:text-slate-400">"{entry.oldValue}"</span> to{' '}
-                                <span className="font-medium text-slate-900 dark:text-slate-100">"{entry.newValue}"</span>
+                                from <span className="font-medium text-navy-500 dark:text-blue-300">"{entry.oldValue}"</span> to{' '}
+                                <span className="font-medium text-navy-950 dark:text-blue-50">"{entry.newValue}"</span>
                               </>
                             )}
                           </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{formatRelativeTime(entry.createdAt)}</p>
+                          <p className="text-xs text-navy-500 dark:text-blue-300">{formatRelativeTime(entry.createdAt)}</p>
                         </div>
                       </div>
                     </div>

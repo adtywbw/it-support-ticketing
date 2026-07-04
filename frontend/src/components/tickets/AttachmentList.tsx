@@ -55,14 +55,14 @@ function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () 
   }, [id, blobUrl]);
 
   if (blobUrl === '') return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-blue-50 text-primary-400 dark:bg-navy-800 dark:text-blue-300">
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
       </svg>
     </div>
   );
   if (blobUrl !== null) return <img src={blobUrl} alt={alt} className="h-10 w-10 shrink-0 rounded object-cover cursor-pointer" onClick={onClick} />;
-  return <div ref={imgRef} className="h-10 w-10 shrink-0 rounded bg-slate-200 animate-pulse dark:bg-slate-600" />;
+  return <div ref={imgRef} className="h-10 w-10 shrink-0 rounded bg-blue-100 animate-pulse dark:bg-navy-700" />;
 }
 
 interface AttachmentListProps {
@@ -200,18 +200,18 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
           {attachments.map((attachment) => {
             const isImage = attachment.mimeType?.startsWith('image/');
             return (
-              <div key={attachment.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+              <div key={attachment.id} className="flex items-center justify-between rounded-lg border border-blue-100 bg-white px-4 py-3 dark:border-navy-800 dark:bg-navy-900">
                 <div className="flex items-center gap-3 min-w-0">
                   {isImage ? (
                     <Thumbnail id={attachment.id} alt={attachment.originalName} onClick={() => openPreview(attachment)} />
                   ) : (
-                    <svg className="h-8 w-8 shrink-0 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <svg className="h-8 w-8 shrink-0 text-navy-400 dark:text-blue-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
                     </svg>
                   )}
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-slate-900 truncate dark:text-slate-100">
+                      <p className="text-sm font-medium text-navy-950 truncate dark:text-blue-50">
                         {isImage ? (
                           <button onClick={() => openPreview(attachment)} className="hover:underline text-left">
                             {attachment.originalName}
@@ -226,7 +226,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-navy-500 dark:text-blue-300">
                       {formatFileSize(attachment.size)} &middot;{' '}
                       {attachment.user ? getUserDisplayName(attachment.user) : 'Unknown'}{' '}
                       &middot; {formatDate(attachment.createdAt)}

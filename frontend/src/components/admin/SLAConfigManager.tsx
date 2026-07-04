@@ -184,28 +184,28 @@ export default function SLAConfigManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-800">
+          <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+            <thead className="bg-blue-50 dark:bg-navy-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Priority</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Response Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Resolution Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase dark:text-slate-400">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Priority</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Response Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Resolution Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
+            <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
               {slaConfigs.map((config) => (
-                <tr key={config.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{getCategoryName(config)}</td>
+                <tr key={config.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                  <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{getCategoryName(config)}</td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getPriorityColor(config.priority)}`}>
                       {config.priority}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{formatSLADuration(config.responseTimeMinutes)}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{formatSLADuration(config.resolutionTimeMinutes)}</td>
+                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.responseTimeMinutes)}</td>
+                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.resolutionTimeMinutes)}</td>
                   <td className="px-6 py-4">
                     {config.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                   </td>
@@ -250,7 +250,7 @@ export default function SLAConfigManager() {
           )}
 
           {editingItem && (
-            <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-700/50 dark:text-slate-300">
+            <div className="rounded-lg bg-blue-50 p-3 text-sm text-navy-600 dark:bg-navy-800/50 dark:text-blue-200">
               Editing {getCategoryName(editingItem)} / {editingItem.priority}
             </div>
           )}
