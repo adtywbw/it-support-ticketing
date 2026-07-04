@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
 import { safeRedirectPath } from '@/lib/utils';
 import LoginForm from '@/auth/LoginForm';
+import FaqSection from '@/components/ui/FaqSection';
 
 export default function LoginPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -39,6 +40,7 @@ export default function LoginPage() {
         <div className="card p-6">
           <LoginForm />
         </div>
+        <FaqSection />
       </div>
     </div>
   );
