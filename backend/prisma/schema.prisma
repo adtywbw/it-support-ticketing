@@ -8,22 +8,22 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String
-  name          String
-  role          Role     @default(EndUser)
-  isActive      Boolean  @default(true)
-  avatarUrl       String?
-  telegramChatId  String?   @unique
-  telegramCode    String?   @unique
-  telegramCodeAt  DateTime?
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  password                String
+  name                    String
+  role                    Role      @default(EndUser)
+  isActive                Boolean   @default(true)
+  avatarUrl               String?
+  telegramChatId          String?   @unique
+  telegramCode            String?   @unique
+  telegramCodeAt          DateTime?
   notificationPreferences Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  assignedTickets Ticket[]  @relation("AssignedTickets")
-  createdTickets  Ticket[]  @relation("CreatedTickets")
+  assignedTickets Ticket[]        @relation("AssignedTickets")
+  createdTickets  Ticket[]        @relation("CreatedTickets")
   comments        Comment[]
   attachments     Attachment[]
   notifications   Notification[]
@@ -43,28 +43,28 @@ enum Role {
 }
 
 model Ticket {
-  id             String       @id @default(uuid())
-  ticketNumber   String       @unique
-  subject        String       @db.VarChar(255)
-  description    String       @db.Text
-  requesterId    String
-  categoryId     String
-  subCategoryId  String?
-  priority       Priority     @default(Medium)
-  status         TicketStatus @default(Open)
-  assignedToId   String?
-  channel        Channel      @default(Web)
-  slaDueAt       DateTime
-  slaStatus      SLAStatus    @default(OnTrack)
-  resolvedAt     DateTime?
-  closedAt       DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            String       @id @default(uuid())
+  ticketNumber  String       @unique
+  subject       String       @db.VarChar(255)
+  description   String       @db.Text
+  requesterId   String
+  categoryId    String
+  subCategoryId String?
+  priority      Priority     @default(Medium)
+  status        TicketStatus @default(Open)
+  assignedToId  String?
+  channel       Channel      @default(Web)
+  slaDueAt      DateTime
+  slaStatus     SLAStatus    @default(OnTrack)
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  requester   User          @relation("CreatedTickets", fields: [requesterId], references: [id])
-  assignedTo  User?         @relation("AssignedTickets", fields: [assignedToId], references: [id])
-  category    Category      @relation(fields: [categoryId], references: [id])
-  subCategory SubCategory?  @relation(fields: [subCategoryId], references: [id])
+  requester   User            @relation("CreatedTickets", fields: [requesterId], references: [id])
+  assignedTo  User?           @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  category    Category        @relation(fields: [categoryId], references: [id])
+  subCategory SubCategory?    @relation(fields: [subCategoryId], references: [id])
   comments    Comment[]
   attachments Attachment[]
   histories   TicketHistory[]
@@ -141,7 +141,7 @@ enum AttachmentVisibility {
 }
 
 model Attachment {
-  id           String   @id @default(uuid())
+  id           String               @id @default(uuid())
   ticketId     String
   commentId    String?
   userId       String
@@ -150,7 +150,7 @@ model Attachment {
   size         Int
   path         String
   visibility   AttachmentVisibility @default(PUBLIC)
-  createdAt    DateTime @default(now())
+  createdAt    DateTime             @default(now())
 
   ticket  Ticket   @relation(fields: [ticketId], references: [id])
   comment Comment? @relation(fields: [commentId], references: [id])
@@ -187,7 +187,7 @@ model SubCategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  category Category  @relation(fields: [categoryId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
   tickets  Ticket[]
 
   @@unique([categoryId, name])
@@ -195,14 +195,14 @@ model SubCategory {
 }
 
 model SLAConfig {
-  id                   String   @id @default(uuid())
-  categoryId           String
-  priority             Priority
-  responseTimeMinutes  Int
+  id                    String   @id @default(uuid())
+  categoryId            String
+  priority              Priority
+  responseTimeMinutes   Int
   resolutionTimeMinutes Int
-  isActive             Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   category Category @relation(fields: [categoryId], references: [id])
 
@@ -255,15 +255,4 @@ model TelegramConfig {
   updatedAt DateTime @updatedAt
 
   @@map("telegram_config")
-}
-
-model LandingPageConfig {
-  id        String   @id @default(uuid())
-  key       String   @unique @default("default")
-  contact   Json     @default("{\"email\":\"\",\"phone\":\"\",\"hours\":\"\",\"location\":\"\"}")
-  faqs      Json     @default("[]")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("landing_page_config")
 }

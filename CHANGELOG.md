@@ -2,6 +2,19 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 22 — Landing Page Removal (2026-07-04)
+
+### Removed
+- Landing page feature (public landing page + admin editor) — feature dibatalkan.
+- Backend: `landing-page` module, `LandingPageConfigRepository`, `LandingPageConfig` Prisma model.
+- Frontend: `LandingPage` & `AdminLandingPagePage` pages, `components/landing/*`, admin forms, hooks, types, `landing-defaults.ts`.
+- Route `/` sekarang redirect ke `/login`; route `/admin/landing-page` dihapus.
+- DB: tabel `landing_page_config` di-drop via migration baru.
+
+### Changed
+- Sidebar admin: entry "Landing Page" dihapus.
+- Dokumentasi (AGENTS, README, ARCHITECTURE) dibersihin dari referensi landing page.
+
 ## Session 21 — Landing Page
 
 ### Feature

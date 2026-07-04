@@ -19,7 +19,6 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthModule } from './health/health.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
-import { LandingPageModule } from './landing-page/landing-page.module';
 import { RepositoriesModule } from './common/repositories/repositories.module';
 import { MaintenanceGuard } from './common/guards/maintenance.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -49,7 +48,6 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     HealthModule,
     TelegramModule,
     MaintenanceModule,
-    LandingPageModule,
   ],
   providers: [
     {
