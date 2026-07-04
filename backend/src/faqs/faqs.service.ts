@@ -16,7 +16,12 @@ export class FaqsService {
   }
 
   create(dto: CreateFaqDto) {
-    return this.faqRepository.create(dto);
+    const data = {
+      ...dto,
+      displayOrder: dto.displayOrder ?? 0,
+      isActive: dto.isActive ?? true,
+    };
+    return this.faqRepository.create(data);
   }
 
   async update(id: string, dto: UpdateFaqDto) {

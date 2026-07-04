@@ -19,10 +19,10 @@ describe('CreateFaqDto', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('should apply defaults for displayOrder and isActive', async () => {
+  it('should leave displayOrder and isActive undefined when not provided', async () => {
     const dto = plainToInstance(CreateFaqDto, validData);
-    expect(dto.displayOrder).toBe(0);
-    expect(dto.isActive).toBe(true);
+    expect(dto.displayOrder).toBeUndefined();
+    expect(dto.isActive).toBeUndefined();
   });
 
   it('should trim question before validation', async () => {

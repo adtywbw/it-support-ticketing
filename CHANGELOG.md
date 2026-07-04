@@ -2,6 +2,23 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 24 — Bugfixes (2026-07-04)
+
+### Fixed
+- **Dashboard Analytics overflow**: Ticket Trend bar chart with 90d range created too many flex items; rotated date labels pushed the page width beyond the viewport. Fixed by adding `overflow-x-auto min-w-0` to the trend container and `min-w-0` to each bar item so the chart scrolls horizontally when needed.
+- **FaqManager `displayOrder` reset to 0 on toggle active**: `PartialType(CreateFaqDto)` inherited default value `= 0` for `displayOrder`. When the frontend sent `PATCH /faqs/:id { isActive: false }` (no `displayOrder`), the DTO instantiated with `displayOrder: 0` before body mapping, causing Prisma to overwrite the original value. Fixed by removing default values from `CreateFaqDto`, adding `@IsOptional()`, and moving defaults to service layer (`displayOrder ?? 0`, `isActive ?? true`).
+
+### Files Changed
+- `frontend/src/components/dashboard/AnalyticsSection.tsx` — add overflow guard to trend chart.
+- `backend/src/faqs/dto/create-faq.dto.ts` — remove default values, add `@IsOptional()`.
+- `backend/src/faqs/faqs.service.ts` — apply defaults at creation only.
+- `backend/src/faqs/__tests__/create-faq.dto.spec.ts` — update default test.
+- `backend/src/faqs/__tests__/faqs.service.spec.ts` — add partial-update regression test.
+
+### Verification
+- Backend: 321/321 tests pass.
+- Frontend: 62/62 tests pass, build clean, lint clean.
+
 ## Session 23 — Blue Operations Frontend Redesign (2026-07-04)
 
 ### Changed

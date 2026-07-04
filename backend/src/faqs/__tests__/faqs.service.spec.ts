@@ -43,7 +43,7 @@ describe('FaqsService', () => {
     it('delegates to repository.create with dto', async () => {
       repo.create.mockResolvedValue(faq);
       await expect(service.create({ question: 'Q', answer: 'A' } as any)).resolves.toEqual(faq);
-      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A' });
+      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A', displayOrder: 0, isActive: true });
     });
   });
 
@@ -59,6 +59,13 @@ describe('FaqsService', () => {
       repo.update.mockResolvedValue({ ...faq, question: 'X' });
       await expect(service.update('a', { question: 'X' } as any)).resolves.toMatchObject({ question: 'X' });
       expect(repo.update).toHaveBeenCalledWith('a', { question: 'X' });
+    });
+
+    it('partial update does not override displayOrder with 0 when only isActive is sent', async () => {
+      repo.findById.mockResolvedValue(faq);
+      repo.update.mockResolvedValue({ ...faq, isActive: false });
+      await expect(service.update('a', { isActive: false } as any)).resolves.toMatchObject({ isActive: false });
+      expect(repo.update).toHaveBeenCalledWith('a', { isActive: false });
     });
   });
 
