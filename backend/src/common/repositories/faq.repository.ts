@@ -1,0 +1,37 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class FaqRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  findActiveOrdered() {
+    return this.prisma.faq.findMany({
+      where: { isActive: true },
+      orderBy: { displayOrder: 'asc' },
+    });
+  }
+
+  findAll() {
+    return this.prisma.faq.findMany({
+      orderBy: { displayOrder: 'asc' },
+    });
+  }
+
+  findById(id: string) {
+    return this.prisma.faq.findUnique({ where: { id } });
+  }
+
+  create(data: Prisma.FaqCreateInput) {
+    return this.prisma.faq.create({ data });
+  }
+
+  update(id: string, data: Prisma.FaqUpdateInput) {
+    return this.prisma.faq.update({ where: { id }, data });
+  }
+
+  delete(id: string) {
+    return this.prisma.faq.delete({ where: { id } });
+  }
+}
