@@ -308,3 +308,28 @@ export interface UpdateSLAConfigPayload {
   resolutionTimeMinutes?: number;
   isActive?: boolean;
 }
+
+export interface LandingContact {
+  email: string;
+  phone: string;
+  hours: string;
+  location: string;
+}
+
+export interface FaqEntry {
+  id: string;
+  question: string;
+  answer: string;
+  order: number;
+  active: boolean;
+}
+
+export interface LandingPageContent {
+  contact: LandingContact;
+  faqs: FaqEntry[];
+}
+
+export interface UpdateLandingPageContentPayload {
+  contact?: Partial<LandingContact>;
+  faqs?: (Omit<FaqEntry, 'id'> & { id?: string })[];
+}
