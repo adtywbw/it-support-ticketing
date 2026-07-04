@@ -2,6 +2,73 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 21 — Landing Page
+
+### Feature
+- Public landing page at `/` for unauthenticated visitors — quick-action hub with hero, quick actions (submit ticket / check status → both route to login), contact info, FAQ accordion, and footer. Authenticated users redirect to `/tickets`.
+- Admin editor at `/admin/landing-page` (Admin-only, sidebar entry) for contact info and FAQ management.
+- Content stored in `LandingPageConfig` singleton DB table with two JSONB columns (`contact` + `faqs`), mirroring the `TelegramConfig` pattern.
+
+### Backend Behavior Change
+- New `LandingPageConfig` Prisma model: singleton (`key` column `@unique @default("default")`), `contact` JSONB (`{ email, phone, hours, location }`), `faqs` JSONB (`[{ id, question, answer, order, active }]`).
+- New `landing-page` module: `LandingPageController`, `LandingPageService`, `LandingPageConfigRepository`.
+- `GET /api/landing-page/content` is `@Public()` — returns active FAQs only, sorted by `order`.
+- `GET /api/landing-page/content/admin` (Admin) — returns all FAQs including inactive.
+- `PUT /api/landing-page/content` (Admin) — accepts partial updates: `{ contact? }` merges onto existing, `{ faqs? }` replaces the entire array. Service generates UUID `id` for entries missing one, validates uniqueness, sorts by `order`.
+- Reads use `findUniqueByKey()` (not `findOrCreate()`) to avoid bumping `updatedAt` on every public page load. `findOrCreate()` is only used in `updateContent()` to ensure the row exists before updating.
+- `updateContent()` uses the `update()` return value directly instead of making a redundant `getContent()` call.
+
+### Files Changed (backend)
+- `backend/prisma/schema.prisma` — tambah `LandingPageConfig` model.
+- `backend/prisma/migrations/20260704120000_add_landing_page_config/migration.sql` — **new** — `CREATE TABLE "landing_page_config"`.
+- `backend/src/common/repositories/landing-page-config.repository.ts` — **new** — singleton repository (mirrors `TelegramConfigRepository`).
+- `backend/src/common/repositories/__tests__/landing-page-config.repository.spec.ts` — **new** — 7 unit tests.
+- `backend/src/common/repositories/repositories.module.ts` — register `LandingPageConfigRepository`.
+- `backend/src/landing-page/landing-page.module.ts` — **new**.
+- `backend/src/landing-page/landing-page.controller.ts` — **new** — `@Public()` GET + Admin PUT/GET endpoints.
+- `backend/src/landing-page/landing-page.service.ts` — **new** — content read/write, FAQ normalization, UUID generation, duplicate detection.
+- `backend/src/landing-page/dto/update-contact.dto.ts` — **new** — contact fields validation.
+- `backend/src/landing-page/dto/faq-entry.dto.ts` — **new** — FAQ entry validation (includes optional `id`).
+- `backend/src/landing-page/dto/update-landing-page-content.dto.ts` — **new** — composed update DTO.
+- `backend/src/landing-page/__tests__/landing-page.service.spec.ts` — **new** — 11 unit tests.
+- `backend/src/landing-page/__tests__/update-landing-page-content.dto.spec.ts` — **new** — 21 DTO validation tests.
+- `backend/src/app.module.ts` — import `LandingPageModule`.
+
+### Files Changed (frontend)
+- `frontend/src/types/index.ts` — added `LandingContact`, `FaqEntry`, `LandingPageContent`, `UpdateLandingPageContentPayload`.
+- `frontend/src/lib/constants.ts` — added `STALE_TIME_LANDING_PAGE` (5 min), `STALE_TIME_LANDING_PAGE_ADMIN` (30s).
+- `frontend/src/lib/landing-defaults.ts` — **new** — static fallback content.
+- `frontend/src/hooks/use-landing-page.ts` — **new** — `useLandingPageContent()` (public, `enabled: !isAuthenticated`) and `useLandingPageAdminContent()` (admin).
+- `frontend/src/hooks/use-update-landing-page.ts` — **new** — mutation hook with cache invalidation and `toast.error` on failure.
+- `frontend/src/hooks/__tests__/use-landing-page.test.tsx` — **new** — 2 hook tests.
+- `frontend/src/hooks/__tests__/use-update-landing-page.test.tsx` — **new** — 2 hook tests.
+- `frontend/src/components/landing/Hero.tsx` — **new**.
+- `frontend/src/components/landing/QuickActions.tsx` — **new**.
+- `frontend/src/components/landing/ContactInfo.tsx` — **new**.
+- `frontend/src/components/landing/FaqSection.tsx` — **new** — accordion with expand/collapse.
+- `frontend/src/components/landing/LandingFooter.tsx` — **new**.
+- `frontend/src/pages/LandingPage.tsx` — **new** — auth redirect + fallback content on API failure.
+- `frontend/src/pages/__tests__/LandingPage.test.tsx` — **new** — 4 component tests.
+- `frontend/src/components/admin/LandingContactForm.tsx` — **new** — contact form with dirty guard.
+- `frontend/src/components/admin/LandingFaqEditor.tsx` — **new** — FAQ editor with add/edit/delete/reorder/toggle-active, "Save All FAQs".
+- `frontend/src/pages/AdminLandingPagePage.tsx` — **new** — admin editor page.
+- `frontend/src/pages/__tests__/AdminLandingPagePage.test.tsx` — **new** — 2 component tests.
+- `frontend/src/App.tsx` — root route `/` → `LandingPage` (replaces redirect to `/tickets`); add `/admin/landing-page` route.
+- `frontend/src/layout/Sidebar.tsx` — add "Landing Page" nav item for Admin.
+
+### Code Review Fixes
+- **Critical**: `FaqEntryDto` missing `id` property — `forbidNonWhitelisted` rejected FAQ saves with 400. Fixed by adding optional `id` field to DTO.
+- **Important**: `updateContent()` used redundant `getContent()` call — fixed to use `update()` return value directly.
+- **Important**: Cross-form reset — admin forms now use dirty guards in `useEffect` to prevent unsaved changes being overwritten when the other form's save invalidates the shared query cache.
+- **Minor**: Reads use `findUniqueByKey()` instead of `findOrCreate()` to avoid bumping `updatedAt` on every public page load.
+- **Minor**: `useLandingPageContent()` has `enabled: !isAuthenticated` to skip API call for authenticated users.
+- **Minor**: `handleAdd` uses `Math.max(...orders, -1) + 1` for new FAQ order to prevent duplicates.
+- **Minor**: `AdminLandingPagePage` retry uses `refetch()` instead of `window.location.reload()`.
+
+### Verification
+- Backend: 333/333 tests pass, build clean.
+- Frontend: 63/63 tests pass, build clean, lint 0 warnings.
+
 ## Session 20 — Notification Preferences per Role
 
 ### Feature

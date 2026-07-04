@@ -84,6 +84,7 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - Sidebar minimize/expand with icon-only mode
 - Password reveal on hold (eye icon on all password fields)
 - Responsive mobile layout with hamburger menu
+- **Landing Page**: public quick-action hub at `/` for unauthenticated visitors — hero, quick actions (submit ticket / check status), contact info, FAQ accordion, footer. Authenticated users redirect to `/tickets`. Admin-managed content via `/admin/landing-page` (contact info form + FAQ editor with add/edit/delete/reorder/toggle-active).
 
 ### Security
 - JWT auth (access in-memory + refresh httpOnly cookie), bcrypt cost 12, account lockout, role-based access control
@@ -111,7 +112,7 @@ See [ARCHITECTURE.md §4 Folder Structure](./ARCHITECTURE.md#4-folder-structure)
 
 ## Database Schema
 
-10 tables with proper indexes and foreign keys (users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config).
+11 tables with proper indexes and foreign keys (users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config, landing_page_config).
 
 See [ARCHITECTURE.md §3 Database Schema](./ARCHITECTURE.md#3-database-schema-erd-textual) for the full ERD with fields, indexes, and relationships.
 
@@ -408,10 +409,18 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 |--------|------|-------------|
 | GET | `/api/health` | DB + Redis status + maintenance mode status |
 
+### Landing Page
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/landing-page/content` | Public landing page content (active FAQs only) — `@Public()`, no auth required |
+| GET | `/api/landing-page/content/admin` | All landing page content including inactive FAQs (Admin only) |
+| PUT | `/api/landing-page/content` | Update contact info and/or FAQs (Admin only; partial updates supported) |
+
 ## Frontend Pages
 
 | Route | Page | Access |
 |-------|------|--------|
+| `/` | Landing page (quick-action hub for unauthenticated visitors) | Public (authenticated users redirect to `/tickets`) |
 | `/login` | Login form | Public |
 | `/tickets` | Ticket list (own/all) | Authenticated |
 | `/tickets/new` | Create ticket form | Authenticated |
@@ -422,6 +431,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | `/admin/users` | User management | Admin |
 | `/admin/master-data` | Categories, SLA configs | Admin |
 | `/admin/maintenance` | Backup create/list/download/delete/restore + restore instructions | Admin |
+| `/admin/landing-page` | Landing page content editor (contact info + FAQ management) | Admin |
 
 ## API Response Format
 
@@ -458,7 +468,7 @@ Run a backup while Docker Compose services are up and maintenance mode is enable
 The script refuses to run while maintenance mode is off because a live DB dump plus uploads archive can be inconsistent. If an operator intentionally accepts that risk, use `./scripts/backup.sh --live-ok`.
 
 The script reads environment variables from `backend/.env` (canonical source) and creates a timestamped directory under `backups/` containing:
-- `db.sql.gz` — PostgreSQL logical dump (`pg_dump --schema public`) containing all tables: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config
+- `db.sql.gz` — PostgreSQL logical dump (`pg_dump --schema public`) containing all tables: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config, landing_page_config
 - `uploads.tar.gz` — archive of the `uploads_data` volume mounted at `/app/uploads` (all attachment files)
 - `manifest.txt` — timestamp and backup metadata
 
@@ -493,11 +503,14 @@ Backend unit tests cover:
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
 - `CreateTicketDto` / `CreateCommentDto` — whitespace rejection, trim-before-validate, min-length enforcement
 - `TelegramConfigRepository` — singleton atomic upsert, concurrent findOrCreate safety
+- `LandingPageConfigRepository` — singleton atomic upsert, concurrent findOrCreate safety
+- `LandingPageService` — public/admin content read, FAQ normalization, UUID generation, duplicate detection, partial merges
+- `UpdateLandingPageContentDto` — contact field validation, FAQ entry validation (including `id`), whitespace rejection, length bounds, `forbidNonWhitelisted`
 - `NotificationsService` — filter-at-creation by user preferences, getPreferences/updatePreferences CRUD, role-scoped validation
 - `notification-preference util` — event definitions, role filtering, enable check, normalization
 - `DashboardService` — v2 range cache keys, `{ current, attention, analytics }` response shaping, custom range validation, event-driven invalidation
 - `CategoriesService` — role-based shape (Admin full vs EndUser minimal), hard-delete vs soft-delete
-- All 9 repositories — `UserRepository`, `NotificationRepository`, `TicketRepository`, `CommentRepository`, `AttachmentRepository`, `SlaConfigRepository`, `CategoryRepository`, `SubCategoryRepository` safe select + pagination + where-clause correctness
+- All 10 repositories — `UserRepository`, `NotificationRepository`, `TicketRepository`, `CommentRepository`, `AttachmentRepository`, `SlaConfigRepository`, `CategoryRepository`, `SubCategoryRepository`, `TelegramConfigRepository`, `LandingPageConfigRepository` safe select + pagination + where-clause correctness
 
 Frontend tests cover:
 - `auth-store` — login, logout, token persistence
@@ -513,6 +526,10 @@ Frontend tests cover:
 - `sla-time` — duration conversion, format, and validation helpers
 - `SLAConfigManager` — table rendering, create modal with time unit conversion, active-category filtering
 - `NotificationPreferencesSection` — checkbox rendering, save state, save mutation with toast
+- `LandingPage` — auth redirect, section rendering, DB content display, fallback on API failure
+- `AdminLandingPagePage` — page heading, contact form + FAQ editor rendering with data
+- `use-landing-page` — public and admin content fetch with correct endpoints
+- `use-update-landing-page` — PUT payload, toast.error on failure
 - `Pagination` — page info, no "All" option, Next/Previous button states
 
 ## Scaling

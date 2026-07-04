@@ -67,6 +67,7 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `SlaConfigRepository` | `sLAConfig` | `SLAService` |
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
+| `LandingPageConfigRepository` | `landingPageConfig` | `LandingPageService` |
 
 The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users. It also manages a maintenance mode flag stored in Redis that blocks non-admin API requests via `MaintenanceGuard` while allowing Admin through via JWT verification.
 
@@ -234,6 +235,19 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ updatedAt                  DateTime
 │ NOTE: Singleton enforced by unique key; repository uses atomic upsert.
 └─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ landing_page_config
+│ PK id (UUID)
+│ key (UNIQUE)               VARCHAR   @default("default") — singleton
+│ contact                    JSON    ({ email, phone, hours, location })
+│ faqs                       JSON    [{ id, question, answer, order, active }]
+│ createdAt                  DateTime
+│ updatedAt                  DateTime
+│ NOTE: Singleton enforced by unique key. Public reads use findUniqueByKey()
+│       to avoid bumping updatedAt on every page load. findOrCreate() is only
+│       used in updateContent() to ensure the row exists before updating.
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -303,7 +317,8 @@ it-support-ticketing/
 │       │       ├── sub-category.repository.ts
 │       │       ├── sla-config.repository.ts
 │       │       ├── notification.repository.ts
-│       │       └── telegram-config.repository.ts
+│       │       ├── telegram-config.repository.ts
+│       │       └── landing-page-config.repository.ts
 │       ├── auth/
 │       │   ├── auth.module.ts
 │       │   ├── auth.controller.ts
@@ -373,6 +388,14 @@ it-support-ticketing/
 │       │   ├── maintenance.module.ts
 │       │   ├── maintenance.controller.ts
 │       │   └── maintenance.service.ts
+│       ├── landing-page/
+│       │   ├── landing-page.module.ts
+│       │   ├── landing-page.controller.ts
+│       │   ├── landing-page.service.ts
+│       │   └── dto/
+│       │       ├── update-contact.dto.ts
+│       │       ├── faq-entry.dto.ts
+│       │       └── update-landing-page-content.dto.ts
 │       ├── dashboard/
 │       │   ├── dashboard.module.ts
 │       │   ├── dashboard.controller.ts
@@ -449,7 +472,15 @@ it-support-ticketing/
 │       │   ├── admin/
 │       │   │   ├── UserManagement.tsx
 │       │   │   ├── MasterDataManagement.tsx
-│       │   │   └── SLAConfigManager.tsx
+│       │   │   ├── SLAConfigManager.tsx
+│       │   │   ├── LandingContactForm.tsx
+│       │   │   └── LandingFaqEditor.tsx
+│       │   ├── landing/
+│       │   │   ├── Hero.tsx
+│       │   │   ├── QuickActions.tsx
+│       │   │   ├── ContactInfo.tsx
+│       │   │   ├── FaqSection.tsx
+│       │   │   └── LandingFooter.tsx
 │       │   └── ui/
 │       │       ├── Modal.tsx
 │       │       ├── Pagination.tsx
@@ -460,6 +491,7 @@ it-support-ticketing/
 │       │       ├── ConfirmDialog.tsx
 │       │   └── PasswordInput.tsx
 │       └── pages/
+│           ├── LandingPage.tsx
 │           ├── LoginPage.tsx
 │           ├── TicketsPage.tsx
 │           ├── CreateTicketPage.tsx
@@ -469,7 +501,8 @@ it-support-ticketing/
 │           ├── MyAccountPage.tsx
 │           ├── AdminUsersPage.tsx
 │           ├── AdminMasterDataPage.tsx
-│           └── AdminMaintenancePage.tsx
+│           ├── AdminMaintenancePage.tsx
+│           └── AdminLandingPagePage.tsx
 └── uploads/ (mounted volume)
 ```
 
@@ -506,7 +539,7 @@ it-support-ticketing/
 - The database backup uses `docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip`.
 - The upload backup uses `docker compose run --rm --no-deps api tar -czf ... -C /app/uploads .`, so Compose resolves the `uploads_data` named volume instead of relying on host paths.
 - Backup output contains `db.sql.gz`, `uploads.tar.gz`, and `manifest.txt`; `backups/` is gitignored and should be copied off-host for production retention.
-- `db.sql.gz` contains the full `public` schema: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, and telegram_config. Redis is not backed up — refresh tokens, cache, and maintenance flags are lost after restore.
+- `db.sql.gz` contains the full `public` schema: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config, and landing_page_config. Redis is not backed up — refresh tokens, cache, and maintenance flags are lost after restore.
 - Admin UI backup uses `/api/maintenance/backups`, runs inside the API container, and writes to the same `./backups:/app/backups` mount.
 - Admin UI backup uses `postgresql-client-16` to match PostgreSQL 16, parses `DATABASE_URL` into libpq env vars for `pg_dump`, preserves `schema` as `--schema`, and compresses the dump only after `pg_dump` succeeds.
 - Admin UI backup exposes separate downloads: `DB` for `db.sql.gz` (PostgreSQL logical dump) and `Uploads` for `uploads.tar.gz` (attachment files). `DELETE /api/maintenance/backups/:id` removes the whole timestamped backup folder.
@@ -590,7 +623,7 @@ it-support-ticketing/
 
 ### Authentication & Authorization
 - **JWT tokens**: access (15min, `tokenType: 'access'`) + refresh (7d, `tokenType: 'refresh'`, httpOnly cookie). Both signed with `JWT_SECRET` using `HS256` algorithm (pinned in both `JwtModule.registerAsync` and `JwtStrategy` to prevent algorithm-downgrade attacks). `tokenType` is required in payload — tokens without it are rejected.
-- **Global auth guard**: `JwtAuthGuard` registered as `APP_GUARD` in `app.module.ts`. Fail-closed: any controller without `@Public()` requires authentication. `@Public()` applied to `HealthController`, `AuthController` (login/refresh/logout), `MaintenanceController.getMode()`.
+- **Global auth guard**: `JwtAuthGuard` registered as `APP_GUARD` in `app.module.ts`. Fail-closed: any controller without `@Public()` requires authentication. `@Public()` applied to `HealthController`, `AuthController` (login/refresh/logout), `MaintenanceController.getMode()`, `LandingPageController.getPublicContent()`.
 - **Role guard key**: `RolesGuard` reads metadata via shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks.
 - **Role-based access**: `RolesGuard` checks `@Roles(...)` metadata. EndUser restricted from dashboard, users, master data, maintenance.
 - **Account lockout**: 10 failed login attempts → 15-minute Redis lock (`login:locked:{email}`). Prevents distributed brute-force.

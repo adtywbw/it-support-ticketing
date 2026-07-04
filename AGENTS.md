@@ -49,12 +49,12 @@
 
 ## Project Structure
 ```
-backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
+backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health,landing-page}
 backend/src/dashboard/dto/query-dashboard-stats.dto.ts
-backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
+backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config,landing-page-config}.repository.ts
 backend/src/common/policies/attachment-visibility.policy.ts
 backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation,notification-preference}.util.ts
-frontend/src/{auth,layout,pages,components/admin,components/ui,components/tickets,components/dashboard,hooks,stores,types,lib}
+frontend/src/{auth,layout,pages,components/admin,components/ui,components/tickets,components/dashboard,components/landing,hooks,stores,types,lib}
 frontend/.eslintignore
 postgres/postgresql.conf
 ```
@@ -77,7 +77,7 @@ postgres/postgresql.conf
 - Throw `BadRequestException`/`NotFoundException` on backend; use `toast.error()` on frontend.
 
 ## State Management
-- TanStack Query owns server state: tickets, users, categories, sla-configs, notifications, dashboard stats, notification preferences.
+- TanStack Query owns server state: tickets, users, categories, sla-configs, notifications, dashboard stats, notification preferences, landing page content.
 - StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Hooks without staleTime default to 0 (refetch on mount/focus).
 - Zustand persisted state: theme only.
 - Zustand non-persisted state: auth user/accessToken and notification count.
@@ -91,7 +91,7 @@ postgres/postgresql.conf
 - Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`. Refresh token rotation uses atomic Lua GETDEL to prevent replay.
 - Refresh TTL via `JWT_REFRESH_TOKEN_EXPIRY` env; cookie maxAge follows env.
 - Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
-- `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET).
+- `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET, `landing-page/content` GET).
 - `RolesGuard` uses the shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks.
 - Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
 - `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.
@@ -106,11 +106,11 @@ postgres/postgresql.conf
 - Telegram config API response strips `groupChatId`; only `hasBotToken`/`hasGroupChatId` flags returned to frontend.
 
 ## Roles & Access
-| Role | Dashboard | New Ticket | My Account | Users | Master Data | Maintenance |
-|------|-----------|------------|------------|-------|-------------|-------------|
-| EndUser | No | Yes | Yes | No | No | No |
-| ITSupport | Yes | Yes | Yes | No | No | No |
-| Admin | Yes | Yes | Yes | Yes | Yes | Yes |
+| Role | Dashboard | New Ticket | My Account | Users | Master Data | Maintenance | Landing Page |
+|------|-----------|------------|------------|-------|-------------|-------------|--------------|
+| EndUser | No | Yes | Yes | No | No | No | No |
+| ITSupport | Yes | Yes | Yes | No | No | No | No |
+| Admin | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 
 ### Category Field-Set by Role
 
@@ -154,6 +154,16 @@ postgres/postgresql.conf
 - Frontend receives secret presence flags only, such as `hasBotToken` and `hasGroupChatId`.
 - Template variables: `{ticketNumber}`, `{subject}`, `{priority}`, `{createdBy}`, `{oldStatus}`, `{newStatus}`, `{assignedBy}`, `{url}`.
 
+## Landing Page
+- Public landing page at `/` for unauthenticated visitors (quick-action hub: hero, quick actions, contact info, FAQ accordion, footer). Authenticated users redirect to `/tickets`.
+- Admin editor at `/admin/landing-page` (Admin-only, sidebar entry) for contact info and FAQ management.
+- Content stored in `LandingPageConfig` singleton (split JSONB: `contact` + `faqs`), mirroring `TelegramConfig` pattern.
+- `GET /api/landing-page/content` is `@Public()` — returns active FAQs only, sorted by `order`. `GET /api/landing-page/content/admin` returns all FAQs (including inactive).
+- `PUT /api/landing-page/content` accepts partial updates: `{ contact? }` merges onto existing, `{ faqs? }` replaces the entire array. Service generates UUID `id` for entries missing one, validates uniqueness, sorts by `order`.
+- Frontend `useLandingPageContent()` has `enabled: !isAuthenticated` to skip API call for authenticated users (who redirect immediately).
+- Admin forms use dirty guards in `useEffect` to prevent cross-form reset when one form's save invalidates the shared query cache.
+- Fallback content (`landing-defaults.ts`) shown when API fails or content is unconfigured.
+
 ## Docker & HTTP Notes
 - Docker local is HTTP only; nginx listens on port 80 for development. Production HTTPS uses the `docker-compose.prod.yml` override (`nginx/nginx.ssl.conf` on port 443 + TLS) — no manual edits to `nginx.conf` or `docker-compose.yml` needed. `nginx.ssl.conf` includes TLS hardening: `ssl_ciphers HIGH:!aNULL:!MD5`, `ssl_prefer_server_ciphers`, `ssl_session_cache`, `ssl_session_tickets off`, HSTS header, separate WebSocket rate limit zone (`ws_limit` 5r/s), and tightened CSP (no `ws: wss:` on static assets).
 - `backend/.env.compose.example` ships with local HTTP defaults (`NODE_ENV=development`, `COOKIE_SECURE=false`) matching the bundled HTTP-only nginx. Production behind an HTTPS reverse proxy requires `NODE_ENV=production`, `COOKIE_SECURE=true`, and HTTPS `CORS_ORIGIN` — documented in the example file header.
@@ -187,9 +197,10 @@ postgres/postgresql.conf
 - Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, unread-count, and preferences (`GET|PATCH /api/notifications/preferences`) operations.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
 - Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
+- Landing Page: `GET /api/landing-page/content` (public, `@Public()`), `PUT /api/landing-page/content` (Admin), `GET /api/landing-page/content/admin` (Admin).
 
 ## Models
-- Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig.
+- Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig, LandingPageConfig.
 - User has `notificationPreferences Json?` (nullable JSONB) — per-event enable/disable map; `null` = all on. Role-scoped toggle set defined in `notification-preference.util.ts`.
 - Ticket relates to requester user, assignee user, category, and sub-category.
 - Comment relates to ticket and user.
@@ -203,6 +214,7 @@ postgres/postgresql.conf
 - `Comment`: there is no `isInternal` boolean field — use the `type: CommentType` field (`PUBLIC`|`INTERNAL`). Internal attachment visibility is controlled via `AttachmentVisibilityPolicy`.
 - `SLAConfig`: unique constraint on `(categoryId, priority)`. `SLAService.create()` and `SLAService.update()` auto-recalculate affected non-terminal tickets' `slaDueAt` and `slaStatus` after timing changes (`responseTimeMinutes`/`resolutionTimeMinutes`). `isActive`-only updates do NOT trigger recalculation. Recalculation skips `Resolved`/`Closed` tickets.
 - `TelegramConfig`: singleton, always accessed via `key = "default"`, use `findOrCreate()` (atomic `upsert`) from the repository — do not call `findFirst()` or `create()` directly.
+- `LandingPageConfig`: singleton, same pattern as `TelegramConfig` — `key = "default"`, two JSONB columns (`contact` and `faqs`). Reads use `findUniqueByKey()` (not `findOrCreate()`) to avoid bumping `updatedAt` on every public page load. `findOrCreate()` is only used in `updateContent()` to ensure the row exists before updating. `faqs` JSONB holds `[{ id, question, answer, order, active }]`; the public endpoint filters to `active: true` only.
 - `Notification`: clear-all, read-all, mark-read are supported by the API — check the API Map before adding new endpoints.
 
 ## Common Pitfalls
@@ -222,6 +234,8 @@ postgres/postgresql.conf
 - SLA recalculation: `SLAService` automatically recalculates `slaDueAt` and `slaStatus` for non-terminal tickets when SLA config timing is created or changed. `isActive`-only updates do not trigger recalculation. Frontend `SLAConfigManager` sends timing on every edit — the backend correctly skips recalculation if timing hasn't actually changed.
 - Dashboard: the `TicketRepository` now has dashboard-specific methods (`getDashboardCurrentSnapshot`, `getDashboardAttentionTickets`, `getDashboardStatusCounts`, `getDashboardPriorityCounts`, `getDashboardSLAStatsForRange`, `getAvgResolutionTimeByCategoryForRange`, `getTopCategories`). Do not duplicate these query patterns; reuse the repository methods.
 - Notification preferences: `User.notificationPreferences` is nullable JSONB. `null`/absent means all events enabled — do not treat `null` as "all off". The shared util `isEventEnabled(prefs, event)` handles this logic. The frontend `NotificationPreferencesSection` component uses `useNotificationPreferences()` which normalizes stored prefs per role via the API. Do not add preference checks outside `NotificationsService` handlers.
+- Landing Page FAQ DTO: `FaqEntryDto` must include an optional `id` field — the frontend sends `id` with each FAQ entry on save. Without it, `forbidNonWhitelisted` rejects the payload with 400. The service's `normalizeFaqIds()` expects `id` to be present (generates a UUID via `crypto.randomUUID()` for entries missing one).
+- Landing Page reads: use `findUniqueByKey()` for `getPublicContent()` and `getContent()`, not `findOrCreate()`. The `upsert` in `findOrCreate()` bumps `updatedAt` on every call even with empty `update: {}`, causing unnecessary writes on every public page load. `findOrCreate()` is only used in `updateContent()` to ensure the row exists before updating.
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`
