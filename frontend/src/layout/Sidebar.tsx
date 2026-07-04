@@ -85,31 +85,30 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   return (
     <>
       {isOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-40 bg-slate-950/60 lg:hidden" onClick={onClose} />
       )}
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-gray-200 transition-all duration-300 lg:static',
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 border-r border-slate-800 transition-all duration-300 lg:static',
           collapsed ? 'w-16' : 'w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
-          'dark:bg-gray-800 dark:border-gray-700',
         )}
       >
         <div className={cn(
-          'flex h-16 items-center border-b border-gray-200 dark:border-gray-700',
+          'flex h-16 items-center border-b border-slate-800',
           collapsed ? 'justify-center px-0' : 'gap-2 px-6',
         )}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white font-bold text-sm">
-            IT
+            SH
           </div>
           {!collapsed && (
             <>
-              <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">Support Hub</span>
+              <span className="text-lg font-semibold text-slate-100">Support Hub</span>
               <div className="flex-1" />
               <button
                 onClick={onToggleCollapse}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                 title="Minimize sidebar"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -121,7 +120,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           {collapsed && (
             <button
               onClick={onToggleCollapse}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
               title="Expand sidebar"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -143,8 +142,8 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
                   'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   collapsed ? 'justify-center' : 'gap-3',
                   isActive
-                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100',
+                    ? 'bg-primary-600/15 text-primary-300'
+                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800',
                 )
               }
               title={collapsed ? item.label : undefined}
@@ -155,7 +154,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           ))}
         </nav>
 
-        <div className="border-t border-gray-200 p-2 space-y-2 dark:border-gray-700">
+        <div className="border-t border-slate-800 p-2 space-y-2">
           <NavLink
             to="/my-account"
             onClick={onClose}
@@ -165,20 +164,20 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
                 'flex items-center rounded-lg text-sm font-medium transition-colors',
                 collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2',
                 isActive
-                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100',
+                  ? 'bg-primary-600/15 text-primary-300'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800',
               )
             }
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-500/20 text-sm font-medium text-primary-300">
               {user ? getUserInitials(user) : '?'}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">
+                <p className="text-sm font-medium text-slate-100 truncate">
                   {user ? getUserDisplayName(user) : 'User'}
                 </p>
-                <p className="text-xs text-gray-500 truncate dark:text-gray-400">{user?.role}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.role}</p>
               </div>
             )}
           </NavLink>
