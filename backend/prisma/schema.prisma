@@ -256,3 +256,14 @@ model TelegramConfig {
 
   @@map("telegram_config")
 }
+
+model LandingPageConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique @default("default")
+  contact   Json     @default("{\"email\":\"\",\"phone\":\"\",\"hours\":\"\",\"location\":\"\"}")
+  faqs      Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("landing_page_config")
+}
