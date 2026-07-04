@@ -29,4 +29,5 @@ export const STALE_TIME_TICKETS = 30_000;
 export const STALE_TIME_DASHBOARD = 10_000;
 export const STALE_TIME_SLA_CONFIGS = 5 * 60 * 1000;
 export const STALE_TIME_NOTIFICATION_PREFERENCES = 5 * 60 * 1000;
+export const STALE_TIME_FAQS = 30 * 60 * 1000;
 

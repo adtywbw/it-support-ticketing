@@ -307,3 +307,13 @@ export interface UpdateSLAConfigPayload {
   resolutionTimeMinutes?: number;
   isActive?: boolean;
 }
+
+export interface Faq {
+  id: string;
+  question: string;
+  answer: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
