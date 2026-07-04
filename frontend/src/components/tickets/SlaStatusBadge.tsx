@@ -20,7 +20,7 @@ const labels: Record<string, string> = {
 
 export default function SlaStatusBadge({ status, dueAt }: SlaStatusBadgeProps) {
   const label = status ? (labels[status] ?? status) : 'N/A';
-  const colorClass = status ? (pillColors[status] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300') : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+  const colorClass = status ? (pillColors[status] ?? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300') : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
 
   let tooltip = '';
   if (dueAt) {
