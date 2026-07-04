@@ -7,8 +7,9 @@ import { useNotificationStore } from '@/stores/notification-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { useLogout } from '@/hooks/use-auth';
-import { formatRelativeTime, getUserDisplayName, getUserInitials } from '@/lib/utils';
+import { formatRelativeTime, getUserDisplayName } from '@/lib/utils';
 import { STALE_TIME_NOTIFICATION_DROPDOWN } from '@/lib/constants';
+import Avatar from '@/components/ui/Avatar';
 import type { Notification } from '@/types';
 
 interface NavbarProps {
@@ -18,7 +19,7 @@ interface NavbarProps {
 export default function Navbar({ onMenuToggle }: NavbarProps) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const { mode, setMode } = useThemeStore();
+  const { pref, setPref } = useThemeStore();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
@@ -74,13 +75,18 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
         <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
       </svg>
     ) },
+    { value: 'system' as const, label: 'System', icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+      </svg>
+    ) },
   ];
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-4 sm:px-6 dark:border-gray-700 dark:bg-gray-800">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white/80 px-4 backdrop-blur-md sm:px-6 dark:border-slate-700 dark:bg-slate-800/80">
       <button
         onClick={onMenuToggle}
-        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 lg:hidden dark:hover:bg-gray-700 dark:hover:text-gray-300"
+        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 lg:hidden dark:hover:bg-slate-700 dark:hover:text-slate-300"
       >
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -92,7 +98,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setNotifOpen(!notifOpen)}
-            className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-300"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -105,32 +111,32 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-              <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</p>
+            <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-slate-200 bg-white shadow-soft-lg dark:border-slate-700 dark:bg-slate-800">
+              <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</p>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {!data || data.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">No notifications</p>
+                  <p className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">No notifications</p>
                 ) : (
                   data.map((notif) => (
                     <button
                       key={notif.id}
                       onClick={() => handleNotificationClick(notif)}
-                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50 ${
                         !notif.isRead ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''
                       }`}
                     >
-                      <p className={`text-sm ${!notif.isRead ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <p className={`text-sm ${!notif.isRead ? 'font-semibold text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
                         {notif.title}
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{notif.message}</p>
-                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{formatRelativeTime(notif.createdAt)}</p>
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{notif.message}</p>
+                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{formatRelativeTime(notif.createdAt)}</p>
                     </button>
                   ))
                 )}
               </div>
-              <div className="border-t border-gray-200 px-4 py-2 dark:border-gray-700">
+              <div className="border-t border-slate-200 px-4 py-2 dark:border-slate-700">
                 <button
                   onClick={() => { setNotifOpen(false); navigate('/notifications'); }}
                   className="w-full rounded-lg py-1.5 text-center text-sm text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20"
@@ -141,7 +147,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                   <button
                     onClick={() => clearAll.mutate()}
                     disabled={clearAll.isPending}
-                    className="w-full rounded-lg py-1.5 text-center text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
+                    className="w-full rounded-lg py-1.5 text-center text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-700/50"
                   >
                     {clearAll.isPending ? 'Clearing...' : 'Clear all'}
                   </button>
@@ -150,7 +156,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                   <button
                     onClick={() => markAllAsRead.mutate()}
                     disabled={markAllAsRead.isPending}
-                    className="w-full rounded-lg py-1.5 text-center text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
+                    className="w-full rounded-lg py-1.5 text-center text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-700/50"
                   >
                     {markAllAsRead.isPending ? 'Marking...' : 'Mark all as read'}
                   </button>
@@ -164,27 +170,25 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
         <div className="relative" ref={profileRef}>
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2 rounded-lg p-1.5 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="flex items-center gap-2 rounded-lg p-1.5 text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600 dark:bg-gray-600 dark:text-gray-300">
-              {user ? getUserInitials(user) : '?'}
-            </div>
+            <Avatar name={user ? getUserDisplayName(user) : 'User'} size="sm" />
             <span className="hidden sm:inline text-sm font-medium">{user ? getUserDisplayName(user) : 'User'}</span>
-            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
-              <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{user ? getUserDisplayName(user) : 'User'}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
+            <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-soft-lg dark:border-slate-700 dark:bg-slate-800">
+              <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user ? getUserDisplayName(user) : 'User'}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
               </div>
 
               <button
                 onClick={() => { setProfileOpen(false); navigate('/my-account'); }}
-                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50 flex items-center gap-3"
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700/50 flex items-center gap-3"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -192,23 +196,23 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 My Account
               </button>
 
-              <div className="border-t border-gray-200 dark:border-gray-700">
+              <div className="border-t border-slate-200 dark:border-slate-700">
                 <div className="px-4 py-2">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">Appearance</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider dark:text-slate-400">Appearance</p>
                 </div>
                 {themeOptions.map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => { setMode(opt.value); setProfileOpen(false); }}
+                    onClick={() => { setPref(opt.value); setProfileOpen(false); }}
                     className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 transition-colors ${
-                      mode === opt.value
+                      pref === opt.value
                         ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
-                        : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50'
+                        : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700/50'
                     }`}
                   >
                     {opt.icon}
                     <span className="flex-1">{opt.label}</span>
-                    {mode === opt.value && (
+                    {pref === opt.value && (
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
@@ -217,7 +221,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 ))}
               </div>
 
-              <div className="border-t border-gray-200 dark:border-gray-700">
+              <div className="border-t border-slate-200 dark:border-slate-700">
                 <button
                   onClick={() => { setProfileOpen(false); logoutMutation.mutate(); }}
                   disabled={logoutMutation.isPending}
