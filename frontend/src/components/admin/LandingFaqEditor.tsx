@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import type { FaqEntry } from '@/types';
 import { useUpdateLandingPageContent } from '@/hooks/use-update-landing-page';
@@ -9,14 +9,16 @@ interface LandingFaqEditorProps {
 }
 
 export default function LandingFaqEditor({ faqs }: LandingFaqEditorProps) {
-  const [entries, setEntries] = useState<FaqEntry[]>([]);
+  const [entries, setEntries] = useState<FaqEntry[]>(faqs);
+  const lastSyncedFaqsRef = useRef<FaqEntry[]>(faqs);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const mutation = useUpdateLandingPageContent();
 
   useEffect(() => {
     // Only sync from server when there are no unsaved local changes
     setEntries((prev) => {
-      const isDirty = JSON.stringify(prev) !== JSON.stringify(faqs);
+      const isDirty = JSON.stringify(prev) !== JSON.stringify(lastSyncedFaqsRef.current);
+      lastSyncedFaqsRef.current = faqs;
       return isDirty ? prev : faqs;
     });
   }, [faqs]);

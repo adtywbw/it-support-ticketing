@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import type { LandingContact } from '@/types';
 import { useUpdateLandingPageContent } from '@/hooks/use-update-landing-page';
@@ -10,13 +10,15 @@ interface LandingContactFormProps {
 const EMPTY_CONTACT: LandingContact = { email: '', phone: '', hours: '', location: '' };
 
 export default function LandingContactForm({ contact }: LandingContactFormProps) {
-  const [values, setValues] = useState<LandingContact>(EMPTY_CONTACT);
+  const [values, setValues] = useState<LandingContact>(contact ?? EMPTY_CONTACT);
+  const lastSyncedContactRef = useRef<LandingContact>(contact ?? EMPTY_CONTACT);
   const mutation = useUpdateLandingPageContent();
 
   useEffect(() => {
     // Only sync from server when there are no unsaved local changes
     setValues((prev) => {
-      const isDirty = JSON.stringify(prev) !== JSON.stringify(contact);
+      const isDirty = JSON.stringify(prev) !== JSON.stringify(lastSyncedContactRef.current);
+      lastSyncedContactRef.current = contact;
       return isDirty ? prev : contact;
     });
   }, [contact]);
