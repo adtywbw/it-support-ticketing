@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import { LandingPageConfigRepository } from '../common/repositories/landing-page-config.repository';
 import { UpdateLandingPageContentDto } from './dto/update-landing-page-content.dto';
 
-interface FaqEntry {
+export interface FaqEntry {
   id: string;
   question: string;
   answer: string;
@@ -11,14 +11,14 @@ interface FaqEntry {
   active: boolean;
 }
 
-interface ContactInfo {
+export interface ContactInfo {
   email: string;
   phone: string;
   hours: string;
   location: string;
 }
 
-interface LandingPageContent {
+export interface LandingPageContent {
   contact: ContactInfo;
   faqs: FaqEntry[];
 }
