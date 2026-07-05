@@ -14,6 +14,8 @@ const DRAIN_TIME_MS = 5000;
 const BACKUP_LOCK_KEY = 'maintenance:backup:lock';
 const RESTORE_LOCK_KEY = 'maintenance:restore:lock';
 const BACKUP_LOCK_TTL = 600;
+const RESTORE_LOCK_TTL = 1800;
+const LOCK_RENEW_INTERVAL_MS = 120_000;
 const EXEC_MAX_BUFFER = 16 * 1024 * 1024;
 
 export interface BackupFileInfo {
@@ -71,6 +73,41 @@ export class MaintenanceService {
     );
   }
 
+  private static readonly RENEW_LOCK_SCRIPT = `
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+      return redis.call('expire', KEYS[1], ARGV[2])
+    else
+      return 0
+    end
+  `;
+
+  private async renewLock(handle: LockHandle, ttl: number): Promise<boolean> {
+    const renewed = await this.redis.eval(
+      MaintenanceService.RENEW_LOCK_SCRIPT,
+      [handle.key],
+      [handle.token, String(ttl)],
+    );
+    return renewed === 1;
+  }
+
+  private startLockRenewal(handle: LockHandle, ttl: number): NodeJS.Timeout {
+    const timer = setInterval(() => {
+      this.renewLock(handle, ttl).catch((error) => {
+        this.logger.warn(
+          `Failed to renew ${handle.key}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }, LOCK_RENEW_INTERVAL_MS);
+    timer.unref?.();
+    return timer;
+  }
+
+  private stopLockRenewal(timer: NodeJS.Timeout | null): void {
+    if (timer) {
+      clearInterval(timer);
+    }
+  }
+
   async setMaintenanceMode(enabled: boolean, message?: string): Promise<void> {
     if (!enabled) {
       const restoreLock = await this.redis.get(RESTORE_LOCK_KEY);
@@ -120,14 +157,16 @@ export class MaintenanceService {
     if (!lock) {
       throw new BadRequestException('A backup operation is already in progress');
     }
+    const lockRenewal = this.startLockRenewal(lock, BACKUP_LOCK_TTL);
 
-    const id = await this.createUniqueBackupId();
-    const backupPath = this.resolveBackupPath(id);
-    const dbSqlPath = path.join(backupPath, 'db.sql');
-    const uploadsPath = path.join(backupPath, 'uploads.tar.gz');
-    const manifestPath = path.join(backupPath, 'manifest.txt');
-
+    let backupPath: string | null = null;
     try {
+      const id = await this.createUniqueBackupId();
+      backupPath = this.resolveBackupPath(id);
+      const dbSqlPath = path.join(backupPath, 'db.sql');
+      const uploadsPath = path.join(backupPath, 'uploads.tar.gz');
+      const manifestPath = path.join(backupPath, 'manifest.txt');
+
       await fs.mkdir(backupPath, { recursive: true, mode: 0o700 });
       const pgDump = this.createPgDumpOptions(databaseUrl, dbSqlPath);
 
@@ -155,15 +194,18 @@ export class MaintenanceService {
         ].join('\n'),
       );
       await fs.chmod(manifestPath, 0o600);
+
+      return this.getBackup(id);
     } catch (error) {
       this.logger.error(`Backup failed: ${(error as Error).message}`, (error as Error).stack);
-      await fs.rm(backupPath, { recursive: true, force: true });
+      if (backupPath) {
+        await fs.rm(backupPath, { recursive: true, force: true });
+      }
       throw new BadRequestException('Backup failed. See server logs for details.');
     } finally {
+      this.stopLockRenewal(lockRenewal);
       await this.releaseLock(lock).catch(() => {});
     }
-
-    return this.getBackup(id);
   }
 
   async listBackups(): Promise<BackupInfo[]> {
@@ -249,10 +291,11 @@ export class MaintenanceService {
     await this.validateGzipFile(dbPath, 'Database backup is invalid');
     await this.validateGzipFile(uploadsPath, 'Uploads backup is invalid');
 
-    let lock = await this.acquireLock(RESTORE_LOCK_KEY, 1800);
+    let lock = await this.acquireLock(RESTORE_LOCK_KEY, RESTORE_LOCK_TTL);
     if (!lock) {
       throw new BadRequestException('A restore operation is already in progress');
     }
+    const lockRenewal = this.startLockRenewal(lock, RESTORE_LOCK_TTL);
 
     let preRestoreBackup: BackupInfo | null = null;
 
@@ -280,6 +323,7 @@ export class MaintenanceService {
         `${message}${preRestoreDetail} See server logs for details.`,
       );
     } finally {
+      this.stopLockRenewal(lockRenewal);
       if (lock) {
         await this.releaseLock(lock).catch(() => {});
       }

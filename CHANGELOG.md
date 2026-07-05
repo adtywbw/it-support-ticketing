@@ -2,6 +2,80 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 25 — Fullstack Code Review Fixes (2026-07-05)
+
+### Security
+- **MaintenanceGuard fail-closed on invalid tokens**: Invalid/expired JWT on a public non-allowlisted route now returns 503 (maintenance) instead of silently allowing through. Uses `Reflector` to read `IS_PUBLIC_KEY` and distinguish public from protected routes before applying maintenance logic. Prevents bypass of maintenance mode via unauthenticated requests to non-allowlisted public routes.
+- **UsersService.delete() revocation after delete**: `user.deleted` event emission moved after successful `transactionDelete()` so refresh-token revocation runs only when the user is actually deleted. Failures surface explicitly instead of being swallowed.
+- **MaintenanceGuard Redis in-memory cache**: 2-second in-memory cache + `mget` for `maintenance:enabled`/`maintenance:message` reduces per-request Redis round-trips.
+
+### Fixed
+- **JwtStrategy error handling**: Repository failures (DB outage, restore) now return `UnauthorizedException` (401) instead of 500. Explicit `let user: Awaited<ReturnType<...>>` type annotation for clarity.
+- **Ticket pagination empty-page bug**: `totalPages` now returns `1` (not `0`) when `total === 0` across all paginated repositories (tickets, users, notifications).
+- **Dashboard cache resilience**: `DashboardService` Redis operations wrapped in try/catch — cache failures fall back to uncached queries instead of crashing.
+- **UsersService revocation on password change/deactivation**: `user.password_changed` and `user.deactivated` events now use `emitAsync()` so refresh-token revocation completes before the service call resolves.
+- **ProtectedRoute fail-closed**: `ProtectedRoute` now redirects to login when user is `null` (not just `undefined`), preventing unauthenticated render.
+- **App query client isolation**: `frontend/src/lib/app-initializers.ts` provides `createAppQueryClient()` factory so each React tree gets its own TanStack Query cache (fixes test isolation issues).
+- **Theme bootstrap before React**: `applyInitialTheme()` reads persisted `pref`/`mode` shape from Zustand and applies theme before first React render, preventing flash.
+- **Notification unread-count invalidation**: `useNotifications()` hook now invalidates `unread-count` on window focus, ensuring the badge stays accurate.
+- **Pagination select ID uniqueness**: `useId()` generates unique `id`/`htmlFor` pairs so multiple `<Pagination>` instances on the same page no longer have colliding label-for bindings.
+- **Modal accessibility**: Dialog uses `role="dialog"` with `aria-modal="true"`, focus trap cycles inside dialog, and `Escape` key closes the modal.
+- **TicketList a11y**: Sort buttons use `<button>` elements (not `<div>`) for keyboard navigation and proper ARIA attributes.
+- **MyAccountPage Telegram dirty state**: Config save response now resets dirty state.
+- **SPA 404 on refresh**: Nginx `try_files` fallback added so deep-link refreshes serve `index.html` instead of 404.
+
+### Changed
+- **API port topology**: Default `docker-compose.yml` no longer binds the API port to the host. Local debugging uses `docker-compose.debug.yml` override (`127.0.0.1:3000`). Production traffic always goes through Nginx.
+- **Backup lock heartbeat**: `scripts/backup.sh` acquires `maintenance:backup:lock` in Redis and renews every 120s via a background heartbeat. Lock is token-matched so concurrent backup/restore cannot take over each other's lock. Cleanup on exit via trap.
+- **CI workflow**: `.github/workflows/ci.yml` added — backend build+test+audit, frontend lint+build+test+audit on PRs and main pushes.
+- **Container image pinning**: All Dockerfiles and Compose files now use digest-pinned base images (`node:20-bookworm-slim`, `nginx:1.25-alpine`, `postgres:16-alpine`, `redis:7-alpine`).
+- **Nginx CSP hardening**: Added `object-src 'none'` to both `nginx.conf` and `nginx.ssl.conf` to block Flash/Java plugin loads.
+- **Dockerfile chown scope**: Backend entrypoint chown narrowed from `/app` to `/app/uploads` and `/app/backups` only.
+- **Backup artifact permissions**: `scripts/backup.sh` sets `chmod 600` on backup files and `chmod 700` on backup directories.
+
+### Files Changed (backend)
+- `backend/src/common/guards/maintenance.guard.ts` — Reflector injection, public-route bypass, in-memory cache.
+- `backend/src/common/guards/maintenance.guard.spec.ts` — invalid-token public route test.
+- `backend/src/auth/strategies/jwt.strategy.ts` — explicit user type, try/catch repository lookup.
+- `backend/src/auth/strategies/jwt.strategy.spec.ts` — **new** — 4 tests for token type, missing user, inactive user, repo failure.
+- `backend/src/users/users.service.ts` — `emitAsync()` for revocation, delete catch separation.
+- `backend/src/users/users.service.spec.ts` — **new** — lifecycle tests including revocation after delete.
+- `backend/src/tickets/tickets.service.ts` — `Math.ceil(total / limit) || 1`.
+- `backend/src/tickets/__tests__/tickets.service.spec.ts` — empty-page total test.
+- `backend/src/dashboard/dashboard.service.ts` — Redis cache try/catch best-effort.
+- `backend/src/notifications/notifications.service.ts` — paginated `totalPages || 1`.
+- `backend/src/maintenance/maintenance.service.ts` — lock renewal token matching + try/finally.
+- `backend/src/maintenance/maintenance.service.spec.ts` — lock renewal tests.
+- `backend/src/app.module.ts` — MaintenanceGuard factory Reflector injection.
+- `backend/Dockerfile` — narrowed chown to uploads/backups.
+- `scripts/backup.sh` — lock heartbeat + chmod 600 + SIGKILL resilience.
+
+### Files Changed (frontend)
+- `frontend/src/auth/ProtectedRoute.tsx` — fail-closed null-user redirect.
+- `frontend/src/auth/__tests__/ProtectedRoute.test.tsx` — **new** — null-user regression tests.
+- `frontend/src/lib/app-initializers.ts` — `createAppQueryClient()` + `applyInitialTheme()`.
+- `frontend/src/main.tsx` — wired to app-initializers.
+- `frontend/src/hooks/use-notifications.ts` — unread count window-focus invalidation.
+- `frontend/src/components/ui/Modal.tsx` — dialog semantics + focus trap.
+- `frontend/src/components/ui/Pagination.tsx` — `useId()` unique select IDs.
+- `frontend/src/components/tickets/TicketList.tsx` — Link + button sort headers.
+- `frontend/src/pages/MyAccountPage.tsx` — Telegram config dirty reset.
+- `frontend/src/index.css` — SPA 404 Nginx fallback documented in comments.
+- `frontend/src/test/setup.ts` — jsdom localStorage support.
+- `frontend/vite.config.ts` — jsdom localStorage support.
+
+### Files Changed (ops)
+- `docker-compose.yml` — removed API port from default.
+- `docker-compose.debug.yml` — **new** — local debug port override.
+- `nginx/nginx.conf` — SPA fallback + `object-src 'none'`.
+- `nginx/nginx.ssl.conf` — `object-src 'none'`.
+- `.github/workflows/ci.yml` — CI pipeline.
+
+### Verification
+- Backend: 340/340 tests pass, build clean.
+- Frontend: 73/73 tests pass, lint clean, build clean.
+- Full code review v2: all findings resolved (3 Important + 8 Minor).
+
 ## Session 24 — Bugfixes (2026-07-04)
 
 ### Fixed

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth-store';
@@ -14,6 +14,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const { isAuthenticated, user, login } = useAuthStore();
   const location = useLocation();
   const [checking, setChecking] = useState(isAuthenticated ? false : true);
+  const navigateState = useRef({ from: location }).current;
 
   useEffect(() => {
     if (isAuthenticated) return;
@@ -22,8 +23,8 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       .post(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true })
       .then((res) => {
         const data = res.data.data as RefreshResponse | undefined;
-        if (data?.accessToken) {
-          login(data.user!, data.accessToken);
+        if (data?.accessToken && data.user) {
+          login(data.user, data.accessToken);
         }
       })
       .catch(() => {})
@@ -32,11 +33,11 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
   if (checking) return null;
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" state={navigateState} replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/tickets" replace />;
   }
 

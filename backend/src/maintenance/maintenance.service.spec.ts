@@ -174,3 +174,80 @@ describe('MaintenanceService restoreDatabase pg_trgm support', () => {
     expect(restoreCall![1][1]).toContain('CREATE SCHEMA IF NOT EXISTS public;');
   });
 });
+
+describe('MaintenanceService lock renewal', () => {
+  let redis: { eval: jest.Mock };
+  let service: any;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    redis = { eval: jest.fn().mockResolvedValue(1) };
+    service = new MaintenanceService(redis as any) as any;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('renews a lock only when the stored token matches', async () => {
+    redis.eval.mockResolvedValueOnce(1);
+
+    const renewed = await service.renewLock({ key: 'maintenance:backup:lock', token: 'abc' }, 600);
+
+    expect(renewed).toBe(true);
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.stringContaining('expire'),
+      ['maintenance:backup:lock'],
+      ['abc', '600'],
+    );
+  });
+
+  it('returns false when lock renewal token does not match', async () => {
+    redis.eval.mockResolvedValueOnce(0);
+
+    const renewed = await service.renewLock({ key: 'maintenance:backup:lock', token: 'abc' }, 600);
+
+    expect(renewed).toBe(false);
+  });
+
+  it('stops renewal timer in finally cleanup', () => {
+    const timer = service.startLockRenewal({ key: 'maintenance:backup:lock', token: 'abc' }, 600);
+
+    service.stopLockRenewal(timer);
+    jest.advanceTimersByTime(300_000);
+
+    expect(redis.eval).not.toHaveBeenCalled();
+  });
+});
+
+describe('MaintenanceService createBackup lock renewal cleanup', () => {
+  let service: any;
+
+  beforeEach(() => {
+    process.env.DATABASE_URL = 'postgresql://ticketing:secret@db:5432/ticketing?schema=public';
+    const redis = { get: jest.fn().mockResolvedValue(null) };
+    service = new MaintenanceService(redis as any) as any;
+    jest.spyOn(service, 'getMaintenanceMode').mockResolvedValue({ enabled: true, message: null });
+    jest.spyOn(service, 'acquireLock').mockResolvedValue({ key: 'maintenance:backup:lock', token: 'abc' });
+    jest.spyOn(service, 'releaseLock').mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    delete process.env.DATABASE_URL;
+    jest.restoreAllMocks();
+  });
+
+  it('stops renewal timer and releases lock when createUniqueBackupId throws', async () => {
+    jest.spyOn(service, 'createUniqueBackupId').mockRejectedValue(new Error('id collision'));
+    const stopLockRenewal = jest.spyOn(service, 'stopLockRenewal');
+    const startLockRenewal = jest.spyOn(service, 'startLockRenewal');
+
+    await expect(service.createBackup('admin-ui')).rejects.toThrow(BadRequestException);
+
+    expect(startLockRenewal).toHaveBeenCalledTimes(1);
+    expect(stopLockRenewal).toHaveBeenCalledTimes(1);
+    expect(stopLockRenewal).toHaveBeenCalledWith(startLockRenewal.mock.results[0].value);
+    expect(service.releaseLock).toHaveBeenCalledWith({ key: 'maintenance:backup:lock', token: 'abc' });
+  });
+});

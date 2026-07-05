@@ -53,4 +53,18 @@ describe('FE-04 & FE-08: Pagination', () => {
     const nextBtns = screen.getAllByText('Next');
     expect(nextBtns[0]).toBeDisabled();
   });
+
+  it('should generate unique limit select ids for multiple instances', () => {
+    render(
+      <>
+        <Pagination {...defaultProps} />
+        <Pagination {...defaultProps} page={2} />
+      </>,
+    );
+
+    const selects = screen.getAllByRole('combobox');
+    expect(selects[0].id).toBeTruthy();
+    expect(selects[1].id).toBeTruthy();
+    expect(selects[0].id).not.toBe(selects[1].id);
+  });
 });

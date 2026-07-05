@@ -81,11 +81,11 @@ postgres/postgresql.conf
 
 ## State Management
 - TanStack Query owns server state: tickets, users, categories, sla-configs, notifications, dashboard stats, notification preferences.
-- StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Hooks without staleTime default to 0 (refetch on mount/focus).
-- Zustand persisted state: theme only.
+- StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Global query defaults are `staleTime: 0` and `refetchOnWindowFocus: true` (operational data stays fresh); reference hooks opt into longer caches via explicit `staleTime`. Hooks without explicit staleTime inherit the global 0 (refetch on mount/focus).
+- Zustand persisted state: theme only. Startup applies the persisted theme via `applyInitialTheme()` in `lib/app-initializers.ts` before React renders, reading the `pref`/`mode` shape (not the legacy `isDark` key).
 - Zustand non-persisted state: auth user/accessToken and notification count.
 - React state owns form and component-local UI state.
-- Dashboard page owns range state (`DashboardStatsQuery`) and passes it down; `useDashboardStats(query)` key changes trigger refetch.
+- Dashboard page owns range state (`DashboardStatsQuery`) and passes it down; `useDashboardStats(query)` key changes trigger refetch. Query client is constructed via `createAppQueryClient()` in `lib/app-initializers.ts`.
 
 ## Auth & Security
 - Access token is memory-only in Zustand auth state.
@@ -98,11 +98,13 @@ postgres/postgresql.conf
 - `RolesGuard` uses the shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks.
 - Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
 - `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.
+- `JwtStrategy.validate()` wraps the repository lookup in `try/catch`; repository failures (e.g., during DB outage/restore) become `UnauthorizedException` (401), not 500.
 - Account locks after 10 failed logins (Redis tracking, 15-min window). Lockout counter uses atomic Lua INCR+EXPIRE to prevent permanent lock on partial Redis failure.
 - `CORS_ORIGIN` is comma-separated (parsed via `getCorsOrigins()` from `env-validation.util.ts`). Production rejects non-`https://` origins. Defaults to `https://helpdesk.rsmch.internal`; Docker local is HTTP-only, so set env explicitly when using an HTTP origin.
 - Non-HTTP exceptions must not leak internal messages to clients.
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
 - `POST /api/auth/change-password` is restricted to ITSupport & Admin via `RolesGuard`; EndUser cannot change own password (must request Admin/ITSupport). Frontend hides the Change Password section in My Account for EndUser.
+- `UsersService.update()` and `UsersService.delete()` use `await eventEmitter.emitAsync(...)` for `user.password_changed`, `user.deactivated`, and `user.deleted` so refresh-token revocation (handled in `AuthService` `@OnEvent` listeners) completes before the service call resolves. In `delete()`, the conflict catch wraps only `transactionDelete()`; revocation runs after a successful delete so failures surface explicitly.
 - WebSocket clients disconnect when user is inactive (`isActive=false`).
 - WebSocket sessions are bounded to access-token expiry: `NotificationsGateway` reads `payload.exp` and schedules a `setTimeout` disconnect at expiry; already-expired tokens disconnect immediately. Timers are cleared on disconnect/deactivation.
 - Upload filenames are generated server-side (`uuid + safe extension`); `originalName` stored in DB for display only.
@@ -136,8 +138,9 @@ postgres/postgresql.conf
 - Flags live in Redis: `maintenance:enabled`, `maintenance:message`; Redis is not restored from backups.
 - `MaintenanceGuard` is a global guard in `app.module.ts` and runs before `ThrottlerGuard`.
 - `MaintenanceGuard` uses a 2-second in-memory cache + Redis `mget` to reduce round-trips. Allowed paths (`/health`, `/maintenance/*`, `/auth/*`) are checked BEFORE Redis; if Redis is unreachable, guard defaults to allow (fail-open).
+- `MaintenanceGuard` injects `Reflector` to read `IS_PUBLIC_KEY` so invalid/expired tokens on public non-allowlisted routes return 503 instead of bypassing maintenance.
 - Always allowed during maintenance: `/api/health`, `/api/maintenance/*`, `/api/auth/*`.
-- When maintenance is enabled, `MaintenanceGuard` verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token → allow (let `JwtAuthGuard` handle 401 → frontend refresh); no token → 503.
+- When maintenance is enabled, `MaintenanceGuard` verifies the JWT from `Authorization` header: Admin → allow through; non-admin → `503 { error: { code: 'MAINTENANCE', message } }`; expired/invalid token on a **protected** route → allow (let `JwtAuthGuard` handle 401 → frontend refresh); expired/invalid token on a **public non-allowlisted** route → 503 (public routes skip `JwtAuthGuard`, so they cannot "fall through" to a 401); no token → 503. The guard uses `Reflector` + `IS_PUBLIC_KEY` to distinguish public from protected routes.
 - `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded. On success, release `maintenance:restore:lock` before disabling maintenance; otherwise `setMaintenanceMode(false)` rejects with `Cannot disable maintenance during active restore`. On failure, logs the original error via `Logger` and keeps maintenance enabled with the pre-restore backup ID in the error message.
 - Restore DB import handles schema-only dumps that omit extensions: it rewrites `CREATE SCHEMA public;` to idempotent schema creation and injects `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;` before trigram indexes (`gin_trgm_ops`) are created.
 - `restoreUploads()` creates its tempDir **inside** `uploadDir` (same Docker volume) to avoid `EXDEV` cross-device rename errors; the tempDir basename is excluded from the upload dir clear step.
@@ -172,8 +175,9 @@ postgres/postgresql.conf
 - `db` uses a custom `postgres/postgresql.conf` (`listen_addresses='*'`, `shared_buffers=512MB`, `work_mem=16MB`, `effective_cache_size=1536MB`) and `shm_size: 1g` for parallel query performance. `listen_addresses='*'` is required so PostgreSQL binds to the Docker network interface instead of only localhost.
 - Backup output lives in `backups/<timestamp>/{db.sql.gz,uploads.tar.gz,manifest.txt}` and `backups/` is gitignored.
 - `db.sql.gz` covers public schema tables; Redis is not backed up.
+- Backup and restore locks use token-matched TTL renewal: a background heartbeat (`LOCK_RENEW_INTERVAL_MS = 120s` in `MaintenanceService`) extends the TTL while the operation runs, and the manual `scripts/backup.sh` runs its own shell heartbeat. Token comparison on release/renew prevents a second operation from extending a lock it does not own.
 - Admin UI `/admin/maintenance` can create/list/download/delete/restore backups with typed confirmation and pre-restore backup.
-- `scripts/backup.sh` (manual CLI backup) now also checks Redis `maintenance:restore:lock` and acquires `maintenance:backup:lock` via `SET NX EX 600` before proceeding, preventing races with API-initiated backups/restores.
+- `scripts/backup.sh` (manual CLI backup) now also checks Redis `maintenance:restore:lock` and acquires `maintenance:backup:lock` via `SET NX EX 600` before proceeding, preventing races with API-initiated backups/restores. A background heartbeat renews the lock every 120s while the script runs; the trap stops the heartbeat and releases the lock on exit. The tar artifact is chowned to the host UID/GID and `chmod 600` is reapplied.
 - API image includes `postgresql-client-16`, `gzip`, `tar`, and `gosu`; entrypoint chowns `/app/uploads` and `/app/backups`, runs migrations with 3-retry loop, runs seed (dev mode or `SEED_ON_START=true`), then runs as `node`.
 - Redis has no persistence volume. Refresh tokens and maintenance flags are lost on `cache` container recreate. This is an intentional tradeoff: mass logout on Redis restart is acceptable for this deployment.
 

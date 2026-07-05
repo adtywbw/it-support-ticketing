@@ -184,44 +184,46 @@ export default function SLAConfigManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
-            <thead className="bg-blue-50 dark:bg-navy-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Priority</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Response Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Resolution Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
-              {slaConfigs.map((config) => (
-                <tr key={config.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
-                  <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{getCategoryName(config)}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getPriorityColor(config.priority)}`}>
-                      {config.priority}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.responseTimeMinutes)}</td>
-                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.resolutionTimeMinutes)}</td>
-                  <td className="px-6 py-4">
-                    {config.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <button onClick={() => openEdit(config)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
-                    <button
-                      onClick={() => setToggleItem(config)}
-                      className={config.isActive ? 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300' : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'}
-                    >
-                      {config.isActive ? 'Deactivate' : 'Activate'}
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+              <thead className="bg-blue-50 dark:bg-navy-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Response Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Resolution Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
+                {slaConfigs.map((config) => (
+                  <tr key={config.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                    <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{getCategoryName(config)}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getPriorityColor(config.priority)}`}>
+                        {config.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.responseTimeMinutes)}</td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.resolutionTimeMinutes)}</td>
+                    <td className="px-6 py-4">
+                      {config.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <button onClick={() => openEdit(config)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
+                      <button
+                        onClick={() => setToggleItem(config)}
+                        className={config.isActive ? 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300' : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'}
+                      >
+                        {config.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

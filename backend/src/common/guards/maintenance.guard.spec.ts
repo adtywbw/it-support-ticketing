@@ -1,24 +1,36 @@
 import { ExecutionContext, ServiceUnavailableException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { MaintenanceGuard } from './maintenance.guard';
 import { RedisService } from '../../redis/redis.service';
 
-function createMockContext(url: string, authHeader?: string): ExecutionContext {
+function createMockContext(
+  url: string,
+  authHeader?: string,
+  options: { isPublic?: boolean } = {},
+): ExecutionContext {
+  const handler = jest.fn();
+  const controllerClass = class TestController {};
   return {
     switchToHttp: () => ({
       getRequest: () => ({
         url,
+        path: url,
         headers: authHeader ? { authorization: authHeader } : {},
       }),
     }),
-  } as ExecutionContext;
+    getHandler: () => handler,
+    getClass: () => controllerClass,
+    __isPublic: options.isPublic ?? false,
+  } as unknown as ExecutionContext;
 }
 
 describe('MaintenanceGuard', () => {
   let guard: MaintenanceGuard;
   let redis: { mget: jest.Mock; get: jest.Mock };
   let jwtService: { verifyAsync: jest.Mock };
+  let reflector: { getAllAndOverride: jest.Mock };
 
   beforeEach(() => {
     redis = {
@@ -28,9 +40,13 @@ describe('MaintenanceGuard', () => {
     jwtService = {
       verifyAsync: jest.fn(),
     };
+    reflector = {
+      getAllAndOverride: jest.fn((_key, _targets) => false),
+    };
     guard = new MaintenanceGuard(
       redis as unknown as RedisService,
       jwtService as unknown as JwtService,
+      reflector as unknown as Reflector,
     );
   });
 
@@ -126,6 +142,26 @@ describe('MaintenanceGuard', () => {
     });
 
     it('allows requests with expired/invalid token (let JwtAuthGuard handle 401)', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      const result = await guard.canActivate(
+        createMockContext('/tickets', 'Bearer expired-token'),
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('blocks public non-allowlisted routes with expired/invalid token', async () => {
+      reflector.getAllAndOverride.mockReturnValue(true);
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await expect(
+        guard.canActivate(createMockContext('/faqs', 'Bearer expired-token', { isPublic: true })),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+
+    it('allows protected routes with expired/invalid token so JwtAuthGuard can return 401', async () => {
+      reflector.getAllAndOverride.mockReturnValue(false);
       jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
 
       const result = await guard.canActivate(

@@ -98,31 +98,33 @@ export default function FaqManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
-            <thead className="bg-blue-50 dark:bg-navy-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Question</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Order</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Active</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-blue-100 bg-white dark:divide-navy-800 dark:bg-navy-900">
-              {faqs.map((faq) => (
-                <tr key={faq.id}>
-                  <td className="px-6 py-4 text-sm text-navy-950 dark:text-blue-50 max-w-md truncate">{faq.question}</td>
-                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{faq.displayOrder}</td>
-                  <td className="px-6 py-4">
-                    <Switch checked={faq.isActive} onChange={() => handleToggleActive(faq)} disabled={isPending} label={"Toggle " + faq.question} />
-                  </td>
-                  <td className="px-6 py-4 text-right space-x-2">
-                    <button onClick={() => openEdit(faq)} className="btn-secondary btn-sm">Edit</button>
-                    <button onClick={() => openDelete(faq.id)} className="btn-danger btn-sm">Delete</button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+              <thead className="bg-blue-50 dark:bg-navy-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Question</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Order</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Active</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-blue-100 bg-white dark:divide-navy-800 dark:bg-navy-900">
+                {faqs.map((faq) => (
+                  <tr key={faq.id}>
+                    <td className="px-6 py-4 text-sm text-navy-950 dark:text-blue-50 max-w-md truncate">{faq.question}</td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{faq.displayOrder}</td>
+                    <td className="px-6 py-4">
+                      <Switch checked={faq.isActive} onChange={() => handleToggleActive(faq)} disabled={isPending} label={"Toggle " + faq.question} />
+                    </td>
+                    <td className="px-6 py-4 text-right space-x-2">
+                      <button onClick={() => openEdit(faq)} className="btn-secondary btn-sm">Edit</button>
+                      <button onClick={() => openDelete(faq.id)} className="btn-danger btn-sm">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

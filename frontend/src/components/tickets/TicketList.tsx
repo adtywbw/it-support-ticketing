@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useTickets, useUpdateTicketPriority, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
 import { useAssignableUsers } from '@/hooks/use-users';
@@ -36,21 +36,26 @@ interface SortHeaderProps {
 function SortHeader({ field, children, className = '', sortBy, sortOrder, onSort }: SortHeaderProps) {
   const isActive = sortBy === field;
   const direction = isActive && sortOrder === 'asc' ? 'asc' : 'desc';
+  const ariaSort = isActive ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none';
   return (
     <th
-      className={`px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider cursor-pointer select-none hover:text-navy-700 dark:hover:text-blue-200 transition-colors ${className}`}
-      onClick={() => onSort(field)}
+      aria-sort={ariaSort}
+      className={`px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider ${className}`}
     >
-      <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded text-left uppercase tracking-wider hover:text-navy-700 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:hover:text-blue-200"
+        onClick={() => onSort(field)}
+      >
         {children}
-        <svg className={`w-3 h-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-30 group-hover:opacity-60'}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className={`w-3 h-3 transition-opacity ${isActive ? 'opacity-100' : 'opacity-30'}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           {direction === 'asc' ? (
             <path d="M6 2v8M3 5l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
           ) : (
             <path d="M6 10V2M3 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
           )}
         </svg>
-      </span>
+      </button>
     </th>
   );
 }
@@ -165,17 +170,20 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-navy-900 divide-y divide-blue-100 dark:divide-navy-800">
-                {tickets.map((ticket) => (
+                  {tickets.map((ticket) => (
                   <tr
                     key={ticket.id}
-                    onClick={() => navigate(`/tickets/${ticket.id}`)}
-                    className="cursor-pointer hover:bg-blue-50 dark:hover:bg-navy-800/60 transition-colors"
+                    className="hover:bg-blue-50 dark:hover:bg-navy-800/60 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600 dark:text-primary-400">
-                      {ticket.ticketNumber}
+                      <Link to={`/tickets/${ticket.id}`} className="rounded hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        {ticket.ticketNumber}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-navy-950 dark:text-blue-50 max-w-xs truncate">
-                      {ticket.subject}
+                      <Link to={`/tickets/${ticket.id}`} className="rounded hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        {ticket.subject}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-navy-500 dark:text-blue-300">
                       {ticket.category?.name ?? '-'}

@@ -79,4 +79,44 @@ describe('FE-01: ProtectedRoute', () => {
 
     expect(screen.queryByText('Admin Content')).not.toBeInTheDocument();
   });
+
+  it('should not render role-restricted children when authenticated state has no user', () => {
+    useAuthStore.setState({
+      user: null,
+      accessToken: 'valid-token',
+      isAuthenticated: true,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin/users']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <div>Admin Content</div>
+        </ProtectedRoute>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('Admin Content')).not.toBeInTheDocument();
+  });
+
+  it('should ignore malformed refresh responses with accessToken but no user', async () => {
+    const axios = await import('axios');
+    vi.mocked(axios.default.post).mockResolvedValue({
+      data: { data: { accessToken: 'valid-token', user: null } },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/tickets']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <ProtectedRoute>
+          <div>Protected Content</div>
+        </ProtectedRoute>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+    });
+
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(useAuthStore.getState().user).toBeNull();
+  });
 });

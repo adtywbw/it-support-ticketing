@@ -19,7 +19,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token type');
     }
 
-    const user = await this.userRepository.findById(payload.sub);
+    let user: Awaited<ReturnType<UserRepository['findById']>>;
+    try {
+      user = await this.userRepository.findById(payload.sub);
+    } catch {
+      throw new UnauthorizedException('User not found or inactive');
+    }
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');

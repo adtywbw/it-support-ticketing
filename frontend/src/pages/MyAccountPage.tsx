@@ -157,6 +157,16 @@ export default function MyAccountPage() {
     }
     try {
       await updateConfig.mutateAsync({ ...(botTokenTouched ? { botToken } : {}), settings });
+      initialConfig.current = {
+        enabledEvents: settings.enabledEvents,
+        enableGroupChat: settings.enableGroupChat,
+        notifyIndividualsWhenGroupChat: settings.notifyIndividualsWhenGroupChat,
+        templates: settings.templates,
+      };
+      setBotToken('');
+      setBotTokenTouched(false);
+      setGroupChatId('');
+      setCheckResult(null);
       setConfigSaved(true);
       setTimeout(() => setConfigSaved(false), 3000);
     } catch (err: unknown) {

@@ -46,9 +46,13 @@ export class DashboardService {
   async getStats(query: QueryDashboardStatsDto = {}) {
     const range = this.resolveRange(query);
     const cacheKey = `${DASHBOARD_CACHE_KEY_PREFIX}:${range.cacheKeySuffix}`;
-    const cached = await this.redisService.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
+    try {
+      const cached = await this.redisService.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      this.logger.warn('Failed to read dashboard cache', error);
     }
 
     const [
@@ -98,7 +102,11 @@ export class DashboardService {
       },
     };
 
-    await this.redisService.set(cacheKey, JSON.stringify(result), DASHBOARD_CACHE_TTL);
+    try {
+      await this.redisService.set(cacheKey, JSON.stringify(result), DASHBOARD_CACHE_TTL);
+    } catch (error) {
+      this.logger.warn('Failed to write dashboard cache', error);
+    }
 
     return result;
   }

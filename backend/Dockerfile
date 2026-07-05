@@ -37,7 +37,7 @@ COPY prisma ./prisma
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
     && mkdir -p /app/uploads /app/backups \
-    && chown -R node:node /app
+    && chown -R node:node /app/uploads /app/backups
 
 EXPOSE 3000
 

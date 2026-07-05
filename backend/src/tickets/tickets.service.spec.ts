@@ -592,6 +592,18 @@ describe('TicketsService', () => {
         }),
       );
     });
+
+    it('returns totalPages 1 for empty positive-limit results', async () => {
+      mockTicketRepository.findManyForUser.mockResolvedValue([]);
+      mockTicketRepository.countForUser.mockResolvedValue(0);
+
+      const result = await service.findAll({ page: 1, limit: 10 }, 'Admin', 'admin-1');
+
+      expect(result).toEqual({
+        data: [],
+        meta: { page: 1, limit: 10, total: 0, totalPages: 1 },
+      });
+    });
   });
 
   describe('updateStatus', () => {

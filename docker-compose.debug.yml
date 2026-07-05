@@ -1,0 +1,5 @@
+# Local debugging override. Normal local and production traffic should go through nginx.
+services:
+  api:
+    ports:
+      - "127.0.0.1:3000:3000"

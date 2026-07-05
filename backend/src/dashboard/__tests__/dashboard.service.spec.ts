@@ -202,6 +202,25 @@ describe('DashboardService', () => {
 
       expect(result.analytics.slaComplianceRate).toBe(100);
     });
+
+    it('computes fresh stats when Redis cache get fails', async () => {
+      redisService.get.mockRejectedValueOnce(new Error('Redis get failed'));
+
+      const result = await service.getStats({ range: '30d' });
+
+      expect(result.current).toEqual(baseCurrent);
+      expect(ticketRepository.getDashboardCurrentSnapshot).toHaveBeenCalled();
+      expect(redisService.set).toHaveBeenCalledWith('dashboard:stats:v2:30d', expect.any(String), 30);
+    });
+
+    it('returns computed stats when Redis cache set fails', async () => {
+      redisService.set.mockRejectedValueOnce(new Error('Redis set failed'));
+
+      const result = await service.getStats({ range: '30d' });
+
+      expect(result.current).toEqual(baseCurrent);
+      expect(ticketRepository.getDashboardCurrentSnapshot).toHaveBeenCalled();
+    });
   });
 
   describe('getStats() validation', () => {

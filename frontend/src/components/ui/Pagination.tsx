@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { cn } from '@/lib/utils';
 
 interface PaginationProps {
@@ -17,6 +18,7 @@ const LIMIT_OPTIONS = [
 ];
 
 export default function Pagination({ page, totalPages, onPageChange, limit, onLimitChange, totalItems }: PaginationProps) {
+  const limitSelectId = `${useId()}-limit-select`;
   const getPages = () => {
     const pages: (number | '...')[] = [];
     const delta = 2;
@@ -36,11 +38,11 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
     <nav className="flex items-center justify-between border-t border-blue-100 dark:border-navy-800 px-4 py-3 sm:px-6">
       <div className="flex flex-1 items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <label htmlFor="limit-select" className="text-sm text-navy-700 dark:text-blue-200 whitespace-nowrap">
+          <label htmlFor={limitSelectId} className="text-sm text-navy-700 dark:text-blue-200 whitespace-nowrap">
             Items per page:
           </label>
           <select
-            id="limit-select"
+            id={limitSelectId}
             value={limit}
             onChange={(e) => onLimitChange(Number(e.target.value))}
             className="input text-xs py-1 px-2 w-auto"

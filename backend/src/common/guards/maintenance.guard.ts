@@ -5,10 +5,12 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { Role } from '@prisma/client';
 import { RedisService } from '../../redis/redis.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 const MAINTENANCE_KEY = 'maintenance:enabled';
 const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
@@ -22,6 +24,7 @@ export class MaintenanceGuard implements CanActivate {
   constructor(
     private readonly redis: RedisService,
     private readonly jwtService: JwtService,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -41,7 +44,12 @@ export class MaintenanceGuard implements CanActivate {
 
     if (!enabled) return true;
 
-    if (await this.isAdminRequest(req)) return true;
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]) === true;
+
+    if (await this.isAdminRequest(req, isPublic)) return true;
 
     const exception = new ServiceUnavailableException(
       message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
@@ -55,7 +63,7 @@ export class MaintenanceGuard implements CanActivate {
     throw exception;
   }
 
-  private async isAdminRequest(req: Request): Promise<boolean> {
+  private async isAdminRequest(req: Request, isPublic: boolean): Promise<boolean> {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) return false;
 
@@ -67,7 +75,7 @@ export class MaintenanceGuard implements CanActivate {
       });
       return payload.role === Role.Admin;
     } catch {
-      return true;
+      return !isPublic;
     }
   }
 

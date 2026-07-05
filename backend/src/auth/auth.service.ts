@@ -144,9 +144,8 @@ export class AuthService {
     }
 
     await this.usersService.update(userId, { password: newPassword });
-    // Refresh tokens are revoked via the @OnEvent('user.password_changed')
-    // handler below. EventEmitter2 dispatches synchronously by default, so
-    // the revoke completes before this method returns. Do NOT call
+    // Refresh tokens are revoked via the awaited user.password_changed
+    // lifecycle event emitted by UsersService.update(). Do NOT call
     // revokeAllRefreshTokens directly here — that would SCAN+delete the
     // same keyspace twice.
   }

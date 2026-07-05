@@ -2,23 +2,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
-import { useUnreadNotificationCount, useNotifications } from '../use-notifications';
+import { useUnreadNotificationCount, useNotifications, useMarkAllAsRead, useClearAll } from '../use-notifications';
 
 vi.mock('@/lib/axios', () => ({
   default: {
     get: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
   },
   unwrapData: vi.fn((res) => res.data.data),
   unwrapPage: vi.fn((res) => ({ data: res.data.data, meta: res.data.meta })),
 }));
 
-const mockGet = vi.mocked((await import('@/lib/axios')).default.get);
+const apiClient = vi.mocked((await import('@/lib/axios')).default);
+const mockGet = apiClient.get;
 
-const createWrapper = () => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: ReactNode }) => (
+const createQueryHarness = () => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
+  return { queryClient, wrapper };
 };
 
 describe('FE-03: useUnreadNotificationCount', () => {
@@ -30,7 +34,7 @@ describe('FE-03: useUnreadNotificationCount', () => {
     mockGet.mockResolvedValueOnce({ data: { data: { count: 5 } } });
 
     const { result } = renderHook(() => useUnreadNotificationCount(), {
-      wrapper: createWrapper(),
+      wrapper: createQueryHarness().wrapper,
     });
 
     await waitFor(() => {
@@ -55,7 +59,7 @@ describe('FE-03: useNotifications', () => {
     });
 
     const { result } = renderHook(() => useNotifications(), {
-      wrapper: createWrapper(),
+      wrapper: createQueryHarness().wrapper,
     });
 
     await waitFor(() => {
@@ -66,5 +70,37 @@ describe('FE-03: useNotifications', () => {
     });
 
     expect(mockGet).toHaveBeenCalledWith('/notifications?page=1&limit=20');
+  });
+});
+
+describe('FE-03: notification bulk mutations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('invalidates unread count after mark all as read', async () => {
+    apiClient.patch.mockResolvedValueOnce({ data: { data: {} } });
+    const { queryClient, wrapper } = createQueryHarness();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useMarkAllAsRead(), { wrapper });
+    result.current.mutate();
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['notifications'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['notifications-unread-count'] });
+  });
+
+  it('invalidates unread count after clear all', async () => {
+    apiClient.delete.mockResolvedValueOnce({ data: { data: {} } });
+    const { queryClient, wrapper } = createQueryHarness();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useClearAll(), { wrapper });
+    result.current.mutate();
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['notifications'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['notifications-unread-count'] });
   });
 });

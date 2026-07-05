@@ -169,6 +169,7 @@ The app will be available at `http://helpdesk.rsmch.internal`.
 > - Build specific service only: `docker compose build api` or `docker compose build frontend`
 > - Start without rebuild: `docker compose up -d` (uses existing images)
 > - Clean dangling images: `docker image prune -f`
+> - Expose API directly for local debugging: `docker compose -f docker-compose.yml -f docker-compose.debug.yml up -d api`
 
 Compose nginx is the public edge in the default topology and does not trust client-supplied `X-Forwarded-For` as the real IP. If you add an upstream reverse proxy, configure nginx to trust only that proxy's exact IP/subnet before relying on forwarded real IP headers.
 
@@ -277,7 +278,9 @@ mkcert -cert-file nginx/certs/helpdesk.rsmch.internal.pem \
        helpdesk.rsmch.internal
 ```
 
-The repo ships `nginx/nginx.ssl.conf` and `docker-compose.prod.yml` — no manual file editing needed. The production override swaps the HTTP nginx config for the SSL variant (port 80 → 301 redirect, 443 with TLS) and mounts the certs directory. The SSL config includes TLS hardening (strong ciphers, session cache, HSTS), rate limiting (API + WebSocket zones), and tightened CSP on static assets.
+> **Non-default domains:** `nginx/nginx.ssl.conf` currently uses `server_name helpdesk.rsmch.internal` and certificate filenames `helpdesk.rsmch.internal.pem` / `helpdesk.rsmch.internal-key.pem`. If you deploy a different domain, update `server_name` and the `ssl_certificate` / `ssl_certificate_key` paths or create certificate files with the expected names. Also set `CORS_ORIGIN` in `backend/.env` to the same HTTPS origin.
+
+The repo ships `nginx/nginx.ssl.conf` and `docker-compose.prod.yml`. The production override swaps the HTTP nginx config for the SSL variant (port 80 → 301 redirect, 443 with TLS) and mounts the certs directory. The default SSL config targets `helpdesk.rsmch.internal`; use the non-default domain note above before deploying another hostname.
 
 1. **DNS** — point `helpdesk.rsmch.internal` to your server (e.g., via AdGuard Home, dnsmasq, or `/etc/hosts`).
 
@@ -445,7 +448,7 @@ Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers from `frontend/src
 |---------|---------------|------|---------|-------------|---------|
 | frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
 | nginx | nginx:1.25-alpine | 80 (dev) / 443 (prod override) | unless-stopped | — | 10m x 3 files |
-| api | `backend/Dockerfile` (node:20-bookworm-slim, non-root via entrypoint) | 127.0.0.1:3000 | unless-stopped | `GET /health` (30s) | 10m x 3 files |
+| api | `backend/Dockerfile` (node:20-bookworm-slim, non-root via entrypoint) | internal 3000; host 127.0.0.1:3000 only with `docker-compose.debug.yml` | unless-stopped | `GET /health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
 | cache | redis:7-alpine | — | unless-stopped | `redis-cli ping` (10s) | 10m x 3 files |
 
@@ -463,6 +466,8 @@ The script reads environment variables from `backend/.env` (canonical source) an
 - `db.sql.gz` — PostgreSQL logical dump (`pg_dump --schema public`) containing all tables: users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config
 - `uploads.tar.gz` — archive of the `uploads_data` volume mounted at `/app/uploads` (all attachment files)
 - `manifest.txt` — timestamp and backup metadata
+
+Manual backups acquire `maintenance:backup:lock` in Redis and renew it every 120 seconds while running. The lock is token-matched on renew/release so concurrent backup/restore operations cannot take over each other's lock. Backup artifacts are written with restrictive permissions (`chmod 600` for files; backup directory `chmod 700`).
 
 > **Note:** Redis is not included in backups. After a restore, refresh tokens and cache are lost — all users must log in again.
 
@@ -543,7 +548,11 @@ This project implements defense-in-depth security measures. See [ARCHITECTURE.md
 | `SEED_ON_START` | No | Set `true` to auto-seed in production (requires `SEED_ADMIN_PASSWORD`/`SEED_SUPPORT_PASSWORD`) |
 | `DATABASE_POOL_MAX` | No (default 10) | Prisma connection pool size; recommended 20 for production |
 
+### Container Image Pinning
+
+Dockerfiles and Compose files currently use maintained upstream tags such as `node:20-bookworm-slim`, `nginx:1.25-alpine`, `postgres:16-alpine`, and `redis:7-alpine`. For stricter production supply-chain control, pin these images to reviewed digests and update them through a controlled dependency-update process. Do not hand-edit guessed digests; generate and review digest updates with the deployment team.
+
 ### CI/CD
 GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every PR and push to main:
-- Backend: `npm ci` → `prisma generate` → `npm run build` → `npm test` → `npm audit --audit-level=high`
-- Frontend: `npm ci` → `npm run lint` → `npm run build` → `vitest` → `npm audit --audit-level=high`
+- Backend: `npm ci` → `npm run prisma:generate` → `npm run build` → `npm test` → `npm audit --audit-level=high`
+- Frontend: `npm ci` → `npm run lint` → `npm run build` → `npm test` → `npm audit --audit-level=high`

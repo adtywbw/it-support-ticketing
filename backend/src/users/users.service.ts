@@ -98,11 +98,11 @@ export class UsersService {
     const result = await this.userRepository.update(id, data);
 
     if (updateUserDto.password) {
-      this.eventEmitter.emit('user.password_changed', { userId: id });
+      await this.eventEmitter.emitAsync('user.password_changed', { userId: id });
     }
 
     if (user.isActive && updateUserDto.isActive === false) {
-      this.eventEmitter.emit('user.deactivated', { userId: id });
+      await this.eventEmitter.emitAsync('user.deactivated', { userId: id });
     }
 
     return result;
@@ -120,11 +120,11 @@ export class UsersService {
 
     try {
       await this.userRepository.transactionDelete(id);
-      this.eventEmitter.emit('user.deleted', { userId: id });
     } catch {
       throw new ConflictException(
         'Cannot delete user with existing tickets, comments, or attachments. Deactivate the user instead.',
       );
     }
+    await this.eventEmitter.emitAsync('user.deleted', { userId: id });
   }
 }

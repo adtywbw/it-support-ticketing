@@ -185,36 +185,38 @@ function CategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
-            <thead className="bg-blue-50 dark:bg-navy-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
-              {categories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
-                  <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{cat.name}</td>
-                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{cat.description || '-'}</td>
-                  <td className="px-6 py-4">
-                    {cat.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <button onClick={() => openEdit(cat)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
-                    <button
-                      onClick={() => { setDeletingId(cat.id); setIsDeleteOpen(true); }}
-                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+              <thead className="bg-blue-50 dark:bg-navy-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
+                {categories.map((cat) => (
+                  <tr key={cat.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                    <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{cat.name}</td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{cat.description || '-'}</td>
+                    <td className="px-6 py-4">
+                      {cat.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <button onClick={() => openEdit(cat)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
+                      <button
+                        onClick={() => { setDeletingId(cat.id); setIsDeleteOpen(true); }}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -360,33 +362,35 @@ function SubCategoryManager() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
-            <thead className="bg-blue-50 dark:bg-navy-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
-              {subCategories.map((sub) => (
-                <tr key={sub.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
-                  <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{sub.name}</td>
-                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{getCategoryName(sub.categoryId)}</td>
-                  <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{sub.description || '-'}</td>
-                  <td className="px-6 py-4">
-                    {sub.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm">
-                    <button onClick={() => openEdit(sub)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
-                    <button onClick={() => { setDeletingItem({ id: sub.id, categoryId: sub.categoryId }); setIsDeleteOpen(true); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Delete</button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+              <thead className="bg-blue-50 dark:bg-navy-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
+                {subCategories.map((sub) => (
+                  <tr key={sub.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                    <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{sub.name}</td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{getCategoryName(sub.categoryId)}</td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{sub.description || '-'}</td>
+                    <td className="px-6 py-4">
+                      {sub.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <button onClick={() => openEdit(sub)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
+                      <button onClick={() => { setDeletingItem({ id: sub.id, categoryId: sub.categoryId }); setIsDeleteOpen(true); }} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

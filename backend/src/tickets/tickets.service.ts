@@ -192,7 +192,7 @@ export class TicketsService {
       }
     }
 
-    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+    const totalPages = limit > 0 ? Math.ceil(total / limit) || 1 : 1;
     return { data: tickets, meta: { page: limit > 0 ? page : 1, limit, total, totalPages } };
   }
 

@@ -60,7 +60,33 @@ fi
 release_backup_lock() {
   redis_cli eval "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end" 1 maintenance:backup:lock "$BACKUP_LOCK_TOKEN" >/dev/null || true
 }
-trap release_backup_lock EXIT
+
+BACKUP_LOCK_RENEW_PID=""
+
+# SIGKILL cannot be trapped; in that case Redis bounds any orphaned lock by the
+# 600s TTL. Normal exits stop this heartbeat and release the token-matched lock.
+renew_backup_lock() {
+  while true; do
+    sleep 120
+    redis_cli eval "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end" 1 maintenance:backup:lock "$BACKUP_LOCK_TOKEN" 600 >/dev/null || true
+  done
+}
+
+stop_backup_lock_renewal() {
+  if [ -n "$BACKUP_LOCK_RENEW_PID" ]; then
+    kill "$BACKUP_LOCK_RENEW_PID" 2>/dev/null || true
+    wait "$BACKUP_LOCK_RENEW_PID" 2>/dev/null || true
+  fi
+}
+
+cleanup_backup_lock() {
+  stop_backup_lock_renewal
+  release_backup_lock
+}
+
+renew_backup_lock &
+BACKUP_LOCK_RENEW_PID="$!"
+trap cleanup_backup_lock EXIT
 
 mkdir -p "$BACKUP_PATH"
 chmod 700 "$BACKUP_PATH"
@@ -72,9 +98,9 @@ chmod 600 "$BACKUP_PATH/db.sql.gz"
 echo "Backing up uploads volume to $BACKUP_PATH/uploads.tar.gz"
 docker compose run --rm --no-deps \
   -v "$BACKUP_PATH:/backup" \
-  --entrypoint tar \
+  --entrypoint sh \
   api \
-  -czf /backup/uploads.tar.gz -C /app/uploads .
+  -c "tar -czf /backup/uploads.tar.gz -C /app/uploads . && chown $(id -u):$(id -g) /backup/uploads.tar.gz"
 chmod 600 "$BACKUP_PATH/uploads.tar.gz"
 
 cat > "$BACKUP_PATH/manifest.txt" <<EOF
