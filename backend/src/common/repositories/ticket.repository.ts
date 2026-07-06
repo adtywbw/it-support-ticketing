@@ -314,10 +314,6 @@ export class TicketRepository {
     `;
   }
 
-  async groupBy(args: any) {
-    return this.prisma.ticket.groupBy(args);
-  }
-
   async getDashboardStatusCounts(from: Date, to: Date) {
     return this.prisma.ticket.groupBy({
       by: ['status'],

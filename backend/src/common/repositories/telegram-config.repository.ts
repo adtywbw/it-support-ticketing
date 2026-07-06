@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 const DEFAULT_KEY = 'default';
 
@@ -30,7 +31,7 @@ export class TelegramConfigRepository {
    * Uses upsert on the unique key to prevent race conditions under
    * concurrent startup/config access.
    */
-  async findOrCreate(defaults?: Record<string, unknown>) {
+  async findOrCreate(defaults?: Partial<Prisma.TelegramConfigCreateInput>) {
     return this.prisma.telegramConfig.upsert({
       where: { key: DEFAULT_KEY },
       create: { key: DEFAULT_KEY, ...(defaults || {}) },
@@ -38,13 +39,13 @@ export class TelegramConfigRepository {
     });
   }
 
-  async create(data: Record<string, unknown>) {
+  async create(data: Prisma.TelegramConfigCreateInput) {
     return this.prisma.telegramConfig.create({
       data: { key: DEFAULT_KEY, ...data },
     });
   }
 
-  async update(data: Record<string, unknown>) {
+  async update(data: Prisma.TelegramConfigUpdateInput) {
     return this.prisma.telegramConfig.update({
       where: { key: DEFAULT_KEY },
       data,

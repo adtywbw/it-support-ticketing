@@ -2,6 +2,20 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 34 — Code Review Round 4 Fixes Batch 6 (2026-07-06)
+
+### Fixed (Minor)
+- **`ticket.repository.ts` dead `groupBy(args: any)`**: Removed unused method that was the last `any` in repository production code.
+- **`user.repository.ts` loose typing**: `create(data: Record<string, unknown>)` → `create(data: Prisma.UserCreateInput)`; `update(id, data: Record<string, unknown>)` → `update(id, data: Prisma.UserUpdateInput)`.
+- **`telegram-config.repository.ts` loose typing**: `findOrCreate`, `create`, `update` changed from `Record<string, unknown>` to proper `Prisma.TelegramConfig*Input` types.
+- **`telegram.service.ts` untyped callback**: Removed `: any` from `users.filter((u: any) => …)` and `runWithConcurrency(…, async (user: any) => …)` in `sendTicketEvent`.
+
+### Verification
+- Backend: 752 tests (72 suites) — all passed
+- Frontend: 223 tests (44 suites) — all passed
+- Build: ✅ (backend + frontend)
+- ESLint: **0 errors**, 232 warnings (all in test files; down from 235)
+
 ## Session 33 — Code Review Round 3 Fixes Batch 5 (2026-07-06)
 
 ### Fixed (Important)

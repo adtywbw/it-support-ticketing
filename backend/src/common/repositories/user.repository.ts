@@ -74,9 +74,9 @@ export class UserRepository {
     return { data: users, meta: buildPaginationMeta(total, limit, page) };
   }
 
-  async create(data: Record<string, unknown>) {
+  async create(data: Prisma.UserCreateInput) {
     return this.prisma.user.create({
-      data: data as Prisma.UserCreateInput,
+      data,
       select: {
         id: true,
         email: true,
@@ -89,10 +89,10 @@ export class UserRepository {
     });
   }
 
-  async update(id: string, data: Record<string, unknown>) {
+  async update(id: string, data: Prisma.UserUpdateInput) {
     return this.prisma.user.update({
       where: { id },
-      data: data as Prisma.UserUpdateInput,
+      data,
       select: USER_SAFE_SELECT,
     });
   }

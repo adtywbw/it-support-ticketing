@@ -6,6 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 import { TelegramConfigRepository } from '../common/repositories/telegram-config.repository';
 import { UserRepository } from '../common/repositories/user.repository';
 import { TelegramSettingsDto } from './dto/telegram-config.dto';
@@ -198,7 +199,7 @@ export class TelegramService
   }) {
     const config = await this.telegramConfigRepository.findOrCreate({ settings: {} });
 
-    const update: Record<string, unknown> = {};
+    const update: Prisma.TelegramConfigUpdateInput = {};
     if (data.botToken !== undefined) {
       if (data.botToken) {
         update.botToken = data.botToken;
@@ -210,7 +211,7 @@ export class TelegramService
       update.settings = this.normalizeSettings(
         config?.settings as Record<string, unknown> | null | undefined,
         data.settings,
-      );
+      ) as unknown as Prisma.InputJsonValue;
     }
 
     await this.telegramConfigRepository.update(update);
@@ -290,8 +291,8 @@ export class TelegramService
 
     const users = await this.userRepository.findTelegramLinkedUsers();
 
-    const queue = users.filter((u: any) => u.telegramChatId);
-    await runWithConcurrency(queue, appConfig.telegram.sendConcurrency, async (user: any) => {
+    const queue = users.filter((u) => u.telegramChatId);
+    await runWithConcurrency(queue, appConfig.telegram.sendConcurrency, async (user) => {
       if (user.telegramChatId) {
         await this.sendMessage(token, Number(user.telegramChatId), message);
       }
