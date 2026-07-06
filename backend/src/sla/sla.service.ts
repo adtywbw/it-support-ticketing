@@ -123,7 +123,7 @@ export class SLAService {
     }
   }
 
-  private calculateSlaStatus(
+  calculateSlaStatus(
     slaDueAt: Date,
     resolutionTimeMinutes: number,
     now: Date,

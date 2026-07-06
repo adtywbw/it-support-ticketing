@@ -5,8 +5,6 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import * as path from 'path';
 import { Express } from 'express';
 import { Role, CommentType, AttachmentVisibility, Prisma } from '@prisma/client';
 import { CommentRepository } from '../common/repositories/comment.repository';
@@ -16,6 +14,7 @@ import { StorageService, STORAGE_SERVICE } from '../attachments/interfaces/stora
 import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
+import { buildPaginationMeta } from '../common/utils/pagination.util';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FILES_PER_COMMENT = 3;
@@ -208,7 +207,6 @@ export class CommentsService {
       this.commentRepository.countByTicketId(ticketId, where),
     ]);
 
-    const totalPages = Math.ceil(total / actualLimit) || 1;
-    return { data: comments, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
+    return { data: comments, meta: buildPaginationMeta(total, actualLimit, normalizedPage) };
   }
 }
