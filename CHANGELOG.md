@@ -2,6 +2,27 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 26 — Self-Host Google Font (Inter) untuk CSP Compliance (2026-07-06)
+
+### Fixed
+- **CSP style-src warning di login page**: Font Inter sebelumnya dimuat dari `fonts.googleapis.com` (external stylesheet), tetapi CSP hanya mengizinkan `'self' 'unsafe-inline'` untuk `style-src`. Browser memblokir stylesheet font, menghasilkan warning `Content-Security-Policy: style-src-elem` di console.
+- Solusi: self-host font Inter via `@fontsource/inter` npm package. File `.woff2`/`.woff` di-bundle sebagai aset lokal, sehingga memenuhi `style-src 'self'` dan `font-src 'self'` tanpa perlu melonggarkan CSP.
+
+### Files Changed
+- `frontend/package.json` — tambah dependency `@fontsource/inter` (^5.0.20).
+- `frontend/src/main.tsx` — import 4 weight CSS (400, 500, 600, 700) dari `@fontsource/inter/`.
+- `frontend/index.html` — hapus 3 `<link>` tags ke Google Fonts (`preconnect` + stylesheet).
+- `frontend/package-lock.json` — regenerasi via `node:20-alpine` untuk Docker `npm ci` compatibility.
+
+### Tidak Diubah
+- **nginx CSP header** tetap ketat (`style-src 'self' 'unsafe-inline'`, `font-src 'self'`) — tidak ada perubahan di `nginx/nginx.conf`, `nginx/nginx.ssl.conf`, atau `frontend/nginx.conf`.
+- **Tailwind config** tetap `sans: ['Inter', 'system-ui', 'sans-serif']` — `@fontsource/inter` mendaftarkan `font-family: 'Inter'` via `@font-face`.
+
+### Verification
+- Frontend build: `npm run build` sukses — font files ter-bundle sebagai aset lokal.
+- Frontend lint: 0 warnings.
+- Frontend tests: 73/73 pass (24 test files).
+
 ## Session 25 — Fullstack Code Review Fixes (2026-07-05)
 
 ### Security
