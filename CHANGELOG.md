@@ -2,6 +2,67 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 42 — Code Review Final Round 3: Redis Fail-Open, Mutation Error Handling, Nginx Hardening (2026-07-06)
+
+### Fixed (Critical)
+- **`AuthService.checkAccountLocked()` and `resetFailedLogin()` — Redis failure blocks all logins**: Both methods called `redisService.get()` / `redisService.del()` without try/catch. A transient Redis outage would throw an unhandled 500, preventing ALL users from logging in. **Added try/catch with `Logger.warn` that returns silently (fail-open) on Redis errors.** (`auth.service.ts`)
+- **`CreateAttachmentDto.size` — zero validation decorators**: The `size` field had no `@IsInt()` or `@Min(0)` validation, allowing arbitrary values to pass. **Added both decorators.** (`create-attachment.dto.ts`)
+- **27 frontend mutation hooks missing error handlers**: Silent failures across all mutation hooks — tickets, users, sla-configs, maintenance, telegram, notifications — left users with zero feedback when API calls failed. **Added `onError: toast.error(getErrorMessage(err, ...))` to every `useMutation`.** (7 hook files)
+- **`TicketList` queryFilters object recreated every render**: The `queryFilters` object was constructed inline in the render body, creating a new reference on every render. TanStack Query deep-hashed the unstable key, but this pattern violates AGENTS.md guidance and risks infinite refetch loops if any value is non-primitive. **Wrapped in `useMemo`.** (`TicketList.tsx`)
+
+### Fixed (Important)
+- **`MaintenanceController` redundant `JwtAuthGuard` on 7 endpoints**: Despite being a global `APP_GUARD`, 7 maintenance endpoints had `@UseGuards(JwtAuthGuard, RolesGuard)`, double-verifying every JWT. **Removed `JwtAuthGuard` from all 7; kept only `@UseGuards(RolesGuard)`.** (`maintenance.controller.ts`)
+- **Unused `JwtAuthGuard` imports**: `sla.controller.ts` and `auth.controller.ts` imported `JwtAuthGuard` but never referenced it. **Removed.** (`sla.controller.ts`, `auth.controller.ts`)
+- **`RedisService` core methods lacked error handling**: Methods `set`, `get`, `del`, `incr`, `eval`, `deleteByPattern`, etc. delegated directly to ioredis without try/catch or logging, making Redis failures invisible in logs. **Added `Logger` + try/catch with `Logger.error()` to all core methods.** (`redis.service.ts`)
+- **`FaqRepository` methods missing `async`**: All 6 methods returned Prisma promises without `async` keyword, creating inconsistency with every other repository. **Added `async` to all methods.** (`faq.repository.ts`)
+- **Missing rate limiting on `logout` and `change-password`**: The `logout` endpoint (public, unauthenticated) and `change-password` (restricted to Admin/ITSupport) had no rate limiting. **Added `@Throttle({ default: { limit: 5, ttl: 60000 } })` to both.** (`auth.controller.ts`)
+- **`Modal` Escape handler re-registers listener on every `onClose` change**: The `useCallback` depended on `onClose`, causing the `keydown` event listener to be removed and re-added every time the parent passed a new `onClose` reference. **Added `useRef(onClose)` with stable `useCallback` (empty deps).** (`Modal.tsx`)
+- **`NotificationsPage` mark-as-read click had no error handling**: Clicking an unread notification called `markAsRead.mutate(notif.id)` without `onError`, so failures silently left the notification unread in the UI. **Added `onError: toast.error(...)` to the `mutate()` call.** (`NotificationsPage.tsx`)
+- **Hardcoded Indonesian maintenance message**: `AdminMaintenancePage` had `'System sedang dalam pemeliharaan...'` — the only Indonesian string in production code. **Changed to English.** (`AdminMaintenancePage.tsx`)
+- **Nginx hardening**: `nginx.conf` — added `server_tokens off`, WebSocket rate limit zone (`ws_limit`), and rate limiting on `/socket.io/`. `nginx.ssl.conf` — added `server_tokens off`. `frontend/nginx.conf` — added `server_tokens off` and `object-src 'none'` to CSP. (3 nginx config files)
+- **Docker compose missing `pids_limit`**: `nginx`, `db`, and `cache` services lacked `pids_limit: 256`. **Added.** (`docker-compose.yml`)
+- **PostgreSQL missing slow query logging**: `postgresql.conf` had no `log_min_duration_statement`. **Added `log_min_duration_statement = 1000`, `log_connections = on`, `log_disconnections = on`.** (`postgres/postgresql.conf`)
+- **`docker-entrypoint.sh` missing `set -o pipefail`**: Only `set -e` was present. **Added `-o pipefail`.** (`docker-entrypoint.sh`)
+
+### Fixed (Minor)
+- **Unnecessary type assertions in `TicketRepository`**: Removed `as Prisma.TicketWhereInput` cast on `where` clause (already typed) and 3 `as DashboardTicketSummary[]` casts on attention ticket arrays. (`ticket.repository.ts`)
+
+### Changed
+- **`AGENTS.md`**: Updated session reference (40 → 42) for `as any` casts section. Added 7 new Common Pitfalls covering mutation error handlers, ProtectedRoute `useRef` pattern, Modal Escape handler, queryFilters `useMemo`, Redis service error handling, auth fail-open, DTO numeric validation, faq repo async, and nginx hardening rules.
+- **`CHANGELOG.md`**: Added Session 42 entry.
+
+### Files Changed
+- `backend/src/auth/auth.service.ts` — try/catch on checkAccountLocked + resetFailedLogin
+- `backend/src/auth/auth.controller.ts` — removed unused JwtAuthGuard import, added @Throttle to logout + change-password
+- `backend/src/attachments/dto/create-attachment.dto.ts` — @IsInt() @Min(0) on size
+- `backend/src/maintenance/maintenance.controller.ts` — removed redundant JwtAuthGuard from 7 endpoints
+- `backend/src/sla/sla.controller.ts` — removed unused JwtAuthGuard import
+- `backend/src/redis/redis.service.ts` — Logger + try/catch on all core methods
+- `backend/src/common/repositories/faq.repository.ts` — async keywords
+- `backend/src/common/repositories/ticket.repository.ts` — removed unnecessary casts
+- `backend/docker-entrypoint.sh` — set -eo pipefail
+- `frontend/src/hooks/use-tickets.ts` — onError on all 7 mutations
+- `frontend/src/hooks/use-users.ts` — onError on all 3 mutations
+- `frontend/src/hooks/use-sla-configs.ts` — onError on both mutations
+- `frontend/src/hooks/use-maintenance.ts` — onError on all 4 mutations
+- `frontend/src/hooks/use-telegram.ts` — onError on all 6 mutations
+- `frontend/src/hooks/use-notifications.ts` — onError on all 3 mutations
+- `frontend/src/hooks/use-notification-preferences.ts` — onError on mutation
+- `frontend/src/components/tickets/TicketList.tsx` — useMemo for queryFilters + useRef for onPageChange
+- `frontend/src/components/ui/Modal.tsx` — useRef(onClose) for Escape handler
+- `frontend/src/pages/AdminMaintenancePage.tsx` — English maintenance message
+- `frontend/src/pages/NotificationsPage.tsx` — onError on mark-as-read click
+- `frontend/src/pages/__tests__/AdminMaintenancePage.test.tsx` — updated test expectation
+- `nginx/nginx.conf` — server_tokens off, ws_limit zone, /socket.io/ rate limit
+- `nginx/nginx.ssl.conf` — server_tokens off
+- `frontend/nginx.conf` — server_tokens off, object-src 'none' in CSP
+- `docker-compose.yml` — pids_limit on nginx, db, cache
+- `postgres/postgresql.conf` — slow query logging + connection audit
+
+### Verification
+- Backend: build ✅, tests 760/760 ✅, lint 0 errors
+- Frontend: build ✅ (536ms), tests 221/221 ✅, lint 0 errors (26 test-only warnings)
+
 ## Session 41 — Code Review Final Round 2: Role Guard Enforcement, CSP Hardening, Dashboard Invalidation (2026-07-06)
 
 ### Fixed (Critical)

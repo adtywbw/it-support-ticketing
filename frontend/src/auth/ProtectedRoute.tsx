@@ -14,6 +14,10 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   const { isAuthenticated, user, login } = useAuthStore();
   const location = useLocation();
   const [checking, setChecking] = useState(isAuthenticated ? false : true);
+
+  // Capture the current location once via useRef initial value so the Navigate
+  // redirect gets a stable reference. The initial mount URL is the right target
+  // for post-login redirect (the user is already at that URL or was auto-redirected).
   const navigateState = useRef({ from: location }).current;
 
   useEffect(() => {

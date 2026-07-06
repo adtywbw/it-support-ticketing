@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import type { User, CreateUserPayload, UpdateUserPayload } from '@/types';
 import { STALE_TIME_ASSIGNABLE_USERS } from '@/lib/constants';
+import { getErrorMessage } from '@/lib/utils';
 
 export function useUsers(options?: { enabled?: boolean; page?: number; limit?: number }) {
   const page = options?.page ?? 1;
@@ -40,6 +42,7 @@ export function useCreateUser() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to create user')),
   });
 }
 
@@ -54,6 +57,7 @@ export function useUpdateUser() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to update user')),
   });
 }
 
@@ -68,5 +72,6 @@ export function useDeleteUser() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete user')),
   });
 }

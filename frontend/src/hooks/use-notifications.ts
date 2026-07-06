@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import { useNotificationStore } from '@/stores/notification-store';
 import type { Notification } from '@/types';
 import { UNREAD_NOTIFICATIONS_POLL_MS } from '@/lib/constants';
+import { getErrorMessage } from '@/lib/utils';
 
 export function useUnreadNotificationCount() {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
@@ -51,6 +53,7 @@ export function useMarkAsRead() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to mark notification as read')),
   });
 }
 
@@ -67,6 +70,7 @@ export function useMarkAllAsRead() {
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
       reset();
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to mark all as read')),
   });
 }
 
@@ -83,5 +87,6 @@ export function useClearAll() {
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
       reset();
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to clear notifications')),
   });
 }

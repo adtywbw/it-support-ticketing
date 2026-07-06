@@ -90,7 +90,7 @@ export class TicketRepository {
   ) {
     return this.prisma.ticket.findMany({
       ...args,
-      where: buildTicketAccessWhere(scope, (args.where ?? {}) as Prisma.TicketWhereInput),
+      where: buildTicketAccessWhere(scope, args.where ?? {}),
     });
   }
 
@@ -251,9 +251,9 @@ export class TicketRepository {
     ]);
 
     return {
-      slaRisk: slaRisk as DashboardTicketSummary[],
-      highPriority: highPriority as DashboardTicketSummary[],
-      unassigned: unassigned as DashboardTicketSummary[],
+      slaRisk,
+      highPriority,
+      unassigned,
     };
   }
 

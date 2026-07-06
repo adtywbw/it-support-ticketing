@@ -84,7 +84,7 @@ describe('AdminMaintenancePage', () => {
     fireEvent.click(screen.getByText('Enable Maintenance'));
 
     await waitFor(() => {
-      expect(setMode).toHaveBeenCalledWith({ enabled: true, message: 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.' });
+      expect(setMode).toHaveBeenCalledWith({ enabled: true, message: 'System is currently undergoing maintenance. Please try again later.' });
     });
   });
 

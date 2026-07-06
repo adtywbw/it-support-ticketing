@@ -23,11 +23,16 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
+  // Use a ref for onClose so the Escape key handler doesn't re-register
+  // the event listener every time the parent passes a new onClose reference.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     },
-    [onClose],
+    [], // stable — reads latest onClose via ref
   );
 
   const handleTab = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {

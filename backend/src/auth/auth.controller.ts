@@ -12,7 +12,6 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -58,6 +57,7 @@ export class AuthController {
   }
 
   @Post('change-password')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(RolesGuard)
   @Roles(Role.ITSupport, Role.Admin)
   async changePassword(
@@ -77,6 +77,7 @@ export class AuthController {
 
   @Post('logout')
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,

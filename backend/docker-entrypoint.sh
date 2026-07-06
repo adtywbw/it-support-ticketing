@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eo pipefail
 
 mkdir -p /app/uploads /app/backups
 

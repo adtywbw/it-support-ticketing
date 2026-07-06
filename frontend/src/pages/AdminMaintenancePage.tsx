@@ -13,7 +13,7 @@ export default function AdminMaintenancePage() {
       const newEnabled = !maintenanceStatus?.enabled;
       await setMaintenanceModeMutation.mutateAsync({
         enabled: newEnabled,
-        message: newEnabled ? 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.' : undefined,
+        message: newEnabled ? 'System is currently undergoing maintenance. Please try again later.' : undefined,
       });
       toast.success(newEnabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
     } catch (err) {

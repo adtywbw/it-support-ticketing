@@ -12,7 +12,6 @@ import {
 import { Response } from 'express';
 import { Role } from '@prisma/client';
 import { MaintenanceService } from './maintenance.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RestoreBackupDto } from './dto/restore-backup.dto';
@@ -30,7 +29,7 @@ export class MaintenanceController {
   }
 
   @Patch('mode')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   async setMaintenanceMode(@Body() dto: MaintenanceModeDto) {
     await this.maintenanceService.setMaintenanceMode(dto.enabled, dto.message);
@@ -38,21 +37,21 @@ export class MaintenanceController {
   }
 
   @Get('backups')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   listBackups() {
     return this.maintenanceService.listBackups();
   }
 
   @Post('backups')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   createBackup() {
     return this.maintenanceService.createBackup();
   }
 
   @Delete('backups/:id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   async deleteBackup(@Param('id') id: string) {
     await this.maintenanceService.deleteBackup(id);
@@ -60,7 +59,7 @@ export class MaintenanceController {
   }
 
   @Post('backups/:id/restore')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   async restoreBackup(
     @Param('id') id: string,
@@ -77,7 +76,7 @@ export class MaintenanceController {
   }
 
   @Get('backups/:id/download/db')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   async downloadDatabaseBackup(
     @Param('id') id: string,
@@ -88,7 +87,7 @@ export class MaintenanceController {
   }
 
   @Get('backups/:id/download/uploads')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.Admin)
   async downloadUploadsBackup(
     @Param('id') id: string,

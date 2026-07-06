@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { formatRelativeTime, getErrorMessage } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -76,7 +77,9 @@ export default function NotificationsPage() {
                 !notif.isRead ? 'border-primary-200 bg-primary-50/50' : ''
               }`}
               onClick={() => {
-                if (!notif.isRead) markAsRead.mutate(notif.id);
+                if (!notif.isRead) markAsRead.mutate(notif.id, {
+                  onError: (err) => toast.error(getErrorMessage(err, 'Failed to mark notification as read')),
+                });
               }}
             >
               <div className="flex items-start justify-between gap-4">

@@ -1,9 +1,10 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
+  private readonly logger = new Logger(RedisService.name);
 
   constructor() {
     const tlsEnabled = process.env.REDIS_TLS === 'true';
@@ -34,65 +35,115 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async set(key: string, value: string, ttl?: number): Promise<void> {
-    if (ttl) {
-      await this.client.set(key, value, 'EX', ttl);
-    } else {
-      await this.client.set(key, value);
+    try {
+      if (ttl) {
+        await this.client.set(key, value, 'EX', ttl);
+      } else {
+        await this.client.set(key, value);
+      }
+    } catch (err) {
+      this.logger.error(`Redis SET failed for key ${key}: ${err}`);
+      throw err;
     }
   }
 
   async setNx(key: string, value: string, ttl: number): Promise<boolean> {
-    const result = await this.client.set(key, value, 'EX', ttl, 'NX');
-    return result === 'OK';
+    try {
+      const result = await this.client.set(key, value, 'EX', ttl, 'NX');
+      return result === 'OK';
+    } catch (err) {
+      this.logger.error(`Redis SETNX failed for key ${key}: ${err}`);
+      throw err;
+    }
   }
 
   async get(key: string): Promise<string | null> {
-    return this.client.get(key);
+    try {
+      return this.client.get(key);
+    } catch (err) {
+      this.logger.error(`Redis GET failed for key ${key}: ${err}`);
+      throw err;
+    }
   }
 
   async mget(keys: string[]): Promise<(string | null)[]> {
     if (keys.length === 0) return [];
-    return this.client.mget(keys);
+    try {
+      return this.client.mget(keys);
+    } catch (err) {
+      this.logger.error(`Redis MGET failed for ${keys.length} keys: ${err}`);
+      throw err;
+    }
   }
 
   async del(key: string): Promise<void> {
-    await this.client.del(key);
+    try {
+      await this.client.del(key);
+    } catch (err) {
+      this.logger.error(`Redis DEL failed for key ${key}: ${err}`);
+      throw err;
+    }
   }
 
   async incr(key: string): Promise<number> {
-    return this.client.incr(key);
+    try {
+      return this.client.incr(key);
+    } catch (err) {
+      this.logger.error(`Redis INCR failed for key ${key}: ${err}`);
+      throw err;
+    }
   }
 
   async expire(key: string, seconds: number): Promise<void> {
-    await this.client.expire(key, seconds);
+    try {
+      await this.client.expire(key, seconds);
+    } catch (err) {
+      this.logger.error(`Redis EXPIRE failed for key ${key}: ${err}`);
+      throw err;
+    }
   }
 
   async eval(script: string, keys: string[], args: string[]): Promise<unknown> {
-    return this.client.eval(script, keys.length, ...keys, ...args);
+    try {
+      return this.client.eval(script, keys.length, ...keys, ...args);
+    } catch (err) {
+      this.logger.error(`Redis EVAL failed: ${err}`);
+      throw err;
+    }
   }
 
   async deleteByPattern(pattern: string): Promise<number> {
     let cursor = '0';
     let deleted = 0;
-    do {
-      const [nextCursor, keys] = await this.client.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        100,
-      );
-      cursor = nextCursor;
-      if (keys.length > 0) {
-        deleted += await this.client.del(keys);
-      }
-    } while (cursor !== '0');
+    try {
+      do {
+        const [nextCursor, keys] = await this.client.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100,
+        );
+        cursor = nextCursor;
+        if (keys.length > 0) {
+          deleted += await this.client.del(keys);
+        }
+      } while (cursor !== '0');
+    } catch (err) {
+      this.logger.error(`Redis deleteByPattern failed for pattern ${pattern}: ${err}`);
+      throw err;
+    }
     return deleted;
   }
 
   async exists(key: string): Promise<boolean> {
-    const result = await this.client.exists(key);
-    return result === 1;
+    try {
+      const result = await this.client.exists(key);
+      return result === 1;
+    } catch (err) {
+      this.logger.error(`Redis EXISTS failed for key ${key}: ${err}`);
+      throw err;
+    }
   }
 
   async ping(): Promise<boolean> {

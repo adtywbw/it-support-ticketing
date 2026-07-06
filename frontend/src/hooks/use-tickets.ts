@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import type { Ticket, TicketFilters, CreateTicketPayload, Comment, Attachment, TicketStatus, TicketPriority } from '@/types';
 import { STALE_TIME_TICKETS } from '@/lib/constants';
+import { getErrorMessage } from '@/lib/utils';
 
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
@@ -46,6 +48,7 @@ export function useCreateTicket() {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to create ticket')),
   });
 }
 
@@ -62,6 +65,7 @@ export function useUpdateTicketStatus() {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to update ticket status')),
   });
 }
 
@@ -78,6 +82,7 @@ export function useAssignTicket() {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to assign ticket')),
   });
 }
 export function useTicketComments(ticketId: string, page = 1, limit = 20) {
@@ -123,6 +128,7 @@ export function useAddComment() {
         queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'attachments'] });
       }
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to add comment')),
   });
 }
 
@@ -151,6 +157,7 @@ export function useUploadAttachment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'attachments'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to upload attachment')),
   });
 }
 
@@ -167,6 +174,7 @@ export function useUpdateTicketPriority() {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to update priority')),
   });
 }
 
@@ -181,5 +189,6 @@ export function useDeleteTicket() {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete ticket')),
   });
 }

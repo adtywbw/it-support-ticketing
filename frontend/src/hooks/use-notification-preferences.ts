@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import type {
   NotificationPreferencesMap,
   NotificationPreferencesResponse,
 } from '@/types';
 import { STALE_TIME_NOTIFICATION_PREFERENCES } from '@/lib/constants';
+import { getErrorMessage } from '@/lib/utils';
 
 export function useNotificationPreferences() {
   return useQuery({
@@ -33,5 +35,6 @@ export function useUpdateNotificationPreferences() {
         queryKey: ['notification-preferences'],
       });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to update notification preferences')),
   });
 }

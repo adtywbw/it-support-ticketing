@@ -1,4 +1,4 @@
-import { IsString } from 'class-validator';
+import { IsString, IsInt, Min } from 'class-validator';
 
 export class CreateAttachmentDto {
   @IsString()
@@ -10,6 +10,8 @@ export class CreateAttachmentDto {
   @IsString()
   mimeType: string;
 
+  @IsInt()
+  @Min(0)
   size: number;
 
   @IsString()

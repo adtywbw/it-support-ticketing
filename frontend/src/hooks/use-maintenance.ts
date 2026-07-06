@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient, { unwrapData, unwrapBlob, type ApiEnvelope } from '@/lib/axios';
 import type { BackupInfo, MaintenanceStatus } from '@/types';
 import { MAINTENANCE_POLL_MS } from '@/lib/constants';
+import { getErrorMessage } from '@/lib/utils';
 
 export function useMaintenanceMode(options?: { enabled?: boolean }) {
   return useQuery({
@@ -34,6 +36,7 @@ export function useSetMaintenanceMode() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'mode'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to toggle maintenance mode')),
   });
 }
 
@@ -58,6 +61,7 @@ export function useCreateBackup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'backups'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to create backup')),
   });
 }
 
@@ -71,6 +75,7 @@ export function useDeleteBackup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'backups'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete backup')),
   });
 }
 
@@ -83,6 +88,7 @@ export function useRestoreBackup() {
       );
       return unwrapData(response);
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to restore backup')),
   });
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, type ReactNode } from 'react';
+import { useEffect, useState, useRef, useMemo, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useTickets, useUpdateTicketPriority, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
@@ -74,7 +74,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
   const isAdmin = user?.role === 'Admin';
   const limit = filters.limit;
 
-  const queryFilters = {
+  const queryFilters = useMemo(() => ({
     page,
     limit: filters.limit,
     ...(filters.status && { status: filters.status }),
@@ -87,7 +87,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     ...(filters.endDate && { dateTo: filters.endDate }),
     sortBy: filters.sortBy,
     sortOrder: filters.sortOrder,
-  };
+  }), [page, filters, user?.id]);
 
   const handleSort = (field: string) => {
     const newOrder = filters.sortBy === field && filters.sortOrder === 'asc' ? 'desc' : 'asc';

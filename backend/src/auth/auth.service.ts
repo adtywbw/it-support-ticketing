@@ -288,15 +288,23 @@ export class AuthService implements OnModuleInit {
   }
 
   private async checkAccountLocked(email: string): Promise<void> {
-    const lockKey = `login:locked:${email}`;
-    const locked = await this.redisService.get(lockKey);
+    let locked: string | null;
+    try {
+      locked = await this.redisService.get(`login:locked:${email}`);
+    } catch (err) {
+      this.logger.warn(`Redis unavailable during account lock check: ${err}`);
+      return; // Fail open — allow login attempt if Redis is unreachable
+    }
     if (locked) {
       throw new UnauthorizedException('Account temporarily locked due to too many failed attempts. Try again later.');
     }
   }
 
   private async resetFailedLogin(email: string): Promise<void> {
-    const key = `login:failed:${email}`;
-    await this.redisService.del(key);
+    try {
+      await this.redisService.del(`login:failed:${email}`);
+    } catch (err) {
+      this.logger.warn(`Failed to reset failed login counter for ${email}: ${err}`);
+    }
   }
 }

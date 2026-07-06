@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { STALE_TIME_TELEGRAM_CONFIG } from '@/lib/constants';
 import type { TelegramSettings, TelegramConfig, TelegramCheckResult } from '@/types';
+import { getErrorMessage } from '@/lib/utils';
 
 export function useTelegramStatus(options?: { enabled?: boolean }) {
   return useQuery({
@@ -28,6 +30,7 @@ export function useGenerateTelegramCode() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-status'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to generate Telegram code')),
   });
 }
 
@@ -41,6 +44,7 @@ export function useUnlinkTelegram() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-status'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to unlink Telegram')),
   });
 }
 
@@ -62,6 +66,7 @@ export function useCheckTelegram() {
       const res = await apiClient.post<ApiEnvelope<TelegramCheckResult>>('/telegram/check', data);
       return unwrapData(res);
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Telegram configuration check failed')),
   });
 }
 
@@ -73,6 +78,7 @@ export function useSendTestNotification() {
       );
       return unwrapData(res);
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to send test notification')),
   });
 }
 
@@ -90,5 +96,6 @@ export function useUpdateTelegramConfig() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-config'] });
     },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to update Telegram configuration')),
   });
 }
