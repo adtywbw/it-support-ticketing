@@ -21,7 +21,7 @@ import { UpdatePriorityDto } from './dto/update-priority.dto';
 import { TicketStatus, Priority, SLAStatus,       CommentType, Prisma } from '@prisma/client';
 import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
-import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
+import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
 import { buildPaginationMeta } from '../common/utils/pagination.util';
 import { appConfig } from '../common/config/app.config';
 
@@ -104,7 +104,7 @@ export class TicketsService {
       sortOrder = 'desc',
     } = queryTicketDto;
 
-    const where: Record<string, unknown> = {};
+    const where: Prisma.TicketWhereInput = {};
 
     if (status) where.status = status;
     if (priority) where.priority = priority;
@@ -114,17 +114,18 @@ export class TicketsService {
     if (slaStatus) where.slaStatus = slaStatus;
 
     if (dateFrom || dateTo) {
-      where.createdAt = {};
+      const createdAtFilter: Prisma.DateTimeFilter = {};
       if (dateFrom) {
         const startDate = new Date(dateFrom);
         startDate.setUTCHours(0, 0, 0, 0);
-        (where.createdAt as Record<string, unknown>).gte = startDate;
+        createdAtFilter.gte = startDate;
       }
       if (dateTo) {
         const endDate = new Date(dateTo);
         endDate.setUTCHours(23, 59, 59, 999);
-        (where.createdAt as Record<string, unknown>).lte = endDate;
+        createdAtFilter.lte = endDate;
       }
+      where.createdAt = createdAtFilter;
     }
 
     if (search) {
@@ -168,13 +169,13 @@ export class TicketsService {
             include,
           })
         : this.ticketRepository.findManyForUser({
-            where: where as Prisma.TicketWhereInput,
+            where,
             skip: limit > 0 ? (page - 1) * limit : 0,
             take: limit > 0 ? limit : undefined,
             orderBy: { [orderField]: sortOrder },
             include,
           }, scope),
-      this.ticketRepository.countForUser(where as Prisma.TicketWhereInput, scope),
+      this.ticketRepository.countForUser(where, scope),
     ]);
 
     if (userRole === 'EndUser' && tickets.length > 0) {
@@ -317,7 +318,7 @@ export class TicketsService {
   }
 
   async findById(id: string, userRole?: string, userId?: string) {
-    const include: Record<string, unknown> = {
+    const include: Prisma.TicketFindUniqueArgs['include'] = {
       requester: { select: { id: true, name: true, email: true, avatarUrl: true } },
       assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
       category: { select: { id: true, name: true } },
@@ -355,7 +356,17 @@ export class TicketsService {
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string, userRole: string) {
-    const context: { ticket?: any; oldStatus?: TicketStatus } = {};
+    const context: {
+      ticket?: {
+        id: string;
+        ticketNumber: string;
+        subject: string;
+        status: TicketStatus;
+        requesterId: string;
+        assignedToId: string | null;
+      };
+      oldStatus?: TicketStatus;
+    } = {};
 
     const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
       const ticket = await tx.ticket.findUnique({ where: { id } });
@@ -422,8 +433,11 @@ export class TicketsService {
       return tx.ticket.findUnique({ where: { id } });
     });
 
-    const ticket = context.ticket;
-    const oldStatus = context.oldStatus;
+    // ticket and oldStatus are set inside the transaction above; the
+    // transaction always succeeds (throws on error), so they are guaranteed
+    // to be populated here.
+    const ticket = context.ticket!;
+    const oldStatus = context.oldStatus!;
 
     this.eventEmitter.emit('ticket.status.updated', {
       ticketId: id,

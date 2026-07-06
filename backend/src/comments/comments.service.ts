@@ -11,7 +11,7 @@ import { CommentRepository } from '../common/repositories/comment.repository';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService, STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
-import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
+import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
 import { buildPaginationMeta } from '../common/utils/pagination.util';
@@ -165,7 +165,7 @@ export class CommentsService {
       throw new ForbiddenException('Access denied');
     }
 
-    const where: Record<string, unknown> = { ticketId };
+    const where: Prisma.CommentWhereInput = { ticketId };
     if (userRole === Role.EndUser) {
       where.type = CommentType.PUBLIC;
     }
@@ -177,7 +177,7 @@ export class CommentsService {
     // For EndUser, push the attachment visibility filter into the Prisma
     // query so DB returns only visible attachments (no in-memory filter,
     // and INTERNAL attachments never leave the DB for EndUser).
-    const attachmentsWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentWhere(userRole as any);
+    const attachmentsWhere = AttachmentVisibilityPolicy.buildVisibleAttachmentWhere(userRole as UserRole);
     const include = attachmentsWhere
       ? {
           user: { select: { id: true, name: true, email: true, role: true, avatarUrl: true } },

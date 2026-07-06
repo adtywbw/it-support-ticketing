@@ -259,8 +259,13 @@ export class SLAService {
       const breached: string[] = [];
 
       for (const ticket of batch) {
-        const slaConfig = (ticket as any).category.slaConfigs.find(
-          (config: any) => config.priority === ticket.priority,
+        const ticketWithConfig = ticket as unknown as {
+          category: {
+            slaConfigs: Array<{ priority: Priority; resolutionTimeMinutes: number }>;
+          };
+        };
+        const slaConfig = ticketWithConfig.category.slaConfigs.find(
+          (config) => config.priority === ticket.priority,
         );
 
         if (!slaConfig || !ticket.slaDueAt) continue;

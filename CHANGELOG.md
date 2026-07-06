@@ -2,6 +2,27 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 33 — Code Review Round 3 Fixes Batch 5 (2026-07-06)
+
+### Fixed (Important)
+- **`users.service.ts` reactivated user `as any`**: Replaced `as any` with `as unknown as Prisma.UserGetPayload<Record<string, never>> & { reactivated: boolean }`.
+- **`sla.service.ts` nested include `as any`**: Replaced `(ticket as any).category.slaConfigs` with `ticket as unknown as { category: { slaConfigs: ... } }`.
+- **`comments.service.ts` `userRole as any`**: Changed to `userRole as UserRole` (with proper `UserRole` import from policy).
+- **`tickets.service.ts.findAll` `Record<string, unknown>`**: Replaced untyped `Record<string, unknown>` with `Prisma.TicketWhereInput` + `Prisma.DateTimeFilter` (same pattern as `exportCsvToResponse` fix from Batch 4).
+
+### Fixed (Minor)
+- **`tickets.service.ts` unused `UserRole` import**: Removed.
+- **`tickets.service.ts` `context.ticket?: any`**: Typed with explicit shape `{ id, ticketNumber, subject, status, requesterId, assignedToId }`.
+- **`tickets.service.ts.findById` `include: Record<string, unknown>`**: Replaced with `Prisma.TicketFindUniqueArgs['include']`.
+- **`comments.service.ts` `where: Record<string, unknown>`**: Replaced with `Prisma.CommentWhereInput`.
+- **`users.service.ts` `data: Record<string, unknown>`**: Replaced with `Prisma.UserUpdateInput`.
+
+### Verification
+- Backend: 752 tests (72 suites) — all passed
+- Frontend: 223 tests (44 suites) — all passed
+- Build: ✅ (backend + frontend)
+- ESLint: **0 errors**, 235 warnings (all in test files; down from 241 after removing 6 remaining `as any`/untyped patterns from production code)
+
 ## Session 32 — Code Review Re-Review Fixes Batch 4 (2026-07-06)
 
 ### Fixed (Critical)

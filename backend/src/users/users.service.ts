@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 import { UserRepository } from '../common/repositories/user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -66,7 +67,7 @@ export class UsersService {
           role: createUserDto.role || 'EndUser',
           isActive: true,
         });
-        return { ...reactivated, reactivated: true } as any;
+        return { ...reactivated, reactivated: true } as unknown as Prisma.UserGetPayload<Record<string, never>> & { reactivated: boolean };
       }
       throw new ConflictException('Email already in use');
     }
@@ -93,7 +94,7 @@ export class UsersService {
       }
     }
 
-    const data: Record<string, unknown> = { ...updateUserDto };
+    const data: Prisma.UserUpdateInput = { ...updateUserDto };
     if (updateUserDto.password) {
       data.password = await bcrypt.hash(updateUserDto.password, 12);
     }
