@@ -251,7 +251,7 @@ Ensure the matching passwords in the least-privilege env files:
 - `backend/.env.db` → `POSTGRES_PASSWORD` must match `backend/.env`
 - `backend/.env.cache` → `REDIS_PASSWORD` must match `backend/.env`
 
-> **Enforced at startup.** When `NODE_ENV=production`, the API refuses to start unless: `JWT_SECRET` is ≥32 characters and not a known weak value, `REDIS_PASSWORD` is set, and `COOKIE_SECURE=true`.
+> **Enforced at startup.** The API refuses to start unless `JWT_SECRET` is set and ≥32 characters (validated in `jwt.config.ts` regardless of `NODE_ENV`). When `NODE_ENV=production`, `REDIS_PASSWORD` must also be set and `COOKIE_SECURE=true`.
 
 ### 2. TLS Options
 
@@ -446,7 +446,7 @@ Frontend uses `unwrapData<T>()` and `unwrapPage<T>()` helpers from `frontend/src
 
 | Service | Image / Build | Port | Restart | Healthcheck | Logging |
 |---------|---------------|------|---------|-------------|---------|
-| frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files |
+| frontend | `frontend/Dockerfile` (target: builder) | — | unless-stopped | — | 10m x 3 files; hardened: `mem_limit: 1g`, `cpus: 2`, `cap_drop: ALL`, `read_only` |
 | nginx | nginx:1.25-alpine | 80 (dev) / 443 (prod override) | unless-stopped | — | 10m x 3 files |
 | api | `backend/Dockerfile` (node:20-bookworm-slim, non-root via entrypoint) | internal 3000; host 127.0.0.1:3000 only with `docker-compose.debug.yml` | unless-stopped | `GET /health` (30s) | 10m x 3 files |
 | db | postgres:16-alpine | — | unless-stopped | `pg_isready` (10s) | 10m x 3 files |
@@ -494,7 +494,7 @@ npm test
 npm run lint
 ```
 
-Backend unit tests (745 tests, 71 suites):
+Backend unit tests (757 tests, 73 suites):
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
@@ -508,7 +508,7 @@ Backend unit tests (745 tests, 71 suites):
 - All 10 repositories — safe select + pagination + where-clause correctness
 - E2E smoke test (9 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401
 
-Frontend tests (222 tests, 44 suites):
+Frontend tests (221 tests, 44 suites):
 - `auth-store` — login, logout, token persistence
 - `ProtectedRoute` — refresh envelope, unauthenticated redirect, role gating
 - `LoginPage` — layout, routed warning message

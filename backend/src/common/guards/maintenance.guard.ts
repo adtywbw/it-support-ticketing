@@ -46,7 +46,7 @@ export class MaintenanceGuard implements CanActivate {
 
     throw new ServiceUnavailableException({
       statusCode: 503,
-      message: cached.message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
+      message: cached.message || 'The system is undergoing maintenance. Please try again later.',
       error: 'Service Unavailable',
       code: 'MAINTENANCE',
     });

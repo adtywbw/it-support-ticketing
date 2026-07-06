@@ -9,14 +9,12 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { TelegramService } from './telegram.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CheckTelegramConfigDto, UpdateTelegramConfigDto } from './dto/telegram-config.dto';
 
 @Controller('telegram')
-@UseGuards(JwtAuthGuard)
 export class TelegramController {
   constructor(private readonly telegramService: TelegramService) {}
 

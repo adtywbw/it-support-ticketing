@@ -33,6 +33,21 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Closed]: [TicketStatus.Open],
 };
 
+/** Shape of a ticket row in the CSV export stream. */
+interface CsvExportTicket {
+  ticketNumber: string;
+  subject: string;
+  status: string;
+  priority: string;
+  category?: { name: string } | null;
+  subCategory?: { name: string } | null;
+  requester?: { name: string } | null;
+  assignedTo?: { name: string } | null;
+  createdAt: Date;
+  resolvedAt?: Date | null;
+  slaStatus?: string | null;
+}
+
 @Injectable()
 export class TicketsService {
   constructor(
@@ -310,7 +325,7 @@ export class TicketsService {
 
         if (batch.length === 0) break;
 
-        for (const ticket of batch as Array<{ ticketNumber: string; subject: string; status: string; priority: string; category?: { name: string } | null; subCategory?: { name: string } | null; requester?: { name: string } | null; assignedTo?: { name: string } | null; createdAt: Date; resolvedAt?: Date | null; slaStatus?: string | null }>) {
+        for (const ticket of batch as CsvExportTicket[]) {
           if (aborted) break;
           const row = [
             ticket.ticketNumber,

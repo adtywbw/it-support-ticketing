@@ -14,7 +14,7 @@ fi
 # Run migrations with retry to avoid tight restart loop on transient DB failures
 max_retries=3
 retry=0
-until gosu node npx --no-install prisma migrate deploy; do
+until gosu node node node_modules/.bin/prisma migrate deploy; do
   retry=$((retry + 1))
   if [ $retry -ge $max_retries ]; then
     echo "Migration failed after $max_retries attempts. Waiting 30s before exit to slow restart loop." >&2

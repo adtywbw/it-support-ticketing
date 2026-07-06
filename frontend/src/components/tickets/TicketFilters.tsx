@@ -144,6 +144,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         value={local.status}
         onChange={(e) => update({ status: e.target.value as TicketStatus | '' })}
         className="input w-auto"
+        aria-label="Status filter"
       >
         {statuses.map((s) => (
           <option key={s.value} value={s.value}>
@@ -156,6 +157,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         value={local.priority}
         onChange={(e) => update({ priority: e.target.value as TicketPriority | '' })}
         className="input w-auto"
+        aria-label="Priority filter"
       >
         {priorities.map((p) => (
           <option key={p.value} value={p.value}>
@@ -168,6 +170,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         value={local.slaStatus}
         onChange={(e) => update({ slaStatus: e.target.value as SLAStatus | '' })}
         className="input w-auto"
+        aria-label="SLA status filter"
       >
         {slaStatuses.map((s) => (
           <option key={s.value} value={s.value}>
@@ -180,6 +183,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         value={local.categoryId}
         onChange={(e) => update({ categoryId: e.target.value })}
         className="input w-auto"
+        aria-label="Category filter"
       >
         <option value="">All Categories</option>
         {categories?.map((cat) => (
@@ -193,6 +197,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         value={local.datePreset}
         onChange={(e) => handleDatePresetChange(e.target.value as DatePreset)}
         className="input w-auto"
+        aria-label="Date range filter"
       >
         {datePresetOptions.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -209,7 +214,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
             onChange={(e) => update({ startDate: e.target.value })}
             max={local.endDate || undefined}
             className="input w-auto"
-            title="Start date"
+            aria-label="Start date"
           />
           <input
             type="date"
@@ -217,7 +222,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
             onChange={(e) => update({ endDate: e.target.value })}
             min={local.startDate || undefined}
             className="input w-auto"
-            title="End date"
+            aria-label="End date"
           />
         </>
       )}

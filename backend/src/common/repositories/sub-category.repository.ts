@@ -27,8 +27,8 @@ export class SubCategoryRepository {
     return this.prisma.subCategory.findUnique(args);
   }
 
-  async findUnique<T extends Prisma.SubCategoryFindUniqueArgs>(args: T): Promise<Prisma.SubCategoryGetPayload<T> | null> {
-    return this.prisma.subCategory.findUnique(args) as unknown as Prisma.SubCategoryGetPayload<T> | null;
+  async findUnique<T extends Prisma.SubCategoryFindUniqueArgs>(args: T) {
+    return this.prisma.subCategory.findUnique(args);
   }
 
   async findByCategoryAndName(categoryId: string, name: string) {

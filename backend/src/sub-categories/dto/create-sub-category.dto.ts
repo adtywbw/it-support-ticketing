@@ -1,12 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsString, IsOptional, MaxLength, IsNotEmpty } from 'class-validator';
-
-const trimString = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
-const trimOptionalString = ({ value }: { value: unknown }) => {
-  if (typeof value !== 'string') return value;
-  const trimmed = value.trim();
-  return trimmed === '' ? undefined : trimmed;
-};
+import { trimString, trimOptionalString } from '../../common/utils/transform.util';
 
 export class CreateSubCategoryDto {
   @Transform(trimString)

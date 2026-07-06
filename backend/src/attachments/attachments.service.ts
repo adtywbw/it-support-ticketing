@@ -196,7 +196,12 @@ export class AttachmentsService {
         ticket: { select: { requesterId: true } },
         comment: { select: { type: true } },
       },
-    });
+    }) as Prisma.AttachmentGetPayload<{
+      include: {
+        ticket: { select: { requesterId: true } };
+        comment: { select: { type: true } };
+      };
+    }> | null;
 
     if (!attachment) {
       throw new NotFoundException('Attachment not found');

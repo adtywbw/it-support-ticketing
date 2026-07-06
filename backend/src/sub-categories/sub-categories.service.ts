@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 
@@ -80,7 +81,9 @@ export class SubCategoriesService {
     const subCategory = await this.subCategoryRepository.findUnique({
       where: { id },
       include: { _count: { select: { tickets: true } } },
-    });
+    }) as Prisma.SubCategoryGetPayload<{
+      include: { _count: { select: { tickets: true } } };
+    }> | null;
 
     if (!subCategory) {
       throw new NotFoundException('Sub-category not found');

@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNotificationStore } from '@/stores/notification-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { useLogout } from '@/hooks/use-auth';
-import { formatRelativeTime, getUserDisplayName } from '@/lib/utils';
+import { formatRelativeTime, getErrorMessage, getUserDisplayName } from '@/lib/utils';
 import { STALE_TIME_NOTIFICATION_DROPDOWN } from '@/lib/constants';
 import Avatar from '@/components/ui/Avatar';
 import type { Notification } from '@/types';
@@ -30,7 +31,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const { data } = useQuery({
+  const { data, isError: isNotifError } = useQuery({
     queryKey: ['notifications', 'dropdown'],
     enabled: notifOpen,
     staleTime: STALE_TIME_NOTIFICATION_DROPDOWN,
@@ -65,10 +66,15 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
 
   const handleNotificationClick = (notif: Notification) => {
     if (!notif.isRead) {
-      markAsRead.mutate(notif.id);
+      markAsRead.mutate(notif.id, {
+        onError: (err) => toast.error(getErrorMessage(err, 'Failed to mark notification as read')),
+      });
     }
     setNotifOpen(false);
-    const ticketId = notif.data && 'ticketId' in notif.data ? (notif.data as Record<string, string>).ticketId : null;
+    const ticketId =
+      notif.data && typeof notif.data === 'object' && 'ticketId' in notif.data
+        ? String((notif.data as Record<string, unknown>).ticketId)
+        : null;
     if (ticketId) {
       navigate(`/tickets/${ticketId}`);
     }
@@ -126,7 +132,9 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 <p className="text-sm font-semibold text-navy-950 dark:text-blue-50">Notifications</p>
               </div>
               <div className="max-h-80 overflow-y-auto">
-                {!data || data.length === 0 ? (
+                {isNotifError ? (
+                  <p className="px-4 py-6 text-center text-sm text-red-500 dark:text-red-400">Failed to load notifications</p>
+                ) : !data || data.length === 0 ? (
                   <p className="px-4 py-6 text-center text-sm text-navy-500 dark:text-blue-300">No notifications</p>
                 ) : (
                   data.map((notif) => (
@@ -155,7 +163,9 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 </button>
                 {data && data.length > 0 && (
                   <button
-                    onClick={() => clearAll.mutate()}
+                    onClick={() => clearAll.mutate(undefined, {
+                      onError: (err) => toast.error(getErrorMessage(err, 'Failed to clear notifications')),
+                    })}
                     disabled={clearAll.isPending}
                     className="w-full rounded-lg py-1.5 text-center text-sm text-navy-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-navy-800/60"
                   >
@@ -164,7 +174,9 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 )}
                 {data && data.some((n) => !n.isRead) && (
                   <button
-                    onClick={() => markAllAsRead.mutate()}
+                    onClick={() => markAllAsRead.mutate(undefined, {
+                      onError: (err) => toast.error(getErrorMessage(err, 'Failed to mark all as read')),
+                    })}
                     disabled={markAllAsRead.isPending}
                     className="w-full rounded-lg py-1.5 text-center text-sm text-navy-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-navy-800/60"
                   >

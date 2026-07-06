@@ -8,7 +8,7 @@ export default function MaintenanceBanner() {
 
   if (!maintenance?.enabled) return null;
 
-  const message = maintenance.message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.';
+  const message = maintenance.message || 'The system is undergoing maintenance. Please try again later.';
 
   if (user?.role !== 'Admin') {
     return (
@@ -19,7 +19,7 @@ export default function MaintenanceBanner() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-white">Sistem Dalam Pemeliharaan</h2>
+          <h2 className="text-xl font-bold text-white">System Under Maintenance</h2>
           <p className="mt-2 text-sm text-blue-200">{message}</p>
         </div>
       </div>

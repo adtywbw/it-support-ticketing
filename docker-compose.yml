@@ -8,6 +8,20 @@ services:
     volumes:
       - frontend_dist:/export
     command: sh -c "cp -r /app/dist/. /export/. && exec tail -f /dev/null"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp
     logging:
       driver: "json-file"
       options:

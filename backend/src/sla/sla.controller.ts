@@ -16,7 +16,6 @@ import { CreateSlaConfigDto } from './dto/create-sla-config.dto';
 import { UpdateSlaConfigDto } from './dto/update-sla-config.dto';
 
 @Controller('sla-configs')
-@UseGuards(JwtAuthGuard)
 export class SLAController {
   constructor(private readonly slaService: SLAService) {}
 

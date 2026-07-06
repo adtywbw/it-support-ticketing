@@ -12,12 +12,10 @@ import { Role } from '@prisma/client';
 import { SubCategoriesService } from './sub-categories.service';
 import { CreateSubCategoryDto } from './dto/create-sub-category.dto';
 import { UpdateSubCategoryDto } from './dto/update-sub-category.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('categories/:categoryId/sub-categories')
-@UseGuards(JwtAuthGuard)
 export class SubCategoriesController {
   constructor(
     private readonly subCategoriesService: SubCategoriesService,

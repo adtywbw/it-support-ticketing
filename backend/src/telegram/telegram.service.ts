@@ -356,9 +356,11 @@ export class TelegramService
       // token leakage to the frontend (e.g., DNS failures may include the
       // full request URL in the error message on some Node.js versions).
       const rawMessage = err instanceof Error ? err.message : '';
-      result.bot.error = rawMessage
-        ? rawMessage.replaceAll(token, '<token>')
-        : 'Failed to connect to Telegram API';
+      const redacted = rawMessage
+        ? rawMessage.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '<token>')
+            .replace(/https:\/\/api\.telegram\.org\/bot[^/\s?]+/g, 'https://api.telegram.org/bot<token>')
+        : '';
+      result.bot.error = redacted || 'Failed to connect to Telegram API';
     }
 
     if (groupChatId) {
@@ -398,9 +400,11 @@ export class TelegramService
         }
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : '';
-        result.groupChat.error = rawMessage
-          ? rawMessage.replace(token, '<token>')
-          : 'Failed to verify group chat';
+        const redacted = rawMessage
+          ? rawMessage.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '<token>')
+              .replace(/https:\/\/api\.telegram\.org\/bot[^/\s?]+/g, 'https://api.telegram.org/bot<token>')
+          : '';
+        result.groupChat.error = redacted || 'Failed to verify group chat';
       }
     }
 

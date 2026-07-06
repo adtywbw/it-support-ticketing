@@ -32,7 +32,13 @@ export function getEventsForRole(role: Role): { event: string; label: string }[]
 }
 
 export function isEventEnabled(prefs: unknown, event: string): boolean {
-  if (prefs === null || typeof prefs !== 'object' || Array.isArray(prefs)) {
+  // null/undefined/absent means all events enabled (fail-open default).
+  if (prefs === null || prefs === undefined) {
+    return true;
+  }
+  // Arrays are not valid notification preference objects — treat as invalid
+  // and fall back to all-enabled.
+  if (Array.isArray(prefs) || typeof prefs !== 'object') {
     return true;
   }
   return (prefs as Record<string, unknown>)[event] !== false;

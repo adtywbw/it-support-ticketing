@@ -1,8 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsString, IsNotEmpty, IsInt, IsBoolean, IsOptional, Min, MaxLength } from 'class-validator';
-
-const trimString = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+import { trimString } from '../../common/utils/transform.util';
 
 export class CreateFaqDto {
   @Transform(trimString)

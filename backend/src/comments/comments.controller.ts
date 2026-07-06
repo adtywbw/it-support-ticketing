@@ -5,7 +5,6 @@ import {
   Param,
   Body,
   Query,
-  UseGuards,
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
@@ -13,7 +12,6 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Role, CommentType } from '@prisma/client';
 import { CommentsService } from './comments.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -24,7 +22,6 @@ const MAX_FILE_SIZE = appConfig.fileUpload.maxCommentFileSize;
 const MAX_FILES_PER_COMMENT = appConfig.fileUpload.maxFilesPerComment;
 
 @Controller('tickets/:ticketId/comments')
-@UseGuards(JwtAuthGuard)
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 

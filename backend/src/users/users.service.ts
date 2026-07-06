@@ -12,6 +12,9 @@ import { UserRepository } from '../common/repositories/user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+/** Return type when an inactive user is reactivated via create(). */
+type ReactivatedUser = Prisma.UserGetPayload<Record<string, never>> & { reactivated: boolean };
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -68,7 +71,10 @@ export class UsersService {
           role: createUserDto.role || 'EndUser',
           isActive: true,
         });
-        return { ...reactivated, reactivated: true } as unknown as Prisma.UserGetPayload<Record<string, never>> & { reactivated: boolean };
+        return {
+          ...reactivated,
+          reactivated: true,
+        } as ReactivatedUser;
       }
       throw new ConflictException('Email already in use');
     }

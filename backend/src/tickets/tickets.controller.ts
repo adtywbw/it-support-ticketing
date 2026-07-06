@@ -19,13 +19,11 @@ import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('tickets')
-@UseGuards(JwtAuthGuard)
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
 

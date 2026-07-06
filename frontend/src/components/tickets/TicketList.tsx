@@ -206,7 +206,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                           onChange={(e) =>
                             updatePriorityMutation.mutate(
                               { id: ticket.id, priority: e.target.value as TicketPriority },
-                              { onError: (err) => { toast.error(getErrorMessage(err, 'Failed to update priority')); refetch(); } },
+                              { onError: (err) => toast.error(getErrorMessage(err, 'Failed to update priority')) },
                             )
                           }
                           disabled={updatePriorityMutation.isPending}
@@ -234,7 +234,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                             if (id !== (ticket.assignedToId ?? null)) {
                               assignMutation.mutate(
                                 { id: ticket.id, assignedToId: id },
-                                { onError: (err) => { toast.error(getErrorMessage(err, 'Failed to assign ticket')); refetch(); } },
+                                { onError: (err) => toast.error(getErrorMessage(err, 'Failed to assign ticket')) },
                               );
                             }
                           }}

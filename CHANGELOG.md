@@ -2,6 +2,74 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 40 — Code Review Final Round: Comprehensive Quality & Security Hardening (2026-07-06)
+
+### Fixed (Critical)
+- **Missing rate limit on `POST /api/auth/refresh`**: Refresh endpoint had no specific throttle, exposing it to brute-force of leaked refresh tokens. Added `@Throttle({ default: { limit: 5, ttl: 60000 } })` matching the login endpoint. (`auth.controller.ts`)
+- **`useFileUpload` preview URL sync bug**: Blob URLs were created in a deferred `useEffect` but consumed in a `useMemo` that ran before the effect, causing previews to be one render behind and briefly showing broken `<img src="">`. Rewrote hook to create blob URLs **synchronously** in `createFilePreview()` factory, storing them in state alongside files. Removed the `useRef`/`useEffect`/`useMemo` dance entirely. (`use-file-upload.ts`)
+- **Telegram bot token leak in error messages**: `replaceAll(token, '<token>')` missed percent-encoded URLs and only redacted the raw token string. Replaced with regex-based redaction that escapes regex special chars AND strips the full `https://api.telegram.org/bot<token>` API URL pattern. (`telegram.service.ts`)
+
+### Fixed (Important)
+- **`as unknown as` casts in `AttachmentRepository` and `SubCategoryRepository`**: Both repositories used `as unknown as Prisma.GetPayload<T>` casts, bypassing TypeScript safety (contradicting AGENTS.md §Session 36 which claimed all such casts were removed). Replaced with proper `Prisma.GetPayload<>` annotations at call sites. Added `Prisma` import to `sub-categories.service.ts`. (`attachment.repository.ts`, `sub-category.repository.ts`, `attachments.service.ts`, `sub-categories.service.ts`)
+- **Duplicate `trimString` in 5 DTO files**: `create-user.dto.ts`, `create-faq.dto.ts`, `create-sub-category.dto.ts`, `create-category.dto.ts`, and `restore-backup.dto.ts` each defined an identical local `trimString` function. Extracted `trimOptionalString` to shared `transform.util.ts` and imported from there. (`transform.util.ts`, 5 DTO files)
+- **Redundant `@UseGuards(JwtAuthGuard)` on 9 controllers**: `JwtAuthGuard` is a global `APP_GUARD` in `app.module.ts`, yet 9 controllers duplicated `@UseGuards(JwtAuthGuard)` at class level, creating a redundant guard instance that double-verified every JWT. Removed and cleaned up unused imports. (9 controller files)
+- **Unsafe type assertion in CSV export loop**: `batch as Array<{...}>` bypassed TypeScript safety. Defined explicit `CsvExportTicket` interface and typed the cast against it. (`tickets.service.ts`)
+- **`isEventEnabled()` returned `true` for arrays**: Malformed `notificationPreferences` arrays were treated as "all events enabled" instead of invalid. Added explicit `undefined` check. (`notification-preference.util.ts`)
+- **Navbar unsafe type cast + missing error handlers**: `notif.data` was cast `as Record<string, string>` without type narrowing. Mutations (`clearAll`, `markAllAsRead`, `handleNotificationClick`) lacked `onError` handlers. Notifications dropdown query had no error state. Fixed with proper narrowing, `toast.error()` handlers, and error state display. (`Navbar.tsx`)
+- **TicketFilters selects missing `aria-label`**: 5 `<select>` filters and 2 custom date inputs had no accessible labels. Added `aria-label` attributes. (`TicketFilters.tsx`)
+- **TicketList mutation `onError` calls `refetch()`**: Priority and assign mutations called `refetch()` inside `onError`, creating a rapid retry loop on server degradation. Removed `refetch()` — list is invalidated on mutation success anyway. (`TicketList.tsx`)
+- **Frontend container lacks security hardening**: Unlike all other services, the `frontend` service had no `mem_limit`, `cpus`, `pids_limit`, `cap_drop`, `read_only`, `security_opt`, or `tmpfs`. Added matching hardening. (`docker-compose.yml`)
+
+### Fixed (Minor)
+- **Hardcoded Indonesian maintenance messages**: Backend `maintenance.guard.ts` and frontend `MaintenanceBanner.tsx` had Indonesian fallback messages (`System sedang dalam pemeliharaan`). Changed to English. (`maintenance.guard.ts`, `MaintenanceBanner.tsx`)
+- **Missing runtime `JWT_SECRET` validation**: `jwt.config.ts` used `process.env.JWT_SECRET!` with no runtime check — a missing env var would produce the string `"undefined"` as the secret. Added startup validation requiring ≥32 chars. (`jwt.config.ts`)
+- **`users.service.ts` `as unknown as` cast for reactivated user**: Replaced with typed intersection type `ReactivatedUser`. (`users.service.ts`)
+- **`docker-entrypoint.sh` uses `npx --no-install`**: If the local prisma binary is absent, `--no-install` would fail the migration retry loop. Changed to `node node_modules/.bin/prisma`. (`docker-entrypoint.sh`)
+
+### Changed
+- **`useFileUpload` hook internals**: The hook no longer uses `useRef` or `useEffect` for blob URL management. Blob URLs are created synchronously on file add and stored in state. Consumers of the `previewUrls` return value are unaffected. (`use-file-upload.ts`)
+- **`transform.util.ts`**: New export `trimOptionalString` for optional string fields that should be `undefined` on blank input.
+- **`jwt.config.ts`**: Startup now requires `JWT_SECRET` to be set and ≥32 characters. Previously, a missing secret would silently use the string `"undefined"`.
+
+### Files Changed
+- `backend/src/auth/auth.controller.ts` — added `@Throttle` to refresh
+- `backend/src/common/config/jwt.config.ts` — runtime JWT_SECRET validation
+- `backend/src/common/guards/maintenance.guard.ts` — English message
+- `backend/src/common/repositories/attachment.repository.ts` — removed `as unknown as`
+- `backend/src/common/repositories/sub-category.repository.ts` — removed `as unknown as`
+- `backend/src/common/utils/notification-preference.util.ts` — array handling
+- `backend/src/common/utils/transform.util.ts` — added `trimOptionalString`
+- `backend/src/telegram/telegram.service.ts` — regex token redaction
+- `backend/src/tickets/tickets.service.ts` — `CsvExportTicket` interface
+- `backend/src/users/users.service.ts` — `ReactivatedUser` type
+- `backend/src/sub-categories/sub-categories.service.ts` — explicit payload type + Prisma import
+- `backend/src/attachments/attachments.service.ts` — explicit payload type
+- `backend/src/users/dto/create-user.dto.ts` — import `trimString`
+- `backend/src/faqs/dto/create-faq.dto.ts` — import `trimString`
+- `backend/src/sub-categories/dto/create-sub-category.dto.ts` — import `trimString`
+- `backend/src/categories/dto/create-category.dto.ts` — import `trimString`
+- `backend/src/maintenance/dto/restore-backup.dto.ts` — import `trimString`
+- `backend/src/faqs/faqs.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)`
+- `backend/src/tickets/tickets.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)`
+- `backend/src/categories/categories.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)`
+- `backend/src/comments/comments.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)` + `UseGuards`
+- `backend/src/telegram/telegram.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)`
+- `backend/src/sub-categories/sub-categories.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)`
+- `backend/src/attachments/attachments.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)` + `UseGuards`
+- `backend/src/sla/sla.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)`
+- `backend/src/notifications/notifications.controller.ts` — removed redundant `@UseGuards(JwtAuthGuard)` + `UseGuards`
+- `backend/docker-entrypoint.sh` — `npx --no-install` → `node node_modules/.bin/prisma`
+- `frontend/src/hooks/use-file-upload.ts` — synchronous blob URLs
+- `frontend/src/layout/Navbar.tsx` — safe types, error handlers, error state
+- `frontend/src/components/tickets/TicketFilters.tsx` — `aria-label` attributes
+- `frontend/src/components/tickets/TicketList.tsx` — removed `refetch()` from `onError`
+- `frontend/src/components/MaintenanceBanner.tsx` — English messages
+- `docker-compose.yml` — frontend resource constraints
+
+### Verification
+- Backend: build ✅, tests 757/757 ✅, TS no errors ✅, lint 0 errors
+- Frontend: build ✅, tests 221/221 ✅, TS no errors ✅, lint 0 errors
+
 ## Session 39 — Code Review Fix Round 6: Audit Trail, Export Resilience, Frontend Stability (2026-07-06)
 
 ### Fixed (Critical)

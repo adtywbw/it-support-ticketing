@@ -6,17 +6,14 @@ import {
   Param,
   Query,
   Body,
-  UseGuards,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { NotificationsService } from './notifications.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { QueryNotificationsDto } from '../common/dto/pagination-query.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 
 @Controller('notifications')
-@UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,

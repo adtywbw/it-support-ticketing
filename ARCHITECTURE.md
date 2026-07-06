@@ -497,9 +497,9 @@ it-support-ticketing/
 - The API runtime uses a Debian/bookworm-slim Node image to avoid native-module and Prisma engine compatibility issues. Supporting services and the frontend static build/export path intentionally use Alpine-based images where the current Compose/Dockerfiles already specify them (`nginx:alpine`, `postgres:16-alpine`, `redis:7-alpine`, and the frontend builder/runtime image).
 
 ### Database Migration
-- The container's entry point (`docker-entrypoint.sh`) runs `npx --no-install prisma migrate deploy` with a 3-retry loop (10s delay between attempts, 30s sleep before final exit) before starting the app.
+- The container's entry point (`docker-entrypoint.sh`) runs `node node_modules/.bin/prisma migrate deploy` with a 3-retry loop (10s delay between attempts, 30s sleep before final exit) before starting the app.
   - `migrate deploy` applies pending migrations (versioned, rollbackable). Safer than `db push` for production — no accidental data loss.
-  - `--no-install` ensures the CLI is not downloaded at runtime; `prisma` is a runtime dependency in `package.json`.
+  - Uses the local `node_modules/.bin/prisma` binary directly rather than `npx`, ensuring deterministic resolution even if the npm cache is absent.
   - The retry loop prevents tight restart loops on transient DB failures (e.g., DB not yet ready on first boot).
   - **Initial migration** `20260623000000_init` was generated via `prisma migrate diff --from-empty --to-schema-datamodel` and marked as applied with `prisma migrate resolve --applied`.
 - All migration files are stored in `prisma/migrations/` and tracked in version control.
@@ -623,7 +623,7 @@ it-support-ticketing/
 - **DTO input validation**: `CreateTicketDto` and `CreateCommentDto` use `@Transform(trimString)` + `@IsNotEmpty()` + `@MinLength()` so direct API clients cannot submit whitespace-only or too-short text payloads. `ValidationPipe` is enabled globally with `whitelist` and `forbidNonWhitelisted`.
 
 ### Infrastructure Security
-- **Docker hardening**: `no-new-privileges`, `cap_drop: ALL` with minimal `cap_add`, `mem_limit`, `cpus`, `pids_limit`, and `init: true` on all services.
+- **Docker hardening**: `no-new-privileges`, `cap_drop: ALL` with minimal `cap_add`, `mem_limit`, `cpus`, `pids_limit`, `read_only`, `tmpfs`, and `init: true` on all services.
 - **Least-privilege env**: `backend/.env.db` (DB only), `backend/.env.cache` (Redis only), `backend/.env` (API full set).
 - **Nginx**: CSP, security headers repeated per location block (add_header inheritance), `default_server` for unmatched Host, dotfile deny.
 - **Secret hygiene**: `.env` permission `600`, `.gitignore` covers `.env.*`, strong credentials via `openssl rand`.

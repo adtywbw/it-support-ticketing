@@ -28,12 +28,12 @@ export class AttachmentRepository {
     });
   }
 
-  async findById<T extends Prisma.AttachmentFindUniqueArgs>(args: T): Promise<Prisma.AttachmentGetPayload<T> | null> {
-    return this.prisma.attachment.findUnique(args) as unknown as Prisma.AttachmentGetPayload<T> | null;
+  async findById<T extends Prisma.AttachmentFindUniqueArgs>(args: T) {
+    return this.prisma.attachment.findUnique(args);
   }
 
-  async findUnique<T extends Prisma.AttachmentFindUniqueArgs>(args: T): Promise<Prisma.AttachmentGetPayload<T> | null> {
-    return this.prisma.attachment.findUnique(args) as unknown as Prisma.AttachmentGetPayload<T> | null;
+  async findUnique<T extends Prisma.AttachmentFindUniqueArgs>(args: T) {
+    return this.prisma.attachment.findUnique(args);
   }
 
   async count(where: Prisma.AttachmentWhereInput) {

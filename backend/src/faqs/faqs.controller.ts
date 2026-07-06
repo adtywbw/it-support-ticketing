@@ -3,13 +3,11 @@ import { Role } from '@prisma/client';
 import { FaqsService } from './faqs.service';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
 
 @Controller('faqs')
-@UseGuards(JwtAuthGuard)
 export class FaqsController {
   constructor(private readonly faqsService: FaqsService) {}
 

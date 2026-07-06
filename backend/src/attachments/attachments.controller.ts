@@ -5,7 +5,6 @@ import {
   Param,
   Query,
   Body,
-  UseGuards,
   UseInterceptors,
   UploadedFile,
   Res,
@@ -16,7 +15,6 @@ import { Response } from 'express';
 import { createReadStream } from 'fs';
 import * as fs from 'fs/promises';
 import { AttachmentsService } from './attachments.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UploadAttachmentDto } from './dto/upload-attachment.dto';
@@ -26,7 +24,6 @@ import { appConfig } from '../common/config/app.config';
 const MAX_FILE_SIZE = appConfig.fileUpload.maxDirectFileSize;
 
 @Controller()
-@UseGuards(JwtAuthGuard)
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 

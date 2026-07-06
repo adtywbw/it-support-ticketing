@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { ALLOWED_MIME_TYPES, MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
 
 export interface UseFileUploadOptions {
@@ -19,6 +19,19 @@ export interface UseFileUploadReturn {
   totalSize: number;
 }
 
+/** A file paired with its synchronous blob preview URL. */
+interface FileEntry {
+  file: File;
+  url: string;
+  revoke: () => void;
+}
+
+/** Creates a blob URL for a File, returning both the URL and a revoke function. */
+function createFilePreview(file: File): FileEntry {
+  const url = URL.createObjectURL(file);
+  return { file, url, revoke: () => URL.revokeObjectURL(url) };
+}
+
 export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUploadReturn {
   const {
     maxFiles = 3,
@@ -26,26 +39,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     allowedMimeTypes = ALLOWED_MIME_TYPES,
   } = options;
 
-  const [files, setFiles] = useState<File[]>([]);
+  const [entries, setEntries] = useState<FileEntry[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
-  const urlsToRevoke = useRef<string[]>([]);
 
-  useEffect(() => {
-    urlsToRevoke.current.forEach((url) => URL.revokeObjectURL(url));
-    const newUrls = files.map((file) => URL.createObjectURL(file));
-    urlsToRevoke.current = newUrls;
-  }, [files]);
-
-  useEffect(() => {
-    return () => {
-      urlsToRevoke.current.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, []);
-
-  const previewUrls = useMemo(
-    () => files.map((_, i) => urlsToRevoke.current[i] ?? ''),
-    [files],
-  );
+  const files = useMemo(() => entries.map((e) => e.file), [entries]);
+  const previewUrls = useMemo(() => entries.map((e) => e.url), [entries]);
 
   const totalSize = useMemo(
     () => files.reduce((sum, file) => sum + file.size, 0),
@@ -70,23 +68,28 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     (newFiles: FileList | File[]) => {
       const fileArray = Array.from(newFiles);
       const newErrors: string[] = [];
-      const validFiles: File[] = [];
+      const newEntries: FileEntry[] = [];
 
       for (const file of fileArray) {
         const error = validateFile(file);
         if (error) {
           newErrors.push(error);
         } else {
-          validFiles.push(file);
+          newEntries.push(createFilePreview(file));
         }
       }
 
       setErrors(newErrors);
 
-      if (validFiles.length > 0) {
-        setFiles((prev) => {
-          const combined = [...prev, ...validFiles];
-          return combined.slice(0, maxFiles);
+      if (newEntries.length > 0) {
+        setEntries((prev) => {
+          // Revoke entries that will be trimmed off
+          const combined = [...prev, ...newEntries];
+          const trimmed = combined.slice(0, maxFiles);
+          if (trimmed.length < combined.length) {
+            combined.slice(maxFiles).forEach((e) => e.revoke());
+          }
+          return trimmed;
         });
       }
     },
@@ -94,16 +97,23 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
   );
 
   const removeFile = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setEntries((prev) => {
+      const entry = prev[index];
+      if (entry) entry.revoke();
+      return prev.filter((_, i) => i !== index);
+    });
     setErrors([]);
   }, []);
 
   const clearFiles = useCallback(() => {
-    setFiles([]);
+    setEntries((prev) => {
+      prev.forEach((e) => e.revoke());
+      return [];
+    });
     setErrors([]);
   }, []);
 
-  const isOverLimit = files.length >= maxFiles;
+  const isOverLimit = entries.length >= maxFiles;
 
   return {
     files,
