@@ -88,6 +88,8 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - Login page uses an Enterprise Portal / Support Assist layout with compact sign-in form, support cards, and FAQ panel
 
 ### Security
+- **CSRF protection** via `X-Requested-With` custom header check on all state-changing requests (enforced by `CsrfGuard`, registered as first global guard)
+- **Device fingerprint** binding for refresh tokens (SHA-256 of User-Agent + client IP) — stolen tokens revoked on fingerprint mismatch
 - JWT auth (access in-memory + refresh httpOnly cookie), bcrypt cost 12, account lockout, role-based access control
 - EndUser ownership-scoped: own tickets/comments/attachments only; internal comments/attachments hidden
 - File upload: extension whitelist, magic-byte MIME validation (with Office container compatibility), path traversal prevention, size limits
@@ -430,7 +432,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 
 ## API Response Format
 
-All success responses are wrapped in `{ data, meta? }` envelope by `TransformInterceptor` (global). Stream/CSV/blob responses are excluded.
+All success responses are wrapped in `{ data, meta? }` envelope by `TransformInterceptor` (global). Stream/CSV/blob responses are excluded. DELETE endpoints returning `void` produce `{ data: null }`.
 
 ```json
 // Success
@@ -486,7 +488,7 @@ npm run test
 
 # Backend E2E tests (requires docker compose up -d)
 cd backend
-npm run test:e2e
+E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2e
 
 # Frontend tests + lint (zero warnings policy)
 cd frontend
@@ -494,7 +496,7 @@ npm test
 npm run lint
 ```
 
-Backend unit tests (756 tests, 72 suites):
+Backend unit tests (757 tests, 72 suites):
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
