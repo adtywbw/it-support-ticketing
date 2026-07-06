@@ -48,14 +48,14 @@ vi.mock('@/hooks/use-telegram', () => ({
   })),
 }));
 
-import { useTelegramStatus, useTelegramConfig, useGenerateTelegramCode } from '@/hooks/use-telegram';
+import { useTelegramStatus, useTelegramConfig } from '@/hooks/use-telegram';
 
 describe('TelegramConfigSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMutateAsync.mockResolvedValue(undefined);
-    vi.mocked(useTelegramStatus).mockReturnValue(telegramStatusData);
-    vi.mocked(useTelegramConfig).mockReturnValue(telegramConfigData);
+    (vi.mocked(useTelegramStatus) as any).mockReturnValue(telegramStatusData);
+    (vi.mocked(useTelegramConfig) as any).mockReturnValue(telegramConfigData);
     mockGenerateMutateAsync.mockResolvedValue({ code: 'ABC123' });
     mockCheckMutateAsync.mockResolvedValue({
       bot: { valid: true, username: 'TestBot' },
@@ -102,7 +102,7 @@ describe('TelegramConfigSection', () => {
 
   describe('when linked', () => {
     beforeEach(() => {
-      vi.mocked(useTelegramStatus).mockReturnValue({
+      (vi.mocked(useTelegramStatus) as any).mockReturnValue({
         data: { linked: true },
         isLoading: false,
       });
