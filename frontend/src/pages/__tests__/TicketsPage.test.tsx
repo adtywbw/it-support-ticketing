@@ -3,7 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TicketsPage from '../TicketsPage';
 import { useAuthStore } from '@/stores/auth-store';
-import { getErrorMessage } from '@/lib/utils';
 
 vi.mock('@/components/tickets/TicketList', () => ({
   default: ({ filters, onFiltersChange, page, onPageChange, onLimitChange }: any) => (

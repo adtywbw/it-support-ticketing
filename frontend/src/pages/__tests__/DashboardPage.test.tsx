@@ -3,8 +3,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from '../DashboardPage';
 
-const mockSetRange = vi.fn();
-
 vi.mock('@/components/dashboard/DashboardStats', () => ({
   default: ({ range }: any) => (
     <div data-testid="dashboard-stats">
