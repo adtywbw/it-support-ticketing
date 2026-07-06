@@ -139,6 +139,7 @@ postgres/postgresql.conf
 - EndUser sees only PUBLIC direct attachments and attachments from PUBLIC comments.
 - ITSupport/Admin can access dashboard and operational ticket workflows.
 - `updateStatus()` is atomic: conditional `updateMany({ where: { id, status: oldStatus } })` → 409 Conflict on race.
+- `delete()` preserves audit trail: Instead of deleting all `TicketHistory`, it inserts a terminal entry (`field: "status"`, `newValue: "Deleted"`) recording who deleted the ticket and when. The caller must supply `userId` (`deletedBy`). Related records (comments, attachments) are still deleted; the single history entry survives as the forensic trace.
 - Notification preferences: users can disable in-app notifications per event type. The toggle set is role-scoped (`notification-preference.util.ts`). `null`/absent prefs = all on. Filter applied at creation in `NotificationsService` handlers — unread-count, list queries, and WebSocket gateway stay untouched.
 - Ticket mutation events: `ticket.created`, `ticket.status.updated`, `ticket.assigned`, `ticket.priority.updated`, `ticket.deleted` are emitted via `EventEmitter2`. `DashboardService` listens to all five and invalidates its Redis cache (`dashboard:stats:v2:*` via `deleteByPattern`) so stats stay fresh without waiting for the 30s TTL.
 

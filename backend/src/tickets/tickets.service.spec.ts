@@ -832,6 +832,8 @@ describe('TicketsService', () => {
       return {
         write: jest.fn(),
         end: jest.fn(),
+        on: jest.fn(),
+        writableEnded: false,
       } as any;
     }
 

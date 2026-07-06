@@ -131,7 +131,15 @@ export class TelegramService
     this.pollTimeout = setTimeout(() => this.pollLoop(token, offset, generation), delay);
   }
 
-  private async handleUpdate(token: string, update: any) {
+  private async handleUpdate(
+    token: string,
+    update: {
+      message?: {
+        text?: string;
+        chat: { id: number };
+      };
+    },
+  ) {
     const msg = update.message;
     if (!msg?.text) return;
 

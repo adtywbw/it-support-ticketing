@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useTickets, useUpdateTicketPriority, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
@@ -96,10 +96,17 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
 
   const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);
 
+  // Use a ref for onPageChange to avoid re-running the effect when the
+  // callback identity changes (e.g., when the parent passes an inline arrow
+  // function or neglects useCallback). This prevents an infinite re-render
+  // loop where the effect triggers a state change that recreates the callback.
+  const onPageChangeRef = useRef(onPageChange);
+  onPageChangeRef.current = onPageChange;
+
   useEffect(() => {
     const totalPages = data?.meta?.totalPages ?? (data?.meta ? Math.ceil(data.meta.total / (data.meta.limit || limit || 10)) || 1 : 1);
-    if (page > totalPages) onPageChange(totalPages || 1);
-  }, [limit, data?.meta, onPageChange, page]);
+    if (page > totalPages) onPageChangeRef.current(totalPages || 1);
+  }, [limit, data?.meta, page]);
 
   if (isLoading) {
     return (

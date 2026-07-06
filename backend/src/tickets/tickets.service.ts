@@ -261,10 +261,16 @@ export class TicketsService {
 
     let totalExported = 0;
     let offset = 0;
+    let aborted = false;
     const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
 
+    // Handle client disconnect — abort the streaming loop to avoid
+    // unhandled stream errors from res.write() on a closed connection.
+    res.on('error', () => { aborted = true; });
+    res.on('close', () => { aborted = true; });
+
     try {
-      while (totalExported < MAX_EXPORT_ROWS) {
+      while (totalExported < MAX_EXPORT_ROWS && !aborted) {
         const exportInclude = {
           requester: { select: { id: true, name: true, email: true } },
           assignedTo: { select: { id: true, name: true, email: true } },
@@ -305,6 +311,7 @@ export class TicketsService {
         if (batch.length === 0) break;
 
         for (const ticket of batch as Array<{ ticketNumber: string; subject: string; status: string; priority: string; category?: { name: string } | null; subCategory?: { name: string } | null; requester?: { name: string } | null; assignedTo?: { name: string } | null; createdAt: Date; resolvedAt?: Date | null; slaStatus?: string | null }>) {
+          if (aborted) break;
           const row = [
             ticket.ticketNumber,
             ticket.subject,
@@ -326,7 +333,9 @@ export class TicketsService {
         if (batch.length < BATCH_SIZE) break;
       }
     } finally {
-      res.end();
+      if (!res.writableEnded) {
+        res.end();
+      }
     }
   }
 
@@ -568,7 +577,7 @@ export class TicketsService {
     return updatedTicket;
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, deletedBy?: string): Promise<void> {
     const ticket = await this.ticketRepository.findById(id, {
       attachments: { select: { path: true } },
     });
@@ -577,8 +586,30 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
+    // Preserve one final history entry to record who deleted the ticket
+    // and when, so that deletion is auditable even after the ticket is gone.
+    const deleteContext = {
+      id,
+      ticketNumber: ticket.ticketNumber,
+      userId: deletedBy || ticket.requesterId,
+    };
+
     await this.ticketRepository.transaction(async (tx) => {
-      await tx.ticketHistory.deleteMany({ where: { ticketId: id } });
+      // Add a terminal history entry before deleting related records.
+      // We keep this entry and delete only the others, maintaining a
+      // minimal audit trail.
+      await tx.ticketHistory.create({
+        data: {
+          ticketId: id,
+          userId: deleteContext.userId,
+          field: 'status',
+          oldValue: ticket.status,
+          newValue: 'Deleted',
+        },
+      });
+
+      // Delete non-history related records. The final history entry
+      // stays so there is a trace of the deletion.
       await tx.comment.deleteMany({ where: { ticketId: id } });
       await tx.attachment.deleteMany({ where: { ticketId: id } });
       await tx.ticket.delete({ where: { id } });

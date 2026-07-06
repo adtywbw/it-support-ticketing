@@ -39,14 +39,16 @@ export default class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="text-lg font-semibold text-navy-950">Something went wrong</h2>
             <p className="mt-2 text-sm text-navy-500">
-              An unexpected error occurred. Please try refreshing the page.
+              An unexpected error occurred. Try refreshing the page, or contact the helpdesk team if the issue persists.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="btn-primary mt-4"
-            >
-              Refresh Page
-            </button>
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <button
+                onClick={() => window.location.reload()}
+                className="btn-primary"
+              >
+                Refresh Page
+              </button>
+            </div>
           </div>
         </div>
       );

@@ -2,6 +2,40 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 39 — Code Review Fix Round 6: Audit Trail, Export Resilience, Frontend Stability (2026-07-06)
+
+### Fixed (Critical)
+- **Ticket deletion destroys all audit history**: `TicketsService.delete()` previously deleted all `TicketHistory` records before removing the ticket, leaving zero forensic trace. Now creates a terminal `TicketHistory` entry (`field: "status"`, `newValue: "Deleted"`) recording who deleted it and when, then deletes only comments, attachments, and the ticket. The controller now passes `@CurrentUser('id')` to `delete()`. (`tickets.service.ts`, `tickets.controller.ts`)
+
+### Fixed (Important)
+- **CSV export lacks rate limit**: `GET /api/tickets/export/csv` had no specific throttle, only the 10 req/s global. Added `@Throttle({ limit: 2, ttl: 60000 })` — max 2 exports per minute. (`tickets.controller.ts`)
+- **CSV export unhandled stream errors on client disconnect**: `res.write()` could throw when the client disconnects mid-stream. Added `res.on('error'|'close')` listeners that set an `aborted` flag; the streaming loop and row-writing both check the flag and exit early. `res.end()` in the finalizer is guarded with `!res.writableEnded`. (`tickets.service.ts`)
+- **Frontend pagination re-render loop**: `TicketList`'s `useEffect` depended on `onPageChange` directly. If the parent passed an inline callback, the effect ran on every render, potentially causing loops. Wrapped in `useRef` to decouple from callback identity. (`TicketList.tsx`)
+- **ErrorBoundary lacks end-user guidance**: The error fallback showed only "try refreshing". Added "contact the helpdesk team if the issue persists" so non-technical users know next steps. (`ErrorBoundary.tsx`)
+
+### Fixed (Minor)
+- **Docker entrypoint chowns uploads on every restart**: `docker-entrypoint.sh` ran `chown -R node:node /app/uploads` unconditionally on each container start. Added a `stat`-based owner check to skip the recursive walk when permissions are already correct. (`docker-entrypoint.sh`)
+- **Telegram `handleUpdate` typed with `any`**: Changed to a minimal typed interface for the Telegram update payload. (`telegram.service.ts`)
+
+### Changed
+- **`TicketsService.delete()`**: Signature changed from `delete(id: string)` to `delete(id: string, deletedBy?: string)`. The `deletedBy` parameter records who performed the deletion in the preserved audit trail history entry.
+- **`TicketsController.delete()`**: Now accepts `@CurrentUser('id') userId` and passes it to `TicketsService.delete()`.
+- **`docker-entrypoint.sh`**: Startup chown is now conditional — only runs when the current directory owner differs from the `node` user.
+
+### Files Changed
+- `backend/src/tickets/tickets.service.ts` — audit trail preservation, CSV stream abort handling
+- `backend/src/tickets/tickets.controller.ts` — `@CurrentUser('id')` on delete, `@Throttle()` on CSV export
+- `backend/src/tickets/tickets.service.spec.ts` — mock response has `on()` + `writableEnded`
+- `backend/src/tickets/tickets.controller.spec.ts` — passes userId to delete
+- `backend/src/telegram/telegram.service.ts` — typed `handleUpdate` instead of `any`
+- `backend/docker-entrypoint.sh` — conditional chown via stat owner check
+- `frontend/src/components/tickets/TicketList.tsx` — useRef for onPageChange callback
+- `frontend/src/components/ui/ErrorBoundary.tsx` — contact support guidance text
+
+### Verification
+- Backend: build ✅, tests 757/757 ✅, lint 0 errors
+- Frontend: build ✅, tests 221/221 ✅, lint 0 errors
+
 ## Session 38 — Code Review Implementation: 14 Issues Fixed (2026-07-06)
 
 ### Fixed (Critical)

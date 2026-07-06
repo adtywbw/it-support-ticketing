@@ -10,6 +10,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { Role } from '@prisma/client';
 import { TicketsService } from './tickets.service';
@@ -49,6 +50,7 @@ export class TicketsController {
   @Get('export/csv')
   @UseGuards(RolesGuard)
   @Roles(Role.ITSupport, Role.Admin)
+  @Throttle({ default: { limit: 2, ttl: 60000 } })
   async exportCsv(
     @Query() queryTicketDto: QueryTicketDto,
     @CurrentUser() user: { id: string; role: Role },
@@ -101,7 +103,10 @@ export class TicketsController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.Admin)
-  async delete(@Param('id') id: string): Promise<void> {
-    await this.ticketsService.delete(id);
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ): Promise<void> {
+    await this.ticketsService.delete(id, userId);
   }
 }

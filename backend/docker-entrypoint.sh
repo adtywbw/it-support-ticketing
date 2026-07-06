@@ -2,7 +2,14 @@
 set -e
 
 mkdir -p /app/uploads /app/backups
-chown -R node:node /app/uploads /app/backups
+
+# Only chown recursively when the owner differs from the node user.
+# On first start with empty Docker volumes the owner will be root,
+# so chown is needed. On subsequent restarts the owner is already
+# node, so we skip the potentially expensive recursive walk.
+if [ "$(stat -c '%u' /app/uploads)" != "$(id -u node)" ] || [ "$(stat -c '%u' /app/backups)" != "$(id -u node)" ]; then
+  chown -R node:node /app/uploads /app/backups
+fi
 
 # Run migrations with retry to avoid tight restart loop on transient DB failures
 max_retries=3
