@@ -90,7 +90,7 @@ export class AttachmentsController {
     const fileStream = createReadStream(attachment.path);
     fileStream.on('error', () => {
       if (!res.headersSent) {
-        res.status(500).json({ error: { code: 'STREAM_ERROR', message: 'Failed to read file' } });
+        res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to read file' } });
       } else {
         res.end();
       }

@@ -494,7 +494,7 @@ npm test
 npm run lint
 ```
 
-Backend unit tests (757 tests, 73 suites):
+Backend unit tests (756 tests, 72 suites):
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
@@ -504,7 +504,7 @@ Backend unit tests (757 tests, 73 suites):
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
 - All 14 controllers — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, health, faqs)
 - All 17 services — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, faqs, redis, prisma)
-- All 27 DTOs — 96% validation coverage
+- All 25 DTOs — 96% validation coverage
 - All 10 repositories — safe select + pagination + where-clause correctness
 - E2E smoke test (9 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401
 
@@ -554,5 +554,5 @@ Dockerfiles and Compose files currently use maintained upstream tags such as `no
 
 ### CI/CD
 GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every PR and push to main:
-- Backend: `npm ci` → `npm run prisma:generate` → `npm run build` → `npm test` → `npm audit --audit-level=high`
-- Frontend: `npm ci` → `npm run lint` → `npm run build` → `npm test` → `npm audit --audit-level=high`
+- **Backend**: `npm ci` → `npm run lint` → `npm run build` → `npm test` (with PostgreSQL + Redis service containers)
+- **Frontend**: `npm ci` → `npm run lint` → `npm run build` → `npx vitest run`

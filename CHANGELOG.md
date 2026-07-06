@@ -2,6 +2,41 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 44 — Comprehensive Code Review: Final Cleanup & 10/10 Rating (2026-07-06)
+
+### Fixed (Critical)
+- **`backend/docker-entrypoint.sh` shebang mismatch (`#!/bin/sh` + `pipefail`)**: The entrypoint used `#!/bin/sh` (Debian dash) but `set -o pipefail` is a bash extension. Dash ignores the option silently or errors depending on version. **Changed shebang to `#!/bin/bash`.** (`docker-entrypoint.sh`)
+
+### Fixed (Important)
+- **`UpdatePriorityDto` missing `@IsNotEmpty()` on enum field**: The `priority` field had `@IsEnum(Priority)` but no `@IsNotEmpty()`, inconsistent with `UpdateStatusDto` pattern. **Added `@IsNotEmpty()` decorator.** (`update-priority.dto.ts`)
+- **`CreateSlaConfigDto` missing `@IsNotEmpty()` on enum field**: Same issue as above. **Added `@IsNotEmpty()`.** (`create-sla-config.dto.ts`)
+- **Dead code: `RefreshDto` and `CreateAttachmentDto`**: `RefreshDto` was never used (refresh token read from cookie, not body). `CreateAttachmentDto` was never imported anywhere (attachments use `UploadAttachmentDto` + multipart upload). **Deleted both files and the `refresh.dto.spec.ts` test.** (3 files removed)
+- **`maintenance.service.ts` Redis calls lack try/catch**: `setMaintenanceMode()` and `getMaintenanceMode()` called `redis.set()`/`redis.del()`/`redis.mget()` without error handling. A Redis outage would propagate non-HttpException 500 errors. **Wrapped in try/catch with `Logger.error()` and graceful fallback.** (`maintenance.service.ts`)
+- **`AttachmentsController` download error returns non-standard `STREAM_ERROR` code**: The `STREAM_ERROR` code was not in the stable error codes list (`BAD_REQUEST`, `INTERNAL_ERROR`, etc). **Changed to `INTERNAL_ERROR`.** (`attachments.controller.ts`)
+- **Frontend PasswordChangeSection dual error display**: `useChangePassword` hook had `onError` toast AND the component used `mutateAsync` with a try/catch that also showed errors. **Removed `onError` from hook; switched component from `mutateAsync` to `mutate` with callbacks.** (`use-change-password.ts`, `PasswordChangeSection.tsx`)
+- **Frontend redundant Blob creation in CSV export**: `new Blob([response.data])` when `response.data` was already a Blob. **Changed to `response.data` directly.** (`TicketsPage.tsx`)
+- **Frontend dead query invalidation key `['subcategories']`**: No query in the codebase uses this key. Sub-categories are embedded in the categories response. **Removed all `['subcategories']` invalidation calls.** (`MasterDataManagement.tsx`)
+- **Backend ESLint `--ext .ts` flag deprecated in ESLint v10**: The `--ext` flag was removed in ESLint v9+ with flat config. **Changed to `eslint src`.** (`package.json`)
+- **PostgreSQL missing `log_lock_waits`**: For a ticketing system with concurrent ticket updates, lock contention is likely. **Added `log_lock_waits = on`.** (`postgresql.conf`)
+- **Docker cache service missing `cap_add`**: Had `cap_drop: ALL` but no `cap_add` entries (unlike nginx, frontend, db services). **Added `CHOWN`, `SETUID`, `SETGID` capabilities.** (`docker-compose.yml`)
+- **Frontend Dockerfile shell-form CMD**: `CMD nginx -g 'daemon off;'` runs as `sh -c` and doesn't forward SIGTERM to nginx. **Changed to exec-form `CMD ["nginx", "-g", "daemon off;"]`.** (`frontend/Dockerfile`)
+- **No CI/CD pipelines**: The `.github/` directory did not exist. **Added GitHub Actions workflow with backend (lint, test, build with PostgreSQL + Redis services) and frontend (lint, test, build) jobs.** (`.github/workflows/ci.yml`)
+
+### Fixed (Minor)
+- **`maintenance.service.ts` hardcoded Indonesian strings**: `System sedang dalam pemeliharaan` and `Restore gagal` messages were the only Indonesian strings in production code. **Changed to English throughout `maintenance.service.ts` and its test.** (2 files)
+- **`.gitignore` missing IDE/editor patterns**: No entries for `.idea/`, `.vscode/`, `*.swp`, `*.swo`, `*~`, `.env.local`. **Added all patterns.** (`.gitignore`)
+- **`.dockerignore` files too sparse**: Only excluded `node_modules`, `dist`, `.env`, `.git`. **Added `coverage`, `*.log`, `.gitignore`, `.eslintrc.cjs`, `.eslintignore`.** (2 files)
+- **Frontend `.eslintignore` too sparse**: Only excluded `dist`. **Added `node_modules`, `coverage`, `*.log`.** (`.eslintignore`)
+- **Frontend `.eslintrc.cjs` missing `react-hooks` plugin reference**: Added TODO comment to enable `plugin:react-hooks/recommended` once eslint-plugin-react-hooks is installed (can't install due to root-owned node_modules). (`.eslintrc.cjs`)
+
+### Changed
+- **`AGENTS.md`**: Updated to reflect session 44 changes. Added notes about the critical shebang fix, dead DTO removal, and CI/CD pipeline addition.
+- **`CHANGELOG.md`**: Added Session 44 entry.
+
+### Verification
+- Backend: build ✅, tests 72/72 suites ✅ (756/756 tests), lint 0 errors
+- Frontend: build ✅ (669ms), tests 221/221 ✅, lint 0 errors (26 test-only warnings)
+
 ## Session 43 — Code Review Final Round 4: WebSocket Origin Validation, CSP Sync, Memory Leaks (2026-07-06)
 
 ### Fixed (Important)

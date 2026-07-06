@@ -319,7 +319,6 @@ it-support-ticketing/
 │       │   ├── cookie-options.ts
 │       │   ├── dto/
 │       │   │   ├── login.dto.ts
-│       │   │   ├── refresh.dto.ts
 │       │   │   └── change-password.dto.ts
 │       │   └── strategies/
 │       │       └── jwt.strategy.ts
@@ -497,7 +496,7 @@ it-support-ticketing/
 - The API runtime uses a Debian/bookworm-slim Node image to avoid native-module and Prisma engine compatibility issues. Supporting services and the frontend static build/export path intentionally use Alpine-based images where the current Compose/Dockerfiles already specify them (`nginx:alpine`, `postgres:16-alpine`, `redis:7-alpine`, and the frontend builder/runtime image).
 
 ### Database Migration
-- The container's entry point (`docker-entrypoint.sh`) runs `node node_modules/.bin/prisma migrate deploy` with a 3-retry loop (10s delay between attempts, 30s sleep before final exit) before starting the app.
+- The container's entry point (`docker-entrypoint.sh`, shebang `#!/bin/bash` — requires `set -o pipefail`) runs `node node_modules/.bin/prisma migrate deploy` with a 3-retry loop (10s delay between attempts, 30s sleep before final exit) before starting the app.
   - `migrate deploy` applies pending migrations (versioned, rollbackable). Safer than `db push` for production — no accidental data loss.
   - Uses the local `node_modules/.bin/prisma` binary directly rather than `npx`, ensuring deterministic resolution even if the npm cache is absent.
   - The retry loop prevents tight restart loops on transient DB failures (e.g., DB not yet ready on first boot).
@@ -600,7 +599,7 @@ it-support-ticketing/
 
 7. **Static Assets** — Serve the React frontend build from a CDN (CloudFront / Cloudflare), not from Nginx. The Nginx container becomes unnecessary in this setup; the API can be exposed via an Ingress controller directly.
 
-8. **CI/CD** — Use GitHub Actions pipeline: lint → test → build (Docker images) → push to container registry → deploy to Kubernetes via Helm or Kustomize. Use separate namespaces for staging and production.
+8. **CI/CD** — A GitHub Actions pipeline (`.github/workflows/ci.yml`) already runs backend + frontend lint, test, build on every push/PR to `main`. Extend with Docker image build → push to container registry → deploy to Kubernetes via Helm or Kustomize for a full DevOps pipeline. Use separate namespaces for staging and production.
 
 ## 7. Security Architecture
 
@@ -627,4 +626,4 @@ it-support-ticketing/
 - **Least-privilege env**: `backend/.env.db` (DB only), `backend/.env.cache` (Redis only), `backend/.env` (API full set).
 - **Nginx**: CSP, security headers repeated per location block (add_header inheritance), `default_server` for unmatched Host, dotfile deny.
 - **Secret hygiene**: `.env` permission `600`, `.gitignore` covers `.env.*`, strong credentials via `openssl rand`.
-- **CI/CD**: GitHub Actions runs build + test on every PR.
+- **CI/CD**: GitHub Actions workflow (`.github/workflows/ci.yml`) runs build + test on every PR and push to `main`. Backend job uses PostgreSQL and Redis service containers.

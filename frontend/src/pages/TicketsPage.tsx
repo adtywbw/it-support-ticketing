@@ -57,7 +57,7 @@ export default function TicketsPage() {
     try {
       const qs = buildExportParams();
       const response = await apiClient.get(`/tickets/export/csv${qs ? `?${qs}` : ''}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'tickets-export.csv';

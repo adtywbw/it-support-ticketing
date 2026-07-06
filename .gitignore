@@ -11,3 +11,9 @@ graphify-out/
 nginx/certs/
 backups/
 docs/superpowers/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.env.local

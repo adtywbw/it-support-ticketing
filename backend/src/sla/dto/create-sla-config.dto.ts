@@ -1,4 +1,4 @@
-import { IsUUID, IsEnum, IsInt, Min } from 'class-validator';
+import { IsUUID, IsEnum, IsInt, IsNotEmpty, Min } from 'class-validator';
 import { Priority } from '@prisma/client';
 
 export class CreateSlaConfigDto {
@@ -6,6 +6,7 @@ export class CreateSlaConfigDto {
   categoryId: string;
 
   @IsEnum(Priority)
+  @IsNotEmpty()
   priority: Priority;
 
   @IsInt()

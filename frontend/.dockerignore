@@ -2,3 +2,7 @@ node_modules
 dist
 .env
 .git
+coverage
+*.log
+.eslintrc.cjs
+.eslintignore

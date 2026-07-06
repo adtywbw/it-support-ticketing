@@ -18,7 +18,7 @@ export default function PasswordChangeSection() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -32,15 +32,20 @@ export default function PasswordChangeSection() {
       return;
     }
 
-    try {
-      await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
-      await apiClient.post('/auth/logout').catch(() => {});
-      logout();
-      queryClient.clear();
-      navigate('/login', { state: { message: 'Password changed successfully. Please login again with your new password.' } });
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to change password'));
-    }
+    changePasswordMutation.mutate(
+      { currentPassword, newPassword },
+      {
+        onSuccess: async () => {
+          await apiClient.post('/auth/logout').catch(() => {});
+          logout();
+          queryClient.clear();
+          navigate('/login', { state: { message: 'Password changed successfully. Please login again with your new password.' } });
+        },
+        onError: (err: unknown) => {
+          setError(getErrorMessage(err, 'Failed to change password'));
+        },
+      },
+    );
   };
 
   return (

@@ -116,22 +116,32 @@ export class MaintenanceService {
         this.logger.warn(`Failed to check restore lock when disabling maintenance: ${err}`);
       }
     }
-    await this.redis.set(MAINTENANCE_KEY, enabled ? '1' : '0');
-    if (message !== undefined && message.trim() !== '') {
-      await this.redis.set(MAINTENANCE_MESSAGE_KEY, message);
-    } else if (enabled) {
-      await this.redis.set(MAINTENANCE_MESSAGE_KEY, 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.');
-    } else {
-      await this.redis.del(MAINTENANCE_MESSAGE_KEY);
+    try {
+      await this.redis.set(MAINTENANCE_KEY, enabled ? '1' : '0');
+      if (message !== undefined && message.trim() !== '') {
+        await this.redis.set(MAINTENANCE_MESSAGE_KEY, message);
+      } else if (enabled) {
+        await this.redis.set(MAINTENANCE_MESSAGE_KEY, 'System maintenance in progress. Please try again later.');
+      } else {
+        await this.redis.del(MAINTENANCE_MESSAGE_KEY);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to set maintenance mode: ${error instanceof Error ? error.message : String(error)}`);
+      throw new BadRequestException('Failed to update maintenance mode');
     }
   }
 
   async getMaintenanceMode(): Promise<{ enabled: boolean; message: string | null }> {
-    const [enabled, message] = await this.redis.mget([MAINTENANCE_KEY, MAINTENANCE_MESSAGE_KEY]);
-    return {
-      enabled: enabled === '1',
-      message: message || null,
-    };
+    try {
+      const [enabled, message] = await this.redis.mget([MAINTENANCE_KEY, MAINTENANCE_MESSAGE_KEY]);
+      return {
+        enabled: enabled === '1',
+        message: message || null,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get maintenance mode: ${error instanceof Error ? error.message : String(error)}`);
+      return { enabled: false, message: null };
+    }
   }
 
   async createBackup(source = 'admin-ui'): Promise<BackupInfo> {
@@ -295,7 +305,7 @@ export class MaintenanceService {
     let preRestoreBackup: BackupInfo | null = null;
 
     try {
-      await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
+      await this.setMaintenanceMode(true, 'Data restore in progress. Please wait...');
       await new Promise((resolve) => setTimeout(resolve, appConfig.maintenance.drainTimeMs));
 
       preRestoreBackup = await this.createBackup('pre-restore');
@@ -311,7 +321,7 @@ export class MaintenanceService {
         `Restore failed for backup ${id}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      const message = 'Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.';
+      const message = 'Restore failed. System held in maintenance. Use pre-restore backup for recovery.';
       await this.setMaintenanceMode(true, message).catch(() => {});
       const preRestoreDetail = preRestoreBackup ? ` Pre-restore backup: ${preRestoreBackup.id}.` : '';
       throw new BadRequestException(

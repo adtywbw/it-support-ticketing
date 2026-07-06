@@ -74,7 +74,7 @@ describe('MaintenanceService restore safety', () => {
     );
     expect(service.setMaintenanceMode).toHaveBeenLastCalledWith(
       true,
-      'Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.',
+      'Restore failed. System held in maintenance. Use pre-restore backup for recovery.',
     );
   });
 
@@ -89,7 +89,7 @@ describe('MaintenanceService restore safety', () => {
     expect(restoreUploads).not.toHaveBeenCalled();
     expect(service.setMaintenanceMode).toHaveBeenLastCalledWith(
       true,
-      'Restore gagal. Sistem ditahan dalam maintenance. Gunakan pre-restore backup untuk recovery.',
+      'Restore failed. System held in maintenance. Use pre-restore backup for recovery.',
     );
   });
 

@@ -98,7 +98,6 @@ function CategoryManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       setIsModalOpen(false);
     },
     onError: (err: unknown) => {
@@ -113,7 +112,6 @@ function CategoryManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       setIsModalOpen(false);
     },
     onError: (err: unknown) => {
@@ -128,7 +126,6 @@ function CategoryManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       setIsDeleteOpen(false);
     },
     onError: (err: unknown) => {
@@ -272,7 +269,6 @@ function SubCategoryManager() {
       await apiClient.post(`/categories/${payload.categoryId}/sub-categories`, { name: payload.name, description: payload.description });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsModalOpen(false);
     },
@@ -287,7 +283,6 @@ function SubCategoryManager() {
       await apiClient.patch(`/categories/${categoryId}/sub-categories/${id}`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsModalOpen(false);
     },
@@ -302,7 +297,6 @@ function SubCategoryManager() {
       await apiClient.delete(`/categories/${categoryId}/sub-categories/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsDeleteOpen(false);
     },

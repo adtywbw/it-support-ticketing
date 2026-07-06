@@ -95,7 +95,9 @@ export default function CreateTicketForm() {
 
       navigate(`/tickets/${ticket.id}`);
     } catch {
-      // Error is already handled by mutation's onError toast
+      // Error already handled by mutation's onError toast.
+      // mutateAsync re-throws after onError fires, so we catch here
+      // to prevent an unhandled promise rejection.
     }
   };
 

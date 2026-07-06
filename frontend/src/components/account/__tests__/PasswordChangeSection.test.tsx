@@ -20,7 +20,7 @@ vi.mock('@/components/ui/PasswordInput', () => ({
   ),
 }));
 
-const mockMutateAsync = vi.fn();
+const mockMutate = vi.fn();
 const mockLogout = vi.fn();
 
 vi.mock('@/stores/auth-store', () => ({
@@ -54,7 +54,7 @@ function renderWithProviders() {
 describe('PasswordChangeSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useChangePassword).mockReturnValue({ mutateAsync: mockMutateAsync, isPending: false } as any);
+    vi.mocked(useChangePassword).mockReturnValue({ mutate: mockMutate, isPending: false } as any);
   });
 
   it('renders heading and form labels', () => {
@@ -97,8 +97,10 @@ describe('PasswordChangeSection', () => {
     });
   });
 
-  it('calls mutateAsync with correct data on valid submission', async () => {
-    mockMutateAsync.mockResolvedValue(undefined);
+  it('calls mutate with correct data on valid submission', async () => {
+    mockMutate.mockImplementation((_payload: unknown, { onSuccess }: { onSuccess: () => void }) => {
+      onSuccess();
+    });
     renderWithProviders();
 
     const inputs = screen.getAllByTestId('mock-password-input');
@@ -108,12 +110,17 @@ describe('PasswordChangeSection', () => {
     fireEvent.click(screen.getAllByText('Change Password')[1]);
 
     await waitFor(() => {
-      expect(mockMutateAsync).toHaveBeenCalledWith({ currentPassword: 'current-pass', newPassword: 'new-pass-123' });
+      expect(mockMutate).toHaveBeenCalledWith(
+        { currentPassword: 'current-pass', newPassword: 'new-pass-123' },
+        expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
+      );
     });
   });
 
   it('displays API error on mutation failure', async () => {
-    mockMutateAsync.mockRejectedValue(new Error('Invalid current password'));
+    mockMutate.mockImplementation((_payload: unknown, { onError }: { onError: (err: Error) => void }) => {
+      onError(new Error('Invalid current password'));
+    });
     renderWithProviders();
 
     const inputs = screen.getAllByTestId('mock-password-input');

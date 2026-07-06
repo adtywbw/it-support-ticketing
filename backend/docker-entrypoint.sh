@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eo pipefail
 
 mkdir -p /app/uploads /app/backups
