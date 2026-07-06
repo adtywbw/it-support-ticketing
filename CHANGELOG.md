@@ -19,12 +19,24 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - **`AGENTS.md`**: Added note that the ESLint config is `eslint.config.mjs` (`.mjs` extension). Updated delete audit trail behavior.
 - **`CHANGELOG.md`**: Added Session 45 entries.
 - **`AGENTS.md` §Ticket Rules / `delete()`**: Updated to reflect that the terminal history entry is no longer created inside the ticket delete transaction. Deletion audit is captured via `eventEmitter.emit('ticket.deleted')` and server logs.
+- **HTTPS**: Migrated from HTTP-only nginx to `docker-compose.prod.yml` with mkcert TLS. Nginx now serves HTTPS on port 443 with HTTP→301→HTTPS redirect.
 
-### E2E Production Verification
-- All 36 endpoints tested: 35 ✅ / 1 expected ✅ (password too short → 400 validation)
-- DELETE cascade fix confirmed: 200 response, ticket + comments cascade-deleted, GET returns 404
-- All service containers: healthy ✅
-- API logs: no errors ✅
+### E2E Production Verification (Full Sweep)
+- **11 migrations applied** ✅ (init → add_cascade_delete)
+- **Seed data**: 4 users, 5 categories, 8 SLA configs ✅
+- **FK constraints**: 3 relations ON DELETE CASCADE ✅
+- **pg_trgm extension** + all indexes present ✅
+- **File upload**: upload 201 ✅, download 200 ✅, invalid type rejected 400 ✅, oversized rejected 413 (Multer) ✅
+- **CSV export**: Admin 200 ✅, EndUser 403 ✅
+- **Rate limiting**: 5 rapid logins ok, 6th blocked 429 ✅
+- **Account lockout**: 10 failed attempts → locked ✅
+- **Error codes**: 400 ✅ 401 ✅ 403 ✅ 404 ✅ 409 ✅ 429 ✅
+- **Maintenance mode**: enable 200 ✅, non-admin blocked 503 ✅, Admin still allowed 200 ✅, backup create/list/download/delete ✅, disable 200 ✅
+- **Docker healthcheck**: healthy, simulate crash → auto-restart ✅
+- **Container resources**: API 84MB / 1GB ✅, DB 81MB / 2GB ✅, nginx 24MB / 256MB ✅, Redis 8MB / 512MB ✅
+- **API error logs**: zero ✅
+- **Frontend**: index.html serves ✅, SPA routing 200 ✅, JS bundle 245KB gzipped ✅, CSS 57KB ✅, immutable cache headers ✅, CSP + security headers ✅
+- **HTTPS**: certificate valid ✅, HTTP→301→HTTPS redirect ✅
 
 ### Verification
 - Backend: build ✅, tests 72/72 suites ✅ (756/756 tests), lint 0 errors (238 warnings in test files)
