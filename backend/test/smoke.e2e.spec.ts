@@ -131,4 +131,43 @@ describe('E2E Smoke Test', () => {
     // TransformInterceptor wraps void returns as { data: null }
     expect(res.data).toEqual({ data: null });
   });
+
+  describe('Maintenance Mode', () => {
+    test('PATCH /maintenance/mode — enable maintenance (Admin)', async () => {
+      const res = await request('PATCH', '/maintenance/mode', { enabled: true, message: 'E2E smoke test maintenance' }, state.accessToken);
+      if (res.status !== 200) {
+        console.log('DEBUG maintenance enable:', JSON.stringify(res.data));
+      }
+      expect(res.status).toBe(200);
+      expect(res.data.data.enabled).toBe(true);
+    });
+
+    test('GET /health — still returns healthy during maintenance', async () => {
+      const res = await request('GET', '/health');
+      expect(res.status).toBe(200);
+      expect(res.data.maintenance.enabled).toBe(true);
+    });
+
+    test('POST /auth/login — still works during maintenance (exempt path)', async () => {
+      const res = await request('POST', '/auth/login', {
+        email: 'admin@company.com',
+        password: 'Admin123!',
+      });
+      expect(res.status).toBe(201);
+      expect(res.data.data.accessToken).toBeDefined();
+      state.accessToken = res.data.data.accessToken;
+    });
+
+    test('PATCH /maintenance/mode — disable maintenance', async () => {
+      const res = await request('PATCH', '/maintenance/mode', { enabled: false }, state.accessToken);
+      expect(res.status).toBe(200);
+      expect(res.data.data.enabled).toBe(false);
+    });
+
+    test('GET /health — maintenance disabled', async () => {
+      const res = await request('GET', '/health');
+      expect(res.status).toBe(200);
+      expect(res.data.maintenance.enabled).toBe(false);
+    });
+  });
 });

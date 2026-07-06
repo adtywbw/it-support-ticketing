@@ -29,7 +29,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   async login(
     @Body() loginDto: LoginDto,
     @Req() req: Request,

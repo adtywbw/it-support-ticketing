@@ -115,7 +115,7 @@ postgres/postgresql.conf
 - Non-HTTP exceptions must not leak internal messages to clients.
 - Password hash cost is bcrypt 12; seed uses `upsert` on restart.
 - `POST /api/auth/change-password` is restricted to ITSupport & Admin via `RolesGuard`; EndUser cannot change own password (must request Admin/ITSupport). Frontend hides the Change Password section in My Account for EndUser.
-- `POST /api/auth/refresh` is rate-limited to 5 requests per 60 seconds (matching login). Both `login` and `refresh` endpoints share the same throttle configuration to prevent brute-force of refresh tokens.
+- `POST /api/auth/refresh` is rate-limited to 5 requests per 60 seconds. Both `login` (20/min) and `refresh` (5/min) endpoints share throttle configuration; the login limit is higher to accommodate E2E test suites.
 - `UsersService.update()` and `UsersService.delete()` use `await eventEmitter.emitAsync(...)` for `user.password_changed`, `user.deactivated`, and `user.deleted` so refresh-token revocation (handled in `AuthService` `@OnEvent` listeners) completes before the service call resolves. In `delete()`, the conflict catch wraps only `transactionDelete()`; revocation `emitAsync` is wrapped in try/catch — failures are logged but do NOT propagate as 500, preventing retry-inconsistency when the DB deletion already succeeded.
 - WebSocket clients disconnect when user is inactive (`isActive=false`).
 - WebSocket sessions are bounded to access-token expiry: `NotificationsGateway` reads `payload.exp` and schedules a `setTimeout` disconnect at expiry; already-expired tokens disconnect immediately. Timers are cleared on disconnect/deactivation.

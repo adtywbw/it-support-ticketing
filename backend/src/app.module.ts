@@ -21,11 +21,13 @@ import { TelegramModule } from './telegram/telegram.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { FaqsModule } from './faqs/faqs.module';
 import { RepositoriesModule } from './common/repositories/repositories.module';
+import { ServicesModule } from './common/services/services.module';
 import { MaintenanceGuard } from './common/guards/maintenance.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { RedisService } from './redis/redis.service';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { CsrfGuard } from './common/guards/csrf.guard';
+import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
 
 @Module({
   imports: [
@@ -34,6 +36,7 @@ import { CsrfGuard } from './common/guards/csrf.guard';
       throttlers: [{ limit: 10, ttl: 1000 }],
     }),
     EventEmitterModule.forRoot(),
+    ServicesModule,
     PrismaModule,
     RepositoriesModule,
     RedisModule,
@@ -65,7 +68,7 @@ import { CsrfGuard } from './common/guards/csrf.guard';
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: AppThrottlerGuard,
     },
     {
       provide: APP_GUARD,
