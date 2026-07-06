@@ -41,6 +41,7 @@ describe('AuthService', () => {
         { provide: RedisService, useValue: mockRedisService },
       ],
     }).compile();
+    await module.init();
 
     service = module.get<AuthService>(AuthService);
     jwtService = module.get<JwtService>(JwtService);

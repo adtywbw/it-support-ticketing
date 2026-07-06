@@ -15,7 +15,9 @@ export function cacheThumbnail(id: string, url: string): void {
   if (existing) URL.revokeObjectURL(existing);
   cache.set(id, url);
   if (cache.size <= MAX_THUMBNAILS) return;
-  const [oldestId, oldestUrl] = cache.entries().next().value as [string, string];
+  const firstEntry = cache.entries().next().value;
+  if (!firstEntry) return;
+  const [oldestId, oldestUrl] = firstEntry;
   URL.revokeObjectURL(oldestUrl);
   cache.delete(oldestId);
 }

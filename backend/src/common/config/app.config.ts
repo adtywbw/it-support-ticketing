@@ -6,7 +6,9 @@
  */
 function envNumber(key: string, defaultValue: number): number {
   const val = process.env[key];
-  return val !== undefined ? Number(val) : defaultValue;
+  if (val === undefined) return defaultValue;
+  const n = Number(val);
+  return Number.isNaN(n) ? defaultValue : n;
 }
 
 export const appConfig = {

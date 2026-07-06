@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import { useNotificationStore } from '@/stores/notification-store';
@@ -14,11 +15,13 @@ export function useUnreadNotificationCount() {
       return unwrapData(response);
     },
     refetchInterval: UNREAD_NOTIFICATIONS_POLL_MS,
-    select: (data) => {
-      setUnreadCount(data.count);
-      return data;
-    },
   });
+
+  useEffect(() => {
+    if (query.data) {
+      setUnreadCount(query.data.count);
+    }
+  }, [query.data, setUnreadCount]);
 
   return query;
 }

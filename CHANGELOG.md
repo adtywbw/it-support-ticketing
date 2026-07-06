@@ -2,6 +2,46 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 36 — Code Review Round 5 Fixes (2026-07-06)
+
+### Fixed (Critical)
+- **`AuthService` blocking bcrypt in constructor**: Moved `bcrypt.hashSync()` (blocking ~250ms) to `OnModuleInit` lifecycle hook via async `bcrypt.hash()`. Event loop no longer blocked during module initialization. `auth.service.spec.ts` updated to call `await module.init()` after compilation.
+- **`TicketRepository.findById()` unsafe type cast**: Replaced `as unknown as Prisma.TicketFindUniqueArgs` with explicit args construction using spread pattern — type safety preserved, no more double-cast bypass.
+- **`HttpExceptionFilter` malformed array error messages**: Validation pipe errors can contain non-string items (e.g., constraint objects). Updated `.join(', ')` to filter only string items before concatenation — prevents `[object Object]` in error responses.
+- **`PasswordInput` tests broken after UX change**: 3 tests still tested old long-press behavior (mousedown/mouseup with timers). Rewrote to test current click-toggle behavior — 221/221 frontend tests now passing.
+- **Nginx SSL CSP blocks WebSocket on `/assets/` and `/index.html`**: Both location blocks in `nginx.ssl.conf` were missing `ws: wss:` in `connect-src`. Added to match the root `/` block — WebSocket connections now work in production when assets are served via explicit location blocks.
+
+### Fixed (Important)
+- **`MaintenanceService` hardcoded delay**: Replaced literal `1000` with `appConfig.maintenance.backupIdRetryDelayMs` — consistent with centralized config pattern.
+- **`app.config.ts` `envNumber()` NaN injection**: Non-numeric env values (e.g., `export AUTH_MAX_FAILED_ATTEMPTS=abc`) now fall back to `defaultValue` instead of propagating `NaN`.
+- **`RedisService` spread arguments may hit engine limits**: Changed `this.client.mget(...keys)` to `this.client.mget(keys)`, `this.client.del(...keys)` to `this.client.del(keys)` in `deleteByPattern`. ioredis accepts arrays directly, preventing potential JS engine argument limit issues with large key sets.
+- **`use-notifications` select side-effect causing extra re-renders**: Moved `setUnreadCount()` from TanStack Query's `select` callback (runs on every Layout render) to `useEffect` — no more unnecessary re-renders across the entire app tree.
+- **`Modal` missing `aria-hidden` on backdrop**: Added `aria-hidden="true"` to backdrop overlay — screen readers no longer interact with content beneath the modal.
+- **`thumbnail-cache.ts` unsafe type assertion**: Replaced `as [string, string]` cast with runtime guard checking `entries().next().value` before destructuring — prevents silent `[undefined, undefined]` in edge case.
+
+### Changed
+- **`AuthService`**: Now implements `OnModuleInit`. `dummyHash` initialized asynchronously instead of blocking constructor. No behavioral change — `dummyHash` is always ready before the first request.
+- **`RedisService.mget()` and `RedisService.deleteByPattern()`**: Now pass arrays directly to ioredis instead of spreading — functionally identical but avoids theoretical argument length limit.
+- **`PasswordInput.test.tsx`**: Replaced 3 long-press tests with click-toggle tests. Added one additional test for toggle behavior (password→text→password). Removed `vi.useFakeTimers()` setup since no longer needed.
+
+### Verification
+- Backend: build ✅, tests 752/752 ✅, lint 0 errors
+- Frontend: build ✅ (542ms), tests 221/221 ✅, lint 0 errors
+
+### Files Changed
+- `backend/src/auth/auth.service.ts` — `OnModuleInit`, async bcrypt
+- `backend/src/auth/auth.service.spec.ts` — `await module.init()`
+- `backend/src/common/repositories/ticket.repository.ts` — explicit args
+- `backend/src/common/filters/http-exception.filter.ts` — safe string join
+- `backend/src/common/config/app.config.ts` — NaN guard in envNumber()
+- `backend/src/redis/redis.service.ts` — array args for mget/del
+- `backend/src/maintenance/maintenance.service.ts` — appConfig delay
+- `frontend/src/components/ui/__tests__/PasswordInput.test.tsx` — click-toggle tests
+- `frontend/src/hooks/use-notifications.ts` — useEffect instead of select
+- `frontend/src/components/ui/Modal.tsx` — aria-hidden on backdrop
+- `frontend/src/lib/thumbnail-cache.ts` — safe cast with runtime guard
+- `nginx/nginx.ssl.conf` — ws: wss: in CSP for /assets/ and /index.html
+
 ## Session 35 — Code Review Comprehensive Fixes (2026-07-06)
 
 ### Fixed (Critical)

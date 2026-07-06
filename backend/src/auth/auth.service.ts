@@ -1,5 +1,6 @@
 import {
   Injectable,
+  OnModuleInit,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
@@ -31,9 +32,9 @@ const INCR_EXPIRE_SCRIPT = `
 `;
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private readonly refreshTokenExpiryMs: number;
-  private readonly dummyHash: string;
+  private dummyHash!: string;
 
   constructor(
     private readonly usersService: UsersService,
@@ -42,7 +43,10 @@ export class AuthService {
   ) {
     const expiryStr = process.env.JWT_REFRESH_TOKEN_EXPIRY || '7d';
     this.refreshTokenExpiryMs = parseExpiryToMs(expiryStr);
-    this.dummyHash = bcrypt.hashSync('dummy-password-for-timing', 12);
+  }
+
+  async onModuleInit() {
+    this.dummyHash = await bcrypt.hash('dummy-password-for-timing', 12);
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {

@@ -79,7 +79,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 transition-opacity" onClick={onClose} aria-hidden="true" />
       <div
         ref={dialogRef}
         role="dialog"

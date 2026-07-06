@@ -66,7 +66,9 @@ export class TicketRepository {
   }
 
   async findById(id: string, include?: Prisma.TicketFindUniqueArgs['include']) {
-    return this.prisma.ticket.findUnique({ where: { id }, include } as unknown as Prisma.TicketFindUniqueArgs);
+    const args: Prisma.TicketFindUniqueArgs = { where: { id } };
+    if (include) args.include = include;
+    return this.prisma.ticket.findUnique(args);
   }
 
   async findUnique<T extends Prisma.TicketFindUniqueArgs>(args: T) {

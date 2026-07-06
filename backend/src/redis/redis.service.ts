@@ -52,7 +52,7 @@ export class RedisService implements OnModuleDestroy {
 
   async mget(keys: string[]): Promise<(string | null)[]> {
     if (keys.length === 0) return [];
-    return this.client.mget(...keys);
+    return this.client.mget(keys);
   }
 
   async del(key: string): Promise<void> {
@@ -84,7 +84,7 @@ export class RedisService implements OnModuleDestroy {
       );
       cursor = nextCursor;
       if (keys.length > 0) {
-        deleted += await this.client.del(...keys);
+        deleted += await this.client.del(keys);
       }
     } while (cursor !== '0');
     return deleted;

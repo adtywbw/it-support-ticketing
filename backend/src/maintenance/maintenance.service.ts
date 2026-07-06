@@ -353,7 +353,7 @@ export class MaintenanceService {
         return id;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, appConfig.maintenance.backupIdRetryDelayMs));
     }
 
     throw new BadRequestException('Unable to create unique backup id');
