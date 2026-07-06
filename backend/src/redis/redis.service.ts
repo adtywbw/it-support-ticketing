@@ -30,10 +30,6 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  getClient(): Redis {
-    return this.client;
-  }
-
   async set(key: string, value: string, ttl?: number): Promise<void> {
     try {
       if (ttl) {

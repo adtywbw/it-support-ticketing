@@ -33,6 +33,9 @@ export class NotificationsGateway
   private userSockets: Map<string, Set<string>> = new Map();
   private expiryTimers: Map<string, NodeJS.Timeout> = new Map();
 
+  // Max simultaneous WebSocket connections per user to prevent resource exhaustion
+  private static readonly MAX_CONNECTIONS_PER_USER = 5;
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly userRepository: UserRepository,
@@ -65,7 +68,14 @@ export class NotificationsGateway
         return;
       }
 
-      if (!this.userSockets.has(userId)) {
+      // Enforce per-user connection limit to prevent resource exhaustion
+      const existing = this.userSockets.get(userId);
+      if (existing && existing.size >= NotificationsGateway.MAX_CONNECTIONS_PER_USER) {
+        client.disconnect();
+        return;
+      }
+
+      if (!existing) {
         this.userSockets.set(userId, new Set());
       }
       this.userSockets.get(userId)!.add(client.id);

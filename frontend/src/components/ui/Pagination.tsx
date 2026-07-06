@@ -21,6 +21,8 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
   const limitSelectId = `${useId()}-limit-select`;
   const getPages = () => {
     const pages: (number | '...')[] = [];
+    if (totalPages <= 0) return pages; // Edge case: no pages
+
     const delta = 2;
     const left = Math.max(2, page - delta);
     const right = Math.min(totalPages - 1, page + delta);

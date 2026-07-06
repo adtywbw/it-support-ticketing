@@ -242,6 +242,8 @@ postgres/postgresql.conf
 - DTO validation: every numeric field must have `@IsInt() @Min(0)` (or appropriate bounds). `@IsString()` alone on IDs should be `@IsUUID()` where the field references a UUID primary key.
 - Backend `faq.repository.ts` methods: ALL Prisma repository methods must be `async` even if they just return a Prisma promise — inconsistent `async`/non-async makes the code harder to refactor.
 - nginx configs: always add `server_tokens off` to the `http` block. HTTP-only `nginx.conf` must have its own WebSocket rate limit zone (`ws_limit`). All CSP blocks must include `object-src 'none'`. The `frontend/nginx.conf` (used for production self-hosting) must be kept in sync with the main nginx for CSP hardening.
+- WebSocket `NotificationsGateway` limits to `MAX_CONNECTIONS_PER_USER = 5` simultaneous connections per userId. Do not increase this without evaluating server resource boundaries.
+- `RedisService.getClient()` was removed in Session 42. Use the typed methods (`setNx`, `set`, `get`, `del`, `eval`, etc.) instead of accessing the raw ioredis client.
 - Frontend redesign: do not remove global CSS helper classes just because Tailwind classes are preferred. `card-body` is intentionally global and has regression coverage in `frontend/src/__tests__/global-styles.test.ts`.
 - Backend errors: use `BadRequestException` / `NotFoundException` from `@nestjs/common`, not plain `Error`.
 - Do not create a separate subcategory endpoint for listing; derive subcategories from existing `useCategories()` data (which includes `subCategories`).

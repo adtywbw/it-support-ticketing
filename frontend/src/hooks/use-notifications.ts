@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios';
 import { useNotificationStore } from '@/stores/notification-store';
 import type { Notification } from '@/types';
-import { UNREAD_NOTIFICATIONS_POLL_MS } from '@/lib/constants';
+import { UNREAD_NOTIFICATIONS_POLL_MS, STALE_TIME_NOTIFICATION_DROPDOWN } from '@/lib/constants';
 import { getErrorMessage } from '@/lib/utils';
 
 export function useUnreadNotificationCount() {
@@ -31,6 +31,7 @@ export function useUnreadNotificationCount() {
 export function useNotifications(page = 1, limit = 20) {
   return useQuery({
     queryKey: ['notifications', page, limit],
+    staleTime: STALE_TIME_NOTIFICATION_DROPDOWN,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Notification[]>>(
         `/notifications?page=${page}&limit=${limit}`,

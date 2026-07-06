@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Prisma, Role } from '@prisma/client';
 import { NotificationRepository } from '../common/repositories/notification.repository';
@@ -13,6 +13,8 @@ import { UpdateNotificationPreferencesDto } from './dto/update-notification-pref
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly notificationRepository: NotificationRepository,
     private readonly userRepository: UserRepository,
@@ -122,12 +124,16 @@ export class NotificationsService {
 
     await runWithConcurrency(itsupportUsers, 5, async (user) => {
       if (!this.isEnabled(user.notificationPreferences, 'ticket.created')) return;
-      await this.create({
-        userId: user.id,
-        title: 'New Ticket Created',
-        message: `Ticket ${payload.ticketNumber}: ${payload.subject}`,
-        data: { ticketId: payload.ticketId, type: 'ticket_created' },
-      });
+      try {
+        await this.create({
+          userId: user.id,
+          title: 'New Ticket Created',
+          message: `Ticket ${payload.ticketNumber}: ${payload.subject}`,
+          data: { ticketId: payload.ticketId, type: 'ticket_created' },
+        });
+      } catch (err) {
+        this.logger.error(`Failed to create ticket.created notification for user ${user.id}: ${err}`);
+      }
     });
 
     const requesterIsNotSupport = !itsupportUsers.some(
@@ -139,12 +145,16 @@ export class NotificationsService {
       ]);
       const requesterPrefs = prefsMap.get(payload.requesterId);
       if (this.isEnabled(requesterPrefs, 'ticket.created')) {
-        await this.create({
-          userId: payload.requesterId,
-          title: 'Ticket Created',
-          message: `Your ticket ${payload.ticketNumber} has been created: ${payload.subject}`,
-          data: { ticketId: payload.ticketId, type: 'ticket_created' },
-        });
+        try {
+          await this.create({
+            userId: payload.requesterId,
+            title: 'Ticket Created',
+            message: `Your ticket ${payload.ticketNumber} has been created: ${payload.subject}`,
+            data: { ticketId: payload.ticketId, type: 'ticket_created' },
+          });
+        } catch (err) {
+          this.logger.error(`Failed to create ticket.created notification for requester ${payload.requesterId}: ${err}`);
+        }
       }
     }
   }
@@ -161,12 +171,16 @@ export class NotificationsService {
     ]);
     const assigneePrefs = prefsMap.get(payload.assignedToId);
     if (this.isEnabled(assigneePrefs, 'ticket.assigned')) {
-      await this.create({
-        userId: payload.assignedToId,
-        title: 'Ticket Assigned',
-        message: `Ticket ${payload.ticketNumber} has been assigned to you`,
-        data: { ticketId: payload.ticketId, type: 'ticket_assigned' },
-      });
+      try {
+        await this.create({
+          userId: payload.assignedToId,
+          title: 'Ticket Assigned',
+          message: `Ticket ${payload.ticketNumber} has been assigned to you`,
+          data: { ticketId: payload.ticketId, type: 'ticket_assigned' },
+        });
+      } catch (err) {
+        this.logger.error(`Failed to create ticket.assigned notification for user ${payload.assignedToId}: ${err}`);
+      }
     }
   }
 
@@ -193,35 +207,44 @@ export class NotificationsService {
     if (payload.assignedToId) {
       const assigneePrefs = prefsMap.get(payload.assignedToId);
       if (this.isEnabled(assigneePrefs, 'ticket.status.updated')) {
-        await this.create({
-          userId: payload.assignedToId,
-          title: 'Ticket Status Updated',
-          message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
-          data: {
-            ticketId: payload.ticketId,
-            type: 'ticket_status_updated',
-            oldStatus: payload.oldStatus,
-            newStatus: payload.newStatus,
-          },
-        });
-        notified.add(payload.assignedToId);
+        try {
+          await this.create({
+            userId: payload.assignedToId,
+            title: 'Ticket Status Updated',
+            message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
+            data: {
+              ticketId: payload.ticketId,
+              type: 'ticket_status_updated',
+              oldStatus: payload.oldStatus,
+              newStatus: payload.newStatus,
+            },
+          });
+          notified.add(payload.assignedToId);
+        } catch (err) {
+          this.logger.error(`Failed to create ticket.status.updated notification for assignee ${payload.assignedToId}: ${err}`);
+          notified.add(payload.assignedToId); // Still mark to avoid duplicate requester notification
+        }
       }
     }
 
     if (!notified.has(payload.requesterId)) {
       const requesterPrefs = prefsMap.get(payload.requesterId);
       if (this.isEnabled(requesterPrefs, 'ticket.status.updated')) {
-        await this.create({
-          userId: payload.requesterId,
-          title: 'Ticket Status Updated',
-          message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
-          data: {
-            ticketId: payload.ticketId,
-            type: 'ticket_status_updated',
-            oldStatus: payload.oldStatus,
-            newStatus: payload.newStatus,
-          },
-        });
+        try {
+          await this.create({
+            userId: payload.requesterId,
+            title: 'Ticket Status Updated',
+            message: `Ticket ${payload.ticketNumber} status changed from ${payload.oldStatus} to ${payload.newStatus}`,
+            data: {
+              ticketId: payload.ticketId,
+              type: 'ticket_status_updated',
+              oldStatus: payload.oldStatus,
+              newStatus: payload.newStatus,
+            },
+          });
+        } catch (err) {
+          this.logger.error(`Failed to create ticket.status.updated notification for requester ${payload.requesterId}: ${err}`);
+        }
       }
     }
   }

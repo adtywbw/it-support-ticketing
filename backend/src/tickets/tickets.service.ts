@@ -393,8 +393,8 @@ export class TicketsService {
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string, userRole: string) {
-    const context: {
-      ticket?: {
+    const result = await this.ticketRepository.transaction(async (tx): Promise<{
+      ticket: {
         id: string;
         ticketNumber: string;
         subject: string;
@@ -402,10 +402,9 @@ export class TicketsService {
         requesterId: string;
         assignedToId: string | null;
       };
-      oldStatus?: TicketStatus;
-    } = {};
-
-    const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
+      oldStatus: TicketStatus;
+      updatedTicket: unknown;
+    }> => {
       const ticket = await tx.ticket.findUnique({ where: { id } });
       if (!ticket) {
         throw new NotFoundException('Ticket not found');
@@ -465,16 +464,22 @@ export class TicketsService {
           newValue: updateStatusDto.status,
         },
       });
-      context.ticket = ticket;
-      context.oldStatus = oldStatus;
-      return tx.ticket.findUnique({ where: { id } });
+
+      return {
+        ticket: {
+          id: ticket.id,
+          ticketNumber: ticket.ticketNumber,
+          subject: ticket.subject,
+          status: ticket.status as TicketStatus,
+          requesterId: ticket.requesterId,
+          assignedToId: ticket.assignedToId,
+        },
+        oldStatus,
+        updatedTicket: await tx.ticket.findUnique({ where: { id } }),
+      };
     });
 
-    // ticket and oldStatus are set inside the transaction above; the
-    // transaction always succeeds (throws on error), so they are guaranteed
-    // to be populated here.
-    const ticket = context.ticket!;
-    const oldStatus = context.oldStatus!;
+    const { ticket, oldStatus } = result;
 
     this.eventEmitter.emit('ticket.status.updated', {
       ticketId: id,
@@ -487,7 +492,7 @@ export class TicketsService {
       updatedBy: userId,
     });
 
-    return updatedTicket;
+    return result.updatedTicket;
   }
 
   async assignTicket(id: string, assignTicketDto: AssignTicketDto, userId: string) {

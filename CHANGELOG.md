@@ -59,9 +59,21 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - `docker-compose.yml` — pids_limit on nginx, db, cache
 - `postgres/postgresql.conf` — slow query logging + connection audit
 
-### Verification
-- Backend: build ✅, tests 760/760 ✅, lint 0 errors
-- Frontend: build ✅ (536ms), tests 221/221 ✅, lint 0 errors (26 test-only warnings)
+### Fixed (Minor Round 2 — 10/10 cleanup)
+- **`MaintenanceService.acquireLock()` bypassed RedisService abstraction**: Used `this.redis.getClient().set(key, token, 'EX', ttl, 'NX')` instead of the existing `this.redis.setNx(key, token, ttl)`. **Replaced with `setNx`; removed now-unused `RedisService.getClient()`.** (`maintenance.service.ts`, `redis.service.ts`)
+- **`NotificationsGateway` lacks per-user connection limit**: No max connections per userId, allowing a single user to open unbounded concurrent WebSocket connections. **Added `MAX_CONNECTIONS_PER_USER = 5` limit enforced in `handleConnection()`.** (`notifications.gateway.ts`)
+- **`TicketsService.updateStatus()` fragile context mutation pattern**: Used external `context` object + non-null assertions (`!`) to pass data out of a transaction callback. **Replaced with typed return value from the transaction.** (`tickets.service.ts`)
+- **`NotificationsService` event handlers lack per-create error handling**: If `this.create()` failed for one user in a batch, the error propagated and stopped processing for remaining users. **Added try/catch with `Logger.error()` around each individual `create()` call in all event handlers.** (`notifications.service.ts`)
+- **`useNotifications()` missing staleTime**: Inherited global `staleTime: 0`, refetching on every mount/focus. **Added `staleTime: STALE_TIME_NOTIFICATION_DROPDOWN` (30s).** (`use-notifications.ts`)
+- **`Pagination.getPages()` produces invalid output for `totalPages <= 0`**: The function returned `[1, '...', 1]` for `totalPages=0`. **Added early return for `totalPages <= 0`.** (`Pagination.tsx`)
+
+### Changed
+- `AGENTS.md` — Updated `redis.service.ts` entry to note `getClient()` was removed. Added note about WebSocket connection rate limiting (5 per user).
+- `CHANGELOG.md` — Added Session 42 Round 2 entry.
+
+### Verification (Round 2)
+- Backend: build ✅, tests 760/760 ✅ (73 suites), lint 0 errors
+- Frontend: build ✅ (679ms), tests 221/221 ✅ (44 suites), lint 0 errors (26 test-only warnings)
 
 ## Session 41 — Code Review Final Round 2: Role Guard Enforcement, CSP Hardening, Dashboard Invalidation (2026-07-06)
 

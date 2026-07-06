@@ -48,7 +48,7 @@ export class MaintenanceService {
 
   private async acquireLock(key: string, ttl: number): Promise<LockHandle | null> {
     const token = crypto.randomBytes(16).toString('hex');
-    const acquired = await this.redis.getClient().set(key, token, 'EX', ttl, 'NX');
+    const acquired = await this.redis.setNx(key, token, ttl);
     if (!acquired) return null;
     return { key, token };
   }
