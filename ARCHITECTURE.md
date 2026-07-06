@@ -551,7 +551,7 @@ it-support-ticketing/
 
 ### Security Rules
 - Access tokens are short-lived JWTs stored only in frontend memory; refresh tokens are httpOnly cookies backed by Redis and revoked on logout. Refresh token rotation uses atomic Lua GETDEL to prevent replay attacks from concurrent refresh calls.
-- Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation. WebSocket sessions are also bounded to access-token expiry: `NotificationsGateway` reads `payload.exp` and schedules a `setTimeout` disconnect at expiry; already-expired tokens disconnect immediately. Timers are cleared on disconnect/deactivation.
+- Inactive users are rejected during login, refresh, JWT validation, and WebSocket connection validation. WebSocket sessions are also bounded to access-token expiry: `NotificationsGateway` reads `payload.exp` and schedules a `setTimeout` disconnect at expiry; already-expired tokens disconnect immediately. Timers are cleared on disconnect/deactivation. The `handleConnection()` method validates the `Origin` header against allowed CORS origins before processing any JWT, providing defense-in-depth alongside the `@WebSocketGateway` cors config.
 - EndUser access is ownership-scoped: EndUser can create tickets as requester, can only view/comment/upload/list/download attachments for own tickets, and can only close own resolved tickets.
 - EndUser cannot access `/dashboard` or admin routes; both backend roles and frontend routes/actions enforce this.
 - INTERNAL comments, INTERNAL standalone attachments, and attachments attached to INTERNAL comments are hidden from EndUser ticket detail/list/download responses. Visibility is centralized via `AttachmentVisibilityPolicy` in `backend/src/common/policies/`.

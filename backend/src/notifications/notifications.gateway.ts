@@ -32,6 +32,7 @@ export class NotificationsGateway
 
   private userSockets: Map<string, Set<string>> = new Map();
   private expiryTimers: Map<string, NodeJS.Timeout> = new Map();
+  private readonly allowedOrigins: ReadonlySet<string>;
 
   // Max simultaneous WebSocket connections per user to prevent resource exhaustion
   private static readonly MAX_CONNECTIONS_PER_USER = 5;
@@ -39,9 +40,22 @@ export class NotificationsGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly userRepository: UserRepository,
-  ) {}
+  ) {
+    this.allowedOrigins = new Set(getCorsOrigins());
+  }
 
   async handleConnection(client: Socket) {
+    // Validate the Origin header against allowed CORS origins.
+    // This adds defense-in-depth alongside the @WebSocketGateway cors config.
+    const origin = client.handshake.headers.origin;
+    if (origin) {
+      const allowed = this.allowedOrigins;
+      if (allowed.size > 0 && !allowed.has(origin)) {
+        client.disconnect();
+        return;
+      }
+    }
+
     const token = client.handshake.auth?.token;
 
     if (typeof token !== 'string' || !token.trim()) {

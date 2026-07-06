@@ -66,6 +66,8 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
   const previewUrlRef = useRef<string | null>(null);
+  const previewCtrlRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
   const [commentPage, setCommentPage] = useState(1);
   const [commentLimit, setCommentLimit] = useState(20);
   const user = useAuthStore((s) => s.user);
@@ -77,7 +79,21 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
 
   const canSeeInternal = user && (user.role === 'ITSupport' || user.role === 'Admin');
 
-  useEffect(() => { return () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }; }, []);
+  // Clean up blob URLs and abort pending preview requests on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+      if (previewCtrlRef.current) {
+        previewCtrlRef.current.abort();
+        previewCtrlRef.current = null;
+      }
+    };
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -111,12 +127,37 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
   };
 
   const openPreview = useCallback(async (attachment: { id: string; originalName: string }) => {
-    if (previewUrlRef.current) { URL.revokeObjectURL(previewUrlRef.current); previewUrlRef.current = null; }
-    setPreviewId(attachment.id); setPreviewName(attachment.originalName); setPreviewUrl(null);
+    // Cancel any in-flight preview request
+    if (previewCtrlRef.current) {
+      previewCtrlRef.current.abort();
+    }
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    const ctrl = new AbortController();
+    previewCtrlRef.current = ctrl;
+    setPreviewId(attachment.id);
+    setPreviewName(attachment.originalName);
+    setPreviewUrl(null);
     try {
-      const res = await apiClient.get(`/attachments/${attachment.id}/download?view=1`, { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data); previewUrlRef.current = url; setPreviewUrl(url);
-    } catch (err) { toast.error(getErrorMessage(err, 'Failed to preview attachment')); setPreviewUrl(''); }
+      const res = await apiClient.get(`/attachments/${attachment.id}/download?view=1`, {
+        responseType: 'blob',
+        signal: ctrl.signal,
+      });
+      if (!mountedRef.current || ctrl.signal.aborted) {
+        URL.revokeObjectURL(URL.createObjectURL(res.data));
+        return;
+      }
+      const url = URL.createObjectURL(res.data);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
+    } catch (err) {
+      if (mountedRef.current) {
+        setPreviewUrl('');
+        toast.error(getErrorMessage(err, 'Failed to preview attachment'));
+      }
+    }
   }, []);
 
   const closePreview = useCallback(() => {

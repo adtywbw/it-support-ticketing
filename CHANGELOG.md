@@ -2,6 +2,33 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 43 — Code Review Final Round 4: WebSocket Origin Validation, CSP Sync, Memory Leaks (2026-07-06)
+
+### Fixed (Important)
+- **WebSocket origin validation missing (defense-in-depth)**: `NotificationsGateway` did not validate the `Origin` header during WebSocket connections, allowing potential cross-origin WebSocket hijacking. **Added `allowedOrigins` set initialized from `getCorsOrigins()` and Origin header check in `handleConnection()` that rejects unauthorized origins before JWT validation.** (`notifications.gateway.ts`)
+- **Blob URL memory leak in `CommentSection`**: Preview blob URLs were not cleaned up on component unmount, and in-flight preview requests could set state on unmounted components. **Added `mountedRef` + `AbortController` pattern with proper cleanup in the unmount `useEffect`.** (`CommentSection.tsx`)
+- **`UpdateStatusDto` missing `@IsNotEmpty()`**: The `status` field had `@IsEnum(TicketStatus)` but no `@IsNotEmpty()`, inconsistent with other DTOs. **Added `@IsNotEmpty()` decorator.** (`update-status.dto.ts`)
+- **Double error display in `CreateTicketForm`**: Form-level `submitError` state duplicated the `toast.error()` from the mutation's `onError`, showing errors twice to the user. **Removed `submitError` state and let the mutation `onError` handle all error display; removed unused `getErrorMessage` import.** (`CreateTicketForm.tsx`)
+- **Nginx CSP missing `ws: wss:` in `connect-src`**: The main `nginx.conf` and `nginx.ssl.conf` static asset locations had `connect-src 'self'` without `ws: wss:`, which can block Socket.IO WebSocket connections. **Synced CSP across all 3 nginx configs to consistently include `ws: wss:` in `connect-src`.** (`nginx.conf`, `nginx.ssl.conf`)
+- **Gateway test mock missing `handshake.headers`**: Tests broke after adding origin validation because the mock socket lacked `handshake.headers`. **Added `headers: {}` to `makeMockSocket()`.** (`notifications.gateway.spec.ts`)
+
+### Changed
+- **`AGENTS.md`**: Added note about WebSocket Origin header validation in `NotificationsGateway`. Added note about `@IsNotEmpty()` on enum fields in DTOs.
+- **`CHANGELOG.md`**: Added Session 43 entry.
+
+### Files Changed
+- `backend/src/notifications/notifications.gateway.ts` — Origin validation, duplicate constructor fix, `allowedOrigins` set
+- `backend/src/notifications/__tests__/notifications.gateway.spec.ts` — `handshake.headers` in mock socket
+- `backend/src/tickets/dto/update-status.dto.ts` — added `@IsNotEmpty()`
+- `frontend/src/components/tickets/CommentSection.tsx` — `mountedRef`, `AbortController`, blob URL cleanup
+- `frontend/src/components/tickets/CreateTicketForm.tsx` — removed `submitError` state, removed `getErrorMessage` import
+- `nginx/nginx.conf` — added `ws: wss:` to CSP `connect-src` in all 3 location blocks
+- `nginx/nginx.ssl.conf` — added `ws: wss:` to CSP `connect-src` in all 3 location blocks
+
+### Verification
+- Backend: build ✅, tests 760/760 ✅ (73 suites), lint 0 errors
+- Frontend: build ✅ (656ms), tests 221/221 ✅, lint 0 errors (26 test-only warnings)
+
 ## Session 42 — Code Review Final Round 3: Redis Fail-Open, Mutation Error Handling, Nginx Hardening (2026-07-06)
 
 ### Fixed (Critical)

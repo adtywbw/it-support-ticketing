@@ -46,7 +46,10 @@ describe('NotificationsGateway', () => {
   function makeMockSocket(id: string) {
     return {
       id,
-      handshake: { auth: { token: 'valid-token' } },
+      handshake: {
+        auth: { token: 'valid-token' },
+        headers: {},
+      },
       disconnect: jest.fn(),
       join: jest.fn(),
       leave: jest.fn(),

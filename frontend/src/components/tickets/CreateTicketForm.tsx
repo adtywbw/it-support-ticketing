@@ -5,7 +5,7 @@ import { useCreateTicket, useUploadAttachment } from '@/hooks/use-tickets';
 import { useCategories } from '@/hooks/use-categories';
 import { useFileUpload } from '@/hooks/use-file-upload';
 import type { TicketPriority } from '@/types';
-import { formatFileSize, getErrorMessage } from '@/lib/utils';
+import { formatFileSize } from '@/lib/utils';
 import { MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
@@ -40,7 +40,6 @@ export default function CreateTicketForm() {
     priority: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const fileUpload = useFileUpload({ maxSizePerFile: MAX_TICKET_ATTACHMENT_SIZE });
 
   const selectedCategory = categories?.find((c) => c.id === formData.categoryId);
@@ -72,8 +71,6 @@ export default function CreateTicketForm() {
     e.preventDefault();
     if (!validate()) return;
 
-    setSubmitError(null);
-
     try {
       const ticket = await createMutation.mutateAsync({
         subject: formData.subject.trim(),
@@ -97,8 +94,8 @@ export default function CreateTicketForm() {
       }
 
       navigate(`/tickets/${ticket.id}`);
-    } catch (err) {
-      setSubmitError(getErrorMessage(err, 'Failed to create ticket'));
+    } catch {
+      // Error is already handled by mutation's onError toast
     }
   };
 
@@ -106,9 +103,9 @@ export default function CreateTicketForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {(fileUpload.errors.length > 0 || submitError) && (
+      {fileUpload.errors.length > 0 && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
-          {fileUpload.errors[0] || submitError}
+          {fileUpload.errors[0]}
         </div>
       )}
 

@@ -232,6 +232,7 @@ postgres/postgresql.conf
 - Do not inject `PrismaService` directly into new services; always go through the repository in `common/repositories/`.
 - `TransformInterceptor` already wraps responses into `{ data, meta? }` globally — do not manually wrap in controllers.
 - `AttachmentVisibilityPolicy` is the single source of truth for attachment visibility — do not duplicate filter logic elsewhere.
+- WebSocket `NotificationsGateway` must validate the `Origin` header in `handleConnection()` against the allowed CORS origins before processing any token. This provides defense-in-depth alongside the `@WebSocketGateway` cors config.
 - Frontend errors: use `toast.error()`, not just `throw` or `console.error`.
 - Frontend mutation hooks: ALL `useMutation` hooks MUST have an `onError` callback with `toast.error(getErrorMessage(err, 'Operation failed'))` — silent failures leave users confused. This applies to ALL hooks: tickets, users, sla-configs, maintenance, telegram, notification-preferences, notifications.
 - Frontend `ProtectedRoute`: the `navigateState` for `<Navigate>` redirect MUST use `useRef({ from: location }).current` (stable reference), NOT a plain object `{ from: location }` — a new object reference on every render causes infinite `<Navigate>` redirect loops.
@@ -239,7 +240,7 @@ postgres/postgresql.conf
 - Frontend `queryFilters` in list components: wrap in `useMemo` to prevent object reference instability — TanStack Query's deep-hashing is wasted on every render if a new object is created inline. Follow the `serializeQuery()` pattern from `use-dashboard.ts`.
 - Backend Redis service: all core methods (`set`, `get`, `del`, `incr`, `eval`, `deleteByPattern`, etc.) must have try/catch with `Logger.error()` for observability. Callers that handle Redis failures (e.g., `AuthService.checkAccountLocked`) should use their own try/catch and fail open where appropriate.
 - Backend auth fail-open: `checkAccountLocked()` and `resetFailedLogin()` must catch Redis errors and fail open (allow login through) rather than throwing 500 — a Redis outage should not block all logins.
-- DTO validation: every numeric field must have `@IsInt() @Min(0)` (or appropriate bounds). `@IsString()` alone on IDs should be `@IsUUID()` where the field references a UUID primary key.
+- DTO validation: every numeric field must have `@IsInt() @Min(0)` (or appropriate bounds). `@IsString()` alone on IDs should be `@IsUUID()` where the field references a UUID primary key. Every enum field with `@IsEnum()` should also have `@IsNotEmpty()` so empty/undefined values are rejected at the validation layer rather than passing through to the service.
 - Backend `faq.repository.ts` methods: ALL Prisma repository methods must be `async` even if they just return a Prisma promise — inconsistent `async`/non-async makes the code harder to refactor.
 - nginx configs: always add `server_tokens off` to the `http` block. HTTP-only `nginx.conf` must have its own WebSocket rate limit zone (`ws_limit`). All CSP blocks must include `object-src 'none'`. The `frontend/nginx.conf` (used for production self-hosting) must be kept in sync with the main nginx for CSP hardening.
 - WebSocket `NotificationsGateway` limits to `MAX_CONNECTIONS_PER_USER = 5` simultaneous connections per userId. Do not increase this without evaluating server resource boundaries.
