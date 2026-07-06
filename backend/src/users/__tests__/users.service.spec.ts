@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UsersService } from '../users.service';
 import { UserRepository } from '../../common/repositories/user.repository';
+import { RedisService } from '../../redis/redis.service';
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 
 describe('UsersService', () => {
@@ -31,6 +32,10 @@ describe('UsersService', () => {
         UsersService,
         { provide: UserRepository, useValue: userRepository },
         { provide: EventEmitter2, useValue: eventEmitter },
+        {
+          provide: RedisService,
+          useValue: { deleteByPattern: jest.fn().mockResolvedValue(0) },
+        },
       ],
     }).compile();
 

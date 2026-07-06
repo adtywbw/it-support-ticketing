@@ -50,8 +50,7 @@ export class CategoriesController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.Admin)
-  async delete(@Param('id') id: string) {
+  async delete(@Param('id') id: string): Promise<void> {
     await this.categoriesService.delete(id);
-    return { message: 'Category deleted successfully' };
   }
 }

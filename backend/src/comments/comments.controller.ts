@@ -9,6 +9,7 @@ import {
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Role, CommentType } from '@prisma/client';
 import { CommentsService } from './comments.service';
@@ -35,6 +36,7 @@ export class CommentsController {
   }
 
   @Post()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseInterceptors(FilesInterceptor('files', MAX_FILES_PER_COMMENT, {
     limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES_PER_COMMENT },
     fileFilter: (_req, file, callback) => {

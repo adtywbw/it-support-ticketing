@@ -150,6 +150,31 @@ export class SLAService {
     priority: Priority;
     resolutionTimeMinutes: number;
   }) {
+    // Acquire the same lock as the cron checkSLA() to prevent concurrent
+    // writes to slaDueAt/slaStatus on the same ticket set.
+    const lockKey = 'sla:check:lock';
+    const lockToken = `recalc:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const acquired = await this.redisService.setNx(lockKey, lockToken, appConfig.sla.checkLockTtl).catch(() => false);
+    if (!acquired) {
+      this.logger.log('SLA check lock held by another operation, skipping recalculation');
+      return;
+    }
+    try {
+      await this.doRecalculate(config);
+    } finally {
+      await this.redisService.eval(
+        SLAService.RELEASE_LOCK_SCRIPT,
+        [lockKey],
+        [lockToken],
+      ).catch(() => {});
+    }
+  }
+
+  private async doRecalculate(config: {
+    categoryId: string;
+    priority: Priority;
+    resolutionTimeMinutes: number;
+  }) {
     const batchSize = appConfig.sla.batchSize;
     let lastId: string | undefined;
 

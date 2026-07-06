@@ -173,7 +173,7 @@ describe('AuthController', () => {
 
       const result = await controller.refresh(mockReq, mockRes);
 
-      expect(authService.refresh).toHaveBeenCalledWith('some-token');
+      expect(authService.refresh).toHaveBeenCalledWith('some-token', mockReq);
       expect(result).toEqual({
         accessToken: 'new-access',
         user: { id: 'user-1', email: 'test@test.com', role: 'EndUser', name: 'Test' },

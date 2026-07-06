@@ -2,6 +2,84 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 47 — Code Review Final Batch: CSRF, Device Fingerprint, File Safety, Restore Transaction (2026-07-06)
+
+### Added
+- **CSRF protection via `CsrfGuard`**: New global guard that checks `X-Requested-With: XMLHttpRequest` on all state-changing requests. Safe methods (GET, HEAD, OPTIONS) and exempt paths (`/auth/login`, `/auth/refresh`, `/auth/logout`, `/health`) bypass the check. Registered as the first `APP_GUARD` in `app.module.ts` — runs before `MaintenanceGuard` and `JwtAuthGuard`. (`common/guards/csrf.guard.ts` — NEW, `app.module.ts`)
+- **Device fingerprint binding for refresh tokens**: On login, a SHA-256 hash of User-Agent + client IP is stored alongside the refresh token in Redis. On token refresh, the current fingerprint is compared; mismatch causes immediate token revocation. Legacy tokens (plain string, no JSON wrapper) are accepted for backward compatibility. (`auth.service.ts`, `auth.controller.ts`)
+
+### Fixed (Critical)
+- **`CommentsService.create()` saves files before DB transaction**: Previously, uploaded files were saved to disk (`storageService.save()`) BEFORE the Prisma transaction began. If the transaction failed (e.g., max attachments exceeded), the inner catch block cleaned up, but a crash between save-and-commit would leave orphaned files. **Restructured to save files INSIDE the transaction callback**, so both file writes and DB records succeed or fail atomically. (`comments.service.ts`)
+- **No CSRF protection**: Cookie-based auth with no CSRF token or custom header check exposed state-changing endpoints to cross-origin request forgery. **Added `CsrfGuard`** (see Added above). (`common/guards/csrf.guard.ts` — NEW)
+
+### Fixed (Important)
+- **`UsersService.delete()` — token revocation after DB success**: Refresh tokens were revoked via an async `eventEmitter.emitAsync('user.deleted')` that could fail silently after the user was already deleted from the DB. **Moved `redisService.deleteByPattern('refresh:{id}:*')` to execute BEFORE `transactionDelete()`**, with the event emission kept as a secondary hook. (`users.service.ts`)
+- **`AuthService` reads `process.env.JWT_SECRET!` in 4 places**: Centralised via `getJwtSecret()` in `jwt.config.ts`, used in `JwtModule` async factories. (`jwt.config.ts`)
+- **CSV export sort fields differ from main query**: Extracted `ALLOWED_SORT_FIELDS` constant shared by `findAll()` and `exportCsvToResponse()`. (`tickets.service.ts`)
+- **Restore backup `DROP SCHEMA` not in transaction**: The destructive `DROP SCHEMA ... CASCADE` was executed before the restore pipe, with no rollback if the pipe failed. **Wrapped in psql `BEGIN; ... COMMIT`** so a failed restore automatically rolls back the schema drop. (`maintenance.service.ts`)
+- **Rate limit missing on file upload endpoints**: `POST /tickets/:id/attachments` and `POST /tickets/:id/comments` had no specific throttle. **Added `@Throttle({ limit: 5, ttl: 60000 })` to both.** (`attachments.controller.ts`, `comments.controller.ts`)
+- **Module-level `_accessToken` dual source of truth**: Removed `let _accessToken` from `auth-store.ts`. All access now goes through `useAuthStore.getState().accessToken`. (`auth-store.ts`, `axios.ts`)
+- **`useRestoreBackup()` missing `onSuccess`**: Added `onSuccess` handler that invalidates `['maintenance', 'backups']` and `['maintenance', 'mode']` queries. (`use-maintenance.ts`)
+- **`downloadBackupFile()` no error handling**: Wrapped in `try/catch` with `toast.error()`. (`use-maintenance.ts`)
+- **`useUsers()` hardcoded `includeInactive=true`**: Added `includeInactive` parameter (default `true` for backward compat) to the hook options. (`use-users.ts`)
+- **SLA cron and `recalculateOpenTicketsForConfig()` can overlap**: `recalculateOpenTicketsForConfig()` now acquires the same Redis lock (`sla:check:lock`) as the `checkSLA()` cron, preventing concurrent writes to `slaDueAt`/`slaStatus`. (`sla.service.ts`)
+- **`NotificationsService` marks duplicate notification on error**: `notified.add()` was incorrectly called in the catch block, suppressing requester notifications when the assignee notification failed. Removed — requester now always receives their notification when the assignee fails. (`notifications.service.ts`)
+- **`DashboardService.buildEnumCounts()` silent on unknown enum values**: Added `Logger.warn()` when a DB value doesn't match any known enum variant. (`dashboard.service.ts`)
+- **`CategoriesController.delete()` returns `{ message }`**: Changed to return `void` — consistent with `TicketsController.delete()` and the `TransformInterceptor` envelope. (`categories.controller.ts`)
+
+### Fixed (Minor)
+- **`AuthController` test expects 1-arg refresh call**: Updated test expectations for new `refresh(token, req)` signature. (`auth.controller.spec.ts`)
+- **`SLA service` test mocks missing `setNx`/`eval`**: Tests that trigger recalculation now explicitly mock `setNx` to return `true` and `eval` to return `1`. (`sla.service.spec.ts`)
+- **`MaintenanceService` spec uses `'sh'` for restore lookup**: Changed to `'bash'` matching the actual implementation. (`maintenance.service.spec.ts`)
+- **`CommentsService` spec expects file cleanup on transaction reject**: Updated to match new behavior (files saved inside transaction, no cleanup needed when transaction rejects before file save). (`comments/__tests__/comments.service.spec.ts`)
+- **CI pipeline missing `prisma generate`**: Added `npx prisma generate` step before `npm run build` in the backend job. (`ci.yml`)
+- **Seed `existingTicket` check uses `findFirst`**: Changed to `findUnique({ where: { ticketNumber: 'TKT-001' } })` to avoid false negatives in development. (`seed.ts`)
+- **Migration `ON UPDATE CASCADE` unnecessary**: Removed from FK constraints — UUID primary keys never change. (`20260706000001_add_cascade_delete/migration.sql`)
+- **Nginx default server lacks access log**: Added `access_log` directive. (`nginx.conf`)
+- **Notification store not reset on logout**: `useAuthStore.logout()` now dynamically imports `useNotificationStore` and calls `reset()`. (`auth-store.ts`)
+
+### Files Changed (28 files, +299/-120 lines)
+- `backend/src/common/guards/csrf.guard.ts` — NEW
+- `backend/src/app.module.ts` — CsrfGuard registration
+- `backend/src/common/config/jwt.config.ts` — getJwtSecret()
+- `backend/src/auth/auth.service.ts` — device fingerprint, jwtSecret centralised
+- `backend/src/auth/auth.controller.ts` — pass req to login/refresh
+- `backend/src/auth/strategies/jwt.strategy.ts` — getJwtSecret()
+- `backend/src/comments/comments.service.ts` — file save inside transaction
+- `backend/src/comments/comments.controller.ts` — +@Throttle
+- `backend/src/attachments/attachments.controller.ts` — +@Throttle
+- `backend/src/tickets/tickets.service.ts` — ALLOWED_SORT_FIELDS
+- `backend/src/sla/sla.service.ts` — shared lock for recalculate
+- `backend/src/users/users.service.ts` — token revoke before DB delete
+- `backend/src/common/guards/maintenance.guard.ts` — getJwtSecret()
+- `backend/src/notifications/notifications.gateway.ts` — getJwtSecret()
+- `backend/src/notifications/notifications.service.ts` — removed premature notified.add()
+- `backend/src/dashboard/dashboard.service.ts` — +Logger.warn on unknown enum
+- `backend/src/maintenance/maintenance.service.ts` — BEGIN/COMMIT for DROP SCHEMA
+- `backend/src/categories/categories.controller.ts` — delete() returns void
+- `backend/test/smoke.e2e.spec.ts` — X-Requested-With header, delete shape
+- `backend/src/users/users.service.spec.ts` — +RedisService mock + token revoke test
+- `backend/src/auth/auth.controller.spec.ts` — 2-arg refresh expectation
+- `backend/src/sla/sla.service.spec.ts` — setNx/eval mocks
+- `backend/src/maintenance/maintenance.service.spec.ts` — sh→bash
+- `backend/src/comments/__tests__/comments.service.spec.ts` — updated cleanup test
+- `backend/src/categories/__tests__/categories.controller.spec.ts` — expect undefined
+- `frontend/src/stores/auth-store.ts` — removed _accessToken, +notification reset
+- `frontend/src/lib/axios.ts` — use getState() instead of getAccessToken()
+- `frontend/src/hooks/use-users.ts` — +includeInactive param
+- `frontend/src/hooks/use-maintenance.ts` — +onSuccess for restore, +error handling for download
+- `.github/workflows/ci.yml` — +prisma generate step
+- `backend/prisma/seed.ts` — findUnique for ticketNumber check
+- `backend/prisma/migrations/...add_cascade_delete/migration.sql` — removed ON UPDATE CASCADE
+- `nginx/nginx.conf` — +access_log on default_server
+
+### Verification
+- Backend: build ✅, lint 0 errors ✅, tests 757/757 ✅ (72 suites)
+- Backend E2E: 9/9 ✅ (health, login, refresh, categories, tickets CRUD, comments, dashboard, delete)
+- Frontend: build ✅ (522ms), tests 221/221 ✅
+
+---
+
 ## Session 46 — Restore Pipefail Shell Fix (2026-07-06)
 
 ### Fixed (Critical)

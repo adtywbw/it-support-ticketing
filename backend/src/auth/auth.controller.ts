@@ -35,7 +35,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto, req);
     res.cookie(REFRESH_COOKIE, result.refreshToken, getRefreshCookieOptions(req, getRefreshCookieMaxAge()));
     return { accessToken: result.accessToken, user: result.user };
   }
@@ -51,7 +51,7 @@ export class AuthController {
     if (!token) {
       throw new UnauthorizedException('Refresh token not provided');
     }
-    const result = await this.authService.refresh(token);
+    const result = await this.authService.refresh(token, req);
     res.cookie(REFRESH_COOKIE, result.refreshToken, getRefreshCookieOptions(req, getRefreshCookieMaxAge()));
     return { accessToken: result.accessToken, user: result.user };
   }

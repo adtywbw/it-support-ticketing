@@ -204,7 +204,7 @@ describe('CommentsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('cleans up saved files when transaction fails', async () => {
+    it('does not need file cleanup when transaction rejects before file save', async () => {
       mockTicket();
       storageService.save.mockResolvedValue(undefined);
       commentRepository.transaction.mockRejectedValue(new Error('DB failure'));
@@ -213,7 +213,9 @@ describe('CommentsService', () => {
         service.create(ticketId, content, CommentType.PUBLIC, [validFile], 'user-1', Role.Admin),
       ).rejects.toThrow('DB failure');
 
-      expect(storageService.delete).toHaveBeenCalledTimes(1);
+      // Files are saved INSIDE the transaction callback now, so if the
+      // transaction mock rejects immediately, no files were saved.
+      expect(storageService.delete).not.toHaveBeenCalled();
     });
 
     it('does not assert MIME integrity when file has no buffer', async () => {

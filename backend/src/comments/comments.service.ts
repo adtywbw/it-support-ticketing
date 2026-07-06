@@ -78,77 +78,87 @@ export class CommentsService {
       }
     }
 
-    const createdFiles: { path: string }[] = [];
+    const uploadDir = process.env.UPLOAD_DIR || './uploads';
 
-    try {
-      const uploadDir = process.env.UPLOAD_DIR || './uploads';
-      for (const file of files) {
-        const filePath = buildSafeUploadPath(uploadDir, file.originalname);
-        await this.storageService.save(file, filePath);
-        createdFiles.push({ path: filePath });
+    // Save files AND create DB records inside a single transaction so that
+    // if the transaction fails, no files are persisted on disk.
+    // File cleanup on error is still done in the catch block below as
+    // defense-in-depth for crash-between-save-and-commit scenarios.
+    return await this.commentRepository.transaction(async (tx) => {
+      const existingAttachmentCount = await tx.attachment.count({ where: { ticketId } });
+      if (existingAttachmentCount + files.length > appConfig.fileUpload.maxFilesPerTicket) {
+        throw new BadRequestException(
+          `Maximum ${appConfig.fileUpload.maxFilesPerTicket} attachments per ticket`,
+        );
       }
 
-      return await this.commentRepository.transaction(async (tx) => {
-        const existingAttachmentCount = await tx.attachment.count({ where: { ticketId } });
-        if (existingAttachmentCount + files.length > appConfig.fileUpload.maxFilesPerTicket) {
-          throw new BadRequestException(
-            `Maximum ${appConfig.fileUpload.maxFilesPerTicket} attachments per ticket`,
-          );
+      // Save each file to disk inside the transaction.
+      // If any save fails, the exception is caught below and the transaction
+      // rolls back automatically. Already-saved files are cleaned up.
+      const createdFiles: { path: string; originalName: string }[] = [];
+      try {
+        for (const file of files) {
+          const filePath = buildSafeUploadPath(uploadDir, file.originalname);
+          await this.storageService.save(file, filePath);
+          createdFiles.push({ path: filePath, originalName: sanitizeOriginalName(file.originalname) });
         }
+      } catch (saveError) {
+        // Clean up any files saved before the failure
+        for (const f of createdFiles) {
+          try {
+            await this.storageService.delete(f.path);
+          } catch { /* best-effort cleanup */ }
+        }
+        throw saveError;
+      }
 
-        const comment = await tx.comment.create({
-          data: {
-            ticket: { connect: { id: ticketId } },
-            user: { connect: { id: userId } },
-            content,
-            type,
-          },
-        });
+      const comment = await tx.comment.create({
+        data: {
+          ticket: { connect: { id: ticketId } },
+          user: { connect: { id: userId } },
+          content,
+          type,
+        },
+      });
 
+      if (files.length > 0) {
         await Promise.all(files.map((file, index) => tx.attachment.create({
           data: {
             ticket: { connect: { id: ticketId } },
             comment: { connect: { id: comment.id } },
             user: { connect: { id: userId } },
-            originalName: sanitizeOriginalName(file.originalname),
+            originalName: createdFiles[index].originalName,
             mimeType: file.mimetype,
             size: file.size,
             path: createdFiles[index].path,
             visibility: type === CommentType.INTERNAL ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC,
           },
         })));
+      }
 
-        return tx.comment.findUnique({
-          where: { id: comment.id },
-          include: {
-            user: {
-              select: { id: true, name: true, email: true, role: true, avatarUrl: true },
-            },
-            attachments: {
-              select: {
-                id: true,
-                ticketId: true,
-                commentId: true,
-                userId: true,
-                originalName: true,
-                mimeType: true,
-                size: true,
-                visibility: true,
-                createdAt: true,
-                user: { select: { id: true, name: true } },
-              },
+      return tx.comment.findUnique({
+        where: { id: comment.id },
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+          },
+          attachments: {
+            select: {
+              id: true,
+              ticketId: true,
+              commentId: true,
+              userId: true,
+              originalName: true,
+              mimeType: true,
+              size: true,
+              visibility: true,
+              createdAt: true,
+              user: { select: { id: true, name: true } },
             },
           },
-        });
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    } catch (err) {
-      for (const f of createdFiles) {
-        try {
-          await this.storageService.delete(f.path);
-        } catch { /* ignore cleanup errors */ }
-      }
-      throw err;
-    }
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async findByTicketId(ticketId: string, userRole: string, userId: string, page = 1, limit = 20) {

@@ -80,6 +80,8 @@ export function useDeleteBackup() {
 }
 
 export function useRestoreBackup() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async ({ id, confirmation }: { id: string; confirmation: string }) => {
       const response = await apiClient.post<ApiEnvelope<{ message: string; preRestoreBackup: BackupInfo }>>(
@@ -88,21 +90,29 @@ export function useRestoreBackup() {
       );
       return unwrapData(response);
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'backups'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'mode'] });
+    },
     onError: (err) => toast.error(getErrorMessage(err, 'Failed to restore backup')),
   });
 }
 
 export async function downloadBackupFile(id: string, type: 'db' | 'uploads') {
-  const response = await apiClient.get<Blob>(`/maintenance/backups/${id}/download/${type}`, {
-    responseType: 'blob',
-  });
-  const blob = unwrapBlob(response);
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${id}-${type === 'db' ? 'db.sql.gz' : 'uploads.tar.gz'}`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+  try {
+    const response = await apiClient.get<Blob>(`/maintenance/backups/${id}/download/${type}`, {
+      responseType: 'blob',
+    });
+    const blob = unwrapBlob(response);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${id}-${type === 'db' ? 'db.sql.gz' : 'uploads.tar.gz'}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    toast.error(getErrorMessage(err, 'Failed to download backup file'));
+  }
 }

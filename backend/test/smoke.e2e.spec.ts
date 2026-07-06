@@ -4,6 +4,11 @@
  *
  * Usage: npm run test:e2e
  * Requires: docker compose up -d
+ *
+ * Env:
+ *   E2E_HOST       — hostname (default: localhost)
+ *   E2E_PORT       — port (default: 80)
+ *   E2E_PROTOCOL   — http or https (default: http)
  */
 import * as https from 'https';
 import * as http from 'http';
@@ -24,7 +29,10 @@ function request(method: string, path: string, body?: any, token?: string): Prom
       port: E2E_PORT,
       path: `/api${path}`,
       agent,
-      headers: { 'Content-Type': 'application/json' } as any,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest', // required by CsrfGuard
+      } as any,
     };
     if (token) (options.headers as any)['Authorization'] = `Bearer ${token}`;
     if (body) (options.headers as any)['Content-Length'] = Buffer.byteLength(JSON.stringify(body));
@@ -119,6 +127,8 @@ describe('E2E Smoke Test', () => {
 
   test('DELETE /tickets/:id — deletes the ticket', async () => {
     const res = await request('DELETE', `/tickets/${state.ticketId}`, undefined, state.accessToken);
-    expect(res.data.data.message).toBe('Ticket deleted successfully');
+    expect(res.status).toBe(200);
+    // TransformInterceptor wraps void returns as { data: null }
+    expect(res.data).toEqual({ data: null });
   });
 });

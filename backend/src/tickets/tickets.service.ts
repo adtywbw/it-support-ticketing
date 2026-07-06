@@ -33,6 +33,14 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Closed]: [TicketStatus.Open],
 };
 
+/** Allowlist of sort-by fields usable in ticket list and CSV export queries. */
+const ALLOWED_SORT_FIELDS = [
+  'createdAt', 'updatedAt', 'slaDueAt', 'priority',
+  'ticketNumber', 'subject', 'status', 'slaStatus',
+] as const;
+
+type SortField = typeof ALLOWED_SORT_FIELDS[number];
+
 /** Shape of a ticket row in the CSV export stream. */
 interface CsvExportTicket {
   ticketNumber: string;
@@ -151,8 +159,7 @@ export class TicketsService {
       ];
     }
 
-    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status', 'slaStatus'];
-    const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderField = ALLOWED_SORT_FIELDS.includes(sortBy as SortField) ? sortBy : 'createdAt';
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const scope: TicketAccessScope = { userId, role: userRole as 'EndUser' | 'ITSupport' | 'Admin' };
@@ -261,8 +268,7 @@ export class TicketsService {
       ];
     }
 
-    const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'slaStatus'];
-    const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderField = ALLOWED_SORT_FIELDS.includes(sortBy as SortField) ? sortBy : 'createdAt';
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const escapeCsv = (value: unknown) => {

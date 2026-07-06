@@ -25,6 +25,7 @@ import { MaintenanceGuard } from './common/guards/maintenance.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { RedisService } from './redis/redis.service';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { CsrfGuard } from './common/guards/csrf.guard';
 
 @Module({
   imports: [
@@ -52,6 +53,10 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     FaqsModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
+    },
     {
       provide: APP_GUARD,
       useFactory: (redis: RedisService, jwtService: JwtService, reflector: Reflector) =>

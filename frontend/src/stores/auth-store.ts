@@ -11,24 +11,23 @@ interface AuthState {
   setUser: (user: User) => void;
 }
 
-let _accessToken: string | null = null;
-
-export const getAccessToken = () => _accessToken;
-
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   accessToken: null,
   isAuthenticated: false,
   login: (user, accessToken) => {
-    _accessToken = accessToken;
     set({ user, accessToken, isAuthenticated: true });
   },
   logout: () => {
-    _accessToken = null;
     set({ user: null, accessToken: null, isAuthenticated: false });
+    // Reset notification unread count on logout so a new user
+    // doesn't briefly see the previous user's count.
+    // Dynamic import avoids circular dependency at module evaluation time.
+    import('@/stores/notification-store').then(({ useNotificationStore }) => {
+      useNotificationStore.getState().reset();
+    }).catch(() => { /* best-effort */ });
   },
   setAccessToken: (accessToken) => {
-    _accessToken = accessToken;
     set({ accessToken });
   },
   setUser: (user) => {

@@ -389,11 +389,16 @@ export class MaintenanceService {
     }
 
     const pg = this.createPgOptions(databaseUrl);
+    // Wrap DROP SCHEMA and restore in a psql transaction so that if
+    // the restore pipeline fails mid-stream, the DROP SCHEMA can be
+    // rolled back instead of leaving an empty database.
     await execFileAsync(
       'psql',
       [
         '-v',
         'ON_ERROR_STOP=1',
+        '-c',
+        'BEGIN;',
         '-c',
         `DROP SCHEMA IF EXISTS ${this.quoteIdentifier(pg.schema)} CASCADE;`,
       ],
@@ -414,11 +419,13 @@ export class MaintenanceService {
       '{ print }',
     ].join(' ');
 
+    // Run the restore pipe and COMMIT on success. If the pipe fails,
+    // ROLLBACK the schema drop.
     await execFileAsync(
       'bash',
       [
         '-c',
-        `set -o pipefail && gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1`,
+        `set -o pipefail && gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1 && psql -c 'COMMIT'`,
       ],
       {
         env: { ...process.env, ...pg.env, DB_BACKUP_PATH: dbPath },

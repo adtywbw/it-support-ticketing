@@ -197,6 +197,8 @@ export class DashboardService {
       const rowKey = row[key];
       if (typeof rowKey === 'string' && values.includes(rowKey as T)) {
         result[rowKey as T] = row._count.id;
+      } else {
+        this.logger.warn(`Unexpected ${key} value "${String(rowKey)}" in dashboard aggregation — treating as 0`);
       }
     }
     return result;

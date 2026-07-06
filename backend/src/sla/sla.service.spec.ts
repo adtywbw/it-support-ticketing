@@ -60,6 +60,8 @@ describe('SLAService', () => {
     jest.resetAllMocks();
     ticketRepository.findMany.mockResolvedValue([]);
     ticketRepository.update.mockResolvedValue({});
+    redisService.setNx.mockResolvedValue(false); // lock not acquired → skip recalculation
+    redisService.eval.mockResolvedValue(1);
   });
 
   afterEach(() => {
@@ -80,6 +82,7 @@ describe('SLAService', () => {
       jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000Z'));
       categoryRepository.findById.mockResolvedValue({ id: 'cat-1' });
       slaConfigRepository.create.mockResolvedValue(newConfig);
+      redisService.setNx.mockResolvedValue(true); // acquire lock
       ticketRepository.findMany
         .mockResolvedValueOnce([
           { id: 'ticket-1' },
@@ -205,6 +208,7 @@ describe('SLAService', () => {
     it('should allow patching only responseTimeMinutes when merged values are valid', async () => {
       slaConfigRepository.findUnique.mockResolvedValue(existingConfig);
       slaConfigRepository.update.mockResolvedValue({ ...existingConfig, responseTimeMinutes: 120 });
+      redisService.setNx.mockResolvedValue(true); // acquire lock
 
       const result = await service.update('config-1', { responseTimeMinutes: 120 });
 
@@ -227,6 +231,7 @@ describe('SLAService', () => {
     it('should allow patching only resolutionTimeMinutes when merged values are valid', async () => {
       slaConfigRepository.findUnique.mockResolvedValue(existingConfig);
       slaConfigRepository.update.mockResolvedValue({ ...existingConfig, resolutionTimeMinutes: 480 });
+      redisService.setNx.mockResolvedValue(true); // acquire lock
 
       const result = await service.update('config-1', { resolutionTimeMinutes: 480 });
 
@@ -247,6 +252,7 @@ describe('SLAService', () => {
 
     it('should recalculate related tickets when timing fields are updated', async () => {
       jest.useFakeTimers().setSystemTime(new Date('2026-01-01T12:00:00.000Z'));
+      redisService.setNx.mockResolvedValue(true); // acquire lock
       const updatedConfig = {
         ...existingConfig,
         responseTimeMinutes: 120,

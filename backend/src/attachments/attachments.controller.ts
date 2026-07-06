@@ -10,6 +10,7 @@ import {
   Res,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { createReadStream } from 'fs';
@@ -28,6 +29,7 @@ export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 
   @Post('tickets/:ticketId/attachments')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseInterceptors(FileInterceptor('file', {
     limits: { fileSize: MAX_FILE_SIZE, files: 1 },
     fileFilter: (_req, file, callback) => {

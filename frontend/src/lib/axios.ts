@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import { getAccessToken, useAuthStore } from '@/stores/auth-store';
+import { useAuthStore } from '@/stores/auth-store';
 import type { User } from '@/types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -56,9 +56,9 @@ function processQueue(error: unknown, token: string | null) {
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const state = useAuthStore.getState();
+    if (state.accessToken) {
+      config.headers.Authorization = `Bearer ${state.accessToken}`;
     }
     return config;
   },
@@ -71,7 +71,8 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && !originalRequest._retry && error.response?.config?.url !== '/auth/refresh' && error.response?.config?.url !== '/auth/login') {
-      if (!getAccessToken()) {
+      const state = useAuthStore.getState();
+      if (!state.accessToken) {
         return Promise.reject(error);
       }
 

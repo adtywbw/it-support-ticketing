@@ -2,11 +2,13 @@ import { ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UsersService } from './users.service';
 import { UserRepository } from '../common/repositories/user.repository';
+import { RedisService } from '../redis/redis.service';
 
 describe('UsersService lifecycle refresh-token revocation events', () => {
   let service: UsersService;
   let userRepository: Record<string, jest.Mock>;
   let eventEmitter: { emitAsync: jest.Mock };
+  let redisService: Record<string, jest.Mock>;
 
   beforeEach(() => {
     userRepository = {
@@ -18,9 +20,13 @@ describe('UsersService lifecycle refresh-token revocation events', () => {
     eventEmitter = {
       emitAsync: jest.fn().mockResolvedValue([]),
     };
+    redisService = {
+      deleteByPattern: jest.fn().mockResolvedValue(0),
+    };
     service = new UsersService(
       userRepository as unknown as UserRepository,
       eventEmitter as unknown as EventEmitter2,
+      redisService as unknown as RedisService,
     );
   });
 
@@ -64,6 +70,7 @@ describe('UsersService lifecycle refresh-token revocation events', () => {
 
     await service.delete('user-1', 'admin-1');
 
+    expect(redisService.deleteByPattern).toHaveBeenCalledWith('refresh:user-1:*');
     expect(eventEmitter.emitAsync).toHaveBeenCalledWith('user.deleted', { userId: 'user-1' });
   });
 
@@ -91,6 +98,17 @@ describe('UsersService lifecycle refresh-token revocation events', () => {
     userRepository.findById.mockResolvedValue({ id: 'user-1' });
     userRepository.transactionDelete.mockResolvedValue(undefined);
     eventEmitter.emitAsync.mockRejectedValue(new Error('Redis down'));
+
+    await expect(service.delete('user-1', 'admin-1')).resolves.toBeUndefined();
+    expect(userRepository.transactionDelete).toHaveBeenCalledTimes(1);
+    expect(redisService.deleteByPattern).toHaveBeenCalledWith('refresh:user-1:*');
+    expect(eventEmitter.emitAsync).toHaveBeenCalledWith('user.deleted', { userId: 'user-1' });
+  });
+
+  it('does not throw if Redis token revocation fails during delete', async () => {
+    userRepository.findById.mockResolvedValue({ id: 'user-1' });
+    userRepository.transactionDelete.mockResolvedValue(undefined);
+    redisService.deleteByPattern.mockRejectedValue(new Error('Redis unreachable'));
 
     await expect(service.delete('user-1', 'admin-1')).resolves.toBeUndefined();
     expect(userRepository.transactionDelete).toHaveBeenCalledTimes(1);

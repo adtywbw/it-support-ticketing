@@ -279,6 +279,7 @@ it-support-ticketing/
 │       │   ├── filters/
 │       │   │   └── http-exception.filter.ts
 │       │   ├── guards/
+│       │   │   ├── csrf.guard.ts           # CSRF: checks X-Requested-With on state-changing requests
 │       │   │   ├── jwt-auth.guard.ts
 │       │   │   ├── maintenance.guard.ts
 │       │   │   └── roles.guard.ts

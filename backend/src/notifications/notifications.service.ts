@@ -222,7 +222,7 @@ export class NotificationsService {
           notified.add(payload.assignedToId);
         } catch (err) {
           this.logger.error(`Failed to create ticket.status.updated notification for assignee ${payload.assignedToId}: ${err}`);
-          notified.add(payload.assignedToId); // Still mark to avoid duplicate requester notification
+          // Do NOT mark as notified — let the requester get the notification
         }
       }
     }

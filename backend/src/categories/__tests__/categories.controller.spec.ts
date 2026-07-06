@@ -77,13 +77,13 @@ describe('CategoriesController', () => {
   });
 
   describe('delete()', () => {
-    it('should call categoriesService.delete and return success message', async () => {
+    it('should call categoriesService.delete and return void', async () => {
       mockCategoriesService.delete.mockResolvedValue(undefined);
 
       const result = await controller.delete('cat-1');
 
       expect(categoriesService.delete).toHaveBeenCalledWith('cat-1');
-      expect(result).toEqual({ message: 'Category deleted successfully' });
+      expect(result).toBeUndefined();
     });
   });
 });

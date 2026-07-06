@@ -9,7 +9,9 @@ import { JwtService } from '@nestjs/jwt';
 import { OnEvent } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 import type { StringValue } from 'ms';
+import type { Request } from 'express';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { LoginDto } from './dto/login.dto';
@@ -17,7 +19,6 @@ import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { AuthResponse } from './interfaces/auth-response.interface';
 import { parseExpiryToMs } from '../common/utils/time.util';
 import { appConfig } from '../common/config/app.config';
-
 const GETDEL_SCRIPT = `
   local stored = redis.call('GET', KEYS[1])
   redis.call('DEL', KEYS[1])
@@ -51,7 +52,7 @@ export class AuthService implements OnModuleInit {
     this.dummyHash = await bcrypt.hash('dummy-password-for-timing', 12);
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponse> {
+  async login(loginDto: LoginDto, req?: Request): Promise<AuthResponse> {
     const normalizedEmail = loginDto.email.toLowerCase().trim();
     await this.checkAccountLocked(normalizedEmail);
 
@@ -62,10 +63,10 @@ export class AuthService implements OnModuleInit {
     }
 
     await this.resetFailedLogin(normalizedEmail);
-    return this.generateTokens(user);
+    return this.generateTokens(user, req);
   }
 
-  async refresh(refreshToken: string): Promise<AuthResponse> {
+  async refresh(refreshToken: string, req?: Request): Promise<AuthResponse> {
     let payload: JwtPayload;
     try {
       payload = this.jwtService.verify(refreshToken, {
@@ -80,21 +81,48 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    const refreshKey = `refresh:${payload.sub}:${payload.jti}`;
+
     // First validate that the token exists in Redis without consuming it.
-    let storedToken: string | null;
+    let storedValue: string | null;
     try {
-      storedToken = await this.redisService.get(
-        `refresh:${payload.sub}:${payload.jti}`,
-      ) as string | null;
+      storedValue = await this.redisService.get(refreshKey) as string | null;
     } catch {
       throw new UnauthorizedException('Refresh token validation failed');
     }
-    if (!storedToken || storedToken !== refreshToken) {
+    if (!storedValue) {
+      throw new UnauthorizedException('Refresh token has been revoked');
+    }
+
+    // Handle both legacy plain-token format and new JSON-wrapped format.
+    let storedToken: string;
+    try {
+      const parsed = JSON.parse(storedValue);
+      if (parsed && typeof parsed === 'object' && parsed.token) {
+        storedToken = parsed.token;
+        // Validate device fingerprint if present.
+        if (parsed.fp && req) {
+          const currentFp = this.computeFingerprint(req);
+          if (currentFp && parsed.fp !== currentFp) {
+            // Fingerprint mismatch — revoke the token immediately to
+            // prevent replay from a different device.
+            await this.redisService.del(refreshKey).catch(() => {});
+            throw new UnauthorizedException('Refresh token has been revoked');
+          }
+        }
+      } else {
+        storedToken = storedValue;
+      }
+    } catch {
+      // If storedValue is not valid JSON, treat as plain token (backward compat).
+      storedToken = storedValue;
+    }
+
+    if (storedToken !== refreshToken) {
       throw new UnauthorizedException('Refresh token has been revoked');
     }
 
     // Validate the user exists and is active BEFORE consuming the token.
-    // This prevents session loss if the DB is transiently unavailable.
     let user;
     try {
       user = await this.usersService.findById(payload.sub);
@@ -102,11 +130,11 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('User not found or inactive');
     }
     if (!user || !user.isActive) {
-      // Token still valid - let validation consume it so the revoked
-      // token cannot be replayed if the user is reactivated later.
+      // Token still valid — consume it so the revoked token cannot be
+      // replayed if the user is reactivated later.
       await this.redisService.eval(
         GETDEL_SCRIPT,
-        [`refresh:${payload.sub}:${payload.jti}`],
+        [refreshKey],
         [],
       ).catch(() => { /* Best-effort cleanup */ });
       throw new UnauthorizedException('User not found or inactive');
@@ -117,7 +145,7 @@ export class AuthService implements OnModuleInit {
     try {
       consumedToken = await this.redisService.eval(
         GETDEL_SCRIPT,
-        [`refresh:${payload.sub}:${payload.jti}`],
+        [refreshKey],
         [],
       ) as string | null;
     } catch {
@@ -133,7 +161,7 @@ export class AuthService implements OnModuleInit {
       email: user.email,
       role: user.role,
       name: user.name,
-    });
+    }, req);
   }
 
   async revokeRefreshToken(refreshToken: string): Promise<void> {
@@ -205,7 +233,7 @@ export class AuthService implements OnModuleInit {
     email: string;
     role: string;
     name?: string;
-  }): Promise<AuthResponse> {
+  }, req?: Request): Promise<AuthResponse> {
     const tokenId = uuidv4();
 
     const basePayload = {
@@ -231,9 +259,18 @@ export class AuthService implements OnModuleInit {
       },
     );
 
+    // Store refresh token + device fingerprint for replay protection.
+    // The fingerprint is a hash of user-agent + client IP so a stolen
+    // token cannot be used from a different device without detection.
+    const refreshKey = `refresh:${user.id}:${tokenId}`;
+    const fingerprint = this.computeFingerprint(req);
+    const storedValue = fingerprint
+      ? JSON.stringify({ token: refreshToken, fp: fingerprint })
+      : refreshToken;
+
     await this.redisService.set(
-      `refresh:${user.id}:${tokenId}`,
-      refreshToken,
+      refreshKey,
+      storedValue,
       Math.floor(this.refreshTokenExpiryMs / 1000),
     );
 
@@ -306,5 +343,26 @@ export class AuthService implements OnModuleInit {
     } catch (err) {
       this.logger.warn(`Failed to reset failed login counter for ${email}: ${err}`);
     }
+  }
+
+  /**
+   * Computes a device fingerprint hash from the request's User-Agent and
+   * client IP. Used to bind refresh tokens to the originating device so
+   * a stolen token cannot be replayed from a different environment.
+   * Returns null when the request object is unavailable (e.g. programmatic
+   * callers, CLI tools, or during testing).
+   */
+  private computeFingerprint(req?: Request): string | null {
+    if (!req) return null;
+    const ua = (req.headers['user-agent'] || '') as string;
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.ip
+      || '';
+    if (!ua && !ip) return null;
+    return crypto
+      .createHash('sha256')
+      .update(`${ua}::${ip}`)
+      .digest('hex')
+      .slice(0, 16);
   }
 }

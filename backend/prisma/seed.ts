@@ -152,7 +152,7 @@ async function main() {
     },
   });
 
-  const existingTicket = isProduction ? true : await prisma.ticket.findFirst();
+  const existingTicket = isProduction ? true : await prisma.ticket.findUnique({ where: { ticketNumber: 'TKT-001' } });
 
   if (!existingTicket) {
     await prisma.ticket.create({

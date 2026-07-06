@@ -40,7 +40,7 @@
 |------|---------|---------|
 | Backend unit tests | `backend` | `npm test` |
 | Backend lint | `backend` | `npm run lint` |
-| Backend E2E tests | `backend` | `npm run test:e2e` |
+| Backend E2E tests | `backend` | `E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2e` |
 | Backend build | `backend` | `npm run build` |
 | Frontend build | `frontend` | `npm run build` |
 | Frontend lint | `frontend` | `npm run lint` |
@@ -97,10 +97,12 @@ postgres/postgresql.conf
 - Dashboard page owns range state (`DashboardStatsQuery`) and passes it down; `useDashboardStats(query)` serializes the query into a stable string key via `serializeQuery()` to prevent infinite refetch loops from object reference changes. Query client is constructed via `createAppQueryClient()` in `lib/app-initializers.ts`. All ticket and SLA config mutations invalidate `['dashboard', 'stats']` (the actual dashboard query key), not the prefix `['dashboard']`.
 
 ## Auth & Security
+- **CSRF protection**: `CsrfGuard` is registered as the first global `APP_GUARD` in `app.module.ts` (before `MaintenanceGuard`). It requires `X-Requested-With: XMLHttpRequest` header on all state-changing requests (POST, PATCH, PUT, DELETE). Safe methods (GET, HEAD, OPTIONS) and exempt paths (`/auth/login`, `/auth/refresh`, `/auth/logout`, `/health`) bypass the check. This is the "custom header" pattern — browsers enforce same-origin policy on custom headers, so a cross-origin attacker cannot set `X-Requested-With` via HTML forms or auto-submitting mechanisms.
 - Access token is memory-only in Zustand auth state.
 - Access token has `tokenType: 'access'` claim; refresh token has `tokenType: 'refresh'`.
 - JWT signing/verification pinned to `HS256` algorithm in all verification paths — `JwtModule`, `JwtStrategy`, `AuthService.refresh()`, `AuthService.revokeRefreshToken()`, `NotificationsGateway.handleConnection()`, and `MaintenanceGuard` — to prevent algorithm-downgrade attacks.
 - Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`. Refresh token rotation uses atomic Lua GETDEL to prevent replay.
+- Refresh tokens are bound to **device fingerprint** (SHA-256 hash of User-Agent + client IP, stored alongside the token in Redis). On refresh, if the fingerprint doesn't match, the token is immediately revoked and a new one is issued only on re-login. Legacy tokens without a fingerprint are accepted for backward compatibility.
 - Refresh TTL via `JWT_REFRESH_TOKEN_EXPIRY` env; cookie maxAge follows env.
 - Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
 - `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET). Do NOT add redundant `@UseGuards(JwtAuthGuard)` on individual controllers — it creates a second guard instance that double-verifies every JWT. `JwtAuthGuard` is already registered as `APP_GUARD` in `app.module.ts`. When using `@Roles()` for role checks, also add `@UseGuards(RolesGuard)` — `RolesGuard` is NOT a global guard.
@@ -233,6 +235,7 @@ postgres/postgresql.conf
 - `Notification`: clear-all, read-all, mark-read are supported by the API — check the API Map before adding new endpoints.
 
 ## Common Pitfalls
+- **`CsrfGuard` blocks non-browser clients**: Any programmatic/script caller (curl without `-H 'X-Requested-With: XMLHttpRequest'`, Postman, E2E tests) will get 403 on state-changing requests. Always include the custom header or use the exempt paths for public endpoints.
 - Do not inject `PrismaService` directly into new services; always go through the repository in `common/repositories/`.
 - `TransformInterceptor` already wraps responses into `{ data, meta? }` globally — do not manually wrap in controllers.
 - `AttachmentVisibilityPolicy` is the single source of truth for attachment visibility — do not duplicate filter logic elsewhere.
@@ -266,6 +269,9 @@ postgres/postgresql.conf
 - Notification preferences: `User.notificationPreferences` is nullable JSONB. `null`/absent means all events enabled — do not treat `null` as "all off". The shared util `isEventEnabled(prefs, event)` handles this logic. The frontend `NotificationPreferencesSection` component uses `useNotificationPreferences()` which normalizes stored prefs per role via the API. Do not add preference checks outside `NotificationsService` handlers.
 - File upload validation: use the shared `useFileUpload()` hook (frontend) for MIME type checks, size limits, preview URLs, and error management. The hook centralizes logic that was previously duplicated across `CreateTicketForm`, `CommentSection`, and `AttachmentList`. The hook cleans up blob URLs on unmount via `useEffect` — no manual cleanup needed by consumers.
 - Stale-file cleanup: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that cross-references disk files against DB records and removes unmatched files. The `AttachmentRepository.findAllPaths()` method supports this. This is a best-effort guard against orphaned files from crashes during upload.
+- **File save ordering**: `CommentsService.create()` saves uploaded files **inside** the Prisma transaction callback, not before it. This ensures that if the transaction fails (e.g., max attachments exceeded), no files linger on disk. A catch block inside the transaction handles cleanup of partial saves.
+- **SLA lock sharing**: `SLAService.recalculateOpenTicketsForConfig()` (triggered by SLA config create/update) uses the same Redis lock key (`sla:check:lock`) as `checkSLA()` cron. If the cron is mid-flight when a config update triggers recalculation, the recalculation skips with a log message. This prevents concurrent writes to `slaDueAt`/`slaStatus` on overlapping ticket sets.
+- **Restore safety**: `MaintenanceService.restoreDatabase()` wraps `DROP SCHEMA ... CASCADE` in a psql `BEGIN;...COMMIT` block. If the restore pipe (gzip→awk→psql) fails, the transaction is automatically rolled back and the original schema (with pre-restore backup data) is preserved.
 
 
 ## Dev Seed Credentials

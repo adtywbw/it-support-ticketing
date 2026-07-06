@@ -166,7 +166,7 @@ describe('MaintenanceService restoreDatabase pg_trgm support', () => {
     await service.restoreDatabase('/app/backups/20260702-014500/db.sql.gz');
 
     const restoreCall = (childProcess.execFile as unknown as jest.Mock).mock.calls.find(
-      (call: any[]) => call[0] === 'sh' && call[1]?.[0] === '-c',
+      (call: any[]) => call[0] === 'bash' && call[1]?.[0] === '-c',
     );
 
     expect(restoreCall).toBeDefined();

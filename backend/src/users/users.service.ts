@@ -9,6 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { UserRepository } from '../common/repositories/user.repository';
+import { RedisService } from '../redis/redis.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -22,6 +23,7 @@ export class UsersService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly redisService: RedisService,
   ) {}
 
   async findByEmail(email: string) {
@@ -132,6 +134,14 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    // Revoke all refresh tokens BEFORE deleting the user from DB.
+    // This prevents a scenario where the DB delete succeeds but token
+    // revocation (done via async event emission) fails, leaving orphaned
+    // tokens in Redis that could be used for replay after reactivation.
+    await this.redisService.deleteByPattern(`refresh:${id}:*`).catch((error) => {
+      this.logger.warn(`Failed to revoke refresh tokens for user ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    });
 
     try {
       await this.userRepository.transactionDelete(id);
