@@ -25,6 +25,36 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - `README.md` — refresh endpoint description
 - `CHANGELOG.md` — this entry
 
+## Session 28 — Maintainability Quick Wins (2026-07-06)
+
+### Changed
+- **Unused imports removed**: `uuidv4` dan `path` dari `comments.service.ts` — imports tidak pernah dipakai. Juga `uuidv4` dan `path` dari `attachments.service.ts` (dead code bonus).
+- **Dead code dihapus dari `ticket.repository.ts`**: 4 method yang tidak dipanggil (`delete()`, `getSLAStats()`, `getAvgResolutionTimeByCategory()`, `transactionBatch()`) + 3 test terkait dihapus. Method `getDashboardSLAStatsForRange()` dan `getAvgResolutionTimeByCategoryForRange()` sudah mencakup kebutuhan yang sama.
+- **`trimString` transformer diekstrak**: Dari duplikasi di `create-ticket.dto.ts` dan `create-comment.dto.ts` ke shared utility `common/utils/transform.util.ts`. Kedua DTO sekarang import dari satu sumber.
+- **Pagination boilerplate diekstrak**: `Math.ceil(total / limit) || 1` + meta construction yang di-copy di 5 file (`tickets.service.ts`, `user.repository.ts`, `notification.repository.ts`, `comments.service.ts`, `attachments.service.ts`) diganti dengan `buildPaginationMeta()` dari `common/utils/pagination.util.ts`. Utility handle kasus `limit <= 0` dan `total === 0` secara konsisten.
+- **SLA calculation diekstrak**: Method `calculateSlaStatus()` di `sla.service.ts` diubah dari `private` ke public. `tickets.service.ts` sekarang memanggil `this.slaService.calculateSlaStatus()` alih-alih menduplikasi logic perhitungan SLA (threshold `0.2` yang sebelumnya hardcoded di 2 tempat).
+
+### Verification
+- Backend tests: 341/341 passed (30 suites)
+- Frontend tests: 73/73 passed (24 suites)
+- Frontend build: ✓ built in 528ms
+- Net perubahan: 18 insertions, 114 deletions (11 files) + 2 new utility files
+
+### Files Changed
+- `backend/src/comments/comments.service.ts` — hapus unused imports, pakai `buildPaginationMeta`
+- `backend/src/attachments/attachments.service.ts` — hapus unused imports, pakai `buildPaginationMeta`
+- `backend/src/comments/dto/create-comment.dto.ts` — import `trimString` dari shared util
+- `backend/src/tickets/dto/create-ticket.dto.ts` — import `trimString` dari shared util
+- `backend/src/common/utils/transform.util.ts` — **new**: shared `trimString` transformer
+- `backend/src/common/utils/pagination.util.ts` — **new**: `buildPaginationMeta()` utility
+- `backend/src/common/repositories/ticket.repository.ts` — hapus 4 dead methods
+- `backend/src/common/repositories/__tests__/ticket.repository.spec.ts` — hapus 3 test untuk dead methods
+- `backend/src/common/repositories/user.repository.ts` — pakai `buildPaginationMeta`
+- `backend/src/common/repositories/notification.repository.ts` — pakai `buildPaginationMeta`
+- `backend/src/sla/sla.service.ts` — `calculateSlaStatus()` jadi public
+- `backend/src/tickets/tickets.service.ts` — pakai `buildPaginationMeta`, pakai `slaService.calculateSlaStatus()`
+- `backend/src/tickets/tickets.service.spec.ts` — tambah `calculateSlaStatus` mock
+
 ## Session 26 — Self-Host Google Font (Inter) untuk CSP Compliance (2026-07-06)
 
 ### Fixed
