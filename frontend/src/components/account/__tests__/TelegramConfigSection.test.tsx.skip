@@ -1,0 +1,206 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import TelegramConfigSection from '../TelegramConfigSection';
+
+const mockMutateAsync = vi.fn();
+const mockCheckMutateAsync = vi.fn();
+const mockGenerateMutateAsync = vi.fn().mockResolvedValue({ code: 'ABC123' });
+const mockUnlinkMutate = vi.fn();
+const mockSendTestMutateAsync = vi.fn().mockResolvedValue(undefined);
+
+const telegramStatusData = { data: { linked: false }, isLoading: false };
+const telegramConfigData = {
+  data: {
+    hasBotToken: false,
+    hasGroupChatId: false,
+    settings: {
+      enabledEvents: ['ticket.created'],
+      enableGroupChat: false,
+      notifyIndividualsWhenGroupChat: false,
+      templates: {},
+    },
+  },
+  isLoading: false,
+};
+
+vi.mock('@/hooks/use-telegram', () => ({
+  useTelegramStatus: vi.fn(() => telegramStatusData),
+  useTelegramConfig: vi.fn(() => telegramConfigData),
+  useUpdateTelegramConfig: vi.fn(() => ({
+    mutateAsync: mockMutateAsync,
+    isPending: false,
+  })),
+  useGenerateTelegramCode: vi.fn(() => ({
+    mutateAsync: mockGenerateMutateAsync,
+    isPending: false,
+  })),
+  useUnlinkTelegram: vi.fn(() => ({
+    mutate: mockUnlinkMutate,
+    isPending: false,
+  })),
+  useSendTestNotification: vi.fn(() => ({
+    mutateAsync: mockSendTestMutateAsync,
+    isPending: false,
+  })),
+  useCheckTelegram: vi.fn(() => ({
+    mutateAsync: mockCheckMutateAsync,
+    isPending: false,
+  })),
+}));
+
+import { useTelegramStatus, useTelegramConfig, useGenerateTelegramCode } from '@/hooks/use-telegram';
+
+describe('TelegramConfigSection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockMutateAsync.mockResolvedValue(undefined);
+    vi.mocked(useTelegramStatus).mockReturnValue(telegramStatusData);
+    vi.mocked(useTelegramConfig).mockReturnValue(telegramConfigData);
+    mockGenerateMutateAsync.mockResolvedValue({ code: 'ABC123' });
+    mockCheckMutateAsync.mockResolvedValue({
+      bot: { valid: true, username: 'TestBot' },
+      groupChat: null,
+    });
+  });
+
+  describe('when not linked', () => {
+    it('renders link section', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByText('Link Telegram')).toBeInTheDocument();
+      expect(screen.getByText('Get ticket notifications on Telegram.')).toBeInTheDocument();
+    });
+
+    it('shows link code after clicking Link Telegram', async () => {
+      render(<TelegramConfigSection />);
+      fireEvent.click(screen.getByText('Link Telegram'));
+
+      await waitFor(() => {
+        expect(screen.getByText('ABC123')).toBeInTheDocument();
+      });
+      expect(screen.getByText(/Send this code to the bot/)).toBeInTheDocument();
+    });
+
+    it('shows generate new code link after revealing code', async () => {
+      render(<TelegramConfigSection />);
+      fireEvent.click(screen.getByText('Link Telegram'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Generate new code')).toBeInTheDocument();
+      });
+    });
+
+    it('does not show connected status', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.queryByText('Connected to Telegram')).not.toBeInTheDocument();
+    });
+
+    it('does not show unlink button', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.queryByText('Unlink Telegram')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('when linked', () => {
+    beforeEach(() => {
+      vi.mocked(useTelegramStatus).mockReturnValue({
+        data: { linked: true },
+        isLoading: false,
+      });
+    });
+
+    it('shows connected status', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByText('Connected to Telegram')).toBeInTheDocument();
+    });
+
+    it('shows unlink and test notification buttons', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByText('Unlink Telegram')).toBeInTheDocument();
+      expect(screen.getByText('Test Notification')).toBeInTheDocument();
+    });
+
+    it('does not show link button', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.queryByText('Link Telegram')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Bot Settings', () => {
+    it('renders bot token input', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByPlaceholderText('TELEGRAM_BOT_TOKEN')).toBeInTheDocument();
+    });
+
+    it('renders check button', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByText('Check')).toBeInTheDocument();
+    });
+
+    it('renders notification events checkboxes', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getAllByText('New Ticket Created').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Ticket Assigned').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Ticket Status Updated').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('renders message templates section', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByText('Message Templates')).toBeInTheDocument();
+    });
+
+    it('renders save settings button', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByText('Save Settings')).toBeInTheDocument();
+    });
+
+    it('shows group chat checkbox', () => {
+      render(<TelegramConfigSection />);
+      expect(screen.getByText('Send to Group Chat')).toBeInTheDocument();
+    });
+
+    it('shows group chat fields when enableGroupChat is toggled', () => {
+      render(<TelegramConfigSection />);
+      fireEvent.click(screen.getByText('Send to Group Chat'));
+      expect(screen.getByText('Group Chat ID')).toBeInTheDocument();
+      expect(screen.getByText('Also notify individually')).toBeInTheDocument();
+    });
+
+    it('saves config on save button click', async () => {
+      mockCheckMutateAsync.mockResolvedValue({
+        bot: { valid: true, username: 'TestBot' },
+        groupChat: null,
+      });
+
+      render(<TelegramConfigSection />);
+
+      fireEvent.click(screen.getByText('Check'));
+      await waitFor(() => {
+        expect(mockCheckMutateAsync).toHaveBeenCalled();
+      });
+
+      fireEvent.click(screen.getByText('Save Settings'));
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalled();
+      });
+    });
+
+    it('shows success message after saving', async () => {
+      mockCheckMutateAsync.mockResolvedValue({
+        bot: { valid: true, username: 'TestBot' },
+        groupChat: null,
+      });
+
+      render(<TelegramConfigSection />);
+
+      fireEvent.click(screen.getByText('Check'));
+      await waitFor(() => {
+        expect(mockCheckMutateAsync).toHaveBeenCalled();
+      });
+
+      fireEvent.click(screen.getByText('Save Settings'));
+      await waitFor(() => {
+        expect(screen.getByText('Settings saved successfully.')).toBeInTheDocument();
+      });
+    });
+  });
+});
