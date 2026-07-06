@@ -32,17 +32,37 @@ describe('CategoryRepository', () => {
   });
 
   describe('findAll (Admin — full shape)', () => {
-    it('should include active subCategories, ticket count, ordered by name asc', async () => {
+    it('should include subCategories, slaConfigs, expanded _count, ordered by name asc', async () => {
       prisma.category.findMany.mockResolvedValueOnce([]);
 
-      await repository.findAll();
+      await repository.findAll(true);
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { name: 'asc' },
+          include: expect.objectContaining({
+            subCategories: expect.objectContaining({ where: undefined }),
+            slaConfigs: undefined,
+            _count: { select: { tickets: true, subCategories: true, slaConfigs: true } },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('findAll (non-Admin — active only)', () => {
+    it('should filter subCategories to active, include active slaConfigs, ordered by name asc', async () => {
+      prisma.category.findMany.mockResolvedValueOnce([]);
+
+      await repository.findAll(false);
 
       expect(prisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: { name: 'asc' },
           include: expect.objectContaining({
             subCategories: expect.objectContaining({ where: { isActive: true } }),
-            _count: { select: { tickets: true } },
+            slaConfigs: expect.objectContaining({ where: { isActive: true } }),
+            _count: { select: { tickets: true, subCategories: true, slaConfigs: true } },
           }),
         }),
       );
@@ -192,7 +212,35 @@ describe('SubCategoryRepository', () => {
   });
 
   describe('findByCategoryId', () => {
-    it('should filter to isActive=true and include ticket count', async () => {
+    it('should filter to isActive=true and include ticket count when includeInactive is false', async () => {
+      prisma.subCategory.findMany.mockResolvedValueOnce([]);
+
+      await repository.findByCategoryId('c1', false);
+
+      expect(prisma.subCategory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { categoryId: 'c1', isActive: true },
+          orderBy: { name: 'asc' },
+          include: { _count: { select: { tickets: true } } },
+        }),
+      );
+    });
+
+    it('should not filter by isActive when includeInactive is true', async () => {
+      prisma.subCategory.findMany.mockResolvedValueOnce([]);
+
+      await repository.findByCategoryId('c1', true);
+
+      expect(prisma.subCategory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { categoryId: 'c1' },
+          orderBy: { name: 'asc' },
+          include: { _count: { select: { tickets: true } } },
+        }),
+      );
+    });
+
+    it('should default to isActive=true when includeInactive is not provided', async () => {
       prisma.subCategory.findMany.mockResolvedValueOnce([]);
 
       await repository.findByCategoryId('c1');

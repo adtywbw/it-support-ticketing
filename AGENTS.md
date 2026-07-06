@@ -90,7 +90,7 @@ postgres/postgresql.conf
 - Zustand persisted state: theme only. Startup applies the persisted theme via `applyInitialTheme()` in `lib/app-initializers.ts` before React renders, reading the `pref`/`mode` shape (not the legacy `isDark` key).
 - Zustand non-persisted state: auth user/accessToken and notification count.
 - React state owns form and component-local UI state.
-- Dashboard page owns range state (`DashboardStatsQuery`) and passes it down; `useDashboardStats(query)` key changes trigger refetch. Query client is constructed via `createAppQueryClient()` in `lib/app-initializers.ts`.
+- Dashboard page owns range state (`DashboardStatsQuery`) and passes it down; `useDashboardStats(query)` serializes the query into a stable string key via `serializeQuery()` to prevent infinite refetch loops from object reference changes. Query client is constructed via `createAppQueryClient()` in `lib/app-initializers.ts`. All ticket and SLA config mutations invalidate `['dashboard', 'stats']` (the actual dashboard query key), not the prefix `['dashboard']`.
 
 ## Auth & Security
 - Access token is memory-only in Zustand auth state.
@@ -99,8 +99,8 @@ postgres/postgresql.conf
 - Refresh token is an httpOnly cookie with path `/api/auth`; revoke via Redis key `refresh:{sub}:{jti}`. Refresh token rotation uses atomic Lua GETDEL to prevent replay.
 - Refresh TTL via `JWT_REFRESH_TOKEN_EXPIRY` env; cookie maxAge follows env.
 - Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
-- `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET). Do NOT add redundant `@UseGuards(JwtAuthGuard)` on individual controllers — it creates a second guard instance that double-verifies every JWT. `JwtAuthGuard` is already registered as `APP_GUARD` in `app.module.ts`.
-- `RolesGuard` uses the shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks.
+- `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET). Do NOT add redundant `@UseGuards(JwtAuthGuard)` on individual controllers — it creates a second guard instance that double-verifies every JWT. `JwtAuthGuard` is already registered as `APP_GUARD` in `app.module.ts`. When using `@Roles()` for role checks, also add `@UseGuards(RolesGuard)` — `RolesGuard` is NOT a global guard.
+- `RolesGuard` uses the shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks. `RolesGuard` is NOT a global guard — it must be applied per-endpoint via `@UseGuards(RolesGuard)` alongside the `@Roles()` decorator.
 - Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
 - `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.
 - `JwtStrategy.validate()` wraps the repository lookup in `try/catch`; repository failures (e.g., during DB outage/restore) become `UnauthorizedException` (401), not 500.
@@ -248,7 +248,7 @@ postgres/postgresql.conf
 - SLA recalculation: `SLAService` automatically recalculates `slaDueAt` and `slaStatus` for non-terminal tickets when SLA config timing is created or changed. `isActive`-only updates do not trigger recalculation. Frontend `SLAConfigManager` sends timing on every edit — the backend correctly skips recalculation if timing hasn't actually changed.
 - Dashboard: the `TicketRepository` now has dashboard-specific methods (`getDashboardCurrentSnapshot`, `getDashboardAttentionTickets`, `getDashboardStatusCounts`, `getDashboardPriorityCounts`, `getDashboardSLAStatsForRange`, `getAvgResolutionTimeByCategoryForRange`, `getTopCategories`). Do not duplicate these query patterns; reuse the repository methods.
 - Notification preferences: `User.notificationPreferences` is nullable JSONB. `null`/absent means all events enabled — do not treat `null` as "all off". The shared util `isEventEnabled(prefs, event)` handles this logic. The frontend `NotificationPreferencesSection` component uses `useNotificationPreferences()` which normalizes stored prefs per role via the API. Do not add preference checks outside `NotificationsService` handlers.
-- File upload validation: use the shared `useFileUpload()` hook (frontend) for MIME type checks, size limits, preview URLs, and error management. The hook centralizes logic that was previously duplicated across `CreateTicketForm`, `CommentSection`, and `AttachmentList`.
+- File upload validation: use the shared `useFileUpload()` hook (frontend) for MIME type checks, size limits, preview URLs, and error management. The hook centralizes logic that was previously duplicated across `CreateTicketForm`, `CommentSection`, and `AttachmentList`. The hook cleans up blob URLs on unmount via `useEffect` — no manual cleanup needed by consumers.
 - Stale-file cleanup: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that cross-references disk files against DB records and removes unmatched files. The `AttachmentRepository.findAllPaths()` method supports this. This is a best-effort guard against orphaned files from crashes during upload.
 
 

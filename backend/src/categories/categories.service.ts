@@ -14,7 +14,7 @@ export class CategoriesService {
 
   async findAll(userRole: Role) {
     if (userRole === Role.Admin) {
-      return this.categoryRepository.findAll();
+      return this.categoryRepository.findAll(true);
     }
     return this.categoryRepository.findAllForTicketForm();
   }

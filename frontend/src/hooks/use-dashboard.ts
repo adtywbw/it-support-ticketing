@@ -16,9 +16,14 @@ export function buildDashboardStatsPath(query: DashboardStatsQuery = DEFAULT_DAS
   return `/dashboard/stats${qs ? `?${qs}` : ''}`;
 }
 
+/** Serialize query to a stable key for TanStack Query to avoid infinite refetch on object reference changes. */
+function serializeQuery(query: DashboardStatsQuery): string {
+  return `${query.range}|${query.from ?? ''}|${query.to ?? ''}`;
+}
+
 export function useDashboardStats(query: DashboardStatsQuery = DEFAULT_DASHBOARD_QUERY) {
   return useQuery({
-    queryKey: ['dashboard', 'stats', query],
+    queryKey: ['dashboard', 'stats', serializeQuery(query)],
     staleTime: STALE_TIME_DASHBOARD,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<DashboardStats>>(buildDashboardStatsPath(query));

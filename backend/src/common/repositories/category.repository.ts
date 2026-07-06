@@ -6,15 +6,16 @@ import { Prisma } from '@prisma/client';
 export class CategoryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(includeInactive?: boolean) {
     return this.prisma.category.findMany({
       orderBy: { name: 'asc' },
       include: {
         subCategories: {
-          where: { isActive: true },
+          where: includeInactive ? undefined : { isActive: true },
           orderBy: { name: 'asc' },
         },
-        _count: { select: { tickets: true } },
+        slaConfigs: includeInactive ? undefined : { where: { isActive: true } },
+        _count: { select: { tickets: true, subCategories: true, slaConfigs: true } },
       },
     });
   }

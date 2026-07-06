@@ -24,6 +24,7 @@ export function useCreateSLAConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sla-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
   });
 }
@@ -38,6 +39,7 @@ export function useUpdateSLAConfig() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sla-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
   });
 }

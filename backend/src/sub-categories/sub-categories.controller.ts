@@ -14,6 +14,7 @@ import { CreateSubCategoryDto } from './dto/create-sub-category.dto';
 import { UpdateSubCategoryDto } from './dto/update-sub-category.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('categories/:categoryId/sub-categories')
 export class SubCategoriesController {
@@ -24,8 +25,11 @@ export class SubCategoriesController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.Admin)
-  async findByCategoryId(@Param('categoryId') categoryId: string) {
-    return this.subCategoriesService.findByCategoryId(categoryId);
+  async findByCategoryId(
+    @Param('categoryId') categoryId: string,
+    @CurrentUser('role') role: Role,
+  ) {
+    return this.subCategoriesService.findByCategoryId(categoryId, role);
   }
 
   @Post()

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { ALLOWED_MIME_TYPES, MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
 
 export interface UseFileUploadOptions {
@@ -41,6 +41,8 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
 
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const entriesRef = useRef<FileEntry[]>([]);
+  entriesRef.current = entries;
 
   const files = useMemo(() => entries.map((e) => e.file), [entries]);
   const previewUrls = useMemo(() => entries.map((e) => e.url), [entries]);
@@ -49,6 +51,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     () => files.reduce((sum, file) => sum + file.size, 0),
     [files],
   );
+
+  // Clean up all blob URLs when the hook consumer unmounts.
+  useEffect(() => {
+    return () => {
+      entriesRef.current.forEach((e) => e.revoke());
+    };
+  }, []);
 
   const validateFile = useCallback(
     (file: File): string | null => {

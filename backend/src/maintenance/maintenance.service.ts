@@ -106,9 +106,14 @@ export class MaintenanceService {
 
   async setMaintenanceMode(enabled: boolean, message?: string): Promise<void> {
     if (!enabled) {
-      const restoreLock = await this.redis.get(RESTORE_LOCK_KEY);
-      if (restoreLock) {
-        throw new BadRequestException('Cannot disable maintenance during active restore');
+      try {
+        const restoreLock = await this.redis.get(RESTORE_LOCK_KEY);
+        if (restoreLock) {
+          throw new BadRequestException('Cannot disable maintenance during active restore');
+        }
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        this.logger.warn(`Failed to check restore lock when disabling maintenance: ${err}`);
       }
     }
     await this.redis.set(MAINTENANCE_KEY, enabled ? '1' : '0');

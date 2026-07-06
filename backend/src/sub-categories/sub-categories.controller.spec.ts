@@ -24,10 +24,10 @@ describe('SubCategoriesController', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('findByCategoryId calls service', async () => {
+  it('findByCategoryId calls service with role', async () => {
     mockService.findByCategoryId.mockResolvedValue([{ id: 'sub-1' }]);
-    const result = await controller.findByCategoryId('cat-1');
-    expect(service.findByCategoryId).toHaveBeenCalledWith('cat-1');
+    const result = await controller.findByCategoryId('cat-1', 'Admin' as any);
+    expect(service.findByCategoryId).toHaveBeenCalledWith('cat-1', 'Admin');
     expect(result).toEqual([{ id: 'sub-1' }]);
   });
 

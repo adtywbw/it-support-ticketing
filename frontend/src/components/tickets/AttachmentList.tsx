@@ -153,7 +153,8 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
   }, []);
 
   useEffect(() => {
-    const totalPages = attachMeta?.totalPages ?? (attachMeta ? Math.ceil(attachMeta.total / (attachMeta.limit || attachLimit)) || 1 : 1);
+    const safeLimit = attachMeta?.limit || attachLimit || 1;
+    const totalPages = attachMeta?.totalPages ?? (attachMeta ? Math.ceil(attachMeta.total / safeLimit) || 1 : 1);
     if (attachPage > totalPages) setAttachPage(totalPages || 1);
   }, [attachMeta, attachLimit, attachPage]);
 
@@ -232,7 +233,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
       {attachMeta && (
         <Pagination
           page={attachPage}
-          totalPages={attachMeta.totalPages ?? (Math.ceil(attachMeta.total / attachLimit) || 1)}
+          totalPages={attachMeta.totalPages ?? (Math.ceil(attachMeta.total / (attachLimit || 1)) || 1)}
           onPageChange={(p) => setAttachPage(p)}
           limit={attachLimit}
           onLimitChange={(l) => { setAttachLimit(l); setAttachPage(1); }}

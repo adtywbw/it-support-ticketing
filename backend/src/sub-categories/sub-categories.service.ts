@@ -14,13 +14,14 @@ export class SubCategoriesService {
     private readonly categoryRepository: CategoryRepository,
   ) {}
 
-  async findByCategoryId(categoryId: string) {
+  async findByCategoryId(categoryId: string, role?: string) {
     const category = await this.categoryRepository.findById(categoryId);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
-    return this.subCategoryRepository.findByCategoryId(categoryId);
+    const includeInactive = role === 'Admin';
+    return this.subCategoryRepository.findByCategoryId(categoryId, includeInactive);
   }
 
   async create(data: { categoryId: string; name: string; description?: string }) {

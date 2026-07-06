@@ -6,7 +6,7 @@ import { STALE_TIME_TICKETS } from '@/lib/constants';
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== '' && value !== null && value !== 0) {
+    if (value !== undefined && value !== '' && value !== null) {
       params.append(key, String(value));
     }
   });
@@ -25,6 +25,7 @@ export function useTickets(filters: TicketFilters) {
 export function useTicket(id: string) {
   return useQuery({
     queryKey: ['ticket', id],
+    staleTime: STALE_TIME_TICKETS,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Ticket>>(`/tickets/${id}`);
       return unwrapData(response);
@@ -43,7 +44,7 @@ export function useCreateTicket() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
   });
 }
@@ -59,7 +60,7 @@ export function useUpdateTicketStatus() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
   });
 }
@@ -75,7 +76,7 @@ export function useAssignTicket() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
   });
 }
@@ -164,7 +165,7 @@ export function useUpdateTicketPriority() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', data.id] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
   });
 }
@@ -178,7 +179,7 @@ export function useDeleteTicket() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
     },
   });
 }

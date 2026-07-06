@@ -3,6 +3,7 @@ import {
   OnModuleInit,
   UnauthorizedException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OnEvent } from '@nestjs/event-emitter';
@@ -33,6 +34,7 @@ const INCR_EXPIRE_SCRIPT = `
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly logger = new Logger(AuthService.name);
   private readonly refreshTokenExpiryMs: number;
   private dummyHash!: string;
 
@@ -146,7 +148,11 @@ export class AuthService implements OnModuleInit {
     }
 
     if (payload.tokenType === 'refresh' && payload.sub && payload.jti) {
-      await this.redisService.del(`refresh:${payload.sub}:${payload.jti}`);
+      try {
+        await this.redisService.del(`refresh:${payload.sub}:${payload.jti}`);
+      } catch (err) {
+        this.logger.warn(`Failed to revoke refresh token for user ${payload.sub}: ${err}`);
+      }
     }
   }
 
@@ -192,10 +198,6 @@ export class AuthService implements OnModuleInit {
   @OnEvent('user.deactivated')
   async handleUserDeactivated(payload: { userId: string }) {
     await this.revokeAllRefreshTokens(payload.userId);
-  }
-
-  async logout(userId: string, tokenId: string): Promise<void> {
-    await this.redisService.del(`refresh:${userId}:${tokenId}`);
   }
 
   private async generateTokens(user: {
