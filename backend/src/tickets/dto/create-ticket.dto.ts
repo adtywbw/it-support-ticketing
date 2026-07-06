@@ -9,7 +9,8 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Priority } from '@prisma/client';
-import { trimString } from '../../common/utils/transform.util';
+
+const trimString = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 
 export class CreateTicketDto {
   @Transform(trimString)

@@ -261,6 +261,10 @@ export class TicketRepository {
     return this.prisma.ticket.updateMany({ where, data });
   }
 
+  async delete(id: string) {
+    return this.prisma.ticket.delete({ where: { id } }) as any;
+  }
+
   async countPublicCommentsByTicketIds(ticketIds: string[]): Promise<Array<{ ticketId: string; count: number }>> {
     if (ticketIds.length === 0) return [];
     return this.prisma.$queryRaw<Array<{ ticketId: string; count: number }>>`
@@ -367,6 +371,24 @@ export class TicketRepository {
     `;
   }
 
+  async getSLAStats() {
+    const rows = await this.prisma.$queryRaw<Array<{
+      total: number;
+      onTrack: number;
+      atRisk: number;
+      breached: number;
+    }>>`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE "slaStatus" = 'OnTrack')::int AS "onTrack",
+        COUNT(*) FILTER (WHERE "slaStatus" = 'AtRisk')::int AS "atRisk",
+        COUNT(*) FILTER (WHERE "slaStatus" = 'Breached')::int AS breached
+      FROM tickets
+      WHERE status NOT IN ('Closed', 'Resolved')
+    `;
+    return rows[0];
+  }
+
   async getDailyTrends(from: Date, to: Date) {
     return this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
       SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day,
@@ -379,6 +401,26 @@ export class TicketRepository {
     `;
   }
 
+  async getAvgResolutionTimeByCategory() {
+    return this.prisma.$queryRaw<Array<{
+      categoryId: string;
+      categoryName: string;
+      avgResolutionMinutes: number;
+      ticketCount: bigint;
+    }>>`
+      SELECT
+        t."categoryId" AS "categoryId",
+        c.name AS "categoryName",
+        ROUND(AVG(EXTRACT(EPOCH FROM (t."resolvedAt" - t."createdAt")) / 60))::int AS "avgResolutionMinutes",
+        COUNT(*)::int AS "ticketCount"
+      FROM tickets t
+      JOIN categories c ON c.id = t."categoryId"
+      WHERE t."resolvedAt" IS NOT NULL
+        AND t.status IN ('Resolved', 'Closed')
+      GROUP BY t."categoryId", c.name
+    `;
+  }
+
   async transaction<T>(
     fn: (tx: Prisma.TransactionClient) => Promise<T>,
     options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
@@ -386,4 +428,7 @@ export class TicketRepository {
     return this.prisma.$transaction(fn, options);
   }
 
+  async transactionBatch(operations: Prisma.PrismaPromise<unknown>[]) {
+    return this.prisma.$transaction(operations);
+  }
 }

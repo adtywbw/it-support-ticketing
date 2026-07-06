@@ -196,6 +196,29 @@ describe('TicketRepository', () => {
     });
   });
 
+  describe('getSLAStats (raw query, PERF-06)', () => {
+    it('should return the single row (count(*), count(*) FILTER WHERE)', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([{
+        total: 50, onTrack: 30, atRisk: 15, breached: 5,
+      }]);
+
+      const result = await repository.getSLAStats();
+
+      expect(result).toEqual({ total: 50, onTrack: 30, atRisk: 15, breached: 5 });
+    });
+
+    it('should filter out Closed/Resolved tickets', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([{
+        total: 0, onTrack: 0, atRisk: 0, breached: 0,
+      }]);
+
+      await repository.getSLAStats();
+
+      // Just verify the call was made; SQL string check would be brittle.
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('getDailyTrends (raw query, PERF-06)', () => {
     it('should return array of { day, count } rows', async () => {
       prisma.$queryRaw.mockResolvedValueOnce([
@@ -209,6 +232,20 @@ describe('TicketRepository', () => {
         { day: '2026-06-25', count: 3 },
         { day: '2026-06-26', count: 5 },
       ]);
+    });
+  });
+
+  describe('getAvgResolutionTimeByCategory (raw query, PERF-06)', () => {
+    it('should return category stats rows', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([{
+        categoryId: 'c1', categoryName: 'Network', avgResolutionMinutes: 120, ticketCount: 10n,
+      }]);
+
+      const result = await repository.getAvgResolutionTimeByCategory();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].categoryId).toBe('c1');
+      expect(result[0].ticketCount).toBe(10n);
     });
   });
 

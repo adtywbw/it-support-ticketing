@@ -6,6 +6,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { CommentType, Role, AttachmentVisibility, Prisma } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
 import { Express } from 'express';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
@@ -13,7 +15,6 @@ import { StorageService, STORAGE_SERVICE } from './interfaces/storage-service.in
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
-import { buildPaginationMeta } from '../common/utils/pagination.util';
 
 const ATTACHMENT_SAFE_SELECT = {
   id: true,
@@ -140,7 +141,8 @@ export class AttachmentsService {
       this.attachmentRepository.count(attachmentWhere),
     ]);
 
-    return { data: attachments, meta: buildPaginationMeta(total, actualLimit, normalizedPage) };
+    const totalPages = Math.ceil(total / actualLimit) || 1;
+    return { data: attachments, meta: { page: normalizedPage, limit: actualLimit, total, totalPages } };
   }
 
   async getDownloadInfo(id: string, userId: string, userRole: string) {

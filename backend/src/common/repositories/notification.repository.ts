@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { buildPaginationMeta } from '../utils/pagination.util';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -28,7 +27,8 @@ export class NotificationRepository {
       }),
       this.prisma.notification.count({ where }),
     ]);
-    return { data: notifications, meta: buildPaginationMeta(total, limit, page) };
+    const totalPages = Math.ceil(total / limit) || 1;
+    return { data: notifications, meta: { page, limit, total, totalPages } };
   }
 
   async markAsRead(id: string, userId: string) {

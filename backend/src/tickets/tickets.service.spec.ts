@@ -59,9 +59,6 @@ describe('TicketsService', () => {
 
   const mockSlaService = {
     getSLAConfig: jest.fn().mockResolvedValue(null),
-    calculateSlaStatus: jest.fn((slaDueAt: Date, _resolutionTimeMinutes: number, now: Date) =>
-      slaDueAt <= now ? 'Breached' : 'OnTrack',
-    ),
   };
 
   const mockEventEmitter = {

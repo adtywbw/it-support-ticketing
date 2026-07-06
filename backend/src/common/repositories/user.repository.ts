@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma, Role } from '@prisma/client';
-import { buildPaginationMeta } from '../utils/pagination.util';
 
 const USER_SAFE_SELECT = {
   id: true,
@@ -71,7 +70,8 @@ export class UserRepository {
       }),
       this.prisma.user.count({ where: where as any }),
     ]);
-    return { data: users, meta: buildPaginationMeta(total, limit, page) } as any;
+    const totalPages = Math.ceil(total / limit) || 1;
+    return { data: users, meta: { page, limit, total, totalPages } } as any;
   }
 
   async create(data: Record<string, unknown>) {

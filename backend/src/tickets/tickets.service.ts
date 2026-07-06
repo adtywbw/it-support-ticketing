@@ -22,7 +22,6 @@ import { TicketStatus, Priority, SLAStatus,       CommentType, Prisma } from '@p
 import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
-import { buildPaginationMeta } from '../common/utils/pagination.util';
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Open]: [TicketStatus.InProgress],
@@ -193,7 +192,8 @@ export class TicketsService {
       }
     }
 
-    return { data: tickets, meta: buildPaginationMeta(total, limit, page) };
+    const totalPages = limit > 0 ? Math.ceil(total / limit) || 1 : 1;
+    return { data: tickets, meta: { page: limit > 0 ? page : 1, limit, total, totalPages } };
   }
 
   async exportCsvToResponse(res: Response, queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
@@ -508,8 +508,19 @@ export class TicketsService {
       ? new Date(createdAt + slaConfig.resolutionTimeMinutes * 60 * 1000)
       : new Date(createdAt + 24 * 60 * 60 * 1000);
 
-    const resolutionMinutes = slaConfig ? slaConfig.resolutionTimeMinutes : 24 * 60;
-    const slaStatus = this.slaService.calculateSlaStatus(slaDueAt, resolutionMinutes, new Date());
+    const now = Date.now();
+    const remainingMs = slaDueAt.getTime() - now;
+    const totalWindowMs = slaConfig ? slaConfig.resolutionTimeMinutes * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const remainingRatio = remainingMs / totalWindowMs;
+
+    let slaStatus: SLAStatus;
+    if (remainingMs <= 0) {
+      slaStatus = SLAStatus.Breached;
+    } else if (remainingRatio <= 0.2) {
+      slaStatus = SLAStatus.AtRisk;
+    } else {
+      slaStatus = SLAStatus.OnTrack;
+    }
 
     const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
       const updated = await tx.ticket.update({
