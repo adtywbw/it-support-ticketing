@@ -42,6 +42,25 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - `frontend/src/lib/thumbnail-cache.ts` — safe cast with runtime guard
 - `nginx/nginx.ssl.conf` — ws: wss: in CSP for /assets/ and /index.html
 
+### Fixed (Session 36 — Batch 2)
+- **WebP magic-byte detection**: Added `WEBP` identifier at offset 8-11 (`0x57 0x45 0x42 0x50`) to RIFF container check. Previously any RIFF-format file (AVI, WAV) with `image/webp` MIME would pass validation.
+- **`vite.config.ts` `__dirname` in ESM context**: Replaced implicit `__dirname` (undefined in ESM) with `fileURLToPath(import.meta.url)` — compatible with Vite 8 ESM config loading.
+- **`ProtectedRoute` loading flash + stale setState**: Replaced `if (checking) return null` with animated spinner. Added `cancelled` flag in `useEffect` cleanup to prevent `setState` on unmounted component.
+- **`SubCategoryRepository.findById()` unsafe type cast**: Replicated `TicketRepository.findById()` fix — replaced `as unknown as Prisma.SubCategoryFindUniqueArgs` with explicit args construction.
+- **`tickets.service.ts` cast cleanups**: Changed `userRole as TicketAccessScope['role']` to `userRole as 'EndUser' | 'ITSupport' | 'Admin'` for narrower type assertion.
+
+### Verification (Batch 2)
+- Backend: build ✅, tests 752/752 ✅, lint 0 errors
+- Frontend: build ✅ (572ms), tests 221/221 ✅, lint 0 errors
+- Production `as unknown` casts: 0 in production code (test-only + 2 unavoidable Prisma generic includes remain)
+
+### Files Changed (Batch 2)
+- `backend/src/common/utils/mime-validation.util.ts` — WebP WEBP bytes at offset 8
+- `backend/src/common/repositories/sub-category.repository.ts` — explicit Prisma args
+- `backend/src/tickets/tickets.service.ts` — narrower type assertion
+- `frontend/vite.config.ts` — ESM-safe __dirname via import.meta.url
+- `frontend/src/auth/ProtectedRoute.tsx` — spinner + cancelled cleanup
+
 ## Session 35 — Code Review Comprehensive Fixes (2026-07-06)
 
 ### Fixed (Critical)

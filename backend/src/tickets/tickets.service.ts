@@ -139,7 +139,7 @@ export class TicketsService {
     const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status', 'slaStatus'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
-    const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
+    const scope: TicketAccessScope = { userId, role: userRole as 'EndUser' | 'ITSupport' | 'Admin' };
     const include = {
       requester: { select: { id: true, name: true, email: true } },
       assignedTo: { select: { id: true, name: true, email: true } },

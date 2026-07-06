@@ -22,7 +22,9 @@ export class SubCategoryRepository {
     id: string,
     include?: T,
   ) {
-    return this.prisma.subCategory.findUnique({ where: { id }, include } as unknown as Prisma.SubCategoryFindUniqueArgs);
+    const args: Prisma.SubCategoryFindUniqueArgs = { where: { id } };
+    if (include) args.include = include;
+    return this.prisma.subCategory.findUnique(args);
   }
 
   async findUnique<T extends Prisma.SubCategoryFindUniqueArgs>(args: T): Promise<Prisma.SubCategoryGetPayload<T> | null> {
