@@ -57,6 +57,7 @@
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health,faqs}
 backend/src/dashboard/dto/query-dashboard-stats.dto.ts
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
+backend/src/common/services/{audit,services}.module.ts
 backend/src/common/policies/attachment-visibility.policy.ts
 backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation,notification-preference,transform,pagination}.util.ts
 backend/src/common/config/app.config.ts
@@ -71,6 +72,7 @@ postgres/postgresql.conf
 - Backend module files live in `backend/src/{module}/` with `module.ts`, `controller.ts`, `service.ts`, and `dto/`.
 - Backend repositories live in `backend/src/common/repositories/`.
 - Backend policies live in `backend/src/common/policies/` (e.g., `AttachmentVisibilityPolicy`).
+- Backend shared services live in `backend/src/common/services/` (e.g., `AuditService` for structured event logging).
 - Backend shared utilities live in `backend/src/common/utils/` (e.g., `upload.util.ts`, `mime-validation.util.ts`, `time.util.ts`, `concurrency.util.ts`).
 - Frontend pages: `frontend/src/pages/`.
 - Frontend components: `frontend/src/components/{domain}/`.
@@ -106,6 +108,7 @@ postgres/postgresql.conf
 - Refresh TTL via `JWT_REFRESH_TOKEN_EXPIRY` env; cookie maxAge follows env.
 - Logout is cookie-based (no access token required); always clears refresh cookie and revokes Redis key.
 - `JwtAuthGuard` is a global guard (fail-closed); use `@Public()` to exempt public endpoints (health, auth login/refresh/logout, `maintenance/mode` GET). Do NOT add redundant `@UseGuards(JwtAuthGuard)` on individual controllers — it creates a second guard instance that double-verifies every JWT. `JwtAuthGuard` is already registered as `APP_GUARD` in `app.module.ts`. When using `@Roles()` for role checks, also add `@UseGuards(RolesGuard)` — `RolesGuard` is NOT a global guard.
+|- **`AppThrottlerGuard`** — replaces the default `ThrottlerGuard` as a global guard. Uses `user:{id}` as the rate-limit key for authenticated requests instead of the raw client IP, so users behind the same NAT don't share a single quota. Falls back to `ip:{addr}` for unauthenticated/public requests. Registered as `APP_GUARD` in `app.module.ts`.
 - `RolesGuard` uses the shared `ROLES_KEY` constant exported from `roles.decorator.ts` (not a string literal) so a typo cannot silently disable role checks. `RolesGuard` is NOT a global guard — it must be applied per-endpoint via `@UseGuards(RolesGuard)` alongside the `@Roles()` decorator.
 - Cookie `secure` defaults to `x-forwarded-proto` check; override with `COOKIE_SECURE=true/false` env.
 - `JWT_SECRET`, `DATABASE_URL`, and `REDIS_URL` are required at startup; production requires min 32-char `JWT_SECRET` and `REDIS_PASSWORD`.

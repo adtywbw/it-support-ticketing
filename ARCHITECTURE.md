@@ -279,6 +279,7 @@ it-support-ticketing/
 │       │   ├── filters/
 │       │   │   └── http-exception.filter.ts
 │       │   ├── guards/
+│       │   │   ├── app-throttler.guard.ts   # Per-user rate-limit key (user:{id})
 │       │   │   ├── csrf.guard.ts           # CSRF: checks X-Requested-With on state-changing requests
 │       │   │   ├── jwt-auth.guard.ts
 │       │   │   ├── maintenance.guard.ts
@@ -293,6 +294,9 @@ it-support-ticketing/
 │       │   ├── config/
 │       │   │   ├── app.config.ts
 │       │   │   └── jwt.config.ts
+│       │   ├── services/
+│       │   │   ├── audit.service.ts        # Structured event logging
+│       │   │   └── services.module.ts      # @Global()
 │       │   ├── utils/
 │       │   │   ├── concurrency.util.ts
 │       │   │   ├── env-validation.util.ts

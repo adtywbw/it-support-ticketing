@@ -73,10 +73,30 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - `backend/prisma/migrations/...add_cascade_delete/migration.sql` — removed ON UPDATE CASCADE
 - `nginx/nginx.conf` — +access_log on default_server
 
-### Verification
+### Verification (Session 47)
 - Backend: build ✅, lint 0 errors ✅, tests 757/757 ✅ (72 suites)
-- Backend E2E: 9/9 ✅ (health, login, refresh, categories, tickets CRUD, comments, dashboard, delete)
-- Frontend: build ✅ (522ms), tests 221/221 ✅
+- Backend E2E: 14/14 ✅ (9 CRUD + 5 maintenance mode)
+- Frontend: build ✅, tests 221/221 ✅
+- **`AuditService`**: Centralized structured event logging service in `common/services/`. Method `log(action, entity, entityId, userId, metadata?)` writes JSON via `Logger.log`. Method `logAndThrow()` logs then re-throws any `HttpException`. Zero Prisma dependency — easy to upgrade to DB-backed persistence later. (`common/services/audit.service.ts` — NEW, `common/services/services.module.ts` — NEW)
+- **`AppThrottlerGuard`**: Custom rate-limit guard that uses `user:{id}` as the throttle key for authenticated requests instead of the raw client IP. Users behind the same NAT no longer share a single quota. Falls back to `ip:{addr}` for unauthenticated/public routes. Replaces the default `ThrottlerGuard` as an `APP_GUARD`. (`common/guards/app-throttler.guard.ts` — NEW)
+
+### Fixed (Important)
+- **E2E: 5 additional smoke tests**: Maintenance mode enable/disable via Admin, health check reflects maintenance state, exempt paths (auth) still work during maintenance. (`test/smoke.e2e.spec.ts`)
+- **Login throttle too low (5/min)**: Raised to 20 requests per 60 seconds to accommodate E2E test suites without hitting 429. The account lockout (10 failed attempts) still prevents brute-force. (`auth.controller.ts`)
+
+### Fixed (Minor)
+- **Nginx rate limit on `/api/maintenance/` location**: Removed redundant `limit_req` — backend `@Throttle` already covers this path. (`nginx.ssl.conf`)
+
+### Files Changed (9 files, +156/-4 lines)
+- `backend/src/common/services/audit.service.ts` — NEW
+- `backend/src/common/services/services.module.ts` — NEW
+- `backend/src/common/guards/app-throttler.guard.ts` — NEW
+- `backend/src/app.module.ts` — ServicesModule + AppThrottlerGuard
+- `backend/src/auth/auth.controller.ts` — throttle 5→20
+- `backend/test/smoke.e2e.spec.ts` — +5 maintenance mode tests
+- `nginx/nginx.ssl.conf` — removed limit_req from maintenance location
+- `AGENTS.md` — services, AppThrottlerGuard docs
+- `ARCHITECTURE.md` — services/ + app-throttler.guard.ts
 
 ---
 

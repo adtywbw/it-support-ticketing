@@ -508,7 +508,7 @@ Backend unit tests (757 tests, 72 suites):
 - All 17 services — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, faqs, redis, prisma)
 - All 25 DTOs — 96% validation coverage
 - All 10 repositories — safe select + pagination + where-clause correctness
-- E2E smoke test (9 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401
+- E2E smoke test (14 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401 → maintenance mode (enable, health check, exempt path, disable)
 
 Frontend tests (221 tests, 44 suites):
 - `auth-store` — login, logout, token persistence
