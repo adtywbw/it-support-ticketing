@@ -84,6 +84,7 @@ postgres/postgresql.conf
 - Do not add CSS modules or styled-components.
 - Backend imports are relative within modules.
 - DTO validation uses `class-validator` with `whitelist` and `forbidNonWhitelisted`.
+- Backend ESLint config file is `eslint.config.mjs` (ES module `.mjs` extension to avoid Node.js module-type warning; if you create a new ESLint config or migrate existing, use `.mjs` or add `"type": "module"`).
 - Throw `BadRequestException`/`NotFoundException` on backend; use `toast.error()` on frontend.
 
 ## State Management

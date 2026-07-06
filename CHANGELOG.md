@@ -2,6 +2,23 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 45 — Code Review Final: Category Toggle Fix, ESLint Cleanup, Service Consistency (2026-07-06)
+
+### Fixed (Critical)
+- **`UpdateCategoryDto` missing `isActive` field**: The `PartialType(CreateCategoryDto)` omitted `isActive`, so `whitelist: true` + `forbidNonWhitelisted` validation stripped the field from PATCH requests, making it impossible for Admin to activate/deactivate categories. **Added `@IsOptional() @IsBoolean() isActive?: boolean` to `UpdateCategoryDto`.** (`update-category.dto.ts`)
+
+### Fixed (Important)
+- **`FaqsService` methods inconsistent without `async`**: `findActiveOrdered()`, `findAll()`, and `create()` returned Promises without `async` keyword, inconsistent with every other service method. **Added `async` to all three.** (`faqs.service.ts`)
+- **Backend `eslint.config.js` triggers Node.js module-type warning**: The file uses `import`/`export` syntax but `package.json` has no `"type": "module"`. Node.js emits `MODULE_TYPELESS_PACKAGE_JSON` warning on every lint run. **Renamed to `eslint.config.mjs` to force ES module mode.** (`eslint.config.js` → `eslint.config.mjs`)
+
+### Changed
+- **`AGENTS.md`**: Added note that the ESLint config is `eslint.config.mjs` (`.mjs` extension).
+- **`CHANGELOG.md`**: Added Session 45 entry.
+
+### Verification
+- Backend: build ✅, tests 72/72 suites ✅ (756/756 tests), lint 0 errors (238 warnings in test files)
+- Frontend: build ✅ (677ms), tests 221/221 ✅, lint 0 errors (26 test-only warnings)
+
 ## Session 44 — Comprehensive Code Review: Final Cleanup & 10/10 Rating (2026-07-06)
 
 ### Fixed (Critical)

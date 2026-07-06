@@ -7,15 +7,15 @@ import { UpdateFaqDto } from './dto/update-faq.dto';
 export class FaqsService {
   constructor(private readonly faqRepository: FaqRepository) {}
 
-  findActiveOrdered() {
+  async findActiveOrdered() {
     return this.faqRepository.findActiveOrdered();
   }
 
-  findAll() {
+  async findAll() {
     return this.faqRepository.findAll();
   }
 
-  create(dto: CreateFaqDto) {
+  async create(dto: CreateFaqDto) {
     const data = {
       ...dto,
       displayOrder: dto.displayOrder ?? 0,
