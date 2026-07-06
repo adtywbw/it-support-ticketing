@@ -6,6 +6,7 @@ import { TicketRepository } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { RedisService } from '../redis/redis.service';
 import { Priority, SLAStatus, TicketStatus } from '@prisma/client';
+import { appConfig } from '../common/config/app.config';
 
 @Injectable()
 export class SLAService {
@@ -135,7 +136,7 @@ export class SLAService {
       return SLAStatus.Breached;
     }
 
-    if (remainingMs / totalWindowMs <= 0.2) {
+    if (remainingMs / totalWindowMs <= appConfig.sla.atRiskRatio) {
       return SLAStatus.AtRisk;
     }
 
@@ -147,23 +148,23 @@ export class SLAService {
     priority: Priority;
     resolutionTimeMinutes: number;
   }) {
-    const batchSize = 500;
-    let lastId: string | undefined;
-
-    const now = new Date();
-
-    while (true) {
-      const tickets = await this.ticketRepository.findMany({
-        where: {
-          categoryId: config.categoryId,
-          priority: config.priority,
-          status: {
-            notIn: [TicketStatus.Resolved, TicketStatus.Closed],
+    const batchSize = appConfig.sla.batchSize;
+      let lastId: string | undefined;
+  
+      const now = new Date();
+  
+      while (true) {
+        const tickets = await this.ticketRepository.findMany({
+          where: {
+            categoryId: config.categoryId,
+            priority: config.priority,
+            status: {
+              notIn: [TicketStatus.Resolved, TicketStatus.Closed],
+            },
+            ...(lastId ? { id: { gt: lastId } } : {}),
           },
-          ...(lastId ? { id: { gt: lastId } } : {}),
-        },
-        select: { id: true, createdAt: true },
-        take: batchSize,
+          select: { id: true, createdAt: true },
+          take: batchSize,
         orderBy: { id: 'asc' },
       });
 
@@ -204,7 +205,7 @@ export class SLAService {
   async checkSLA() {
     const lockKey = 'sla:check:lock';
     const lockToken = `lock:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-    const acquired = await this.redisService.setNx(lockKey, lockToken, 300);
+    const acquired = await this.redisService.setNx(lockKey, lockToken, appConfig.sla.checkLockTtl);
 
     if (!acquired) {
       this.logger.log('SLA check already running, skipping');
@@ -226,7 +227,7 @@ export class SLAService {
 
   private async performSLACheck() {
     const now = new Date();
-    const batchSize = 500;
+    const batchSize = appConfig.sla.batchSize;
     let lastId: string | undefined;
 
     while (true) {
@@ -272,7 +273,7 @@ export class SLAService {
 
         if (remainingMs <= 0) {
           newSlaStatus = SLAStatus.Breached;
-        } else if (remainingRatio <= 0.2) {
+        } else if (remainingRatio <= appConfig.sla.atRiskRatio) {
           newSlaStatus = SLAStatus.AtRisk;
         } else {
           newSlaStatus = SLAStatus.OnTrack;

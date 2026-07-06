@@ -15,10 +15,7 @@ import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibi
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
 import { buildPaginationMeta } from '../common/utils/pagination.util';
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const MAX_FILES_PER_COMMENT = 3;
-const MAX_FILES_PER_TICKET = 5;
+import { appConfig } from '../common/config/app.config';
 
 @Injectable()
 export class CommentsService {
@@ -57,9 +54,9 @@ export class CommentsService {
       throw new ForbiddenException('Access denied');
     }
 
-    if (files.length > MAX_FILES_PER_COMMENT) {
+    if (files.length > appConfig.fileUpload.maxFilesPerComment) {
       throw new BadRequestException(
-        `Maximum ${MAX_FILES_PER_COMMENT} files per comment`,
+        `Maximum ${appConfig.fileUpload.maxFilesPerComment} files per comment`,
       );
     }
 
@@ -70,7 +67,7 @@ export class CommentsService {
         );
       }
 
-      if (file.size > MAX_FILE_SIZE) {
+      if (file.size > appConfig.fileUpload.maxCommentFileSize) {
         throw new BadRequestException(
           `File "${file.originalname}" exceeds 5MB limit`,
         );
@@ -93,9 +90,9 @@ export class CommentsService {
 
       return await this.commentRepository.transaction(async (tx) => {
         const existingAttachmentCount = await tx.attachment.count({ where: { ticketId } });
-        if (existingAttachmentCount + files.length > MAX_FILES_PER_TICKET) {
+        if (existingAttachmentCount + files.length > appConfig.fileUpload.maxFilesPerTicket) {
           throw new BadRequestException(
-            `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
+            `Maximum ${appConfig.fileUpload.maxFilesPerTicket} attachments per ticket`,
           );
         }
 

@@ -12,9 +12,9 @@ import {
   DashboardRangePreset,
   QueryDashboardStatsDto,
 } from './dto/query-dashboard-stats.dto';
+import { appConfig } from '../common/config/app.config';
 
 const DASHBOARD_CACHE_KEY_PREFIX = 'dashboard:stats:v2';
-const DASHBOARD_CACHE_TTL = 30;
 
 type ResolvedDashboardRange = {
   preset: DashboardRangePreset;
@@ -103,7 +103,7 @@ export class DashboardService {
     };
 
     try {
-      await this.redisService.set(cacheKey, JSON.stringify(result), DASHBOARD_CACHE_TTL);
+      await this.redisService.set(cacheKey, JSON.stringify(result), appConfig.dashboard.cacheTtl);
     } catch (error) {
       this.logger.warn('Failed to write dashboard cache', error);
     }

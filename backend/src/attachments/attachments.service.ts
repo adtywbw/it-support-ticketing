@@ -14,6 +14,7 @@ import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachm
 import { buildSafeUploadPath, sanitizeOriginalName } from '../common/utils/upload.util';
 import { ALLOWED_MIME_TYPES, assertMimeTypeIntegrity } from '../common/utils/mime-validation.util';
 import { buildPaginationMeta } from '../common/utils/pagination.util';
+import { appConfig } from '../common/config/app.config';
 
 const ATTACHMENT_SAFE_SELECT = {
   id: true,
@@ -26,9 +27,6 @@ const ATTACHMENT_SAFE_SELECT = {
   visibility: true,
   createdAt: true,
 };
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_FILES_PER_TICKET = 5;
 
 @Injectable()
 export class AttachmentsService {
@@ -63,7 +61,7 @@ export class AttachmentsService {
       assertMimeTypeIntegrity(file);
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > appConfig.fileUpload.maxDirectFileSize) {
       throw new BadRequestException('File size exceeds 10MB limit');
     }
 
@@ -79,9 +77,9 @@ export class AttachmentsService {
     try {
       return await this.attachmentRepository.transaction(async (tx) => {
         const attachmentCount = await tx.attachment.count({ where: { ticketId } });
-        if (attachmentCount >= MAX_FILES_PER_TICKET) {
+        if (attachmentCount >= appConfig.fileUpload.maxFilesPerTicket) {
           throw new BadRequestException(
-            `Maximum ${MAX_FILES_PER_TICKET} attachments per ticket`,
+            `Maximum ${appConfig.fileUpload.maxFilesPerTicket} attachments per ticket`,
           );
         }
 

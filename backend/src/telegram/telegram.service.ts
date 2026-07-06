@@ -10,6 +10,7 @@ import { TelegramConfigRepository } from '../common/repositories/telegram-config
 import { UserRepository } from '../common/repositories/user.repository';
 import { TelegramSettingsDto } from './dto/telegram-config.dto';
 import { runWithConcurrency } from '../common/utils/concurrency.util';
+import { appConfig } from '../common/config/app.config';
 
 export interface TelegramSettings {
   enabledEvents: string[];
@@ -100,7 +101,7 @@ export class TelegramService
       return;
     }
 
-    const TIMEOUT_SECONDS = 30;
+    const TIMEOUT_SECONDS = appConfig.telegram.longPollTimeoutSec;
     let hasUpdates = false;
 
     try {
@@ -290,7 +291,7 @@ export class TelegramService
     const users = await this.userRepository.findTelegramLinkedUsers();
 
     const queue = users.filter((u: any) => u.telegramChatId);
-    await runWithConcurrency(queue, 3, async (user: any) => {
+    await runWithConcurrency(queue, appConfig.telegram.sendConcurrency, async (user: any) => {
       if (user.telegramChatId) {
         await this.sendMessage(token, Number(user.telegramChatId), message);
       }
@@ -442,7 +443,7 @@ export class TelegramService
   async generateLinkCode(userId: string): Promise<string> {
     const bytes = crypto.randomBytes(8);
     const code = bytes.toString('base64url').substring(0, 8);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + appConfig.telegram.linkCodeExpiryMin * 60 * 1000);
 
     await this.userRepository.update(userId, {
       telegramCode: code,

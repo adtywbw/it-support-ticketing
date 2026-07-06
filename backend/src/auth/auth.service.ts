@@ -15,9 +15,7 @@ import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { AuthResponse } from './interfaces/auth-response.interface';
 import { parseExpiryToMs } from '../common/utils/time.util';
-
-const MAX_FAILED_ATTEMPTS = 10;
-const LOCK_DURATION_SEC = 900;
+import { appConfig } from '../common/config/app.config';
 
 const GETDEL_SCRIPT = `
   local stored = redis.call('GET', KEYS[1])
@@ -252,11 +250,11 @@ export class AuthService {
     const count = await this.redisService.eval(
       INCR_EXPIRE_SCRIPT,
       [key],
-      [String(LOCK_DURATION_SEC)],
+      [String(appConfig.auth.lockDurationSec)],
     ) as number;
-    if (count >= MAX_FAILED_ATTEMPTS) {
+    if (count >= appConfig.auth.maxFailedAttempts) {
       const lockKey = `login:locked:${email}`;
-      await this.redisService.set(lockKey, '1', LOCK_DURATION_SEC);
+      await this.redisService.set(lockKey, '1', appConfig.auth.lockDurationSec);
     }
   }
 

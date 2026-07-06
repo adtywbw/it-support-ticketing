@@ -5,18 +5,14 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { promisify } from 'util';
 import { RedisService } from '../redis/redis.service';
+import { appConfig } from '../common/config/app.config';
 
 const execFileAsync = promisify(execFile);
 const BACKUP_ID_PATTERN = /^\d{8}-\d{6}$/;
 const MAINTENANCE_KEY = 'maintenance:enabled';
 const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
-const DRAIN_TIME_MS = 5000;
 const BACKUP_LOCK_KEY = 'maintenance:backup:lock';
 const RESTORE_LOCK_KEY = 'maintenance:restore:lock';
-const BACKUP_LOCK_TTL = 600;
-const RESTORE_LOCK_TTL = 1800;
-const LOCK_RENEW_INTERVAL_MS = 120_000;
-const EXEC_MAX_BUFFER = 16 * 1024 * 1024;
 
 export interface BackupFileInfo {
   exists: boolean;
@@ -97,7 +93,7 @@ export class MaintenanceService {
           `Failed to renew ${handle.key}: ${error instanceof Error ? error.message : String(error)}`,
         );
       });
-    }, LOCK_RENEW_INTERVAL_MS);
+    }, appConfig.maintenance.lockRenewIntervalMs);
     timer.unref?.();
     return timer;
   }
@@ -153,11 +149,11 @@ export class MaintenanceService {
       }
     }
 
-    const lock = await this.acquireLock(BACKUP_LOCK_KEY, BACKUP_LOCK_TTL);
+    const lock = await this.acquireLock(BACKUP_LOCK_KEY, appConfig.maintenance.backupLockTtl);
     if (!lock) {
       throw new BadRequestException('A backup operation is already in progress');
     }
-    const lockRenewal = this.startLockRenewal(lock, BACKUP_LOCK_TTL);
+    const lockRenewal = this.startLockRenewal(lock, appConfig.maintenance.backupLockTtl);
 
     let backupPath: string | null = null;
     try {
@@ -172,15 +168,15 @@ export class MaintenanceService {
 
       await execFileAsync('pg_dump', pgDump.args, {
         env: { ...process.env, ...pgDump.env },
-        maxBuffer: EXEC_MAX_BUFFER,
+        maxBuffer: appConfig.maintenance.execMaxBuffer,
       });
       await execFileAsync('gzip', ['-f', dbSqlPath], {
-        maxBuffer: EXEC_MAX_BUFFER,
+        maxBuffer: appConfig.maintenance.execMaxBuffer,
       });
       await fs.chmod(dbSqlPath.replace(/\.sql$/, '.sql.gz'), 0o600);
 
       await execFileAsync('tar', ['-czf', uploadsPath, '-C', this.uploadDir, '.'], {
-        maxBuffer: EXEC_MAX_BUFFER,
+        maxBuffer: appConfig.maintenance.execMaxBuffer,
       });
       await fs.chmod(uploadsPath, 0o600);
 
@@ -217,10 +213,10 @@ export class MaintenanceService {
       .sort()
       .reverse();
 
-    const recentIds = ids.slice(0, 50);
+    const recentIds = ids.slice(0, appConfig.maintenance.maxBackupListing);
     const results: BackupInfo[] = [];
     const queue = [...recentIds];
-    const workers = Array.from({ length: Math.min(5, queue.length) }, async () => {
+    const workers = Array.from({ length: Math.min(appConfig.maintenance.parallelWorkers, queue.length) }, async () => {
       while (queue.length > 0) {
         const id = queue.shift()!;
         results.push(await this.getBackup(id));
@@ -291,17 +287,17 @@ export class MaintenanceService {
     await this.validateGzipFile(dbPath, 'Database backup is invalid');
     await this.validateGzipFile(uploadsPath, 'Uploads backup is invalid');
 
-    let lock = await this.acquireLock(RESTORE_LOCK_KEY, RESTORE_LOCK_TTL);
+    let lock = await this.acquireLock(RESTORE_LOCK_KEY, appConfig.maintenance.restoreLockTtl);
     if (!lock) {
       throw new BadRequestException('A restore operation is already in progress');
     }
-    const lockRenewal = this.startLockRenewal(lock, RESTORE_LOCK_TTL);
+    const lockRenewal = this.startLockRenewal(lock, appConfig.maintenance.restoreLockTtl);
 
     let preRestoreBackup: BackupInfo | null = null;
 
     try {
       await this.setMaintenanceMode(true, 'Sedang restore data. Silakan tunggu beberapa saat...');
-      await new Promise((resolve) => setTimeout(resolve, DRAIN_TIME_MS));
+      await new Promise((resolve) => setTimeout(resolve, appConfig.maintenance.drainTimeMs));
 
       preRestoreBackup = await this.createBackup('pre-restore');
       await this.restoreDatabase(dbPath);
@@ -354,7 +350,7 @@ export class MaintenanceService {
   }
 
   private async createUniqueBackupId(): Promise<string> {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < appConfig.maintenance.backupIdAttempts; attempt += 1) {
       const id = this.createBackupId();
       try {
         await fs.access(this.resolveBackupPath(id));
@@ -416,7 +412,7 @@ export class MaintenanceService {
       ],
       {
         env: { ...process.env, ...pg.env, DB_BACKUP_PATH: dbPath },
-        maxBuffer: EXEC_MAX_BUFFER,
+        maxBuffer: appConfig.maintenance.execMaxBuffer,
       },
     );
   }
@@ -430,7 +426,7 @@ export class MaintenanceService {
     try {
       await fs.mkdir(tempDir, { recursive: true });
       await execFileAsync('tar', ['-xzf', uploadsPath, '-C', tempDir, '--no-same-owner', '--no-same-permissions'], {
-        maxBuffer: EXEC_MAX_BUFFER,
+        maxBuffer: appConfig.maintenance.execMaxBuffer,
       });
 
       await fs.mkdir(this.uploadDir, { recursive: true });
@@ -457,7 +453,7 @@ export class MaintenanceService {
     let output: string;
     try {
       const result = await execFileAsync('tar', ['-tzvf', uploadsPath], {
-        maxBuffer: EXEC_MAX_BUFFER,
+        maxBuffer: appConfig.maintenance.execMaxBuffer,
       });
       output = result.stdout;
     } catch {

@@ -23,6 +23,7 @@ import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.inter
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy, UserRole } from '../common/policies/attachment-visibility.policy';
 import { buildPaginationMeta } from '../common/utils/pagination.util';
+import { appConfig } from '../common/config/app.config';
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Open]: [TicketStatus.InProgress],
@@ -69,7 +70,7 @@ export class TicketsService {
     );
     const slaDueAt = slaConfig
       ? new Date(Date.now() + slaConfig.resolutionTimeMinutes * 60 * 1000)
-      : new Date(Date.now() + 24 * 60 * 60 * 1000);
+      : new Date(Date.now() + appConfig.tickets.defaultSlaWindowMin * 60 * 1000);
 
     const ticket = await this.createTicketWithNumber(
       createTicketDto,
@@ -197,8 +198,8 @@ export class TicketsService {
   }
 
   async exportCsvToResponse(res: Response, queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
-    const MAX_EXPORT_ROWS = 10000;
-    const BATCH_SIZE = 500;
+    const MAX_EXPORT_ROWS = appConfig.tickets.maxExportRows;
+    const BATCH_SIZE = appConfig.tickets.exportBatchSize;
     const {
       status, priority, categoryId, assignedToId, requesterId,
       slaStatus, dateFrom, dateTo, search,
@@ -506,9 +507,9 @@ export class TicketsService {
     const createdAt = new Date(ticket.createdAt).getTime();
     const slaDueAt = slaConfig
       ? new Date(createdAt + slaConfig.resolutionTimeMinutes * 60 * 1000)
-      : new Date(createdAt + 24 * 60 * 60 * 1000);
+      : new Date(createdAt + appConfig.tickets.defaultSlaWindowMin * 60 * 1000);
 
-    const resolutionMinutes = slaConfig ? slaConfig.resolutionTimeMinutes : 24 * 60;
+    const resolutionMinutes = slaConfig ? slaConfig.resolutionTimeMinutes : appConfig.tickets.defaultSlaWindowMin;
     const slaStatus = this.slaService.calculateSlaStatus(slaDueAt, resolutionMinutes, new Date());
 
     const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
@@ -577,7 +578,7 @@ export class TicketsService {
     requesterId: string,
     slaDueAt: Date,
   ) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < appConfig.tickets.creationRetries; attempt += 1) {
       try {
         return await this.ticketRepository.transaction(async (tx) => {
           const ticketNumber = await this.generateTicketNumber(tx);
@@ -616,7 +617,7 @@ export class TicketsService {
           return ticket;
         });
       } catch (error) {
-        if (attempt < 2 && this.isRetryableTicketNumberError(error)) {
+        if (attempt < appConfig.tickets.creationRetries - 1 && this.isRetryableTicketNumberError(error)) {
           continue;
         }
         throw error;
