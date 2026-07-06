@@ -1,0 +1,114 @@
+/**
+ * E2E Smoke Test — runs against the running Docker API.
+ * Tests: health → login → categories → create ticket → update → comment → dashboard → delete
+ *
+ * Usage: npm run test:e2e
+ * Requires: docker compose up -d
+ */
+import * as https from 'https';
+
+const HOST = 'helpdesk.rsmch.internal';
+const agent = new https.Agent({ rejectUnauthorized: false });
+
+function request(method: string, path: string, body?: any, token?: string): Promise<{ status: number; data: any }> {
+  return new Promise((resolve, reject) => {
+    const options: https.RequestOptions = {
+      method,
+      hostname: HOST,
+      port: 443,
+      path: `/api${path}`,
+      agent,
+      headers: { 'Content-Type': 'application/json' } as any,
+    };
+    if (token) (options.headers as any)['Authorization'] = `Bearer ${token}`;
+    if (body) (options.headers as any)['Content-Length'] = Buffer.byteLength(JSON.stringify(body));
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk: string) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve({ status: res.statusCode || 500, data: JSON.parse(data) });
+        } catch {
+          resolve({ status: res.statusCode || 500, data });
+        }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
+let accessToken = '';
+let ticketId = '';
+
+describe('E2E Smoke Test', () => {
+  test('GET /health — returns healthy', async () => {
+    const res = await request('GET', '/health');
+    expect(res.status).toBe(200);
+    expect(res.data.status).toBe('healthy');
+  });
+
+  test('POST /auth/login — logs in as admin', async () => {
+    const res = await request('POST', '/auth/login', {
+      email: 'admin@company.com',
+      password: 'Admin123!',
+    });
+    expect(res.status).toBe(201);
+    expect(res.data.data.accessToken).toBeDefined();
+    expect(res.data.data.user.role).toBe('Admin');
+    accessToken = res.data.data.accessToken;
+  });
+
+  test('POST /auth/refresh — returns 401 without cookie', async () => {
+    const res = await request('POST', '/auth/refresh');
+    expect(res.status).toBe(401);
+    expect(res.data.error.code).toBe('UNAUTHORIZED');
+  });
+
+  test('GET /categories — returns list with _count', async () => {
+    const res = await request('GET', '/categories', undefined, accessToken);
+    expect(res.status).toBe(200);
+    expect(res.data.data.length).toBeGreaterThan(0);
+    expect(res.data.data[0]).toHaveProperty('_count');
+  });
+
+  test('POST /tickets — creates a ticket', async () => {
+    const catsRes = await request('GET', '/categories', undefined, accessToken);
+    const catId = catsRes.data.data[0].id;
+    const subId = catsRes.data.data[0].subCategories[0].id;
+
+    const res = await request('POST', '/tickets', {
+      subject: 'E2E Smoke Test',
+      description: 'Created by automated E2E smoke test',
+      priority: 'Low',
+      categoryId: catId,
+      subCategoryId: subId,
+    }, accessToken);
+    expect(res.status).toBe(201);
+    expect(res.data.data.id).toBeDefined();
+    ticketId = res.data.data.id;
+  });
+
+  test('PATCH /tickets/:id/status — updates to InProgress', async () => {
+    const res = await request('PATCH', `/tickets/${ticketId}/status`, { status: 'InProgress' }, accessToken);
+    expect(res.data.data.status).toBe('InProgress');
+  });
+
+  test('POST /tickets/:id/comments — adds a public comment', async () => {
+    const res = await request('POST', `/tickets/${ticketId}/comments`, { content: 'E2E test comment', type: 'PUBLIC' }, accessToken);
+    expect(res.data.data.id).toBeDefined();
+  });
+
+  test('GET /dashboard/stats — returns dashboard', async () => {
+    const res = await request('GET', '/dashboard/stats', undefined, accessToken);
+    expect(res.data.data).toHaveProperty('current');
+    expect(res.data.data).toHaveProperty('analytics');
+  });
+
+  test('DELETE /tickets/:id — deletes the ticket', async () => {
+    const res = await request('DELETE', `/tickets/${ticketId}`, undefined, accessToken);
+    expect(res.data.data.message).toBe('Ticket deleted successfully');
+  });
+});
