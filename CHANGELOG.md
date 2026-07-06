@@ -2,6 +2,29 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 27 — Comprehensive Bugfix & Documentation Update (2026-07-06)
+
+### Fixed
+- **BUG-18: ThrottlerException returns `UNKNOWN_ERROR` code instead of `TOO_MANY_REQUESTS`** — `HttpExceptionFilter.getCodeFromStatus()` mapping tidak menyertakan `429 Too Many Requests`, sehingga rate-limited requests menerima error code `UNKNOWN_ERROR` yang tidak tercantum sebagai stable code. Fix: tambah `[HttpStatus.TOO_MANY_REQUESTS]: 'TOO_MANY_REQUESTS'` ke status-to-code mapping. Unit test ditambahkan untuk memverifikasi mapping 429 dan error codes lainnya.
+- **BUG-19: `auth/refresh` tanpa cookie mengembalikan HTTP 201 Created dengan `{ accessToken: null, user: null }`** — Semantik salah: seharusnya 401 Unauthorized. Frontend sudah handle kedua kasus (null response via `if (!accessToken)` dan error via catch). Fix: ganti `return { accessToken: null, user: null }` menjadi `throw new UnauthorizedException('Refresh token not provided')` di `auth.controller.ts`. Test diupdate untuk expect `UnauthorizedException`.
+- **ESLint gagal di production container frontend** — `frontend/Dockerfile` tidak menyalin `.eslintrc.cjs` dan `.eslintignore`, sehingga `npm run lint` di container builder gagal dengan "ESLint couldn't find a configuration file". Fix: tambah COPY commands untuk kedua file.
+
+### Documentation
+- **AGENTS.md**: Tambah `TOO_MANY_REQUESTS` ke daftar stable error codes; tambah dokumentasi format enum status (`Open`, `InProgress`, `OnHold`, `Resolved`, `Closed`) dan priority (`Low`, `Medium`, `High`, `Critical`) — menggunakan PascalCase tanpa spasi; tambah detail inner structure dashboard response (`current.activeTickets`, `attention.slaRisk[]`, `analytics.range`, dll).
+- **ARCHITECTURE.md**: Update daftar stable error codes di deskripsi `HttpExceptionFilter` untuk menyertakan `TOO_MANY_REQUESTS`.
+- **README.md**: Update deskripsi endpoint `POST /api/auth/refresh` untuk menyebutkan return `401` dengan `UNAUTHORIZED` code saat cookie tidak ada.
+
+### Files Changed
+- `backend/src/common/filters/http-exception.filter.ts` — tambah mapping 429 → `TOO_MANY_REQUESTS`
+- `backend/src/common/filters/http-exception.filter.spec.ts` — **new**: 4 unit test untuk exception filter
+- `backend/src/auth/auth.controller.ts` — throw `UnauthorizedException` saat refresh cookie tidak ada
+- `backend/src/auth/auth.controller.spec.ts` — update test untuk expect exception
+- `frontend/Dockerfile` — tambah COPY `.eslintrc.cjs` dan `.eslintignore`
+- `AGENTS.md` — stable codes, enum format, dashboard structure
+- `ARCHITECTURE.md` — stable codes list
+- `README.md` — refresh endpoint description
+- `CHANGELOG.md` — this entry
+
 ## Session 26 — Self-Host Google Font (Inter) untuk CSP Compliance (2026-07-06)
 
 ### Fixed

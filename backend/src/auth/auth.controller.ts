@@ -5,6 +5,7 @@ import {
   UseGuards,
   Res,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -48,7 +49,7 @@ export class AuthController {
   ) {
     const token = req.cookies?.[REFRESH_COOKIE];
     if (!token) {
-      return { accessToken: null, user: null };
+      throw new UnauthorizedException('Refresh token not provided');
     }
     const result = await this.authService.refresh(token);
     res.cookie(REFRESH_COOKIE, result.refreshToken, getRefreshCookieOptions(req, getRefreshCookieMaxAge()));

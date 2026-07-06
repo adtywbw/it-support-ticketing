@@ -9,7 +9,7 @@
 - Backend: NestJS 11, Prisma 5, PostgreSQL 16, Redis 7, Socket.IO notifications.
 - Frontend: React 18, Vite 8, TanStack Query 5, Zustand, Tailwind.
 - API success: `{ data, meta? }` (enforced globally via `TransformInterceptor`); paginated `meta` is `{ page, limit, total, totalPages }` (always includes `totalPages`).
-- API error: `{ error: { code, message } }` via `HttpExceptionFilter` (stable codes: `BAD_REQUEST`, `NOT_FOUND`, `MAINTENANCE`, etc.).
+- API error: `{ error: { code, message } }` via `HttpExceptionFilter` (stable codes: `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `UNPROCESSABLE_ENTITY`, `TOO_MANY_REQUESTS`, `MAINTENANCE`, `INTERNAL_ERROR`).
 
 ## Work Style
 - Stay inside the user's scope; if a path/page/endpoint is named, start there.
@@ -124,6 +124,8 @@ postgres/postgresql.conf
 - **ITSupport & EndUser**: minimal field set (id, name, description, active sub-categories) — used by ticket create form and filters. ITSupport does not have a Master Data UI, so full shape is not needed.
 
 ## Ticket Rules
+- Ticket status enum values (PascalCase, no spaces): `Open`, `InProgress`, `OnHold`, `Resolved`, `Closed`.
+- Ticket priority enum values (PascalCase): `Low`, `Medium`, `High`, `Critical`.
 - EndUser can create own tickets, view only own tickets, and close own `Resolved -> Closed` tickets.
 - EndUser cannot comment, upload, or list attachments for tickets owned by another user.
 - Internal comments and internal attachments are never returned/displayed to EndUser.
@@ -190,6 +192,9 @@ postgres/postgresql.conf
 - Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path.
 - SLA: `GET|POST|PATCH /api/sla-configs`. Create and timing update auto-recalculate affected non-terminal tickets.
 - Dashboard: `GET /api/dashboard/stats` supports range query (`?range=7d|30d|90d|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`); returns `{ current, attention, analytics }`.
+  - `current`: `{ activeTickets, open, inProgress, slaRisk, unassigned }` — snapshot counts of active (non-Resolved/Closed) tickets.
+  - `attention`: `{ slaRisk[], highPriority[], unassigned[] }` — top 5 tickets per attention category (serialized with ISO date strings).
+  - `analytics`: `{ range, trend[], statusCounts, priorityCounts, slaComplianceRate, avgResolutionTimeByCategory[], topCategories[] }` — range-scoped analytics.
 - Users: `GET|POST|PATCH|DELETE /api/users`, `GET /api/users/:id`, `GET /api/users/assignable`; `GET ?includeInactive=true` includes inactive users.
 - Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, unread-count, and preferences (`GET|PATCH /api/notifications/preferences`) operations.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.

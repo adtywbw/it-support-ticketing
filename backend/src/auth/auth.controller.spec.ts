@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
@@ -134,7 +135,7 @@ describe('AuthController', () => {
   });
 
   describe('refresh()', () => {
-    it('should return null accessToken when no refresh cookie', async () => {
+    it('should throw UnauthorizedException when no refresh cookie', async () => {
       const mockReq = {
         cookies: {},
         headers: {},
@@ -144,9 +145,12 @@ describe('AuthController', () => {
         cookie: jest.fn(),
       } as unknown as Response;
 
-      const result = await controller.refresh(mockReq, mockRes);
-
-      expect(result).toEqual({ accessToken: null, user: null });
+      await expect(controller.refresh(mockReq, mockRes)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(controller.refresh(mockReq, mockRes)).rejects.toThrow(
+        'Refresh token not provided',
+      );
     });
 
     it('should call authService.refresh with cookie value', async () => {

@@ -331,7 +331,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/auth/login` | Login — sets refresh token as httpOnly cookie, returns `accessToken` + `user` |
-| POST | `/api/auth/refresh` | Refresh access token — reads refresh token from cookie (no body needed), returns `accessToken` + `user` |
+| POST | `/api/auth/refresh` | Refresh access token — reads refresh token from cookie (no body needed); returns `accessToken` + `user` on success, `401` with `UNAUTHORIZED` code when no cookie |
 | POST | `/api/auth/logout` | Invalidate refresh token + clear cookie |
 | POST | `/api/auth/change-password` | Change own password (ITSupport & Admin only; EndUser cannot change own password) |
 
