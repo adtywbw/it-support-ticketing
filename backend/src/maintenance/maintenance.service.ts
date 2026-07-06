@@ -415,7 +415,7 @@ export class MaintenanceService {
     ].join(' ');
 
     await execFileAsync(
-      'sh',
+      'bash',
       [
         '-c',
         `set -o pipefail && gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1`,

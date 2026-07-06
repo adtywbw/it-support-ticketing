@@ -32,6 +32,7 @@
 - Do not change Docker/HTTP/HTTPS flow unless requested; check Docker & HTTP notes first.
 - Maintenance and backup/restore operations remain Admin-only.
 - The `backend/docker-entrypoint.sh` uses `#!/bin/bash` (not `#!/bin/sh`) because it requires `set -o pipefail`. The Docker image must include `bash` (it does — `node:20-bookworm-slim` includes it).
+- `MaintenanceService.restoreDatabase()` uses `execFileAsync('bash', ['-c', ...])` (not `'sh'`) because the gzip→awk→psql pipeline uses `set -o pipefail`. The same bash requirement applies — never use `'sh'` for shell commands that rely on `pipefail`.
 - CI/CD pipeline lives in `.github/workflows/ci.yml` — runs backend + frontend lint, test, build on push/PR to `main`.
 
 ## Verification Commands

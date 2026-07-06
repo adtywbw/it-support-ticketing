@@ -2,6 +2,26 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 46 — Restore Pipefail Shell Fix (2026-07-06)
+
+### Fixed (Critical)
+- **`MaintenanceService.restoreDatabase()` uses `sh` instead of `bash` for pipefail pipeline**: The gzip→awk→psql restore pipeline called `execFileAsync('sh', ['-c', 'set -o pipefail && ...'])`. On Debian-based systems, `/bin/sh` is dash which does **not** support `set -o pipefail`, causing `sh: set: Illegal option -o pipefail`. This meant the entire restore command failed before any SQL was imported, but the preceding `DROP SCHEMA public CASCADE` had already succeeded, leaving the database empty (all tables dropped, no data restored). The `restoreBackup()` error handler then re-enabled maintenance mode with a recovery message, locking out all non-admin users. **Changed `'sh'` to `'bash'` in the `execFileAsync` call.** (`maintenance.service.ts`)
+
+### Recovery Steps Applied
+- Database manually restored from pre-restore backup `20260706-143253507` via `bash -c 'set -o pipefail && gzip -dc ... | psql ...'`
+- Maintenance mode disabled by deleting `maintenance:enabled` and `maintenance:message` keys from Redis
+- API container rebuilt and restarted
+- Verified: health ✅, login 201 ✅, maintenance OFF ✅
+
+### Changed
+- **`AGENTS.md`**: Added note that `MaintenanceService.restoreDatabase()` uses `execFileAsync('bash', ...)` for pipefail support.
+- **`ARCHITECTURE.md`**: Added DB restore shell requirement documentation.
+- **`CHANGELOG.md`**: Added Session 46 entry.
+
+### Verification
+- Backend: build ✅, API container restart ✅, health check ✅, login 201 ✅
+- Database: restored with 2 seed users (admin + support), all tables present
+
 ## Session 45 — Code Review Final: Category Toggle Fix, ESLint Cleanup, Service Consistency (2026-07-06)
 
 ### Fixed (Critical)
