@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
+import { createReadStream } from 'fs';
 import * as fs from 'fs/promises';
 import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -89,7 +90,7 @@ export class AttachmentsController {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, no-cache');
 
-    const fileStream = (await import('fs')).createReadStream(attachment.path);
+    const fileStream = createReadStream(attachment.path);
     fileStream.on('error', () => {
       if (!res.headersSent) {
         res.status(500).json({ error: { code: 'STREAM_ERROR', message: 'Failed to read file' } });

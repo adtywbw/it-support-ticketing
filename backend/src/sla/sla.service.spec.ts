@@ -18,6 +18,7 @@ describe('SLAService', () => {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
     findAll: jest.fn(),
+    findAllActive: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   };
@@ -304,21 +305,25 @@ describe('SLAService', () => {
   });
 
   describe('checkSLA() cron', () => {
-    // Helper to build a ticket row for cron iteration
+    // Helper to build a ticket row for cron iteration (flat select shape)
     const makeTicket = (overrides: any = {}) => ({
       id: 't-1',
       ticketNumber: 'TKT-001',
       priority: Priority.High,
+      categoryId: 'cat-1',
       status: 'Open',
       slaDueAt: new Date(Date.now() + 60 * 60 * 1000), // 1h in future
       slaStatus: 'OnTrack',
       createdAt: new Date(),
-      category: {
-        slaConfigs: [
-          { priority: Priority.High, isActive: true, resolutionTimeMinutes: 60 },
-        ],
-      },
       ...overrides,
+    });
+
+    // Default active SLA config returned by findAllActive()
+    const defaultSlaConfigs = [
+      { categoryId: 'cat-1', priority: Priority.High, resolutionTimeMinutes: 60 },
+    ];
+    beforeEach(() => {
+      slaConfigRepository.findAllActive.mockResolvedValue(defaultSlaConfigs);
     });
 
     it('should acquire lock via SET NX EX 300', async () => {
@@ -443,9 +448,11 @@ describe('SLAService', () => {
     it('should skip ticket if no matching SLA config in category', async () => {
       redisService.setNx.mockResolvedValueOnce(true);
       redisService.eval.mockResolvedValueOnce(1);
-      const ticket = makeTicket({
-        category: { slaConfigs: [{ priority: Priority.Low, isActive: true, resolutionTimeMinutes: 60 }] },
-      });
+      // Ticket has Low priority, but config only exists for High
+      slaConfigRepository.findAllActive.mockResolvedValueOnce([
+        { categoryId: 'cat-1', priority: Priority.High, resolutionTimeMinutes: 60 },
+      ]);
+      const ticket = makeTicket({ priority: Priority.Low });
       ticketRepository.findMany.mockResolvedValueOnce([ticket]).mockResolvedValueOnce([]);
 
       await service.checkSLA();

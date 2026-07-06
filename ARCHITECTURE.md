@@ -61,10 +61,10 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `UserRepository` | `user` | `JwtStrategy`, `UsersService`, `TicketsService`, `NotificationsService`, `NotificationsGateway`, `TelegramService` |
 | `TicketRepository` | `ticket` | `TicketsService`, `CommentsService`, `AttachmentsService`, `SLAService`, `DashboardService` |
 | `CommentRepository` | `comment` | `CommentsService` |
-| `AttachmentRepository` | `attachment` | `AttachmentsService`, `CommentsService` |
+| `AttachmentRepository` | `attachment` | `AttachmentsService`, `CommentsService`; also `findAllPaths()` for stale-file cleanup cron |
 | `CategoryRepository` | `category` | `CategoriesService`, `TicketsService`, `SLAService` |
 | `SubCategoryRepository` | `subCategory` | `SubCategoriesService`, `TicketsService` |
-| `SlaConfigRepository` | `sLAConfig` | `SLAService` |
+| `SlaConfigRepository` | `sLAConfig` | `SLAService`; also `findAllActive()` for pre-loaded config map in `performSLACheck` |
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
 
@@ -614,6 +614,7 @@ it-support-ticketing/
 - **Refresh token rotation**: old jti deleted on rotation; reuse detection revokes token. Stored in Redis with TTL matching JWT expiry.
 
 ### File Upload Security
+- **Stale-file cleanup**: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that lists the uploads directory, cross-references against `Attachment` DB records via `findAllPaths()`, and removes files without matching DB entries. This is a best-effort guard against orphaned files from crashes during the upload flow (files are saved to disk before DB transaction commit).
 - **Extension whitelist**: `upload.util.ts` — only `.jpg`, `.png`, `.pdf`, `.docx`, etc. Non-whitelisted extensions stripped.
 - **Magic byte verification**: `mime-validation.util.ts` — 8 signatures (JPEG, PNG, GIF, WebP, PDF, ZIP, RAR, OLE2/DOC). Text files checked for null bytes. A `MIME_COMPATIBILITY_MAP` allows compatible container mismatches: OOXML files (`.docx`/`.xlsx`) are ZIP containers detected as `application/zip`, and legacy `.xls` shares the OLE2 CFB signature with `application/msword`. Obvious spoofing (e.g., ZIP declared as `image/png`) is still rejected. Shared across comments and attachments modules.
 - **Path traversal prevention**: `path.basename()` + `resolvedPath.startsWith(uploadRoot)` double check.

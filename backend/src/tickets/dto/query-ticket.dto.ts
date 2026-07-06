@@ -65,7 +65,7 @@ export class QueryTicketDto {
   search?: string;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status', 'slaStatus'])
   sortBy?: string;
 
   @IsOptional()

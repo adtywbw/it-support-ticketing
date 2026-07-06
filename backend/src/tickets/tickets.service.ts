@@ -18,7 +18,7 @@ import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { UpdatePriorityDto } from './dto/update-priority.dto';
-import { TicketStatus, Priority, SLAStatus,       CommentType, Prisma } from '@prisma/client';
+import { TicketStatus, Priority, SLAStatus, CommentType, AttachmentVisibility, Prisma } from '@prisma/client';
 import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
 import type { StorageService } from '../attachments/interfaces/storage-service.interface';
 import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
@@ -141,13 +141,37 @@ export class TicketsService {
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const scope: TicketAccessScope = { userId, role: userRole as 'EndUser' | 'ITSupport' | 'Admin' };
-    const include = {
-      requester: { select: { id: true, name: true, email: true } },
-      assignedTo: { select: { id: true, name: true, email: true } },
-      category: { select: { id: true, name: true } },
-      subCategory: { select: { id: true, name: true } },
-      _count: { select: { comments: true, attachments: true } },
-    };
+
+    // For EndUser, count only PUBLIC comments and visible attachments to
+    // avoid two extra post-query enrichment queries. For other roles, count all.
+    const include = userRole === 'EndUser'
+      ? {
+          requester: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+          category: { select: { id: true, name: true } },
+          subCategory: { select: { id: true, name: true } },
+          _count: {
+            select: {
+              comments: { where: { type: CommentType.PUBLIC } },
+              attachments: {
+                where: {
+                  visibility: AttachmentVisibility.PUBLIC,
+                  OR: [
+                    { commentId: null },
+                    { comment: { type: CommentType.PUBLIC } },
+                  ],
+                },
+              },
+            },
+          },
+        }
+      : {
+          requester: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+          category: { select: { id: true, name: true } },
+          subCategory: { select: { id: true, name: true } },
+          _count: { select: { comments: true, attachments: true } },
+        };
 
     const [tickets, total] = await Promise.all([
       orderField === 'slaStatus'
@@ -178,24 +202,6 @@ export class TicketsService {
           }, scope),
       this.ticketRepository.countForUser(where, scope),
     ]);
-
-    if (userRole === 'EndUser' && tickets.length > 0) {
-      const ticketIds = tickets.map((t) => t.id);
-      const [commentCounts, attachmentCounts] = await Promise.all([
-        this.ticketRepository.countPublicCommentsByTicketIds(ticketIds),
-        this.ticketRepository.countVisibleAttachmentsByTicketIds(ticketIds),
-      ]);
-      const commentsByTicket = new Map(commentCounts.map((r) => [r.ticketId, r.count]));
-      const attachmentsByTicket = new Map(attachmentCounts.map((r) => [r.ticketId, r.count]));
-      const enrichedTickets = tickets.map((ticket) => ({
-        ...ticket,
-        _count: {
-          comments: commentsByTicket.get(ticket.id) ?? 0,
-          attachments: attachmentsByTicket.get(ticket.id) ?? 0,
-        },
-      }));
-      return { data: enrichedTickets, meta: buildPaginationMeta(total, limit, page) };
-    }
 
     return { data: tickets, meta: buildPaginationMeta(total, limit, page) };
   }

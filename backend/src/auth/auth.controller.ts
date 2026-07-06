@@ -57,7 +57,6 @@ export class AuthController {
   }
 
   @Post('change-password')
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ITSupport, Role.Admin)
   async changePassword(
     @CurrentUser() user: { id: string },

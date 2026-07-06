@@ -89,8 +89,8 @@ export default function TelegramConfigSection() {
       if (result.bot.valid && (!result.groupChat || result.groupChat.valid)) {
         toast.success('Configuration looks good!');
       }
-    } catch {
-      toast.error('Failed to check configuration');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to check configuration'));
     }
   };
 

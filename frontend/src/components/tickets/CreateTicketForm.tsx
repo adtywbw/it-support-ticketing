@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCreateTicket, useUploadAttachment } from '@/hooks/use-tickets';
 import { useCategories } from '@/hooks/use-categories';
+import { useFileUpload } from '@/hooks/use-file-upload';
 import type { TicketPriority } from '@/types';
 import { formatFileSize, getErrorMessage } from '@/lib/utils';
-import { ALLOWED_MIME_TYPES, MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
+import { MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface FormData {
@@ -38,9 +39,9 @@ export default function CreateTicketForm() {
     subCategoryId: '',
     priority: '',
   });
-  const [files, setFiles] = useState<File[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const fileUpload = useFileUpload({ maxSizePerFile: MAX_TICKET_ATTACHMENT_SIZE });
 
   const selectedCategory = categories?.find((c) => c.id === formData.categoryId);
   const subCategories = selectedCategory?.subCategories ?? [];
@@ -61,32 +62,17 @@ export default function CreateTicketForm() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    const oversized = selected.find((f) => f.size > MAX_TICKET_ATTACHMENT_SIZE);
-    if (oversized) {
-      setUploadError(`File "${oversized.name}" exceeds the 5 MB limit`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
+    if (e.target.files) {
+      fileUpload.addFiles(e.target.files);
     }
-    const invalidType = selected.find((f) => !ALLOWED_MIME_TYPES.includes(f.type));
-    if (invalidType) {
-      setUploadError(`File type "${invalidType.type || 'unknown'}" is not allowed`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-    setFiles((prev) => [...prev, ...selected].slice(0, 3));
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
-    setUploadError(null);
+    setSubmitError(null);
 
     try {
       const ticket = await createMutation.mutateAsync({
@@ -98,7 +84,7 @@ export default function CreateTicketForm() {
       });
 
       const uploadErrors: string[] = [];
-      for (const file of files) {
+      for (const file of fileUpload.files) {
         try {
           await uploadMutation.mutateAsync({ ticketId: ticket.id, file });
         } catch (err) {
@@ -112,7 +98,7 @@ export default function CreateTicketForm() {
 
       navigate(`/tickets/${ticket.id}`);
     } catch (err) {
-      setUploadError(getErrorMessage(err, 'Failed to create ticket'));
+      setSubmitError(getErrorMessage(err, 'Failed to create ticket'));
     }
   };
 
@@ -120,9 +106,9 @@ export default function CreateTicketForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {(uploadError) && (
+      {(fileUpload.errors.length > 0 || submitError) && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
-          {uploadError}
+          {fileUpload.errors[0] || submitError}
         </div>
       )}
 
@@ -232,9 +218,9 @@ export default function CreateTicketForm() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="btn-secondary btn-sm"
-            disabled={files.length >= 3}
+            disabled={fileUpload.isOverLimit}
           >
-            {files.length >= 3 ? 'Max 3 files' : 'Choose Files'}
+            {fileUpload.isOverLimit ? 'Max 3 files' : 'Choose Files'}
           </button>
           <input
             ref={fileInputRef}
@@ -243,9 +229,9 @@ export default function CreateTicketForm() {
             onChange={handleFileChange}
             className="hidden"
           />
-          {files.length > 0 && (
+          {fileUpload.files.length > 0 && (
             <div className="space-y-1">
-              {files.map((file, i) => (
+              {fileUpload.files.map((file, i) => (
                 <div
                   key={`${file.name}-${i}`}
                   className="flex items-center justify-between rounded-lg border border-blue-100 bg-white px-3 py-2 dark:border-navy-800 dark:bg-navy-900"
@@ -259,7 +245,7 @@ export default function CreateTicketForm() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => removeFile(i)}
+                    onClick={() => fileUpload.removeFile(i)}
                     className="text-sm text-red-600 hover:text-red-800 shrink-0"
                   >
                     Remove

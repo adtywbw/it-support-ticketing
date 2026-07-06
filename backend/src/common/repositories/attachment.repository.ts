@@ -40,6 +40,12 @@ export class AttachmentRepository {
     return this.prisma.attachment.count({ where });
   }
 
+  async findAllPaths(): Promise<{ path: string }[]> {
+    return this.prisma.attachment.findMany({
+      select: { path: true },
+    });
+  }
+
   async deleteMany(where: Prisma.AttachmentWhereInput) {
     return this.prisma.attachment.deleteMany({ where });
   }

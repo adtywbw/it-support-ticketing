@@ -23,6 +23,17 @@ export class SlaConfigRepository {
     });
   }
 
+  async findAllActive() {
+    return this.prisma.sLAConfig.findMany({
+      where: { isActive: true },
+      select: {
+        categoryId: true,
+        priority: true,
+        resolutionTimeMinutes: true,
+      },
+    });
+  }
+
   async create(data: Prisma.SLAConfigCreateInput) {
     return this.prisma.sLAConfig.create({ data });
   }

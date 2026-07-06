@@ -58,6 +58,8 @@ backend/src/common/policies/attachment-visibility.policy.ts
 backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation,notification-preference,transform,pagination}.util.ts
 backend/src/common/config/app.config.ts
 frontend/src/{auth,layout,pages,components/admin,components/ui,components/tickets,components/dashboard,components/account,hooks,stores,types,lib}
+frontend/src/hooks/use-file-upload.ts
+frontend/src/components/admin/BackupManager.tsx
 frontend/.eslintignore
 postgres/postgresql.conf
 ```
@@ -244,6 +246,8 @@ postgres/postgresql.conf
 - SLA recalculation: `SLAService` automatically recalculates `slaDueAt` and `slaStatus` for non-terminal tickets when SLA config timing is created or changed. `isActive`-only updates do not trigger recalculation. Frontend `SLAConfigManager` sends timing on every edit — the backend correctly skips recalculation if timing hasn't actually changed.
 - Dashboard: the `TicketRepository` now has dashboard-specific methods (`getDashboardCurrentSnapshot`, `getDashboardAttentionTickets`, `getDashboardStatusCounts`, `getDashboardPriorityCounts`, `getDashboardSLAStatsForRange`, `getAvgResolutionTimeByCategoryForRange`, `getTopCategories`). Do not duplicate these query patterns; reuse the repository methods.
 - Notification preferences: `User.notificationPreferences` is nullable JSONB. `null`/absent means all events enabled — do not treat `null` as "all off". The shared util `isEventEnabled(prefs, event)` handles this logic. The frontend `NotificationPreferencesSection` component uses `useNotificationPreferences()` which normalizes stored prefs per role via the API. Do not add preference checks outside `NotificationsService` handlers.
+- File upload validation: use the shared `useFileUpload()` hook (frontend) for MIME type checks, size limits, preview URLs, and error management. The hook centralizes logic that was previously duplicated across `CreateTicketForm`, `CommentSection`, and `AttachmentList`.
+- Stale-file cleanup: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that cross-references disk files against DB records and removes unmatched files. The `AttachmentRepository.findAllPaths()` method supports this. This is a best-effort guard against orphaned files from crashes during upload.
 
 
 ## Dev Seed Credentials

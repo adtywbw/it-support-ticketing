@@ -2,6 +2,60 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 38 — Code Review Implementation: 14 Issues Fixed (2026-07-06)
+
+### Fixed (Critical)
+- **Dynamic `import('fs')` in download hot path**: `AttachmentsController.download()` used `(await import('fs')).createReadStream(...)` on every file download, adding ~1-5ms latency. Fixed with static `import { createReadStream } from 'fs'`.
+- **Orphaned file accumulation on process crash**: Files were saved to disk before DB transaction commit. Added `@Cron('0 */6 * * *') cleanupOrphanedFiles()` in `AttachmentsService` that cross-references filesystem against DB records and removes unmatched files. Added `AttachmentRepository.findAllPaths()`.
+
+### Fixed (Important)
+- **Redundant `JwtAuthGuard` provider**: `app.module.ts` had `JwtAuthGuard` created via `useFactory` AND registered as standalone provider. Removed the duplicate.
+- **`sortBy` lacks boundary validation**: `QueryTicketDto.sortBy` used `@IsString()` instead of `@IsIn([...])`. Replaced with explicit allowlist matching the service's `allowedSortFields`.
+- **SLA check redundant joins per batch**: `performSLACheck()` included `category.slaConfigs` for every ticket in each batch. Pre-loads active SLA configs into `Map<categoryId, config[]>` via new `SlaConfigRepository.findAllActive()`. Changed ticket query from `include` to minimal `select`.
+- **EndUser ticket list 2 extra DB queries**: `TicketsService.findAll()` performed `countPublicCommentsByTicketIds` + `countVisibleAttachmentsByTicketIds` after the main query for EndUser. Moved filtered `_count` into the main query using Prisma's `_count.select.{comments,attachments}.where` — removed enrichment loop entirely.
+- **Raw `<p>` error elements instead of `<ErrorMessage>`**: `CommentSection.tsx` and `AttachmentList.tsx` used inline `<p className="text-red-600">` for error states. Replaced with reusable `<ErrorMessage>` component.
+- **Duplicate file upload logic in 3 components**: `CreateTicketForm`, `CommentSection`, and `AttachmentList` each independently implemented MIME validation, size checks, preview URLs, and error state management. Extracted shared `useFileUpload()` hook to `hooks/use-file-upload.ts`.
+
+### Fixed (Minor)
+- **Inline spinner in `ProtectedRoute`**: Replaced raw spinner `div` with `<LoadingSpinner size="lg" />`.
+- **Telegram config catch uses generic message**: `TelegramConfigSection.handleCheck` catch block now uses `getErrorMessage(err, 'Failed to check configuration')`.
+- **Redundant guards on change-password**: Removed `@UseGuards(JwtAuthGuard, RolesGuard)` from `AuthController.changePassword()` — both are already global.
+- **`AdminMaintenancePage` too large (347 lines)**: Extracted backup management into `components/admin/BackupManager.tsx`. Page reduced to 72 lines.
+- **SLA tests not updated for pre-load optimization**: Updated `sla.service.spec.ts` mocks and `makeTicket` helper to match new flat `select` query + pre-loaded config map.
+- **`AttachmentRepository` missing path query**: Added `findAllPaths()` method for cleanup cron.
+
+### Changed
+- **`SLAService.performSLACheck()`**: Changed from nested `include.category.slaConfigs` per batch to pre-loaded config map + flat `select` on tickets. Eliminates N+1 join on category tables.
+- **`TicketsService.findAll()`**: `include` object now conditional on role. EndUser gets filtered `_count` with visibility filters; other roles get unfiltered counts. Removes 2 post-query enrichment queries.
+- **`AttachmentsService`**: Now has `cleanupOrphanedFiles()` with `@Cron('0 */6 * * *')` for periodic stale-file removal. Uses `Logger` for audit trail.
+- **`SlaConfigRepository`**: Added `findAllActive()` returning minimal `{ categoryId, priority, resolutionTimeMinutes }` for active configs.
+- **`AdminMaintenancePage.tsx`**: Decomposed — backup UI extracted to `BackupManager.tsx`. Page layout shell + maintenance mode toggle remain.
+- **`CreateTicketForm`/`CommentSection`/`AttachmentList`**: File selection, validation, preview URL management extracted to shared `useFileUpload()` hook.
+
+### Files Changed
+- `backend/src/attachments/attachments.controller.ts` — static fs import, removed dynamic import
+- `backend/src/attachments/attachments.service.ts` — NEW `cleanupOrphanedFiles()` + Logger
+- `backend/src/common/repositories/attachment.repository.ts` — NEW `findAllPaths()`
+- `backend/src/common/repositories/sla-config.repository.ts` — NEW `findAllActive()`
+- `backend/src/app.module.ts` — removed redundant `JwtAuthGuard` provider
+- `backend/src/auth/auth.controller.ts` — removed redundant guards on change-password
+- `backend/src/tickets/dto/query-ticket.dto.ts` — `@IsIn()` on sortBy
+- `backend/src/tickets/tickets.service.ts` — conditional role-based `_count`, removed enrichment loop
+- `backend/src/sla/sla.service.ts` — pre-loaded config map, flat ticket select
+- `backend/src/sla/sla.service.spec.ts` — updated mocks for new SLA check implementation
+- `frontend/src/hooks/use-file-upload.ts` — NEW shared file upload hook
+- `frontend/src/components/admin/BackupManager.tsx` — NEW extracted from AdminMaintenancePage
+- `frontend/src/pages/AdminMaintenancePage.tsx` — 347→72 lines, uses `<BackupManager />`
+- `frontend/src/components/tickets/CreateTicketForm.tsx` — uses `useFileUpload`
+- `frontend/src/components/tickets/CommentSection.tsx` — uses `useFileUpload` + `<ErrorMessage>`
+- `frontend/src/components/tickets/AttachmentList.tsx` — uses `useFileUpload` + `<ErrorMessage>`
+- `frontend/src/auth/ProtectedRoute.tsx` — uses `<LoadingSpinner />`
+- `frontend/src/components/account/TelegramConfigSection.tsx` — `getErrorMessage` in catch
+
+### Verification
+- Backend: build ✅, tests 757/757 ✅, lint 0 errors (241 pre-existing warnings)
+- Frontend: build ✅ (489ms), tests 221/221 ✅, lint 0 errors (26 pre-existing warnings)
+
 ## Session 37 — Code Review Round 5 Batch 9: 9 Quality & Security Issues Fixed (2026-07-06)
 
 ### Fixed (Critical)

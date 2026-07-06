@@ -4,9 +4,13 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { Role, AttachmentVisibility, Prisma } from '@prisma/client';
 import { Express } from 'express';
+import { readdir, unlink, stat } from 'fs/promises';
+import * as path from 'path';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { StorageService, STORAGE_SERVICE } from './interfaces/storage-service.interface';
@@ -30,12 +34,56 @@ const ATTACHMENT_SAFE_SELECT = {
 
 @Injectable()
 export class AttachmentsService {
+  private readonly logger = new Logger(AttachmentsService.name);
+
   constructor(
     private readonly attachmentRepository: AttachmentRepository,
     private readonly ticketRepository: TicketRepository,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
   ) {}
+
+  /**
+   * Periodic cleanup of orphaned files in the uploads directory.
+   * Removes files that exist on disk but have no corresponding DB record.
+   * Runs every 6 hours.
+   */
+  @Cron('0 */6 * * *')
+  async cleanupOrphanedFiles() {
+    const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads');
+
+    try {
+      const storedPaths = await this.attachmentRepository.findAllPaths();
+      const storedFilenames = new Set(storedPaths.map((p) => path.basename(p.path)));
+
+      const entries = await readdir(uploadDir, { withFileTypes: true });
+      let removedCount = 0;
+
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
+
+        // Skip known temporary directories used by maintenance restore
+        // (they have different naming patterns and are managed separately)
+        if (entry.name.startsWith('.')) continue;
+
+        if (!storedFilenames.has(entry.name)) {
+          const fullPath = path.join(uploadDir, entry.name);
+          try {
+            await unlink(fullPath);
+            removedCount++;
+          } catch (err) {
+            this.logger.warn(`Failed to remove orphaned file ${entry.name}: ${(err as Error).message}`);
+          }
+        }
+      }
+
+      if (removedCount > 0) {
+        this.logger.log(`Cleanup complete: removed ${removedCount} orphaned file(s) from ${uploadDir}`);
+      }
+    } catch (err) {
+      this.logger.error(`Orphaned file cleanup failed: ${(err as Error).message}`);
+    }
+  }
 
   async upload(ticketId: string, file: Express.Multer.File, userId: string, userRole: string, visibility?: AttachmentVisibility) {
     const ticket = await this.ticketRepository.findUnique({

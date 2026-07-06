@@ -67,7 +67,6 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
       useFactory: (reflector: Reflector) => new JwtAuthGuard(reflector),
       inject: [Reflector],
     },
-    JwtAuthGuard,
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,

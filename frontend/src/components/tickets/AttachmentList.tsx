@@ -4,11 +4,13 @@ import { useTicketAttachments, useUploadAttachment } from '@/hooks/use-tickets';
 import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ErrorMessage from '@/components/ui/ErrorMessage';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { formatDate, formatFileSize, getErrorMessage, getUserDisplayName } from '@/lib/utils';
 import { cacheThumbnail, getCachedThumbnail } from '@/lib/thumbnail-cache';
-import { ALLOWED_MIME_TYPES, MAX_DIRECT_ATTACHMENT_SIZE } from '@/lib/constants';
+import { useFileUpload } from '@/hooks/use-file-upload';
+import { MAX_DIRECT_ATTACHMENT_SIZE } from '@/lib/constants';
 
 function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () => void }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(() => getCachedThumbnail(id) ?? null);
@@ -73,6 +75,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
   const attachments = attachmentsData?.data ?? [];
   const attachMeta = attachmentsData?.meta;
   const uploadMutation = useUploadAttachment();
+  const fileUpload = useFileUpload({ maxSizePerFile: MAX_DIRECT_ATTACHMENT_SIZE });
 
   useEffect(() => {
     return () => {
@@ -83,13 +86,9 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      toast.error(`File type ${file.type || 'unknown'} is not allowed`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-    if (file.size > MAX_DIRECT_ATTACHMENT_SIZE) {
-      toast.error('File size exceeds 10 MB limit');
+    const validationError = fileUpload.validateFile(file);
+    if (validationError) {
+      toast.error(validationError);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -178,7 +177,7 @@ export default function AttachmentList({ ticketId }: AttachmentListProps) {
       </div>
 
       {isLoading && <LoadingSpinner />}
-      {isError && <p className="text-sm text-red-600">Failed to load attachments.</p>}
+      {isError && <ErrorMessage title="Error" message="Failed to load attachments." />}
       {!isLoading && !isError && (!attachments || attachments.length === 0) && (
         <EmptyState title="No attachments" description="Upload files to attach to this ticket." />
       )}

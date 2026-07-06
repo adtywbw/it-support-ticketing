@@ -230,6 +230,16 @@ export class SLAService {
     const batchSize = appConfig.sla.batchSize;
     let lastId: string | undefined;
 
+    // Pre-load all active SLA configs grouped by categoryId to avoid
+    // per-ticket joins in the batch loop
+    const allActiveConfigs = await this.slaConfigRepository.findAllActive();
+    const slaConfigMap = new Map<string, Array<{ priority: Priority; resolutionTimeMinutes: number }>>();
+    for (const config of allActiveConfigs) {
+      const entries = slaConfigMap.get(config.categoryId) ?? [];
+      entries.push({ priority: config.priority, resolutionTimeMinutes: config.resolutionTimeMinutes });
+      slaConfigMap.set(config.categoryId, entries);
+    }
+
     while (true) {
       const batch = await this.ticketRepository.findMany({
         where: {
@@ -238,14 +248,13 @@ export class SLAService {
           },
           ...(lastId ? { id: { gt: lastId } } : {}),
         },
-        include: {
-          category: {
-            include: {
-              slaConfigs: {
-                where: { isActive: true },
-              },
-            },
-          },
+        select: {
+          id: true,
+          ticketNumber: true,
+          priority: true,
+          categoryId: true,
+          slaDueAt: true,
+          slaStatus: true,
         },
         take: batchSize,
         orderBy: { id: 'asc' },
@@ -259,14 +268,8 @@ export class SLAService {
       const breached: string[] = [];
 
       for (const ticket of batch) {
-        const ticketWithConfig = ticket as unknown as {
-          category: {
-            slaConfigs: Array<{ priority: Priority; resolutionTimeMinutes: number }>;
-          };
-        };
-        const slaConfig = ticketWithConfig.category.slaConfigs.find(
-          (config) => config.priority === ticket.priority,
-        );
+        const configs = slaConfigMap.get(ticket.categoryId);
+        const slaConfig = configs?.find((c) => c.priority === ticket.priority);
 
         if (!slaConfig || !ticket.slaDueAt) continue;
 

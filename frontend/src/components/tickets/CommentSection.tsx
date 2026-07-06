@@ -4,12 +4,14 @@ import { useTicketComments, useAddComment } from '@/hooks/use-tickets';
 import { useAuthStore } from '@/stores/auth-store';
 import apiClient from '@/lib/axios';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ErrorMessage from '@/components/ui/ErrorMessage';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { formatRelativeTime, formatFileSize, getUserDisplayName, getErrorMessage } from '@/lib/utils';
 import { cacheThumbnail, getCachedThumbnail } from '@/lib/thumbnail-cache';
 import Avatar from '@/components/ui/Avatar';
-import { ALLOWED_MIME_TYPES, MAX_COMMENT_ATTACHMENT_SIZE } from '@/lib/constants';
+import { useFileUpload } from '@/hooks/use-file-upload';
+import { MAX_COMMENT_ATTACHMENT_SIZE } from '@/lib/constants';
 
 interface CommentSectionProps {
   ticketId: string;
@@ -59,8 +61,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [content, setContent] = useState('');
   const [isInternal, setIsInternal] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileUpload = useFileUpload({ maxSizePerFile: MAX_COMMENT_ATTACHMENT_SIZE });
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
@@ -79,48 +80,31 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
   useEffect(() => { return () => { if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current); }; }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    const unsupported = selected.find((f) => !ALLOWED_MIME_TYPES.includes(f.type));
-    if (unsupported) {
-      setUploadError(`File type ${unsupported.type || 'unknown'} is not allowed`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
+    if (e.target.files) {
+      fileUpload.addFiles(e.target.files);
     }
-    const oversized = selected.find((f) => f.size > MAX_COMMENT_ATTACHMENT_SIZE);
-    if (oversized) {
-      setUploadError(`File "${oversized.name}" exceeds the 5 MB limit`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-    setFiles((prev) => [...prev, ...selected].slice(0, 3));
-    setUploadError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
-    setUploadError(null);
 
     addCommentMutation.mutate(
       {
         ticketId,
         content: content.trim(),
         type: isInternal ? 'INTERNAL' : 'PUBLIC',
-        files: files.length > 0 ? files : undefined,
+        files: fileUpload.files.length > 0 ? fileUpload.files : undefined,
       },
       {
         onSuccess: () => {
           setContent('');
           setIsInternal(false);
-          setFiles([]);
+          fileUpload.clearFiles();
         },
         onError: (err) => {
-          setUploadError(getErrorMessage(err, 'Failed to post comment'));
+          toast.error(getErrorMessage(err, 'Failed to post comment'));
         },
       },
     );
@@ -168,8 +152,8 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           rows={3}
           className="input resize-y"
         />
-        {uploadError && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30">{uploadError}</div>
+        {fileUpload.errors.length > 0 && (
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30">{fileUpload.errors[0]}</div>
         )}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
@@ -188,12 +172,12 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="btn-secondary btn-sm"
-              disabled={files.length >= 3 || addCommentMutation.isPending}
+              disabled={fileUpload.isOverLimit || addCommentMutation.isPending}
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
               </svg>
-              {files.length >= 3 ? 'Max 3 files' : 'Attach files'}
+              {fileUpload.isOverLimit ? 'Max 3 files' : 'Attach files'}
             </button>
             <input ref={fileInputRef} type="file" multiple onChange={handleFileChange} className="hidden" />
           </div>
@@ -205,9 +189,9 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
             {addCommentMutation.isPending ? 'Posting...' : 'Post Comment'}
           </button>
         </div>
-        {files.length > 0 && (
+        {fileUpload.files.length > 0 && (
           <div className="space-y-1">
-            {files.map((file, i) => (
+            {fileUpload.files.map((file, i) => (
               <div key={`${file.name}-${i}`}
                 className="flex items-center justify-between rounded-lg border border-blue-100 bg-white px-3 py-2 dark:border-navy-800 dark:bg-navy-900">
                 <div className="flex items-center gap-2 min-w-0">
@@ -217,7 +201,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
                   <span className="text-sm text-navy-700 truncate dark:text-blue-200">{file.name}</span>
                   <span className="text-xs text-navy-500">{formatFileSize(file.size)}</span>
                 </div>
-                <button type="button" onClick={() => removeFile(i)}
+                <button type="button" onClick={() => fileUpload.removeFile(i)}
                   className="text-sm text-red-600 hover:text-red-800 shrink-0">Remove</button>
               </div>
             ))}
@@ -229,7 +213,7 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
         {isLoading && <LoadingSpinner />}
 
         {isError && (
-          <p className="text-sm text-red-600">Failed to load comments.</p>
+          <ErrorMessage title="Error" message="Failed to load comments." />
         )}
 
         {!isLoading && !isError && visibleComments.length === 0 && (
