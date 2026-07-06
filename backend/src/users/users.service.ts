@@ -56,7 +56,8 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto) {
-    const existing = await this.userRepository.existsByEmail(createUserDto.email);
+    const normalizedEmail = createUserDto.email.toLowerCase().trim();
+    const existing = await this.userRepository.existsByEmail(normalizedEmail);
 
     if (existing) {
       if (!existing.isActive) {
@@ -74,7 +75,7 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
     return this.userRepository.create({
-      email: createUserDto.email,
+      email: normalizedEmail,
       password: hashedPassword,
       name: createUserDto.name,
       role: createUserDto.role || 'EndUser',
@@ -87,14 +88,18 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (updateUserDto.email && updateUserDto.email !== user.email) {
-      const existing = await this.userRepository.existsByEmail(updateUserDto.email);
+    const normalizedEmail = updateUserDto.email?.toLowerCase().trim();
+    if (normalizedEmail !== undefined && normalizedEmail.toLowerCase() !== user.email.toLowerCase()) {
+      const existing = await this.userRepository.existsByEmail(normalizedEmail);
       if (existing) {
         throw new ConflictException('Email already in use');
       }
     }
 
     const data: Prisma.UserUpdateInput = { ...updateUserDto };
+    if (normalizedEmail && normalizedEmail !== user.email) {
+      data.email = normalizedEmail;
+    }
     if (updateUserDto.password) {
       data.password = await bcrypt.hash(updateUserDto.password, 12);
     }

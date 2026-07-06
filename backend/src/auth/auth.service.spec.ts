@@ -109,7 +109,7 @@ describe('AuthService', () => {
         jti: 'token-jti',
       };
       const token = jwtService.sign(payload, { expiresIn: '7d' });
-      redisService.eval.mockResolvedValue(null);
+      redisService.get.mockResolvedValue(null);
 
       await expect(service.refresh(token)).rejects.toThrow('Refresh token has been revoked');
     });
@@ -123,9 +123,24 @@ describe('AuthService', () => {
         jti: 'token-jti',
       };
       const token = jwtService.sign(payload, { expiresIn: '7d' });
-      redisService.eval.mockResolvedValue('different-token-value');
+      redisService.get.mockResolvedValue('different-token-value');
 
       await expect(service.refresh(token)).rejects.toThrow('Refresh token has been revoked');
+    });
+
+    it('should reject token when user is inactive', async () => {
+      const payload = {
+        sub: 'user-1',
+        email: 'test@test.com',
+        role: 'EndUser',
+        tokenType: 'refresh' as const,
+        jti: 'inactive-jti',
+      };
+      const token = jwtService.sign(payload, { expiresIn: '7d' });
+      redisService.get.mockResolvedValue(token);
+      usersService.findById.mockResolvedValue({ ...mockUser, isActive: false });
+
+      await expect(service.refresh(token)).rejects.toThrow('User not found or inactive');
     });
 
     it('should accept valid refresh token with tokenType=refresh and valid Redis entry', async () => {
@@ -137,6 +152,7 @@ describe('AuthService', () => {
         jti: 'valid-jti',
       };
       const token = jwtService.sign(payload, { expiresIn: '7d' });
+      redisService.get.mockResolvedValue(token);
       redisService.eval.mockResolvedValue(token);
       usersService.findById.mockResolvedValue(mockUser);
       const verifySpy = jest.spyOn(jwtService, 'verify');
@@ -150,6 +166,8 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result).toHaveProperty('user');
+      // Should call GET (step 1) before GETDEL (step 2, atomic consumption)
+      expect(redisService.get).toHaveBeenCalledWith('refresh:user-1:valid-jti');
       expect(redisService.eval).toHaveBeenCalledWith(
         expect.any(String),
         ['refresh:user-1:valid-jti'],

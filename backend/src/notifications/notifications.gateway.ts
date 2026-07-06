@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Injectable } from '@nestjs/common';
 import { UserRepository } from '../common/repositories/user.repository';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
+import { getCorsOrigins } from '../common/utils/env-validation.util';
 
 interface NotificationPayload {
   userId: string;
@@ -18,15 +19,9 @@ interface NotificationPayload {
   data?: Record<string, unknown>;
 }
 
-function getCorsOrigin(): string[] {
-  return (process.env.CORS_ORIGIN || 'https://helpdesk.rsmch.internal')
-    .split(',')
-    .map((o) => o.trim());
-}
-
 @Injectable()
 @WebSocketGateway({
-  cors: { origin: getCorsOrigin(), credentials: true },
+  cors: { origin: getCorsOrigins(), credentials: true },
   namespace: '/notifications',
 })
 export class NotificationsGateway

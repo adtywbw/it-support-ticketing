@@ -150,7 +150,7 @@ postgres/postgresql.conf
 - `restoreBackup()` enables maintenance, drains for 5 seconds before `DROP SCHEMA`, then disables it after restore only if restore succeeded. On success, release `maintenance:restore:lock` before disabling maintenance; otherwise `setMaintenanceMode(false)` rejects with `Cannot disable maintenance during active restore`. On failure, logs the original error via `Logger` and keeps maintenance enabled with the pre-restore backup ID in the error message.
 - Restore DB import handles schema-only dumps that omit extensions: it rewrites `CREATE SCHEMA public;` to idempotent schema creation and injects `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;` before trigram indexes (`gin_trgm_ops`) are created.
 - `restoreUploads()` creates its tempDir **inside** `uploadDir` (same Docker volume) to avoid `EXDEV` cross-device rename errors; the tempDir basename is excluded from the upload dir clear step.
-- Frontend `MaintenanceBanner` polls `/api/maintenance/mode` every 15 seconds (authenticated users only). Admin sees a small non-blocking banner; non-admin sees a full-screen overlay that blocks interaction.
+- Frontend `MaintenanceBanner` polls `/api/maintenance/mode` dynamically: fast-poll (every 15s) when maintenance is enabled, stops polling when disabled. Re-enabled by refetch on window focus or 503 axios interceptor. Admin sees a small non-blocking banner; non-admin sees a full-screen overlay that blocks interaction.
 - Frontend axios 503 handler redirects only Admin to `/admin/maintenance`; non-admin requests are rejected without redirect (no redirect loop).
 - Admin must enable maintenance mode before backup/restore from UI.
 - `GET /api/health` is public and includes `maintenance: { enabled, message }`.

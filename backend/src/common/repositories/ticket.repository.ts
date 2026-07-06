@@ -155,7 +155,8 @@ export class TicketRepository {
         ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
         : Prisma.empty;
 
-    const orderDir = Prisma.raw(args.sortOrder.toUpperCase());
+    const validatedOrder = args.sortOrder === 'asc' ? 'asc' : 'desc';
+    const orderDir = Prisma.raw(validatedOrder.toUpperCase());
 
     const limitClause =
       args.take !== undefined

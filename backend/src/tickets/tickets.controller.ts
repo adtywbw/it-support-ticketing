@@ -101,8 +101,7 @@ export class TicketsController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.Admin)
-  async delete(@Param('id') id: string) {
+  async delete(@Param('id') id: string): Promise<void> {
     await this.ticketsService.delete(id);
-    return { message: 'Ticket deleted successfully' };
   }
 }

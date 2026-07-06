@@ -123,13 +123,13 @@ describe('TicketsController', () => {
   });
 
   describe('delete()', () => {
-    it('should call ticketsService.delete with id and return success message', async () => {
+    it('should call ticketsService.delete with id and return undefined', async () => {
       mockTicketsService.delete.mockResolvedValue(undefined);
 
       const result = await controller.delete('ticket-1');
 
       expect(ticketsService.delete).toHaveBeenCalledWith('ticket-1');
-      expect(result).toEqual({ message: 'Ticket deleted successfully' });
+      expect(result).toBeUndefined();
     });
   });
 

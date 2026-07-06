@@ -138,6 +138,7 @@ export class TicketsService {
 
     const allowedSortFields = ['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status', 'slaStatus'];
     const orderField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const scope: TicketAccessScope = { userId, role: userRole as 'EndUser' | 'ITSupport' | 'Admin' };
     const include = {
@@ -165,14 +166,14 @@ export class TicketsService {
             },
             skip: limit > 0 ? (page - 1) * limit : 0,
             take: limit > 0 ? limit : undefined,
-            sortOrder,
+            sortOrder: orderDir,
             include,
           })
         : this.ticketRepository.findManyForUser({
             where,
             skip: limit > 0 ? (page - 1) * limit : 0,
             take: limit > 0 ? limit : undefined,
-            orderBy: { [orderField]: sortOrder },
+            orderBy: { [orderField]: orderDir },
             include,
           }, scope),
       this.ticketRepository.countForUser(where, scope),
@@ -186,10 +187,14 @@ export class TicketsService {
       ]);
       const commentsByTicket = new Map(commentCounts.map((r) => [r.ticketId, r.count]));
       const attachmentsByTicket = new Map(attachmentCounts.map((r) => [r.ticketId, r.count]));
-      for (const ticket of tickets as unknown as Array<{ id: string; _count: { comments: number; attachments: number } }>) {
-        ticket._count.comments = commentsByTicket.get(ticket.id) ?? 0;
-        ticket._count.attachments = attachmentsByTicket.get(ticket.id) ?? 0;
-      }
+      const enrichedTickets = tickets.map((ticket) => ({
+        ...ticket,
+        _count: {
+          comments: commentsByTicket.get(ticket.id) ?? 0,
+          attachments: attachmentsByTicket.get(ticket.id) ?? 0,
+        },
+      }));
+      return { data: enrichedTickets, meta: buildPaginationMeta(total, limit, page) };
     }
 
     return { data: tickets, meta: buildPaginationMeta(total, limit, page) };
@@ -252,69 +257,71 @@ export class TicketsService {
     let offset = 0;
     const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
 
-    while (totalExported < MAX_EXPORT_ROWS) {
-      const exportInclude = {
-        requester: { select: { id: true, name: true, email: true } },
-        assignedTo: { select: { id: true, name: true, email: true } },
-        category: { select: { id: true, name: true } },
-        subCategory: { select: { id: true, name: true } },
-      };
+    try {
+      while (totalExported < MAX_EXPORT_ROWS) {
+        const exportInclude = {
+          requester: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+          category: { select: { id: true, name: true } },
+          subCategory: { select: { id: true, name: true } },
+        };
 
-      const batch = orderField === 'slaStatus'
-        ? await this.ticketRepository.findManySortedBySlaStatus({
-            scope,
-            filters: {
-              status,
-              priority,
-              categoryId,
-              assignedToId,
-              requesterId: userRole !== 'EndUser' ? requesterId : undefined,
-              slaStatus,
-              dateFrom,
-              dateTo,
-              search,
-            },
-            skip: offset,
-            take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
-            sortOrder: orderDir,
-            include: exportInclude,
-          })
-        : await this.ticketRepository.findManyForUser({
-            where,
-            orderBy: [
-              { [orderField]: orderDir },
-              { id: orderDir },
-            ] as Prisma.TicketOrderByWithRelationInput[],
-            skip: offset,
-            take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
-            include: exportInclude,
-          }, scope);
+        const batch = orderField === 'slaStatus'
+          ? await this.ticketRepository.findManySortedBySlaStatus({
+              scope,
+              filters: {
+                status,
+                priority,
+                categoryId,
+                assignedToId,
+                requesterId: userRole !== 'EndUser' ? requesterId : undefined,
+                slaStatus,
+                dateFrom,
+                dateTo,
+                search,
+              },
+              skip: offset,
+              take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
+              sortOrder: orderDir,
+              include: exportInclude,
+            })
+          : await this.ticketRepository.findManyForUser({
+              where,
+              orderBy: [
+                { [orderField]: orderDir },
+                { id: orderDir },
+              ] as Prisma.TicketOrderByWithRelationInput[],
+              skip: offset,
+              take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
+              include: exportInclude,
+            }, scope);
 
-      if (batch.length === 0) break;
+        if (batch.length === 0) break;
 
-      for (const ticket of batch as Array<{ ticketNumber: string; subject: string; status: string; priority: string; category?: { name: string } | null; subCategory?: { name: string } | null; requester?: { name: string } | null; assignedTo?: { name: string } | null; createdAt: Date; resolvedAt?: Date | null; slaStatus?: string | null }>) {
-        const row = [
-          ticket.ticketNumber,
-          ticket.subject,
-          ticket.status,
-          ticket.priority,
-          ticket.category?.name || '',
-          ticket.subCategory?.name || '',
-          ticket.requester?.name || '',
-          ticket.assignedTo?.name || '',
-          ticket.createdAt.toISOString(),
-          ticket.resolvedAt?.toISOString() || '',
-          ticket.slaStatus || '',
-        ];
-        res.write(row.map(escapeCsv).join(',') + '\n');
-        totalExported++;
+        for (const ticket of batch as Array<{ ticketNumber: string; subject: string; status: string; priority: string; category?: { name: string } | null; subCategory?: { name: string } | null; requester?: { name: string } | null; assignedTo?: { name: string } | null; createdAt: Date; resolvedAt?: Date | null; slaStatus?: string | null }>) {
+          const row = [
+            ticket.ticketNumber,
+            ticket.subject,
+            ticket.status,
+            ticket.priority,
+            ticket.category?.name || '',
+            ticket.subCategory?.name || '',
+            ticket.requester?.name || '',
+            ticket.assignedTo?.name || '',
+            ticket.createdAt.toISOString(),
+            ticket.resolvedAt?.toISOString() || '',
+            ticket.slaStatus || '',
+          ];
+          res.write(row.map(escapeCsv).join(',') + '\n');
+          totalExported++;
+        }
+
+        offset += batch.length;
+        if (batch.length < BATCH_SIZE) break;
       }
-
-      offset += batch.length;
-      if (batch.length < BATCH_SIZE) break;
+    } finally {
+      res.end();
     }
-
-    res.end();
   }
 
   async findById(id: string, userRole?: string, userId?: string) {

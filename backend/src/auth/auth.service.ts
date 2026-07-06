@@ -78,12 +78,11 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    // First validate that the token exists in Redis without consuming it.
     let storedToken: string | null;
     try {
-      storedToken = await this.redisService.eval(
-        GETDEL_SCRIPT,
-        [`refresh:${payload.sub}:${payload.jti}`],
-        [],
+      storedToken = await this.redisService.get(
+        `refresh:${payload.sub}:${payload.jti}`,
       ) as string | null;
     } catch {
       throw new UnauthorizedException('Refresh token validation failed');
@@ -92,6 +91,8 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Refresh token has been revoked');
     }
 
+    // Validate the user exists and is active BEFORE consuming the token.
+    // This prevents session loss if the DB is transiently unavailable.
     let user;
     try {
       user = await this.usersService.findById(payload.sub);
@@ -99,7 +100,30 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('User not found or inactive');
     }
     if (!user || !user.isActive) {
+      // Token still valid - let validation consume it so the revoked
+      // token cannot be replayed if the user is reactivated later.
+      await this.redisService.eval(
+        GETDEL_SCRIPT,
+        [`refresh:${payload.sub}:${payload.jti}`],
+        [],
+      ).catch(() => { /* Best-effort cleanup */ });
       throw new UnauthorizedException('User not found or inactive');
+    }
+
+    // All checks passed. Now atomically consume the token to prevent replay.
+    let consumedToken: string | null;
+    try {
+      consumedToken = await this.redisService.eval(
+        GETDEL_SCRIPT,
+        [`refresh:${payload.sub}:${payload.jti}`],
+        [],
+      ) as string | null;
+    } catch {
+      throw new UnauthorizedException('Refresh token validation failed');
+    }
+    if (!consumedToken) {
+      // Token was consumed by a concurrent request (rare race).
+      throw new UnauthorizedException('Refresh token has been revoked');
     }
 
     return this.generateTokens({

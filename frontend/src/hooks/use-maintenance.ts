@@ -11,7 +11,12 @@ export function useMaintenanceMode(options?: { enabled?: boolean }) {
       const response = await apiClient.get<ApiEnvelope<MaintenanceStatus>>('/maintenance/mode');
       return unwrapData(response);
     },
-    refetchInterval: MAINTENANCE_POLL_MS,
+    refetchInterval: (query) => {
+      // Fast-poll (15s) only when maintenance is active; stop polling when disabled.
+      // The 503 axios interceptor will invalidate this query on 503 responses,
+      // re-enabling the fast poll when maintenance becomes active again.
+      return query.state.data?.enabled ? MAINTENANCE_POLL_MS : false;
+    },
   });
 }
 

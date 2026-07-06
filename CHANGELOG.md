@@ -2,6 +2,44 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 37 — Code Review Round 5 Batch 9: 9 Quality & Security Issues Fixed (2026-07-06)
+
+### Fixed (Critical)
+- **Email case-sensitivity mismatch (C1)**: `UsersService.create()` and `UsersService.update()` now normalize email to lowercase before storage, matching the existing normalization in `AuthService.login()`. Previously, users created with mixed-case emails could not log in because PostgreSQL case-sensitive `=` comparison failed. Added service-level tests for normalization behavior.
+- **`Prisma.raw()` sort direction injection vector (C2)**: `TicketRepository.findManySortedBySlaStatus()` now validates `sortOrder` against `['asc', 'desc']` before passing to `Prisma.raw()`. Added defense-in-depth to the raw SQL code path.
+- **TanStack Query cache mutation (C3)**: `TicketsService.findAll()` no longer mutates Prisma result objects in-place when enriching `_count` for EndUser. Uses `.map()` to create new objects, preserving cache integrity.
+
+### Fixed (Important)
+- **Refresh token consumed before user validation (I5)**: `AuthService.refresh()` now validates user existence and activity via `redisService.get()` BEFORE consuming the token atomically via `GETDEL`. Prevents permanent session loss on transient DB failures. If the user is inactive, the token is still consumed to prevent replay after reactivation.
+- **Maintenance polling overhead (I7)**: `useMaintenanceMode` now uses a dynamic `refetchInterval` function: fast-polls (15s) only when maintenance is active; stops polling when disabled. Re-enabled by window focus refetch or 503 axios interceptor. Reduces unnecessary network traffic for all users.
+- **Unvalidated `sortOrder` in `findAll` (I1)**: Added `orderDir = sortOrder === 'asc' ? 'asc' : 'desc'` validation in `TicketsService.findAll()`, matching the existing pattern in `exportCsvToResponse()`.
+- **Delete endpoint inconsistent return shape (I2)**: `TicketsController.delete()` now returns `Promise<void>` instead of `{ message: string }`. The response goes through `TransformInterceptor` which wraps it correctly as `{ data: {} }`.
+
+### Fixed (Minor)
+- **WebSocket gateway inline CORS logic (M1)**: Replaced duplicate `getCorsOrigin()` function in `NotificationsGateway` with shared `getCorsOrigins()` from `env-validation.util.ts`.
+- **CSV export streaming error resilience (M3)**: Wrapped streaming loop in `try/finally` to ensure `res.end()` is always called, preventing hanging HTTP connections on mid-stream errors.
+
+### Changed
+- **`AuthService.refresh()`** now uses a two-step Redis pattern: `GET` for validation → user lookup → `GETDEL` for atomic consumption. In the rare case of concurrent refresh attempts, the second caller receives "Refresh token has been revoked" (token was already consumed by the first).
+- **`UsersService.update()`** normalized email detection: uses case-insensitive comparison (`user.email.toLowerCase()`) to differentiate between an email address change and a case-only normalization of the same address. The latter does not trigger a uniqueness conflict check.
+- **`useMaintenanceMode`** hook: `refetchInterval` is now a function of query state rather than a constant — stops polling when maintenance mode is disabled.
+
+### Verification
+- Backend: build ✅, tests 757/757 ✅, lint 0 errors
+- Frontend: build ✅ (584ms), tests 221/221 ✅, lint 0 errors
+
+### Files Changed
+- `backend/src/users/users.service.ts` — email normalization in create/update
+- `backend/src/users/__tests__/users.service.spec.ts` — NEW service-level tests
+- `backend/src/common/repositories/ticket.repository.ts` — sortOrder validation
+- `backend/src/tickets/tickets.service.ts` — cache-safe _count, sortOrder validation, CSV try/finally
+- `backend/src/tickets/tickets.controller.ts` — void return for delete
+- `backend/src/tickets/tickets.controller.spec.ts` — updated test expectation
+- `backend/src/auth/auth.service.ts` — two-step refresh (GET before GETDEL)
+- `backend/src/auth/auth.service.spec.ts` — updated refresh tests + inactive user test
+- `backend/src/notifications/notifications.gateway.ts` — shared CORS origin
+- `frontend/src/hooks/use-maintenance.ts` — dynamic refetchInterval
+
 ## Session 36 — Code Review Round 5 Fixes (2026-07-06)
 
 ### Fixed (Critical)
