@@ -114,8 +114,8 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ status                   TicketStatus (Open|InProgress|OnHold|Resolved|Closed)
 │ FK assignedToId → users    UUID? (nullable)
 │ channel                   Channel  (Web)
-│ slaDueAt                  DateTime
-│ slaStatus                 SLAStatus (OnTrack|AtRisk|Breached)
+│ slaDueAt                  DateTime? (nullable)
+│ slaStatus                 SLAStatus? (nullable — OnTrack|AtRisk|Breached)
 │ resolvedAt                DateTime? (nullable)
 │ closedAt                  DateTime? (nullable)
 │ createdAt                  DateTime
@@ -196,7 +196,8 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ updatedAt                  DateTime
 │ UNIQUE: (categoryId, priority)
 │ NOTE: create and timing update auto-recalculate affected non-terminal
-│       tickets' slaDueAt and slaStatus via SLAService.
+│       tickets' slaDueAt and slaStatus via SLAService. When no SLA
+│       config matches (categoryId, priority), both are null.
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -619,7 +620,7 @@ it-support-ticketing/
 - **DTO input validation**: `CreateTicketDto` and `CreateCommentDto` use `@Transform(trimString)` + `@IsNotEmpty()` + `@MinLength()` so direct API clients cannot submit whitespace-only or too-short text payloads. `ValidationPipe` is enabled globally with `whitelist` and `forbidNonWhitelisted`.
 
 ### Infrastructure Security
-- **Docker hardening**: `no-new-privileges`, `cap_drop: ALL` with minimal `cap_add`, `mem_limit`, `cpus`, `pids_limit` on all services.
+- **Docker hardening**: `no-new-privileges`, `cap_drop: ALL` with minimal `cap_add`, `mem_limit`, `cpus`, `pids_limit`, and `init: true` on all services.
 - **Least-privilege env**: `backend/.env.db` (DB only), `backend/.env.cache` (Redis only), `backend/.env` (API full set).
 - **Nginx**: CSP, security headers repeated per location block (add_header inheritance), `default_server` for unmatched Host, dotfile deny.
 - **Secret hygiene**: `.env` permission `600`, `.gitignore` covers `.env.*`, strong credentials via `openssl rand`.

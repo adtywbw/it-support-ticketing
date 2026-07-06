@@ -16,7 +16,7 @@ export class CategoryRepository {
         },
         _count: { select: { tickets: true } },
       },
-    }) as any;
+    });
   }
 
   async findAllForTicketForm() {
@@ -40,7 +40,7 @@ export class CategoryRepository {
           },
         },
       },
-    }) as any;
+    });
   }
 
   async findByIdForTicketForm(id: string) {
@@ -63,7 +63,7 @@ export class CategoryRepository {
           },
         },
       },
-    }) as any;
+    });
   }
 
   async findById(id: string, include?: Prisma.CategoryInclude) {
@@ -77,22 +77,22 @@ export class CategoryRepository {
         slaConfigs: true,
         _count: { select: { tickets: true, subCategories: true, slaConfigs: true } },
       },
-    }) as any;
+    });
   }
 
   async findByName(name: string) {
-    return this.prisma.category.findUnique({ where: { name } }) as any;
+    return this.prisma.category.findUnique({ where: { name } });
   }
 
   async create(data: Prisma.CategoryCreateInput, include?: Prisma.CategoryInclude) {
-    return this.prisma.category.create({ data, include }) as any;
+    return this.prisma.category.create({ data, include });
   }
 
   async update(id: string, data: Prisma.CategoryUpdateInput, include?: Prisma.CategoryInclude) {
-    return this.prisma.category.update({ where: { id }, data, include }) as any;
+    return this.prisma.category.update({ where: { id }, data, include });
   }
 
   async delete(id: string) {
-    return this.prisma.category.delete({ where: { id } }) as any;
+    return this.prisma.category.delete({ where: { id } });
   }
 }

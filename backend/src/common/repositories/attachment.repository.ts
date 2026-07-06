@@ -7,7 +7,7 @@ export class AttachmentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: Prisma.AttachmentCreateInput, include?: Prisma.AttachmentInclude) {
-    return this.prisma.attachment.create({ data, include }) as any;
+    return this.prisma.attachment.create({ data, include });
   }
 
   async findByTicketId(ticketId: string, args?: {
@@ -18,19 +18,22 @@ export class AttachmentRepository {
     where?: Prisma.AttachmentWhereInput;
   }) {
     const { select, include, skip, take, where } = args ?? {};
-    const prismaArgs: Record<string, unknown> = {
+    return this.prisma.attachment.findMany({
       where: where ?? { ticketId },
-      orderBy: { createdAt: 'desc' } as const,
-    };
-    if (skip !== undefined) prismaArgs.skip = skip;
-    if (take !== undefined) prismaArgs.take = take;
-    if (select) prismaArgs.select = select;
-    else if (include) prismaArgs.include = include;
-    return this.prisma.attachment.findMany(prismaArgs as any) as any;
+      orderBy: { createdAt: 'desc' },
+      ...(skip !== undefined ? { skip } : {}),
+      ...(take !== undefined ? { take } : {}),
+      ...(select ? { select } : {}),
+      ...(!select && include ? { include } : {}),
+    });
   }
 
-  async findById(id: string, include?: Prisma.AttachmentInclude) {
-    return this.prisma.attachment.findUnique({ where: { id }, include }) as any;
+  async findById<T extends Prisma.AttachmentFindUniqueArgs>(args: T): Promise<Prisma.AttachmentGetPayload<T> | null> {
+    return this.prisma.attachment.findUnique(args) as unknown as Prisma.AttachmentGetPayload<T> | null;
+  }
+
+  async findUnique<T extends Prisma.AttachmentFindUniqueArgs>(args: T): Promise<Prisma.AttachmentGetPayload<T> | null> {
+    return this.prisma.attachment.findUnique(args) as unknown as Prisma.AttachmentGetPayload<T> | null;
   }
 
   async count(where: Prisma.AttachmentWhereInput) {

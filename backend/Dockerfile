@@ -13,7 +13,8 @@ RUN npx prisma generate
 COPY tsconfig*.json ./
 COPY src ./src
 RUN npm run build
-RUN npx tsc prisma/seed.ts --outDir dist/prisma --module commonjs --target es2022 --esModuleInterop --skipLibCheck --experimentalDecorators --emitDecoratorMetadata --moduleResolution node 2>&1
+COPY tsconfig.seed.json ./
+RUN npx tsc -p tsconfig.seed.json 2>&1
 
 FROM node:20-bookworm-slim AS production
 

@@ -133,4 +133,17 @@ apiClient.interceptors.response.use(
   },
 );
 
+export async function refreshAccessToken(): Promise<{ accessToken: string; user: User }> {
+  const response = await axios.post<{ data: { accessToken: string; user: User } }>(
+    `${API_BASE_URL}/auth/refresh`,
+    {},
+    { withCredentials: true },
+  );
+  const { accessToken, user } = response.data.data;
+  if (!accessToken) {
+    throw new Error('No access token received');
+  }
+  return { accessToken, user };
+}
+
 export default apiClient;

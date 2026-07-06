@@ -15,8 +15,8 @@ export type TicketAccessScope = {
  */
 export function buildTicketAccessWhere(
   scope: TicketAccessScope,
-  where: Record<string, unknown> = {},
-): Record<string, unknown> {
+  where: Prisma.TicketWhereInput = {},
+): Prisma.TicketWhereInput {
   if (scope.role === 'EndUser') {
     return { ...where, requesterId: scope.userId };
   }
@@ -61,20 +61,20 @@ const dashboardTicketSummarySelect = {
 export class TicketRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: Prisma.TicketCreateInput, include?: Prisma.TicketInclude) {
-    return this.prisma.ticket.create({ data, include }) as any;
+  async create<T extends Prisma.TicketCreateArgs>(args: T): Promise<any> {
+    return this.prisma.ticket.create(args) as any;
   }
 
-  async findById(id: string, include?: Prisma.TicketInclude) {
-    return this.prisma.ticket.findUnique({ where: { id }, include }) as any;
+  async findById(id: string, include?: any) {
+    return this.prisma.ticket.findUnique({ where: { id }, include } as any);
   }
 
-  async findUnique(args: Prisma.TicketFindUniqueArgs) {
-    return this.prisma.ticket.findUnique(args) as any;
+  async findUnique<T extends Prisma.TicketFindUniqueArgs>(args: T) {
+    return this.prisma.ticket.findUnique(args);
   }
 
-  async findMany(args: Prisma.TicketFindManyArgs) {
-    return this.prisma.ticket.findMany(args) as any;
+  async findMany<T extends Prisma.TicketFindManyArgs>(args: T) {
+    return this.prisma.ticket.findMany(args);
   }
 
   /**
@@ -83,18 +83,18 @@ export class TicketRepository {
    * so the EndUser filter cannot be forgotten by a new caller.
    */
   async findManyForUser(
-    args: Prisma.TicketFindManyArgs,
+    args: any,
     scope: TicketAccessScope,
-  ) {
+  ): Promise<any[]> {
     return this.prisma.ticket.findMany({
       ...args,
-      where: buildTicketAccessWhere(scope, args.where as Record<string, unknown>) as any,
+      where: buildTicketAccessWhere(scope, (args.where ?? {}) as Prisma.TicketWhereInput),
     }) as any;
   }
 
   async countForUser(where: Prisma.TicketWhereInput, scope: TicketAccessScope) {
     return this.prisma.ticket.count({
-      where: buildTicketAccessWhere(scope, where as Record<string, unknown>) as any,
+      where: buildTicketAccessWhere(scope, where),
     });
   }
 
@@ -115,7 +115,7 @@ export class TicketRepository {
     take: number | undefined;
     sortOrder: 'asc' | 'desc';
     include: Prisma.TicketInclude;
-  }): Promise<any[]> {
+  }) {
     const conditions: Prisma.Sql[] = [];
 
     if (args.scope.role === 'EndUser') {
@@ -181,12 +181,12 @@ export class TicketRepository {
       include: args.include,
     });
 
-    const ticketMap = new Map(tickets.map((t: any) => [t.id, t]));
+    const ticketMap = new Map(tickets.map((t) => [t.id, t]));
     return sortedIds.map((id) => ticketMap.get(id)).filter(Boolean);
   }
 
-  async findFirst(args: Prisma.TicketFindFirstArgs) {
-    return this.prisma.ticket.findFirst(args) as any;
+  async findFirst<T extends Prisma.TicketFindFirstArgs>(args: T) {
+    return this.prisma.ticket.findFirst(args);
   }
 
   async count(where: Prisma.TicketWhereInput) {
@@ -254,7 +254,7 @@ export class TicketRepository {
   }
 
   async update(id: string, data: Prisma.TicketUpdateInput) {
-    return this.prisma.ticket.update({ where: { id }, data }) as any;
+    return this.prisma.ticket.update({ where: { id }, data });
   }
 
   async updateMany(where: Prisma.TicketWhereInput, data: Prisma.TicketUpdateManyMutationInput) {
@@ -286,7 +286,7 @@ export class TicketRepository {
   }
 
   async groupBy(args: any) {
-    return this.prisma.ticket.groupBy(args) as any;
+    return this.prisma.ticket.groupBy(args);
   }
 
   async getDashboardStatusCounts(from: Date, to: Date) {
@@ -294,7 +294,7 @@ export class TicketRepository {
       by: ['status'],
       where: { createdAt: { gte: from, lt: to } },
       _count: { id: true },
-    }) as any;
+    });
   }
 
   async getDashboardPriorityCounts(from: Date, to: Date) {
@@ -302,7 +302,7 @@ export class TicketRepository {
       by: ['priority'],
       where: { createdAt: { gte: from, lt: to } },
       _count: { id: true },
-    }) as any;
+    });
   }
 
   async getDashboardSLAStatsForRange(from: Date, to: Date) {

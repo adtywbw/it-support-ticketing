@@ -20,7 +20,15 @@ done
 
 # Seed: auto-run in dev; in production only when SEED_ON_START=true
 if [ "$NODE_ENV" != "production" ] || [ "$SEED_ON_START" = "true" ]; then
-  gosu node node dist/prisma/seed.js || echo "Seed skipped (may require SEED_* env vars)." >&2
+  if [ ! -f dist/prisma/seed.js ]; then
+    echo "Seed script not found at dist/prisma/seed.js — skipping." >&2
+  else
+    gosu node node dist/prisma/seed.js || {
+      seed_exit=$?
+      echo "Seed script failed with exit code $seed_exit. See seed logs above for details." >&2
+      exit $seed_exit
+    }
+  fi
 fi
 
 exec gosu node "$@"

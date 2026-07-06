@@ -12,7 +12,7 @@ describe('SubCategoriesService', () => {
   const mockSubRepo = {
     findByCategoryId: jest.fn(),
     findByCategoryAndName: jest.fn(),
-    findById: jest.fn(),
+    findUnique: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -80,7 +80,7 @@ describe('SubCategoriesService', () => {
 
   describe('update', () => {
     it('updates sub-category', async () => {
-      subRepo.findById.mockResolvedValue({ id: 'sub-1', categoryId: 'cat-1', name: 'Old' });
+      subRepo.findUnique.mockResolvedValue({ id: 'sub-1', categoryId: 'cat-1', name: 'Old' });
       subRepo.findByCategoryAndName.mockResolvedValue(null);
       subRepo.update.mockResolvedValue({ id: 'sub-1', name: 'New' });
 
@@ -89,26 +89,26 @@ describe('SubCategoriesService', () => {
     });
 
     it('throws on duplicate name', async () => {
-      subRepo.findById.mockResolvedValue({ id: 'sub-1', categoryId: 'cat-1', name: 'Old' });
+      subRepo.findUnique.mockResolvedValue({ id: 'sub-1', categoryId: 'cat-1', name: 'Old' });
       subRepo.findByCategoryAndName.mockResolvedValue({ id: 'sub-2', isActive: true });
       await expect(service.update('sub-1', { name: 'Existing' })).rejects.toThrow(ConflictException);
     });
 
     it('throws when not found', async () => {
-      subRepo.findById.mockResolvedValue(null);
+      subRepo.findUnique.mockResolvedValue(null);
       await expect(service.update('sub-1', { name: 'New' })).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('delete', () => {
     it('soft-deletes when tickets exist', async () => {
-      subRepo.findById.mockResolvedValue({ id: 'sub-1', _count: { tickets: 5 } });
+      subRepo.findUnique.mockResolvedValue({ id: 'sub-1', _count: { tickets: 5 } });
       await service.delete('sub-1');
       expect(subRepo.update).toHaveBeenCalledWith('sub-1', { isActive: false });
     });
 
     it('hard-deletes when no tickets', async () => {
-      subRepo.findById.mockResolvedValue({ id: 'sub-1', _count: { tickets: 0 } });
+      subRepo.findUnique.mockResolvedValue({ id: 'sub-1', _count: { tickets: 0 } });
       await service.delete('sub-1');
       expect(subRepo.delete).toHaveBeenCalledWith('sub-1');
     });

@@ -54,8 +54,8 @@ model Ticket {
   status        TicketStatus @default(Open)
   assignedToId  String?
   channel       Channel      @default(Web)
-  slaDueAt      DateTime
-  slaStatus     SLAStatus    @default(OnTrack)
+  slaDueAt      DateTime?
+  slaStatus     SLAStatus?
   resolvedAt    DateTime?
   closedAt      DateTime?
   createdAt     DateTime     @default(now())

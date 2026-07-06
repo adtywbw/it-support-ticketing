@@ -87,14 +87,13 @@ describe('UsersService lifecycle refresh-token revocation events', () => {
     expect(eventEmitter.emitAsync).not.toHaveBeenCalled();
   });
 
-  it('surfaces revocation failure (not ConflictException) after successful delete', async () => {
+  it('logs but does not surface revocation error after successful delete', async () => {
     userRepository.findById.mockResolvedValue({ id: 'user-1' });
     userRepository.transactionDelete.mockResolvedValue(undefined);
     eventEmitter.emitAsync.mockRejectedValue(new Error('Redis down'));
 
-    await expect(service.delete('user-1', 'admin-1')).rejects.toThrow('Redis down');
-    await expect(service.delete('user-1', 'admin-1')).rejects.not.toThrow(ConflictException);
-    expect(userRepository.transactionDelete).toHaveBeenCalledTimes(2);
+    await expect(service.delete('user-1', 'admin-1')).resolves.toBeUndefined();
+    expect(userRepository.transactionDelete).toHaveBeenCalledTimes(1);
     expect(eventEmitter.emitAsync).toHaveBeenCalledWith('user.deleted', { userId: 'user-1' });
   });
 });

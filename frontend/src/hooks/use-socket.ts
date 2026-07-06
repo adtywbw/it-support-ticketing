@@ -46,9 +46,10 @@ export function useSocket() {
       }
     });
 
-    socket.on('connect_error', (err) => {
-      if (/auth|token|unauthorized/i.test(err.message)) {
-        socket.disconnect();
+    socket.on('reconnect_attempt', () => {
+      const latestToken = useAuthStore.getState().accessToken;
+      if (latestToken) {
+        socket.auth = { token: latestToken };
       }
     });
 

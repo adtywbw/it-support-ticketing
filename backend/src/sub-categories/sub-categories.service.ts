@@ -56,7 +56,7 @@ export class SubCategoriesService {
     id: string,
     data: { name?: string; description?: string; isActive?: boolean },
   ) {
-    const subCategory = await this.subCategoryRepository.findById(id);
+    const subCategory = await this.subCategoryRepository.findUnique({ where: { id } });
     if (!subCategory) {
       throw new NotFoundException('Sub-category not found');
     }
@@ -77,8 +77,9 @@ export class SubCategoriesService {
   }
 
   async delete(id: string): Promise<void> {
-    const subCategory = await this.subCategoryRepository.findById(id, {
-      _count: { select: { tickets: true } },
+    const subCategory = await this.subCategoryRepository.findUnique({
+      where: { id },
+      include: { _count: { select: { tickets: true } } },
     });
 
     if (!subCategory) {

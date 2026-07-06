@@ -1,5 +1,6 @@
 services:
   frontend:
+    init: true
     build:
       context: ./frontend
       target: builder
@@ -14,6 +15,7 @@ services:
         max-file: "3"
 
   nginx:
+    init: true
     image: nginx:1.25-alpine
     restart: unless-stopped
     ports:
@@ -50,6 +52,7 @@ services:
         max-file: "3"
 
   api:
+    init: true
     build:
       context: ./backend
       target: production
@@ -90,6 +93,7 @@ services:
         max-file: "3"
 
   db:
+    init: true
     image: postgres:16-alpine
     restart: unless-stopped
     shm_size: 1g
@@ -123,6 +127,7 @@ services:
         max-file: "3"
 
   cache:
+    init: true
     image: redis:7-alpine
     restart: unless-stopped
     env_file: ./backend/.env.cache

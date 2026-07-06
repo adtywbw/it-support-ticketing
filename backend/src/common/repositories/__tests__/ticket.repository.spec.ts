@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TicketRepository, buildTicketAccessWhere } from '../ticket.repository';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { Prisma, TicketStatus } from '@prisma/client';
 
 describe('TicketRepository', () => {
   let repository: TicketRepository;
@@ -52,7 +53,7 @@ describe('TicketRepository', () => {
     });
 
     it('should leave ITSupport query filters unchanged', () => {
-      const where = { status: 'Open', assignedToId: 'support-1' };
+      const where: Prisma.TicketWhereInput = { status: TicketStatus.Open, assignedToId: 'support-1' };
 
       const result = buildTicketAccessWhere(
         { userId: 'support-1', role: 'ITSupport' },

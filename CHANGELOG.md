@@ -2,7 +2,56 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
-## Session 30 — Test Expansion: Controller, Page, Service, DTO, Component & E2E (2026-07-06)
+## Session 31 — Code Review Fixes Batch 3 (2026-07-06)
+
+### Fixed (Critical)
+- **pg_dump `--no-owner`**: `MaintenanceService.createPgDumpOptions()` now passes `--no-owner` and `--no-privileges` to prevent restore failure when DB role names differ between environments (dev/staging/prod).
+- **`users.service.ts` uncaught `emitAsync`**: `user.deleted` event emission now wrapped in try/catch with `Logger.error()` — revocation failures no longer propagate as 500 after successful DB deletion, preventing client retry inconsistency.
+- **Restore pipeline `set -o pipefail`**: The `gzip | awk | psql` pipeline in `restoreDb()` now uses `set -o pipefail` so gzip failures during streaming are detected rather than depending on psql's exit code.
+- **WebSocket reconnection**: Removed `socket.disconnect()` from `connect_error` handler (root cause of silent notification loss). Added `reconnect_attempt` handler that reads latest access token via `useAuthStore.getState().accessToken` and updates `socket.auth` so reconnection attempts use a fresh token. Effect cleanup + re-creation on `accessToken` change provides secondary recovery path.
+- **Repository `as any` casts**: Removed all `as any` casts from 9 repository files (`user`, `ticket`, `comment`, `attachment`, `category`, `sub-category`, `sla-config`, `notification`, `telegram-config`). Replaced with proper Prisma generics (`Prisma.TicketGetPayload`, `Prisma.CommentGetPayload`, etc.) and inferred return types. Updated 3 caller files (`tickets.service.ts`, `attachments.service.ts`, `sub-categories.service.ts`) and 3 test files to match new signatures.
+
+### Fixed (Important)
+- **`ApiResponse.meta` missing `totalPages`**: Interface updated to include `totalPages: number` — contract now matches actual API response shape.
+- **`useTickets` query key instability**: Changed query key from `['tickets', filters]` to `['tickets', JSON.stringify(filters)]` so identical filter objects produce stable keys regardless of object reference.
+- **Docker `init: true`**: Added to all 5 services (`frontend`, `nginx`, `api`, `db`, `cache`) for proper signal propagation and zombie reaping.
+- **`ProtectedRoute` bypasses interceptors**: Extracted `refreshAccessToken()` to `axios.ts` (exports named function using bare axios to avoid refresh-loop). `ProtectedRoute` now imports and uses it instead of bare `axios.post()`.
+- **`slaDueAt` and `slaStatus` nullable**: Changed `DateTime` → `DateTime?` and `SLAStatus` → `SLAStatus?` in schema. New migration `20260706072006_make_sla_due_at_nullable`. When no SLA config matches `(categoryId, priority)`, both fields are `null` instead of 24h fallback. `calculateSlaStatus()` accepts `Date | null`. Removed `defaultSlaWindowMin` from `app.config.ts`.
+- **Seed compilation**: Created `tsconfig.seed.json` extending main `tsconfig.json`. Dockerfile uses `npx tsc -p tsconfig.seed.json` instead of inline flags, ensuring seed compilation stays in sync with project config.
+- **E2E smoke test env-locked**: `smoke.e2e.spec.ts` now reads `E2E_HOST`, `E2E_PORT`, `E2E_PROTOCOL` from env vars (defaults: `localhost:80/http`). Supports both `http` and `https` modules dynamically.
+- **Concurrency util semaphore**: Replaced serial-batch implementation with semaphore-based worker pool — starts next item as soon as one finishes instead of waiting for full batch. New test file with 7 tests verifying concurrency enforcement, result ordering, and rejection handling.
+- **Seed failure handling in entrypoint**: `docker-entrypoint.sh` now checks if `dist/prisma/seed.js` exists before executing seed. Seed failures now exit with actual error code instead of silent fallback message.
+
+### Verification
+- Backend: 752 tests (72 suites) — all passed
+- Frontend: 223 tests (44 suites) — all passed
+- Build: ✅ (backend + frontend)
+- ESLint: 0 errors, 262 warnings (all in test files)
+
+### Files Changed
+- `backend/src/common/interfaces/api-response.interface.ts` — added `totalPages`
+- `backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts` — removed `as any` casts
+- `backend/src/common/utils/concurrency.util.ts` — semaphore-based worker pool
+- `backend/src/common/utils/__tests__/concurrency.util.spec.ts` — **new**: 7 tests
+- `backend/src/tickets/tickets.service.ts` — no 24h SLA fallback, nullable slaDueAt/slaStatus
+- `backend/src/sla/sla.service.ts` — `calculateSlaStatus()` nullable support, SLA breach skip if null
+- `backend/src/users/users.service.ts` — try/catch around `emitAsync`, added `Logger`
+- `backend/src/users/users.service.spec.ts` — updated revocation test
+- `backend/src/maintenance/maintenance.service.ts` — `--no-owner --no-privileges` on pg_dump, `set -o pipefail` on restore
+- `backend/prisma/schema.prisma` — `slaDueAt` and `slaStatus` nullable
+- `backend/prisma/migrations/20260706072006_make_sla_due_at_nullable/migration.sql` — **new**
+- `backend/tsconfig.seed.json` — **new**
+- `backend/Dockerfile` — uses tsconfig.seed.json for seed compilation
+- `backend/docker-entrypoint.sh` — seed presence check + proper error exit
+- `backend/test/smoke.e2e.spec.ts` — env vars for host/port/protocol
+- `backend/src/common/config/app.config.ts` — removed `defaultSlaWindowMin`
+- `docker-compose.yml` — added `init: true` to all services
+- `frontend/src/hooks/use-socket.ts` — `reconnect_attempt` handler, removed `connect_error` disconnect
+- `frontend/src/hooks/use-tickets.ts` — stable query key via `JSON.stringify`
+- `frontend/src/auth/ProtectedRoute.tsx` — uses `refreshAccessToken()` from axios module
+- `frontend/src/lib/axios.ts` — **new** exported `refreshAccessToken()`
+- `frontend/src/hooks/__tests__/use-socket.test.tsx` — updated for new reconnect behavior
+- `frontend/src/auth/__tests__/ProtectedRoute.test.tsx` — updated for new refresh call pattern
 
 ### Added
 - **7 controller tests (100% coverage!)**: attachments, sub-categories, sla, dashboard, telegram, maintenance, health — semua controller sekarang punya test.

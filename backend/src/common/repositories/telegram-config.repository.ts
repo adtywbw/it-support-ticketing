@@ -35,13 +35,13 @@ export class TelegramConfigRepository {
       where: { key: DEFAULT_KEY },
       create: { key: DEFAULT_KEY, ...(defaults || {}) },
       update: {},
-    }) as any;
+    });
   }
 
   async create(data: Record<string, unknown>) {
     return this.prisma.telegramConfig.create({
       data: { key: DEFAULT_KEY, ...data },
-    }) as any;
+    });
   }
 
   async update(data: Record<string, unknown>) {

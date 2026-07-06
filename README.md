@@ -38,7 +38,7 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 
 ### SLA Management
 - Configurable SLA per category + priority
-- `slaDueAt` auto-calculated on ticket creation
+- `slaDueAt` and `slaStatus` auto-calculated on ticket creation (nullable when no SLA config matches)
 - Partial updates validate merged `responseTimeMinutes`/`resolutionTimeMinutes` (resolution must be ≥ response)
 - Auto-recalculation of affected open tickets when SLA timing is created or changed
 - Background cron every 5 minutes checks SLA breach (Redis lock for horizontal scaling)

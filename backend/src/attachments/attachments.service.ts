@@ -142,9 +142,12 @@ export class AttachmentsService {
   }
 
   async getDownloadInfo(id: string, userId: string, userRole: string) {
-    const attachment = await this.attachmentRepository.findById(id, {
-      ticket: { select: { requesterId: true } },
-      comment: { select: { type: true } },
+    const attachment = await this.attachmentRepository.findUnique({
+      where: { id },
+      include: {
+        ticket: { select: { requesterId: true } },
+        comment: { select: { type: true } },
+      },
     });
 
     if (!attachment) {

@@ -27,21 +27,21 @@ export class UserRepository {
     return this.prisma.user.findUnique({
       where: { id },
       select: USER_SAFE_SELECT,
-    }) as any;
+    });
   }
 
   async findByIdWithPassword(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
       select: USER_SAFE_SELECT_WITH_PASSWORD,
-    }) as any;
+    });
   }
 
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
       select: USER_SAFE_SELECT_WITH_PASSWORD,
-    }) as any;
+    });
   }
 
   async findAll(params: {
@@ -52,9 +52,9 @@ export class UserRepository {
     includeInactive?: boolean;
   }) {
     const { page = 1, limit = 10, role, search, includeInactive } = params;
-    const where: Record<string, unknown> = {};
+    const where: Prisma.UserWhereInput = {};
     if (!includeInactive) where.isActive = true;
-    if (role) where.role = role;
+    if (role) where.role = role as Role;
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -63,20 +63,20 @@ export class UserRepository {
     }
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
-        where: where as any,
+        where,
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: 'desc' },
         select: USER_SAFE_SELECT,
       }),
-      this.prisma.user.count({ where: where as any }),
+      this.prisma.user.count({ where }),
     ]);
-    return { data: users, meta: buildPaginationMeta(total, limit, page) } as any;
+    return { data: users, meta: buildPaginationMeta(total, limit, page) };
   }
 
   async create(data: Record<string, unknown>) {
     return this.prisma.user.create({
-      data: data as any,
+      data: data as Prisma.UserCreateInput,
       select: {
         id: true,
         email: true,
@@ -86,15 +86,15 @@ export class UserRepository {
         createdAt: true,
         updatedAt: true,
       },
-    }) as any;
+    });
   }
 
   async update(id: string, data: Record<string, unknown>) {
     return this.prisma.user.update({
       where: { id },
-      data: data as any,
+      data: data as Prisma.UserUpdateInput,
       select: USER_SAFE_SELECT,
-    }) as any;
+    });
   }
 
   async getForValidation(id: string) {
@@ -150,7 +150,7 @@ export class UserRepository {
         telegramChatId: { not: null },
       },
       select: { telegramChatId: true },
-    }) as any;
+    });
   }
 
   async findWithTelegramCode(code: string) {
@@ -167,7 +167,7 @@ export class UserRepository {
         telegramCode: true,
         telegramCodeAt: true,
       },
-    }) as any;
+    });
   }
 
   async getTelegramChatId(id: string) {

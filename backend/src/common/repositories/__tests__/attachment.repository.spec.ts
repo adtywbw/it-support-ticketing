@@ -106,7 +106,7 @@ describe('AttachmentRepository', () => {
     it('should query by id with optional include', async () => {
       prisma.attachment.findUnique.mockResolvedValueOnce({ id: 'a1' });
 
-      await repository.findById('a1', { ticket: true });
+      await repository.findById({ where: { id: 'a1' }, include: { ticket: true } });
 
       expect(prisma.attachment.findUnique).toHaveBeenCalledWith({
         where: { id: 'a1' },

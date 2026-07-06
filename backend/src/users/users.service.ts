@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
@@ -12,6 +13,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly userRepository: UserRepository,
     private readonly eventEmitter: EventEmitter2,
@@ -125,6 +128,12 @@ export class UsersService {
         'Cannot delete user with existing tickets, comments, or attachments. Deactivate the user instead.',
       );
     }
-    await this.eventEmitter.emitAsync('user.deleted', { userId: id });
+    try {
+      await this.eventEmitter.emitAsync('user.deleted', { userId: id });
+    } catch (error) {
+      this.logger.error(
+        `Failed to emit user.deleted event for user ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
   }
 }

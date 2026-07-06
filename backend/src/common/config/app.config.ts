@@ -50,6 +50,5 @@ export const appConfig = {
     maxExportRows: Number(process.env.TICKET_MAX_EXPORT_ROWS) || 10000,
     exportBatchSize: Number(process.env.TICKET_EXPORT_BATCH_SIZE) || 500,
     creationRetries: Number(process.env.TICKET_CREATION_RETRIES) || 3,
-    defaultSlaWindowMin: 24 * 60, // 24 hours (no env override needed)
   },
 } as const;

@@ -408,7 +408,7 @@ export class MaintenanceService {
       'sh',
       [
         '-c',
-        `gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1`,
+        `set -o pipefail && gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1`,
       ],
       {
         env: { ...process.env, ...pg.env, DB_BACKUP_PATH: dbPath },
@@ -537,7 +537,7 @@ export class MaintenanceService {
   ): { args: string[]; env: NodeJS.ProcessEnv } {
     const pg = this.createPgOptions(databaseUrl);
 
-    const args = ['-f', outputPath];
+    const args = ['-f', outputPath, '--no-owner', '--no-privileges'];
     if (pg.schema) args.push('--schema', pg.schema);
 
     return { args, env: pg.env };

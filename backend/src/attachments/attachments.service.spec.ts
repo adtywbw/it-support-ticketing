@@ -26,7 +26,7 @@ describe('AttachmentsService', () => {
   beforeEach(async () => {
     attachmentRepository = {
       findByTicketId: jest.fn(),
-      findById: jest.fn(),
+      findUnique: jest.fn(),
       count: jest.fn(),
       transaction: jest.fn(),
     };
@@ -280,7 +280,7 @@ describe('AttachmentsService', () => {
         comment: { type: 'PUBLIC' },
         visibility: AttachmentVisibility.PUBLIC,
       };
-      attachmentRepository.findById.mockResolvedValue(attachment);
+      attachmentRepository.findUnique.mockResolvedValue(attachment);
 
       const result = await service.getDownloadInfo(attachmentId, 'user-1', Role.Admin);
 
@@ -294,7 +294,7 @@ describe('AttachmentsService', () => {
         comment: null,
         visibility: AttachmentVisibility.PUBLIC,
       };
-      attachmentRepository.findById.mockResolvedValue(attachment);
+      attachmentRepository.findUnique.mockResolvedValue(attachment);
 
       const result = await service.getDownloadInfo(attachmentId, 'user-1', Role.EndUser);
 
@@ -302,7 +302,7 @@ describe('AttachmentsService', () => {
     });
 
     it('throws NotFoundException when attachment does not exist', async () => {
-      attachmentRepository.findById.mockResolvedValue(null);
+      attachmentRepository.findUnique.mockResolvedValue(null);
 
       await expect(
         service.getDownloadInfo(attachmentId, 'user-1', Role.Admin),
@@ -316,7 +316,7 @@ describe('AttachmentsService', () => {
         comment: null,
         visibility: AttachmentVisibility.PUBLIC,
       };
-      attachmentRepository.findById.mockResolvedValue(attachment);
+      attachmentRepository.findUnique.mockResolvedValue(attachment);
 
       await expect(
         service.getDownloadInfo(attachmentId, 'user-1', Role.EndUser),
@@ -330,7 +330,7 @@ describe('AttachmentsService', () => {
         comment: { type: 'INTERNAL' },
         visibility: AttachmentVisibility.INTERNAL,
       };
-      attachmentRepository.findById.mockResolvedValue(attachment);
+      attachmentRepository.findUnique.mockResolvedValue(attachment);
 
       await expect(
         service.getDownloadInfo(attachmentId, 'user-1', Role.EndUser),

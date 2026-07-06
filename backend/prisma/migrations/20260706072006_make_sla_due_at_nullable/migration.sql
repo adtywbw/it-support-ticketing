@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "tickets" ALTER COLUMN "slaDueAt" DROP NOT NULL,
+ALTER COLUMN "slaStatus" DROP NOT NULL,
+ALTER COLUMN "slaStatus" DROP DEFAULT;

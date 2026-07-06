@@ -125,10 +125,12 @@ export class SLAService {
   }
 
   calculateSlaStatus(
-    slaDueAt: Date,
+    slaDueAt: Date | null,
     resolutionTimeMinutes: number,
     now: Date,
-  ): SLAStatus {
+  ): SLAStatus | null {
+    if (!slaDueAt) return null;
+
     const totalWindowMs = resolutionTimeMinutes * 60 * 1000;
     const remainingMs = slaDueAt.getTime() - now.getTime();
 
@@ -259,11 +261,11 @@ export class SLAService {
       const breached: string[] = [];
 
       for (const ticket of batch) {
-        const slaConfig = ticket.category.slaConfigs.find(
+        const slaConfig = (ticket as any).category.slaConfigs.find(
           (config: any) => config.priority === ticket.priority,
         );
 
-        if (!slaConfig) continue;
+        if (!slaConfig || !ticket.slaDueAt) continue;
 
         const totalWindowMs = slaConfig.resolutionTimeMinutes * 60 * 1000;
         const remainingMs = ticket.slaDueAt.getTime() - now.getTime();

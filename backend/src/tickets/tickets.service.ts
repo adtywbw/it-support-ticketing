@@ -68,14 +68,11 @@ export class TicketsService {
       createTicketDto.categoryId,
       createTicketDto.priority || Priority.Medium,
     );
-    const slaDueAt = slaConfig
-      ? new Date(Date.now() + slaConfig.resolutionTimeMinutes * 60 * 1000)
-      : new Date(Date.now() + appConfig.tickets.defaultSlaWindowMin * 60 * 1000);
 
     const ticket = await this.createTicketWithNumber(
       createTicketDto,
       requesterId,
-      slaDueAt,
+      slaConfig,
     );
 
     this.eventEmitter.emit('ticket.created', {
@@ -171,24 +168,24 @@ export class TicketsService {
             include,
           })
         : this.ticketRepository.findManyForUser({
-            where: where as any,
+            where: where as Prisma.TicketWhereInput,
             skip: limit > 0 ? (page - 1) * limit : 0,
             take: limit > 0 ? limit : undefined,
             orderBy: { [orderField]: sortOrder },
             include,
           }, scope),
-      this.ticketRepository.countForUser(where as any, scope),
+      this.ticketRepository.countForUser(where as Prisma.TicketWhereInput, scope),
     ]);
 
     if (userRole === 'EndUser' && tickets.length > 0) {
-      const ticketIds = tickets.map((t: any) => t.id);
+      const ticketIds = tickets.map((t) => t.id);
       const [commentCounts, attachmentCounts] = await Promise.all([
         this.ticketRepository.countPublicCommentsByTicketIds(ticketIds),
         this.ticketRepository.countVisibleAttachmentsByTicketIds(ticketIds),
       ]);
       const commentsByTicket = new Map(commentCounts.map((r) => [r.ticketId, r.count]));
       const attachmentsByTicket = new Map(attachmentCounts.map((r) => [r.ticketId, r.count]));
-      for (const ticket of tickets) {
+      for (const ticket of tickets as any[]) {
         ticket._count.comments = commentsByTicket.get(ticket.id) ?? 0;
         ticket._count.attachments = attachmentsByTicket.get(ticket.id) ?? 0;
       }
@@ -293,7 +290,7 @@ export class TicketsService {
 
       if (batch.length === 0) break;
 
-      for (const ticket of batch) {
+      for (const ticket of batch as any[]) {
         const row = [
           ticket.ticketNumber,
           ticket.subject,
@@ -491,7 +488,7 @@ export class TicketsService {
   }
 
   async updatePriority(id: string, updatePriorityDto: UpdatePriorityDto, userId: string) {
-    const ticket = await this.ticketRepository.findById(id, {});
+    const ticket = await this.ticketRepository.findById(id);
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
@@ -507,10 +504,10 @@ export class TicketsService {
     const createdAt = new Date(ticket.createdAt).getTime();
     const slaDueAt = slaConfig
       ? new Date(createdAt + slaConfig.resolutionTimeMinutes * 60 * 1000)
-      : new Date(createdAt + appConfig.tickets.defaultSlaWindowMin * 60 * 1000);
-
-    const resolutionMinutes = slaConfig ? slaConfig.resolutionTimeMinutes : appConfig.tickets.defaultSlaWindowMin;
-    const slaStatus = this.slaService.calculateSlaStatus(slaDueAt, resolutionMinutes, new Date());
+      : null;
+    const slaStatus = slaConfig
+      ? this.slaService.calculateSlaStatus(slaDueAt, slaConfig.resolutionTimeMinutes, new Date())
+      : null;
 
     const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
       const updated = await tx.ticket.update({
@@ -559,7 +556,7 @@ export class TicketsService {
       await tx.ticket.delete({ where: { id } });
     });
 
-    for (const attachment of ticket.attachments || []) {
+    for (const attachment of (ticket as any).attachments || []) {
       try {
         await this.storageService.delete(attachment.path);
       } catch {
@@ -576,12 +573,16 @@ export class TicketsService {
   private async createTicketWithNumber(
     createTicketDto: CreateTicketDto,
     requesterId: string,
-    slaDueAt: Date,
+    slaConfig: { resolutionTimeMinutes: number } | null,
   ) {
     for (let attempt = 0; attempt < appConfig.tickets.creationRetries; attempt += 1) {
       try {
         return await this.ticketRepository.transaction(async (tx) => {
           const ticketNumber = await this.generateTicketNumber(tx);
+          const slaDueAt = slaConfig
+            ? new Date(Date.now() + slaConfig.resolutionTimeMinutes * 60 * 1000)
+            : null;
+          const slaStatus = slaConfig ? SLAStatus.OnTrack : null;
           const ticket = await tx.ticket.create({
             data: {
               ticketNumber,
@@ -594,7 +595,7 @@ export class TicketsService {
                 : undefined,
               priority: createTicketDto.priority || Priority.Medium,
               slaDueAt,
-              slaStatus: SLAStatus.OnTrack,
+              slaStatus,
               status: TicketStatus.Open,
             },
             include: {

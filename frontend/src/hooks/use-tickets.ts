@@ -12,7 +12,7 @@ export function useTickets(filters: TicketFilters) {
   });
 
   return useQuery({
-    queryKey: ['tickets', filters],
+    queryKey: ['tickets', JSON.stringify(filters)],
     staleTime: STALE_TIME_TICKETS,
     queryFn: async () => {
       const response = await apiClient.get<ApiEnvelope<Ticket[]>>(`/tickets?${params.toString()}`);

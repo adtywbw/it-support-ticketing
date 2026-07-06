@@ -92,7 +92,7 @@ describe('FE-04: useSocket', () => {
     );
   });
 
-  it('should disconnect on auth-error from server', () => {
+  it('should NOT disconnect on auth-error from server', () => {
     act(() => {
       useAuthStore.setState({
         accessToken: 'test-token',
@@ -108,7 +108,22 @@ describe('FE-04: useSocket', () => {
       triggerSocketEvent('connect_error', new Error('unauthorized'));
     });
 
-    expect(mockSocket.disconnect).toHaveBeenCalled();
+    // New behavior: do NOT disconnect on auth error — reconnect_attempt will refresh token
+    expect(mockSocket.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('registers reconnect_attempt handler for auth token refresh', () => {
+    act(() => {
+      useAuthStore.setState({
+        accessToken: 'test-token',
+        isAuthenticated: true,
+        user: testUser,
+      });
+    });
+
+    renderHook(() => useSocket(), { wrapper: createWrapper() });
+
+    expect(mockSocket.on).toHaveBeenCalledWith('reconnect_attempt', expect.any(Function));
   });
 
   it('should NOT disconnect on non-auth connect_error', () => {

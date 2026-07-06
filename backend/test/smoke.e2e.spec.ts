@@ -6,16 +6,22 @@
  * Requires: docker compose up -d
  */
 import * as https from 'https';
+import * as http from 'http';
 
-const HOST = 'helpdesk.rsmch.internal';
-const agent = new https.Agent({ rejectUnauthorized: false });
+const E2E_HOST = process.env.E2E_HOST || 'localhost';
+const E2E_PORT = parseInt(process.env.E2E_PORT || '80', 10);
+const E2E_PROTOCOL = process.env.E2E_PROTOCOL || 'http';
+const agent = E2E_PROTOCOL === 'https'
+  ? new https.Agent({ rejectUnauthorized: false })
+  : undefined;
 
 function request(method: string, path: string, body?: any, token?: string): Promise<{ status: number; data: any }> {
   return new Promise((resolve, reject) => {
-    const options: https.RequestOptions = {
+    const lib = E2E_PROTOCOL === 'https' ? https : http;
+    const options = {
       method,
-      hostname: HOST,
-      port: 443,
+      hostname: E2E_HOST,
+      port: E2E_PORT,
       path: `/api${path}`,
       agent,
       headers: { 'Content-Type': 'application/json' } as any,
@@ -23,7 +29,7 @@ function request(method: string, path: string, body?: any, token?: string): Prom
     if (token) (options.headers as any)['Authorization'] = `Bearer ${token}`;
     if (body) (options.headers as any)['Content-Length'] = Buffer.byteLength(JSON.stringify(body));
 
-    const req = https.request(options, (res) => {
+    const req = lib.request(options, (res) => {
       let data = '';
       res.on('data', (chunk: string) => { data += chunk; });
       res.on('end', () => {

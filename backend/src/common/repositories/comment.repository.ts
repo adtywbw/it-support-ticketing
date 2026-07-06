@@ -7,16 +7,16 @@ export class CommentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: Prisma.CommentCreateInput, include?: Prisma.CommentInclude) {
-    return this.prisma.comment.create({ data, include }) as any;
+    return this.prisma.comment.create({ data, include });
   }
 
   async findById(id: string, include?: Prisma.CommentInclude) {
-    return this.prisma.comment.findUnique({ where: { id }, include }) as any;
+    return this.prisma.comment.findUnique({ where: { id }, include });
   }
 
   async findByTicketId(
     ticketId: string,
-    where?: Record<string, unknown>,
+    where?: Prisma.CommentWhereInput,
     pagination?: { skip: number; take: number },
     include?: Prisma.CommentInclude,
   ) {
@@ -40,16 +40,16 @@ export class CommentRepository {
       },
     };
     return this.prisma.comment.findMany({
-      where: { ticketId, ...where } as any,
+      where: { ticketId, ...where },
       orderBy: { createdAt: 'asc' },
       skip: pagination?.skip,
       take: pagination?.take,
       include: include ?? defaultInclude,
-    }) as any;
+    });
   }
 
-  async countByTicketId(ticketId: string, where?: Record<string, unknown>) {
-    return this.prisma.comment.count({ where: { ticketId, ...where } as any });
+  async countByTicketId(ticketId: string, where?: Prisma.CommentWhereInput) {
+    return this.prisma.comment.count({ where: { ticketId, ...where } });
   }
 
   async deleteMany(where: Prisma.CommentWhereInput) {

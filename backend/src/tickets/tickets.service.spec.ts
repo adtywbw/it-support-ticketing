@@ -59,8 +59,8 @@ describe('TicketsService', () => {
 
   const mockSlaService = {
     getSLAConfig: jest.fn().mockResolvedValue(null),
-    calculateSlaStatus: jest.fn((slaDueAt: Date, _resolutionTimeMinutes: number, now: Date) =>
-      slaDueAt <= now ? 'Breached' : 'OnTrack',
+    calculateSlaStatus: jest.fn((slaDueAt: Date | null, _resolutionTimeMinutes: number, now: Date) =>
+      slaDueAt && slaDueAt <= now ? 'Breached' : 'OnTrack',
     ),
   };
 
@@ -355,7 +355,7 @@ describe('TicketsService', () => {
       );
     });
 
-    it('should set default SLA due date (24h) when no slaConfig exists', async () => {
+    it('should set slaDueAt to null when no slaConfig exists', async () => {
       const mockCategory = {
         id: 'cat-1',
         name: 'Network',
@@ -366,13 +366,12 @@ describe('TicketsService', () => {
       mockSlaService.getSLAConfig.mockResolvedValueOnce(null);
       mockTicketRepository.findFirst.mockResolvedValue(null);
 
-      const expectedSlaDue = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
       await service.create(createTicketDto, requesterId);
 
       expect(mockTicketRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          slaDueAt: expectedSlaDue,
+          slaDueAt: null,
+          slaStatus: null,
         }),
         expect.any(Object),
       );
