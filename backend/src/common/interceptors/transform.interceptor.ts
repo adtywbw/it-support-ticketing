@@ -19,7 +19,17 @@ export class TransformInterceptor<T>
     const response = context.switchToHttp().getResponse();
     const contentType = response?.getHeader?.('content-type') as string | undefined;
 
-    if (contentType && (contentType.includes('text/csv') || contentType.includes('application/octet-stream') || contentType.includes('application/gzip'))) {
+    // Content-type may be set by the route handler (e.g., CSV export).
+    // Also check writableEnded: if the response was already sent via @Res(),
+    // NestJS enters manual response mode and the interceptor's map() result
+    // would be silently discarded anyway.
+    if (
+      response?.writableEnded ||
+      (contentType &&
+        (contentType.includes('text/csv') ||
+          contentType.includes('application/octet-stream') ||
+          contentType.includes('application/gzip')))
+    ) {
       return next.handle() as unknown as Observable<ApiResponse<T>>;
     }
 

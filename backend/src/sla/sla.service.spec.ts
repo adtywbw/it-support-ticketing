@@ -26,6 +26,7 @@ describe('SLAService', () => {
     findMany: jest.fn(),
     updateMany: jest.fn(),
     update: jest.fn(),
+    recalculateSlaBatch: jest.fn(),
   };
 
   const mockRedisService = {
@@ -80,8 +81,8 @@ describe('SLAService', () => {
       slaConfigRepository.create.mockResolvedValue(newConfig);
       ticketRepository.findMany
         .mockResolvedValueOnce([
-          { id: 'ticket-1', createdAt: new Date('2026-01-01T09:00:00.000Z') },
-          { id: 'ticket-2', createdAt: new Date('2025-12-31T12:00:00.000Z') },
+          { id: 'ticket-1' },
+          { id: 'ticket-2' },
         ])
         .mockResolvedValueOnce([]);
 
@@ -101,19 +102,17 @@ describe('SLAService', () => {
             priority: Priority.High,
             status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
           },
-          select: { id: true, createdAt: true },
+          select: { id: true },
           take: 500,
           orderBy: { id: 'asc' },
         }),
       );
-      expect(ticketRepository.update).toHaveBeenCalledWith('ticket-1', {
-        slaDueAt: new Date('2026-01-01T13:00:00.000Z'),
-        slaStatus: SLAStatus.OnTrack,
-      });
-      expect(ticketRepository.update).toHaveBeenCalledWith('ticket-2', {
-        slaDueAt: new Date('2025-12-31T16:00:00.000Z'),
-        slaStatus: SLAStatus.Breached,
-      });
+      expect(ticketRepository.recalculateSlaBatch).toHaveBeenCalledWith(
+        ['ticket-1', 'ticket-2'],
+        240,
+        0.2,
+        new Date('2026-01-01T12:00:00.000Z'),
+      );
     });
 
     it('should throw NotFoundException and skip recalculation when category does not exist', async () => {
@@ -256,7 +255,7 @@ describe('SLAService', () => {
       slaConfigRepository.update.mockResolvedValue(updatedConfig);
       ticketRepository.findMany
         .mockResolvedValueOnce([
-          { id: 'ticket-1', createdAt: new Date('2026-01-01T05:00:00.000Z') },
+          { id: 'ticket-1' },
         ])
         .mockResolvedValueOnce([]);
 
@@ -275,10 +274,12 @@ describe('SLAService', () => {
           },
         }),
       );
-      expect(ticketRepository.update).toHaveBeenCalledWith('ticket-1', {
-        slaDueAt: new Date('2026-01-01T13:00:00.000Z'),
-        slaStatus: SLAStatus.AtRisk,
-      });
+      expect(ticketRepository.recalculateSlaBatch).toHaveBeenCalledWith(
+        ['ticket-1'],
+        480,
+        0.2,
+        new Date('2026-01-01T12:00:00.000Z'),
+      );
     });
 
     it('should not recalculate tickets when only isActive is updated', async () => {
@@ -288,7 +289,7 @@ describe('SLAService', () => {
       await service.update('config-1', { isActive: false });
 
       expect(ticketRepository.findMany).not.toHaveBeenCalled();
-      expect(ticketRepository.update).not.toHaveBeenCalled();
+      expect(ticketRepository.recalculateSlaBatch).not.toHaveBeenCalled();
     });
 
     it('should allow equal response and resolution times', async () => {

@@ -171,6 +171,8 @@ export class DashboardService {
 
   private serializeAttention(attention: DashboardAttentionTickets) {
     return {
+      // Safety cap: repository already limits to 5 via `take: 5`, but
+      // keeping the slice ensures defense-in-depth if the contract changes.
       slaRisk: attention.slaRisk.slice(0, 5).map((ticket) => this.serializeTicket(ticket)),
       highPriority: attention.highPriority.slice(0, 5).map((ticket) => this.serializeTicket(ticket)),
       unassigned: attention.unassigned.slice(0, 5).map((ticket) => this.serializeTicket(ticket)),

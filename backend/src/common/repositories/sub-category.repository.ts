@@ -18,12 +18,15 @@ export class SubCategoryRepository {
     return this.prisma.subCategory.create({ data });
   }
 
-  async findById(id: string, include?: any) {
-    return this.prisma.subCategory.findUnique({ where: { id }, include } as any);
+  async findById<T extends Prisma.SubCategoryFindUniqueArgs['include']>(
+    id: string,
+    include?: T,
+  ) {
+    return this.prisma.subCategory.findUnique({ where: { id }, include } as unknown as Prisma.SubCategoryFindUniqueArgs);
   }
 
-  async findUnique(args: any) {
-    return this.prisma.subCategory.findUnique(args) as any;
+  async findUnique<T extends Prisma.SubCategoryFindUniqueArgs>(args: T): Promise<Prisma.SubCategoryGetPayload<T> | null> {
+    return this.prisma.subCategory.findUnique(args) as unknown as Prisma.SubCategoryGetPayload<T> | null;
   }
 
   async findByCategoryAndName(categoryId: string, name: string) {

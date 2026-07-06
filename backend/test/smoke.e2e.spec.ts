@@ -46,10 +46,14 @@ function request(method: string, path: string, body?: any, token?: string): Prom
   });
 }
 
-let accessToken = '';
-let ticketId = '';
-
 describe('E2E Smoke Test', () => {
+  // State shared across sequential test cases within this describe block.
+  // Tests run in order; each test that produces or consumes shared state
+  // reads/writes these variables within its own test body.
+  const state: { accessToken: string; ticketId: string } = {
+    accessToken: '',
+    ticketId: '',
+  };
   test('GET /health — returns healthy', async () => {
     const res = await request('GET', '/health');
     expect(res.status).toBe(200);
@@ -64,7 +68,7 @@ describe('E2E Smoke Test', () => {
     expect(res.status).toBe(201);
     expect(res.data.data.accessToken).toBeDefined();
     expect(res.data.data.user.role).toBe('Admin');
-    accessToken = res.data.data.accessToken;
+    state.accessToken = res.data.data.accessToken;
   });
 
   test('POST /auth/refresh — returns 401 without cookie', async () => {
@@ -74,14 +78,14 @@ describe('E2E Smoke Test', () => {
   });
 
   test('GET /categories — returns list with _count', async () => {
-    const res = await request('GET', '/categories', undefined, accessToken);
+    const res = await request('GET', '/categories', undefined, state.accessToken);
     expect(res.status).toBe(200);
     expect(res.data.data.length).toBeGreaterThan(0);
     expect(res.data.data[0]).toHaveProperty('_count');
   });
 
   test('POST /tickets — creates a ticket', async () => {
-    const catsRes = await request('GET', '/categories', undefined, accessToken);
+    const catsRes = await request('GET', '/categories', undefined, state.accessToken);
     const catId = catsRes.data.data[0].id;
     const subId = catsRes.data.data[0].subCategories[0].id;
 
@@ -91,30 +95,30 @@ describe('E2E Smoke Test', () => {
       priority: 'Low',
       categoryId: catId,
       subCategoryId: subId,
-    }, accessToken);
+    }, state.accessToken);
     expect(res.status).toBe(201);
     expect(res.data.data.id).toBeDefined();
-    ticketId = res.data.data.id;
+    state.ticketId = res.data.data.id;
   });
 
   test('PATCH /tickets/:id/status — updates to InProgress', async () => {
-    const res = await request('PATCH', `/tickets/${ticketId}/status`, { status: 'InProgress' }, accessToken);
+    const res = await request('PATCH', `/tickets/${state.ticketId}/status`, { status: 'InProgress' }, state.accessToken);
     expect(res.data.data.status).toBe('InProgress');
   });
 
   test('POST /tickets/:id/comments — adds a public comment', async () => {
-    const res = await request('POST', `/tickets/${ticketId}/comments`, { content: 'E2E test comment', type: 'PUBLIC' }, accessToken);
+    const res = await request('POST', `/tickets/${state.ticketId}/comments`, { content: 'E2E test comment', type: 'PUBLIC' }, state.accessToken);
     expect(res.data.data.id).toBeDefined();
   });
 
   test('GET /dashboard/stats — returns dashboard', async () => {
-    const res = await request('GET', '/dashboard/stats', undefined, accessToken);
+    const res = await request('GET', '/dashboard/stats', undefined, state.accessToken);
     expect(res.data.data).toHaveProperty('current');
     expect(res.data.data).toHaveProperty('analytics');
   });
 
   test('DELETE /tickets/:id — deletes the ticket', async () => {
-    const res = await request('DELETE', `/tickets/${ticketId}`, undefined, accessToken);
+    const res = await request('DELETE', `/tickets/${state.ticketId}`, undefined, state.accessToken);
     expect(res.data.data.message).toBe('Ticket deleted successfully');
   });
 });

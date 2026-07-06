@@ -185,7 +185,7 @@ export class TicketsService {
       ]);
       const commentsByTicket = new Map(commentCounts.map((r) => [r.ticketId, r.count]));
       const attachmentsByTicket = new Map(attachmentCounts.map((r) => [r.ticketId, r.count]));
-      for (const ticket of tickets as any[]) {
+      for (const ticket of tickets as unknown as Array<{ id: string; _count: { comments: number; attachments: number } }>) {
         ticket._count.comments = commentsByTicket.get(ticket.id) ?? 0;
         ticket._count.attachments = attachmentsByTicket.get(ticket.id) ?? 0;
       }
@@ -203,7 +203,7 @@ export class TicketsService {
       sortBy = 'createdAt', sortOrder = 'desc',
     } = queryTicketDto;
 
-    const where: Record<string, unknown> = {};
+    const where: Prisma.TicketWhereInput = {};
 
     if (status) where.status = status;
     if (priority) where.priority = priority;
@@ -213,17 +213,18 @@ export class TicketsService {
     if (slaStatus) where.slaStatus = slaStatus;
 
     if (dateFrom || dateTo) {
-      where.createdAt = {};
+      const createdAtFilter: Prisma.DateTimeFilter = {};
       if (dateFrom) {
         const startDate = new Date(dateFrom);
         startDate.setUTCHours(0, 0, 0, 0);
-        (where.createdAt as Record<string, unknown>).gte = startDate;
+        createdAtFilter.gte = startDate;
       }
       if (dateTo) {
         const endDate = new Date(dateTo);
         endDate.setUTCHours(23, 59, 59, 999);
-        (where.createdAt as Record<string, unknown>).lte = endDate;
+        createdAtFilter.lte = endDate;
       }
+      where.createdAt = createdAtFilter;
     }
     if (search) {
       where.OR = [
@@ -278,11 +279,11 @@ export class TicketsService {
             include: exportInclude,
           })
         : await this.ticketRepository.findManyForUser({
-            where: where as any,
+            where,
             orderBy: [
               { [orderField]: orderDir },
               { id: orderDir },
-            ] as any,
+            ] as Prisma.TicketOrderByWithRelationInput[],
             skip: offset,
             take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
             include: exportInclude,
@@ -290,7 +291,7 @@ export class TicketsService {
 
       if (batch.length === 0) break;
 
-      for (const ticket of batch as any[]) {
+      for (const ticket of batch as Array<{ ticketNumber: string; subject: string; status: string; priority: string; category?: { name: string } | null; subCategory?: { name: string } | null; requester?: { name: string } | null; assignedTo?: { name: string } | null; createdAt: Date; resolvedAt?: Date | null; slaStatus?: string | null }>) {
         const row = [
           ticket.ticketNumber,
           ticket.subject,
@@ -382,7 +383,7 @@ export class TicketsService {
         );
       }
 
-      const updateData: Record<string, unknown> = {
+      const updateData: Prisma.TicketUpdateManyMutationInput = {
         status: updateStatusDto.status,
       };
 
@@ -401,7 +402,7 @@ export class TicketsService {
 
       const updated = await tx.ticket.updateMany({
         where: { id, status: oldStatus },
-        data: updateData as any,
+        data: updateData,
       });
       if (updated.count !== 1) {
         throw new ConflictException('Ticket status changed. Please refresh and retry.');
@@ -556,7 +557,8 @@ export class TicketsService {
       await tx.ticket.delete({ where: { id } });
     });
 
-    for (const attachment of (ticket as any).attachments || []) {
+    const ticketAttachments = (ticket as { attachments?: Array<{ path: string }> }).attachments ?? [];
+    for (const attachment of ticketAttachments) {
       try {
         await this.storageService.delete(attachment.path);
       } catch {

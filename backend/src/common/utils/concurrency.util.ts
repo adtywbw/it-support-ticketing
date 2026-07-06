@@ -25,7 +25,7 @@ export async function runWithConcurrency<T, R>(
     }
   }
 
-  const workerCount = Math.min(limit, items.length);
+  const workerCount = Math.max(1, Math.min(limit, items.length));
   for (let i = 0; i < workerCount; i++) {
     running.push(worker());
   }

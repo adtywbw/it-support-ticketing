@@ -8,7 +8,7 @@ import { RedisService } from '../redis/redis.service';
 import { appConfig } from '../common/config/app.config';
 
 const execFileAsync = promisify(execFile);
-const BACKUP_ID_PATTERN = /^\d{8}-\d{6}$/;
+const BACKUP_ID_PATTERN = /^\d{8}-\d{9}$/;
 const MAINTENANCE_KEY = 'maintenance:enabled';
 const MAINTENANCE_MESSAGE_KEY = 'maintenance:message';
 const BACKUP_LOCK_KEY = 'maintenance:backup:lock';
@@ -214,15 +214,9 @@ export class MaintenanceService {
       .reverse();
 
     const recentIds = ids.slice(0, appConfig.maintenance.maxBackupListing);
-    const results: BackupInfo[] = [];
-    const queue = [...recentIds];
-    const workers = Array.from({ length: Math.min(appConfig.maintenance.parallelWorkers, queue.length) }, async () => {
-      while (queue.length > 0) {
-        const id = queue.shift()!;
-        results.push(await this.getBackup(id));
-      }
-    });
-    await Promise.allSettled(workers);
+    const results = await Promise.all(
+      recentIds.map((id) => this.getBackup(id)),
+    );
     return results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
@@ -337,7 +331,7 @@ export class MaintenanceService {
 
   private createBackupId(): string {
     const now = new Date();
-    const pad = (value: number) => String(value).padStart(2, '0');
+    const pad = (value: number, len = 2) => String(value).padStart(len, '0');
     return [
       now.getFullYear(),
       pad(now.getMonth() + 1),
@@ -346,6 +340,7 @@ export class MaintenanceService {
       pad(now.getHours()),
       pad(now.getMinutes()),
       pad(now.getSeconds()),
+      pad(now.getMilliseconds(), 3),
     ].join('');
   }
 
@@ -550,7 +545,8 @@ export class MaintenanceService {
     const hour = Number(id.slice(9, 11));
     const minute = Number(id.slice(11, 13));
     const second = Number(id.slice(13, 15));
-    return new Date(year, month, day, hour, minute, second).toISOString();
+    const millisecond = Number(id.slice(15, 18));
+    return new Date(year, month, day, hour, minute, second, millisecond).toISOString();
   }
 
   private resolveBackupPath(id: string): string {

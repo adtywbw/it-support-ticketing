@@ -16,7 +16,7 @@ export interface ApiEnvelope<T> {
     page: number;
     limit: number;
     total: number;
-    totalPages?: number;
+    totalPages: number;
   };
 }
 

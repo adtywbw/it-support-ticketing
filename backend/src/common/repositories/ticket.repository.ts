@@ -61,12 +61,12 @@ const dashboardTicketSummarySelect = {
 export class TicketRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create<T extends Prisma.TicketCreateArgs>(args: T): Promise<any> {
-    return this.prisma.ticket.create(args) as any;
+  async create(args: Prisma.TicketCreateArgs) {
+    return this.prisma.ticket.create(args);
   }
 
-  async findById(id: string, include?: any) {
-    return this.prisma.ticket.findUnique({ where: { id }, include } as any);
+  async findById(id: string, include?: Prisma.TicketFindUniqueArgs['include']) {
+    return this.prisma.ticket.findUnique({ where: { id }, include } as unknown as Prisma.TicketFindUniqueArgs);
   }
 
   async findUnique<T extends Prisma.TicketFindUniqueArgs>(args: T) {
@@ -83,13 +83,13 @@ export class TicketRepository {
    * so the EndUser filter cannot be forgotten by a new caller.
    */
   async findManyForUser(
-    args: any,
+    args: Prisma.TicketFindManyArgs,
     scope: TicketAccessScope,
-  ): Promise<any[]> {
+  ) {
     return this.prisma.ticket.findMany({
       ...args,
       where: buildTicketAccessWhere(scope, (args.where ?? {}) as Prisma.TicketWhereInput),
-    }) as any;
+    });
   }
 
   async countForUser(where: Prisma.TicketWhereInput, scope: TicketAccessScope) {
@@ -182,7 +182,9 @@ export class TicketRepository {
     });
 
     const ticketMap = new Map(tickets.map((t) => [t.id, t]));
-    return sortedIds.map((id) => ticketMap.get(id)).filter(Boolean);
+    return sortedIds
+      .map((id) => ticketMap.get(id))
+      .filter((t): t is NonNullable<typeof t> => t != null);
   }
 
   async findFirst<T extends Prisma.TicketFindFirstArgs>(args: T) {
@@ -194,25 +196,24 @@ export class TicketRepository {
   }
 
   async getDashboardCurrentSnapshot() {
-    const [activeTickets, open, inProgress, slaRisk, unassigned] = await Promise.all([
-      this.prisma.ticket.count({ where: activeDashboardWhere }),
-      this.prisma.ticket.count({ where: { status: TicketStatus.Open } }),
-      this.prisma.ticket.count({ where: { status: TicketStatus.InProgress } }),
-      this.prisma.ticket.count({
-        where: {
-          ...activeDashboardWhere,
-          slaStatus: { in: [SLAStatus.AtRisk, SLAStatus.Breached] },
-        },
-      }),
-      this.prisma.ticket.count({
-        where: {
-          ...activeDashboardWhere,
-          assignedToId: null,
-        },
-      }),
-    ]);
-
-    return { activeTickets, open, inProgress, slaRisk, unassigned };
+    const rows = await this.prisma.$queryRaw<Array<{
+      activeTickets: number;
+      open: number;
+      inProgress: number;
+      slaRisk: number;
+      unassigned: number;
+    }>>`
+      SELECT
+        COUNT(*) FILTER (WHERE "status" NOT IN ('Resolved', 'Closed'))::int AS "activeTickets",
+        COUNT(*) FILTER (WHERE "status" = 'Open')::int AS "open",
+        COUNT(*) FILTER (WHERE "status" = 'InProgress')::int AS "inProgress",
+        COUNT(*) FILTER (WHERE "status" NOT IN ('Resolved', 'Closed')
+          AND "slaStatus" IN ('AtRisk', 'Breached'))::int AS "slaRisk",
+        COUNT(*) FILTER (WHERE "status" NOT IN ('Resolved', 'Closed')
+          AND "assignedToId" IS NULL)::int AS "unassigned"
+      FROM tickets
+    `;
+    return rows[0];
   }
 
   async getDashboardAttentionTickets(): Promise<DashboardAttentionTickets> {
@@ -255,6 +256,34 @@ export class TicketRepository {
 
   async update(id: string, data: Prisma.TicketUpdateInput) {
     return this.prisma.ticket.update({ where: { id }, data });
+  }
+
+  /**
+   * Batch-recalculates slaDueAt and slaStatus for a set of ticket IDs in a
+   * single SQL UPDATE. Each ticket's slaDueAt is computed from its own
+   * createdAt + resolutionTimeMinutes, so per-ticket accuracy is preserved
+   * without N individual round-trips.
+   */
+  async recalculateSlaBatch(
+    ids: string[],
+    resolutionTimeMinutes: number,
+    atRiskRatio: number,
+    now: Date,
+  ) {
+    if (ids.length === 0) return;
+    const atRiskThresholdMinutes = Math.round(resolutionTimeMinutes * atRiskRatio);
+    await this.prisma.$executeRaw`
+      UPDATE tickets
+      SET
+        "slaDueAt" = "createdAt" + (${resolutionTimeMinutes} * interval '1 minute'),
+        "slaStatus" = CASE
+          WHEN "createdAt" + (${resolutionTimeMinutes} * interval '1 minute') <= ${now} THEN 'Breached'::"SLAStatus"
+          WHEN "createdAt" + (${resolutionTimeMinutes} * interval '1 minute') <= ${now} + (${atRiskThresholdMinutes} * interval '1 minute') THEN 'AtRisk'::"SLAStatus"
+          ELSE 'OnTrack'::"SLAStatus"
+        END
+      WHERE id IN (${Prisma.join(ids)})
+        AND status NOT IN ('Resolved'::"TicketStatus", 'Closed'::"TicketStatus")
+    `;
   }
 
   async updateMany(where: Prisma.TicketWhereInput, data: Prisma.TicketUpdateManyMutationInput) {

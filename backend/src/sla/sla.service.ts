@@ -151,40 +151,38 @@ export class SLAService {
     resolutionTimeMinutes: number;
   }) {
     const batchSize = appConfig.sla.batchSize;
-      let lastId: string | undefined;
-  
-      const now = new Date();
-  
-      while (true) {
-        const tickets = await this.ticketRepository.findMany({
-          where: {
-            categoryId: config.categoryId,
-            priority: config.priority,
-            status: {
-              notIn: [TicketStatus.Resolved, TicketStatus.Closed],
-            },
-            ...(lastId ? { id: { gt: lastId } } : {}),
+    let lastId: string | undefined;
+
+    const now = new Date();
+
+    while (true) {
+      const tickets = await this.ticketRepository.findMany({
+        where: {
+          categoryId: config.categoryId,
+          priority: config.priority,
+          status: {
+            notIn: [TicketStatus.Resolved, TicketStatus.Closed],
           },
-          select: { id: true, createdAt: true },
-          take: batchSize,
+          ...(lastId ? { id: { gt: lastId } } : {}),
+        },
+        select: { id: true },
+        take: batchSize,
         orderBy: { id: 'asc' },
       });
 
       if (tickets.length === 0) break;
 
       lastId = tickets[tickets.length - 1].id;
+      const ids = tickets.map((t) => t.id);
 
-      await Promise.all(
-        tickets.map((ticket: { id: string; createdAt: Date }) => {
-          const slaDueAt = new Date(
-            ticket.createdAt.getTime() + config.resolutionTimeMinutes * 60 * 1000,
-          );
-
-          return this.ticketRepository.update(ticket.id, {
-            slaDueAt,
-            slaStatus: this.calculateSlaStatus(slaDueAt, config.resolutionTimeMinutes, now),
-          });
-        }),
+      // Single SQL UPDATE computes slaDueAt per-row from each ticket's own
+      // createdAt, avoiding N individual round-trips while preserving
+      // per-ticket accuracy.
+      await this.ticketRepository.recalculateSlaBatch(
+        ids,
+        config.resolutionTimeMinutes,
+        appConfig.sla.atRiskRatio,
+        now,
       );
     }
   }

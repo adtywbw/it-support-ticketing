@@ -2,6 +2,60 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 32 — Code Review Re-Review Fixes Batch 4 (2026-07-06)
+
+### Fixed (Critical)
+- **Telegram `checkConfig()` groupChat token leak**: GroupChat API error handler now strips bot token from error messages before returning to frontend (matching the bot check fix from Session 31). Prevents token leakage on network errors during group chat validation.
+
+### Fixed (Important)
+- **`sub-category.repository.ts` remaining `as any` casts**: `findById()` and `findUnique()` now use proper Prisma generics (`Prisma.SubCategoryFindUniqueArgs`, `Prisma.SubCategoryGetPayload`) instead of `any` parameters and casts.
+- **`ticket.repository.ts` remaining `as any` casts**: `create()` → typed `Prisma.TicketCreateArgs`; `findById()` → typed `Prisma.TicketFindUniqueArgs['include']`; `findManyForUser()` → typed `Prisma.TicketFindManyArgs`. Return types are properly inferred.
+- **`tickets.service.ts` `as any` cascade (6 sites)**: Export CSV `where` → `Prisma.TicketWhereInput` with proper `Prisma.DateTimeFilter` for date ranges; `orderBy` → `Prisma.TicketOrderByWithRelationInput[]`; `updateData` → `Prisma.TicketUpdateManyMutationInput`; batch iteration → explicit typed shape; attachments access → typed cast.
+- **`notification.repository.ts` typing**: `Record<string, unknown>` → `Prisma.NotificationWhereInput` for type-safe query building.
+
+### Fixed (Minor)
+- **`buildSafeUploadPath` dead code**: Removed unused `ALLOWED_EXTENSIONS` set after switching to original-extension-only approach (per Session 31 Critical fix #4).
+- **Telegram `checkConfig()` `replace` → `replaceAll`**: Bot error handler uses `replaceAll` for more robust token stripping.
+- **`concurrency.util.ts` guard**: Added `Math.max(1, …)` to prevent negative/zero worker count from causing silent empty results.
+- **Frontend `ApiEnvelope.totalPages` and `PaginatedResponse.totalPages`**: Changed from optional (`?`) to required to match backend contract — `totalPages` is always returned even for empty results.
+
+### Changed
+- **`TransformInterceptor`**: Added `response.writableEnded` check to detect streaming/manual `@Res()` responses before checking content-type header, avoiding unnecessary wrapping work for CSV exports.
+- **`MIME_COMPATIBILITY_MAP` docs**: Added clarifying JSDoc explaining why CSV (no magic bytes → null detection) and RAR (self-matching signature) don't need compatibility map entries.
+- **`MaintenanceService.listBackups()`**: Replaced shared-mutable worker pool with `Promise.all(recentIds.map(…))` — eliminates race condition from concurrent `queue.shift()` and `results.push()`.
+- **`SLAService.recalculateOpenTicketsForConfig()`**: Replaced `Promise.all(tickets.map(…))` (500 concurrent individual `Prisma.ticket.update()` calls) with a single `$executeRaw` UPDATE that computes `slaDueAt` per-row from each ticket's own `createdAt` — prevents connection pool exhaustion.
+- **`TicketRepository.getDashboardCurrentSnapshot()`**: Consolidated 5 separate `Prisma.ticket.count()` calls into a single `$queryRaw` with `COUNT(*) FILTER(WHERE …)` clauses.
+- **`NotificationsGateway`**: Added `@OnEvent('user.deleted')` handler via shared `disconnectUserSockets()` method. Added `MAX_SETTIMEOUT_DELAY` cap (`2_147_483_647` ms) to prevent Node.js `setTimeout` overflow for very long-lived access tokens.
+- **`MaintenanceService.createBackupId()`**: Added millisecond precision (`pad(now.getMilliseconds(), 3)`) to backup ID to prevent collision on rapid backup creation. Updated `BACKUP_ID_PATTERN` and `backupIdToIso()` parser accordingly.
+- **`MaintenanceService` test IDs**: Updated all backup ID fixtures from `YYYYMMDD-HHMMSS` (15 chars) to `YYYYMMDD-HHMMSSsss` (18 chars) to match new format.
+- **`E2E` smoke test**: Moved shared `accessToken`/`ticketId` from module-level `let` into `describe`-scoped `state` object for proper test isolation.
+
+### Verification
+- Backend: 752 tests (72 suites) — all passed
+- Frontend: 223 tests (44 suites) — all passed
+- Build: ✅ (backend + frontend)
+- ESLint: 0 errors, 241 warnings (all in test files; down from 262 after removing 21 `as any` from production code)
+
+### Files Changed
+- `backend/src/common/interceptors/transform.interceptor.ts` — writableEnded detection
+- `backend/src/common/repositories/notification.repository.ts` — Prisma.WhereInput typing
+- `backend/src/common/repositories/sub-category.repository.ts` — removed as any
+- `backend/src/common/repositories/ticket.repository.ts` — removed as any, add recalculateSlaBatch, consolidated dashboard COUNT
+- `backend/src/common/utils/concurrency.util.ts` — non-positive limit guard
+- `backend/src/common/utils/mime-validation.util.ts` — clarified CSV/RAR docs
+- `backend/src/common/utils/upload.util.ts` — removed ALLOWED_EXTENSIONS dead code
+- `backend/src/dashboard/dashboard.service.ts` — doc comment for defense-in-depth slice
+- `backend/src/maintenance/maintenance.service.spec.ts` — updated backup ID format
+- `backend/src/maintenance/maintenance.service.ts` — race condition fix, millisecond backup ID
+- `backend/src/notifications/notifications.gateway.ts` — setTimeout cap, user.deleted handler
+- `backend/src/sla/sla.service.spec.ts` — updated tests for batch SQL
+- `backend/src/sla/sla.service.ts` — batch SQL update
+- `backend/src/telegram/telegram.service.ts` — token leak fix both catch blocks
+- `backend/src/tickets/tickets.service.ts` — removed as any cascade, typed where/updateData
+- `backend/test/smoke.e2e.spec.ts` — test isolation fix
+- `frontend/src/lib/axios.ts` — totalPages non-optional
+- `frontend/src/types/index.ts` — totalPages non-optional, RefreshResponse non-nullable
+
 ## Session 31 — Code Review Fixes Batch 3 (2026-07-06)
 
 ### Fixed (Critical)

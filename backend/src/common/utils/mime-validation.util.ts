@@ -32,6 +32,16 @@ const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> 
  * Maps a detected magic-byte MIME to declared MIME types that are compatible
  * with the same container/signature format.
  *
+ * Types NOT listed here are handled differently:
+ * - CSV (`text/csv`): has no standard magic bytes → `detectMimeFromMagicBytes`
+ *   returns `null`, so compatibility check is skipped entirely. Further
+ *   validation is done via the null-byte check in `assertMimeTypeIntegrity`.
+ * - RAR (`application/x-rar-compressed`): has its own entry in MIME_SIGNATURES
+ *   (`Rar!` prefix). When both declared and detected MIME match, the
+ *   compatibility check is bypassed (detected === declared), so no map entry
+ *   is needed.
+ *
+ * Listed entries:
  * - OOXML files (.docx, .xlsx) are ZIP containers, so magic bytes detect them
  *   as `application/zip` even though the declared type is the OOXML MIME.
  * - OLE2 Compound File Binary (CFB) is shared by legacy .doc and .xls files,

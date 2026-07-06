@@ -16,7 +16,7 @@ export class NotificationRepository {
     params: { page?: number; limit?: number; unreadOnly?: boolean },
   ) {
     const { page = 1, limit = 20, unreadOnly = false } = params;
-    const where: Record<string, unknown> = { userId };
+    const where: Prisma.NotificationWhereInput = { userId };
     if (unreadOnly) where.isRead = false;
 
     const [notifications, total] = await Promise.all([

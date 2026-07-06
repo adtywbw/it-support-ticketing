@@ -145,7 +145,7 @@ export interface PaginatedResponse<T> {
     total: number;
     page: number;
     limit: number;
-    totalPages?: number;
+    totalPages: number;
   };
 }
 
@@ -223,8 +223,8 @@ export interface AuthResponse {
 }
 
 export interface RefreshResponse {
-  accessToken: string | null;
-  user: (User & { firstName?: string; lastName?: string }) | null;
+  accessToken: string;
+  user: User & { firstName?: string; lastName?: string };
 }
 
 export interface TicketFilters {

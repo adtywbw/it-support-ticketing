@@ -30,7 +30,7 @@ describe('MaintenanceService restore safety', () => {
   beforeEach(() => {
     service = new MaintenanceService({} as any);
     jest.spyOn(service as any, 'getBackup').mockResolvedValue({
-      id: '20260627-120000',
+      id: '20260627-120000000',
       createdAt: '2026-06-27T12:00:00.000Z',
       files: {
         db: { exists: true, size: 1 },
@@ -53,7 +53,7 @@ describe('MaintenanceService restore safety', () => {
 
   it('keeps maintenance enabled and returns pre-restore id when uploads restore fails', async () => {
     jest.spyOn(service as any, 'createBackup').mockResolvedValue({
-      id: '20260627-115900',
+      id: '20260627-115900000',
       createdAt: '2026-06-27T11:59:00.000Z',
       files: {
         db: { exists: true, size: 1 },
@@ -64,12 +64,12 @@ describe('MaintenanceService restore safety', () => {
     jest.spyOn(service as any, 'restoreUploads').mockRejectedValue(new Error('uploads failed'));
     const loggerError = jest.spyOn((service as any).logger, 'error');
 
-    await expect(service.restoreBackup('20260627-120000', '20260627-120000')).rejects.toThrow(
-      /Pre-restore backup: 20260627-115900/,
+    await expect(service.restoreBackup('20260627-120000000', '20260627-120000000')).rejects.toThrow(
+      /Pre-restore backup: 20260627-115900000/,
     );
 
     expect(loggerError).toHaveBeenCalledWith(
-      expect.stringContaining('Restore failed for backup 20260627-120000: uploads failed'),
+      expect.stringContaining('Restore failed for backup 20260627-120000000: uploads failed'),
       expect.any(String),
     );
     expect(service.setMaintenanceMode).toHaveBeenLastCalledWith(
@@ -83,7 +83,7 @@ describe('MaintenanceService restore safety', () => {
     const restoreDatabase = jest.spyOn(service as any, 'restoreDatabase').mockResolvedValue(undefined);
     const restoreUploads = jest.spyOn(service as any, 'restoreUploads').mockResolvedValue(undefined);
 
-    await expect(service.restoreBackup('20260627-120000', '20260627-120000')).rejects.toThrow(BadRequestException);
+    await expect(service.restoreBackup('20260627-120000000', '20260627-120000000')).rejects.toThrow(BadRequestException);
 
     expect(restoreDatabase).not.toHaveBeenCalled();
     expect(restoreUploads).not.toHaveBeenCalled();
@@ -95,7 +95,7 @@ describe('MaintenanceService restore safety', () => {
 
   it('releases restore lock before disabling maintenance after successful restore', async () => {
     jest.spyOn(service as any, 'createBackup').mockResolvedValue({
-      id: '20260627-115900',
+      id: '20260627-115900000',
       createdAt: '2026-06-27T11:59:00.000Z',
       files: {
         db: { exists: true, size: 1 },
@@ -105,7 +105,7 @@ describe('MaintenanceService restore safety', () => {
     jest.spyOn(service as any, 'restoreDatabase').mockResolvedValue(undefined);
     jest.spyOn(service as any, 'restoreUploads').mockResolvedValue(undefined);
 
-    await service.restoreBackup('20260627-120000', '20260627-120000');
+    await service.restoreBackup('20260627-120000000', '20260627-120000000');
 
     const disableMaintenanceCall = (service.setMaintenanceMode as jest.Mock).mock.calls.findIndex(
       (call: [boolean, string?]) => call[0] === false,

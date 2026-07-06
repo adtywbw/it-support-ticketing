@@ -109,10 +109,16 @@ export class NotificationsGateway
       return;
     }
 
+    // Node.js setTimeout accepts up to 2^31-1 ms (~24.85 days); values
+    // beyond that overflow and fire immediately. Cap to prevent premature
+    // disconnect for tokens with very long expiry.
+    const MAX_SETTIMEOUT_DELAY = 2_147_483_647;
+    const safeDelay = Math.min(delayMs, MAX_SETTIMEOUT_DELAY);
+
     const timer = setTimeout(() => {
       this.expiryTimers.delete(client.id);
       client.disconnect();
-    }, delayMs);
+    }, safeDelay);
 
     this.expiryTimers.set(client.id, timer);
   }
@@ -126,7 +132,16 @@ export class NotificationsGateway
 
   @OnEvent('user.deactivated')
   handleUserDeactivated(payload: { userId: string }) {
-    const sockets = this.userSockets.get(payload.userId);
+    this.disconnectUserSockets(payload.userId);
+  }
+
+  @OnEvent('user.deleted')
+  handleUserDeleted(payload: { userId: string }) {
+    this.disconnectUserSockets(payload.userId);
+  }
+
+  private disconnectUserSockets(userId: string) {
+    const sockets = this.userSockets.get(userId);
     if (!sockets) return;
 
     for (const socketId of sockets) {
@@ -136,9 +151,9 @@ export class NotificationsGateway
         this.expiryTimers.delete(socketId);
       }
       const socket = this.server.sockets.sockets.get(socketId);
-      socket?.leave(`user:${payload.userId}`);
+      socket?.leave(`user:${userId}`);
       socket?.disconnect(true);
     }
-    this.userSockets.delete(payload.userId);
+    this.userSockets.delete(userId);
   }
 }
