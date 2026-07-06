@@ -119,7 +119,7 @@ model Comment {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  ticket      Ticket       @relation(fields: [ticketId], references: [id])
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user        User         @relation(fields: [userId], references: [id])
   attachments Attachment[]
 
@@ -152,7 +152,7 @@ model Attachment {
   visibility   AttachmentVisibility @default(PUBLIC)
   createdAt    DateTime             @default(now())
 
-  ticket  Ticket   @relation(fields: [ticketId], references: [id])
+  ticket  Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   comment Comment? @relation(fields: [commentId], references: [id])
   user    User     @relation(fields: [userId], references: [id])
 
@@ -219,7 +219,7 @@ model TicketHistory {
   newValue  String?
   createdAt DateTime @default(now())
 
-  ticket Ticket @relation(fields: [ticketId], references: [id])
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id])
 
   @@index([ticketId])

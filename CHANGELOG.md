@@ -6,18 +6,29 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 
 ### Fixed (Critical)
 - **`UpdateCategoryDto` missing `isActive` field**: The `PartialType(CreateCategoryDto)` omitted `isActive`, so `whitelist: true` + `forbidNonWhitelisted` validation stripped the field from PATCH requests, making it impossible for Admin to activate/deactivate categories. **Added `@IsOptional() @IsBoolean() isActive?: boolean` to `UpdateCategoryDto`.** (`update-category.dto.ts`)
+- **`DELETE /tickets/:id` returns 500 (Prisma FK violation)**: The `TicketsService.delete()` method created a terminal `TicketHistory` entry INSIDE the same transaction that deleted the ticket. Since `TicketHistory.ticketId` has a FK constraint to `tickets(id)` with `ON DELETE RESTRICT`, the `ticket.delete()` failed with `Foreign key constraint violated`. **Removed the terminal entry creation (audit trail is preserved via `eventEmitter.emit('ticket.deleted')` and server logs). Added `onDelete: Cascade` to Comment, Attachment, and TicketHistory FK relations. Created migration `20260706000001_add_cascade_delete`.** (`prisma/schema.prisma`, `tickets.service.ts`, `prisma/migrations/20260706000001_add_cascade_delete/migration.sql`)
 
 ### Fixed (Important)
 - **`FaqsService` methods inconsistent without `async`**: `findActiveOrdered()`, `findAll()`, and `create()` returned Promises without `async` keyword, inconsistent with every other service method. **Added `async` to all three.** (`faqs.service.ts`)
 - **Backend `eslint.config.js` triggers Node.js module-type warning**: The file uses `import`/`export` syntax but `package.json` has no `"type": "module"`. Node.js emits `MODULE_TYPELESS_PACKAGE_JSON` warning on every lint run. **Renamed to `eslint.config.mjs` to force ES module mode.** (`eslint.config.js` → `eslint.config.mjs`)
 
+### Fixed (Build)
+- **`frontend/Dockerfile` COPY fails for `.eslintrc.cjs`**: The Dockerfile tried to `COPY .eslintrc.cjs` and `.eslintignore`, but both files are excluded by `.dockerignore`, so Docker build failed with `COPY failed: file not found`. **Removed both COPY commands — they are not needed for the production build.** (`frontend/Dockerfile`)
+
 ### Changed
-- **`AGENTS.md`**: Added note that the ESLint config is `eslint.config.mjs` (`.mjs` extension).
-- **`CHANGELOG.md`**: Added Session 45 entry.
+- **`AGENTS.md`**: Added note that the ESLint config is `eslint.config.mjs` (`.mjs` extension). Updated delete audit trail behavior.
+- **`CHANGELOG.md`**: Added Session 45 entries.
+- **`AGENTS.md` §Ticket Rules / `delete()`**: Updated to reflect that the terminal history entry is no longer created inside the ticket delete transaction. Deletion audit is captured via `eventEmitter.emit('ticket.deleted')` and server logs.
+
+### E2E Production Verification
+- All 36 endpoints tested: 35 ✅ / 1 expected ✅ (password too short → 400 validation)
+- DELETE cascade fix confirmed: 200 response, ticket + comments cascade-deleted, GET returns 404
+- All service containers: healthy ✅
+- API logs: no errors ✅
 
 ### Verification
 - Backend: build ✅, tests 72/72 suites ✅ (756/756 tests), lint 0 errors (238 warnings in test files)
-- Frontend: build ✅ (677ms), tests 221/221 ✅, lint 0 errors (26 test-only warnings)
+- Frontend: build ✅, tests 221/221 ✅, lint 0 errors (26 test-only warnings)
 
 ## Session 44 — Comprehensive Code Review: Final Cleanup & 10/10 Rating (2026-07-06)
 

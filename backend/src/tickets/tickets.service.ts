@@ -606,35 +606,18 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
-    // Preserve one final history entry to record who deleted the ticket
-    // and when, so that deletion is auditable even after the ticket is gone.
-    const deleteContext = {
-      id,
-      ticketNumber: ticket.ticketNumber,
-      userId: deletedBy || ticket.requesterId,
-    };
+    const ticketNumber = ticket.ticketNumber;
+    const userId = deletedBy || ticket.requesterId;
 
+    // Delete the ticket. Cascade rules on Comment, Attachment, and
+    // TicketHistory handle related records automatically. The deletion
+    // audit trail is preserved via the ticket.deleted event emitter
+    // below and the server log.
     await this.ticketRepository.transaction(async (tx) => {
-      // Add a terminal history entry before deleting related records.
-      // We keep this entry and delete only the others, maintaining a
-      // minimal audit trail.
-      await tx.ticketHistory.create({
-        data: {
-          ticketId: id,
-          userId: deleteContext.userId,
-          field: 'status',
-          oldValue: ticket.status,
-          newValue: 'Deleted',
-        },
-      });
-
-      // Delete non-history related records. The final history entry
-      // stays so there is a trace of the deletion.
-      await tx.comment.deleteMany({ where: { ticketId: id } });
-      await tx.attachment.deleteMany({ where: { ticketId: id } });
       await tx.ticket.delete({ where: { id } });
     });
 
+    // Best-effort file cleanup after DB commit
     const ticketAttachments = (ticket as { attachments?: Array<{ path: string }> }).attachments ?? [];
     for (const attachment of ticketAttachments) {
       try {
@@ -646,7 +629,8 @@ export class TicketsService {
 
     this.eventEmitter.emit('ticket.deleted', {
       ticketId: id,
-      ticketNumber: ticket.ticketNumber,
+      ticketNumber,
+      deletedBy: userId,
     });
   }
 
