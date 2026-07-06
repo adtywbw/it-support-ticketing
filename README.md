@@ -484,13 +484,17 @@ The API image installs `postgresql-client-16` to match the PostgreSQL 16 server.
 cd backend
 npm run test
 
+# Backend E2E tests (requires docker compose up -d)
+cd backend
+npm run test:e2e
+
 # Frontend tests + lint (zero warnings policy)
 cd frontend
 npm test
 npm run lint
 ```
 
-Backend unit tests cover:
+Backend unit tests (745 tests, 71 suites):
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
 - `AuthService` / `AuthController` — login, refresh, lockout, token rotation
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
@@ -498,29 +502,25 @@ Backend unit tests cover:
 - `SLAService` — partial update merged-value validation, not-found, isActive-only patches, cron lock release, auto-recalculation on create/timing update
 - `MIME validation` — magic-byte detection, Office file compatibility (OOXML/OLE2), spoofing rejection, text null-byte check
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
-- `CreateTicketDto` / `CreateCommentDto` — whitespace rejection, trim-before-validate, min-length enforcement
-- `TelegramConfigRepository` — singleton atomic upsert, concurrent findOrCreate safety
-- `NotificationsService` — filter-at-creation by user preferences, getPreferences/updatePreferences CRUD, role-scoped validation
-- `notification-preference util` — event definitions, role filtering, enable check, normalization
-- `DashboardService` — v2 range cache keys, `{ current, attention, analytics }` response shaping, custom range validation, event-driven invalidation
-- `CategoriesService` — role-based shape (Admin full vs EndUser minimal), hard-delete vs soft-delete
-- All 9 repositories — `UserRepository`, `NotificationRepository`, `TicketRepository`, `CommentRepository`, `AttachmentRepository`, `SlaConfigRepository`, `CategoryRepository`, `SubCategoryRepository`, `TelegramConfigRepository` safe select + pagination + where-clause correctness
+- All 14 controllers — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, health, faqs)
+- All 17 services — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, faqs, redis, prisma)
+- All 27 DTOs — 96% validation coverage
+- All 10 repositories — safe select + pagination + where-clause correctness
+- E2E smoke test (9 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401
 
-Frontend tests cover:
+Frontend tests (222 tests, 44 suites):
 - `auth-store` — login, logout, token persistence
 - `ProtectedRoute` — refresh envelope, unauthenticated redirect, role gating
-- `use-categories` — role-aware cache keys for category list and detail
-- `use-notifications` — unread count fetch, paginated notifications list, mark-as-read
-- `use-change-password` — payload POST, error surfacing, isError state
-- `use-socket` — connect with auth token, auth-error disconnect, non-auth no-disconnect, unmount cleanup
-- `use-sla-configs` — SLA config fetch with envelope unwrap, create/update mutations with cache invalidation
-- `use-notification-preferences` — preferences fetch with envelope unwrap, update mutation with cache invalidation
-- `use-dashboard` — default/custom dashboard stats path building and envelope unwrap
-- `DashboardRangeFilter` — preset selection, invalid custom range toast, valid custom range apply
-- `sla-time` — duration conversion, format, and validation helpers
-- `SLAConfigManager` — table rendering, create modal with time unit conversion, active-category filtering
-- `NotificationPreferencesSection` — checkbox rendering, save state, save mutation with toast
-- `Pagination` — page info, no "All" option, Next/Previous button states
+- `LoginPage` — layout, routed warning message
+- `TicketsPage` — role-based rendering, filter→page reset, CSV export
+- `DashboardPage` — default 30d range, range change interaction
+- `MyAccountPage` — role-based section rendering (Admin/ITSupport/EndUser)
+- All 10 pages — 100% coverage (LoginPage, TicketsPage, DashboardPage, CreateTicketPage, TicketDetailPage, MyAccountPage, NotificationsPage, AdminUsersPage, AdminMasterDataPage, AdminMaintenancePage)
+- UI components — Table, Switch, LoadingSpinner, EmptyState, ErrorMessage, ConfirmDialog, PasswordInput, Pagination, Modal, Badge, BrandMark
+- Tickets components — TicketList, StatusBadge, PriorityBadge, SlaStatusBadge, SLAConfigManager
+- Account components — NotificationPreferencesSection, PasswordChangeSection, TelegramConfigSection
+- Dashboard components — DashboardRangeFilter
+- State, utilities, and initialization
 
 ## Scaling
 

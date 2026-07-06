@@ -2,6 +2,78 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 30 — Test Expansion: Controller, Page, Service, DTO, Component & E2E (2026-07-06)
+
+### Added
+- **7 controller tests (100% coverage!)**: attachments, sub-categories, sla, dashboard, telegram, maintenance, health — semua controller sekarang punya test.
+- **6 page tests (100% coverage!)**: CreateTicketPage, TicketDetailPage, MyAccountPage, AdminUsersPage, AdminMasterDataPage, AdminMaintenancePage — semua halaman sekarang punya test.
+- **6 service tests**: sub-categories.service (14 tests), redis.service (17 tests), prisma.service (5 tests), comments.service (20 tests), attachments.service (18 tests), telegram.service (35 tests).
+- **23 DTO validation tests (+235 tests)**: Semua DTO yang tersisa sekarang punya validation coverage.
+- **12 component tests**: Table, Switch, LoadingSpinner, EmptyState, ErrorMessage, ConfirmDialog, PasswordInput (UI) + TicketList, StatusBadge, PriorityBadge (tickets) + PasswordChangeSection, TelegramConfigSection (account).
+- **E2E smoke test (9 tests)**: `test/smoke.e2e.spec.ts` — health → login → categories → create ticket → update status → comment → dashboard stats → delete → refresh 401. Run via `npm run test:e2e`.
+- **Backend ESLint**: Install `eslint` + `typescript-eslint` flat config (v10), 0 errors.
+- **3 ESLint production bug fixes**: unused imports di attachments.controller, attachments.service, auth.service, attachment-visibility.policy, maintenance.guard (no-useless-assignment).
+
+### Changed
+- **TelegramConfigSection test**: Fixed type issues with TanStack Query mock types.
+- **EmptyState test**: Fixed TypeScript unused variable issues.
+
+### Verification
+- Backend: 745 tests (71 suites) — all passed
+- Frontend: 222 tests (44 suites) — all passed
+- E2E: 9 tests — all passed
+- Build: ✅
+- ESLint: 0 errors, 299 warnings (all `no-explicit-any` in test files)
+
+### Files Changed
+- 7 controller test files, 6 page test files, 6 service test files, 23 DTO test files, 12 component test files, 1 E2E test file
+- `eslint.config.js` — **new**: backend ESLint flat config
+- `jest.e2e.config.js` — **new**: E2E test config
+- Various minor fixes
+
+## Session 29 — Magic Numbers Extraction & MyAccountPage Split (2026-07-06)
+
+### Changed
+- **30+ magic numbers → centralized `appConfig`**: Semua hardcoded numeric constants dari auth, dashboard, SLA, maintenance, telegram, file upload, dan tickets service dipindahkan ke `backend/src/common/config/app.config.ts`. Setiap nilai punya environment variable override.
+- **MyAccountPage.tsx split (511 → ~50 lines)**: Extract `TelegramConfigSection` (393 lines) dan `PasswordChangeSection` (95 lines) ke komponen terpisah di `components/account/`. MyAccountPage sekarang hanya orchestrate 3 komponen independen.
+
+### Added
+- `backend/src/common/utils/transform.util.ts` — shared `trimString` transformer (sebelumnya duplikasi di 2 DTO)
+- `backend/src/common/utils/pagination.util.ts` — shared `buildPaginationMeta()` (sebelumnya di-copy di 5 files)
+
+### Fixed
+- **Dead code dihapus**: 4 method tidak dipanggil di `ticket.repository.ts` (`delete()`, `getSLAStats()`, `getAvgResolutionTimeByCategory()`, `transactionBatch()`) + 3 test terkait.
+- **Unused imports**: `uuidv4` dan `path` dari `comments.service.ts` dan `attachments.service.ts`.
+- **SLA calculation duplication**: Method `calculateSlaStatus()` diubah dari `private` ke `public` di `sla.service.ts`. `tickets.service.ts` sekarang memanggil `this.slaService.calculateSlaStatus()` alih-alih duplikasi logic.
+
+### Verification
+- Backend: 375 tests — all passed
+- Frontend: 88 tests — all passed
+- Build: ✅
+
+## Session 28 — Maintainability Quick Wins (2026-07-06)
+
+### Changed
+- **30+ magic numbers → centralized `appConfig`**: Auth (max attempts, lock duration), Dashboard (cache TTL), SLA (batch size, threshold, lock TTL), Maintenance (drain, lock TTLs, buffer, workers), Telegram (poll timeout, link expiry, concurrency), File upload (max sizes, max files), Tickets (export rows, batch, retries) — semua bisa di-override via env vars.
+- **Backend ESLint**: Install `eslint` + `typescript-eslint` + `@eslint/js` (flat config v10). Fix 4 production code issues (unused imports, useless assignment). Run via `npm run lint`.
+- **Test infrastructure**: Jest config diperluas, `jest.e2e.config.js` untuk E2E tests.
+
+### Fixed
+- **BUG-18**: `ThrottlerException` sekarang return `TOO_MANY_REQUESTS` code, bukan `UNKNOWN_ERROR` (tambah `[429]: 'TOO_MANY_REQUESTS'` di `HttpExceptionFilter`).
+- **BUG-19**: `auth/refresh` tanpa cookie sekarang return HTTP 401, bukan 201 with null data.
+- **ESLint di container frontend**: Dockerfile sekarang copy `.eslintrc.cjs` dan `.eslintignore`.
+
+### Documentation
+- **AGENTS.md**: Tambah `TOO_MANY_REQUESTS` ke stable codes, dokumentasi enum format, detail dashboard response.
+- **ARCHITECTURE.md**: Update stable codes list.
+- **README.md**: Update refresh endpoint description.
+
+### Verification
+- Backend: 341 tests — all passed
+- Frontend: 73 tests — all passed
+- Build: ✅
+- ESLint: 0 errors
+
 ## Session 27 — Comprehensive Bugfix & Documentation Update (2026-07-06)
 
 ### Fixed
@@ -24,36 +96,6 @@ Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory 
 - `ARCHITECTURE.md` — stable codes list
 - `README.md` — refresh endpoint description
 - `CHANGELOG.md` — this entry
-
-## Session 28 — Maintainability Quick Wins (2026-07-06)
-
-### Changed
-- **Unused imports removed**: `uuidv4` dan `path` dari `comments.service.ts` — imports tidak pernah dipakai. Juga `uuidv4` dan `path` dari `attachments.service.ts` (dead code bonus).
-- **Dead code dihapus dari `ticket.repository.ts`**: 4 method yang tidak dipanggil (`delete()`, `getSLAStats()`, `getAvgResolutionTimeByCategory()`, `transactionBatch()`) + 3 test terkait dihapus. Method `getDashboardSLAStatsForRange()` dan `getAvgResolutionTimeByCategoryForRange()` sudah mencakup kebutuhan yang sama.
-- **`trimString` transformer diekstrak**: Dari duplikasi di `create-ticket.dto.ts` dan `create-comment.dto.ts` ke shared utility `common/utils/transform.util.ts`. Kedua DTO sekarang import dari satu sumber.
-- **Pagination boilerplate diekstrak**: `Math.ceil(total / limit) || 1` + meta construction yang di-copy di 5 file (`tickets.service.ts`, `user.repository.ts`, `notification.repository.ts`, `comments.service.ts`, `attachments.service.ts`) diganti dengan `buildPaginationMeta()` dari `common/utils/pagination.util.ts`. Utility handle kasus `limit <= 0` dan `total === 0` secara konsisten.
-- **SLA calculation diekstrak**: Method `calculateSlaStatus()` di `sla.service.ts` diubah dari `private` ke public. `tickets.service.ts` sekarang memanggil `this.slaService.calculateSlaStatus()` alih-alih menduplikasi logic perhitungan SLA (threshold `0.2` yang sebelumnya hardcoded di 2 tempat).
-
-### Verification
-- Backend tests: 341/341 passed (30 suites)
-- Frontend tests: 73/73 passed (24 suites)
-- Frontend build: ✓ built in 528ms
-- Net perubahan: 18 insertions, 114 deletions (11 files) + 2 new utility files
-
-### Files Changed
-- `backend/src/comments/comments.service.ts` — hapus unused imports, pakai `buildPaginationMeta`
-- `backend/src/attachments/attachments.service.ts` — hapus unused imports, pakai `buildPaginationMeta`
-- `backend/src/comments/dto/create-comment.dto.ts` — import `trimString` dari shared util
-- `backend/src/tickets/dto/create-ticket.dto.ts` — import `trimString` dari shared util
-- `backend/src/common/utils/transform.util.ts` — **new**: shared `trimString` transformer
-- `backend/src/common/utils/pagination.util.ts` — **new**: `buildPaginationMeta()` utility
-- `backend/src/common/repositories/ticket.repository.ts` — hapus 4 dead methods
-- `backend/src/common/repositories/__tests__/ticket.repository.spec.ts` — hapus 3 test untuk dead methods
-- `backend/src/common/repositories/user.repository.ts` — pakai `buildPaginationMeta`
-- `backend/src/common/repositories/notification.repository.ts` — pakai `buildPaginationMeta`
-- `backend/src/sla/sla.service.ts` — `calculateSlaStatus()` jadi public
-- `backend/src/tickets/tickets.service.ts` — pakai `buildPaginationMeta`, pakai `slaService.calculateSlaStatus()`
-- `backend/src/tickets/tickets.service.spec.ts` — tambah `calculateSlaStatus` mock
 
 ## Session 26 — Self-Host Google Font (Inter) untuk CSP Compliance (2026-07-06)
 

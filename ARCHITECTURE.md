@@ -288,11 +288,16 @@ it-support-ticketing/
 │       │   │   └── jwt-payload.interface.ts
 │       │   ├── policies/
 │       │   │   └── attachment-visibility.policy.ts
+│       │   ├── config/
+│       │   │   └── app.config.ts
 │       │   ├── utils/
 │       │   │   ├── concurrency.util.ts
+│       │   │   ├── env-validation.util.ts
 │       │   │   ├── mime-validation.util.ts
 │       │   │   ├── notification-preference.util.ts
+│       │   │   ├── pagination.util.ts
 │       │   │   ├── time.util.ts
+│       │   │   ├── transform.util.ts
 │       │   │   └── upload.util.ts
 │       │   └── repositories/
 │       │       ├── repositories.module.ts

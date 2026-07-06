@@ -36,6 +36,8 @@
 | Area | Workdir | Command |
 |------|---------|---------|
 | Backend unit tests | `backend` | `npm test` |
+| Backend lint | `backend` | `npm run lint` |
+| Backend E2E tests | `backend` | `npm run test:e2e` |
 | Backend build | `backend` | `npm run build` |
 | Frontend build | `frontend` | `npm run build` |
 | Frontend lint | `frontend` | `npm run lint` |
@@ -49,12 +51,13 @@
 
 ## Project Structure
 ```
-backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health}
+backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health,faqs}
 backend/src/dashboard/dto/query-dashboard-stats.dto.ts
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/policies/attachment-visibility.policy.ts
-backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation,notification-preference}.util.ts
-frontend/src/{auth,layout,pages,components/admin,components/ui,components/tickets,components/dashboard,hooks,stores,types,lib}
+backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation,notification-preference,transform,pagination}.util.ts
+backend/src/common/config/app.config.ts
+frontend/src/{auth,layout,pages,components/admin,components/ui,components/tickets,components/dashboard,components/account,hooks,stores,types,lib}
 frontend/.eslintignore
 postgres/postgresql.conf
 ```
