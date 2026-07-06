@@ -32,7 +32,7 @@ export class MaintenanceGuard implements CanActivate {
 
     if (this.isAllowedDuringMaintenance(req)) return true;
 
-    let enabled = false;
+    let enabled: boolean;
     let message: string | null = null;
     try {
       const cached = await this.getMaintenanceCached();

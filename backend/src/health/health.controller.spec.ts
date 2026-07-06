@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { Response } from 'express';
+
 
 describe('HealthController', () => {
   let controller: HealthController;

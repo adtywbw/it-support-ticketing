@@ -1,4 +1,4 @@
-import { CommentType, AttachmentVisibility, Role } from '@prisma/client';
+import { CommentType, AttachmentVisibility } from '@prisma/client';
 
 export type UserRole = 'EndUser' | 'ITSupport' | 'Admin';
 

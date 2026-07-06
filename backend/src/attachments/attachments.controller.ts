@@ -14,7 +14,6 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import { AttachmentsService } from './attachments.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';

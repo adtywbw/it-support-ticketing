@@ -1,5 +1,5 @@
 import { CommentType, AttachmentVisibility } from '@prisma/client';
-import { AttachmentVisibilityPolicy, UserRole } from './attachment-visibility.policy';
+import { AttachmentVisibilityPolicy } from './attachment-visibility.policy';
 
 describe('AttachmentVisibilityPolicy', () => {
   describe('buildVisibleAttachmentWhere', () => {

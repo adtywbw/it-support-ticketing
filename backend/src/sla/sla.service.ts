@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { SlaConfigRepository } from '../common/repositories/sla-config.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';

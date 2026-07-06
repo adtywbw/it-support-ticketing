@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { CommentType, Role, AttachmentVisibility, Prisma } from '@prisma/client';
+import { Role, AttachmentVisibility, Prisma } from '@prisma/client';
 import { Express } from 'express';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';
