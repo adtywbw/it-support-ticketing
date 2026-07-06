@@ -1,34 +1,11 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState } from 'react';
 
-interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface PasswordInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
   error?: boolean;
 }
 
 export default function PasswordInput({ className = '', error, ...props }: PasswordInputProps) {
   const [isRevealed, setIsRevealed] = useState(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleMouseDown = useCallback(() => {
-    longPressTimer.current = setTimeout(() => {
-      setIsRevealed(true);
-    }, 100);
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    setIsRevealed(false);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    setIsRevealed(false);
-  }, []);
 
   return (
     <div className="relative">
@@ -39,12 +16,7 @@ export default function PasswordInput({ className = '', error, ...props }: Passw
       />
       <button
         type="button"
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleMouseDown}
-        onTouchEnd={handleMouseUp}
-        onTouchCancel={handleMouseLeave}
+        onClick={() => setIsRevealed((prev) => !prev)}
         className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-navy-400 hover:text-navy-600 focus:outline-none dark:text-blue-300 dark:hover:text-blue-50"
         tabIndex={-1}
         aria-label={isRevealed ? 'Hide password' : 'Show password'}

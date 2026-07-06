@@ -43,7 +43,7 @@ export default function App() {
       <Suspense fallback={<SuspenseFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/tickets" replace />} />
 
         <Route
           element={

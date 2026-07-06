@@ -290,7 +290,8 @@ it-support-ticketing/
 │       │   ├── policies/
 │       │   │   └── attachment-visibility.policy.ts
 │       │   ├── config/
-│       │   │   └── app.config.ts
+│       │   │   ├── app.config.ts
+│       │   │   └── jwt.config.ts
 │       │   ├── utils/
 │       │   │   ├── concurrency.util.ts
 │       │   │   ├── env-validation.util.ts
@@ -407,6 +408,7 @@ it-support-ticketing/
 │       │   ├── axios.ts
 │       │   ├── constants.ts
 │       │   ├── sla-time.ts
+│       │   ├── thumbnail-cache.ts
 │       │   └── utils.ts
 │       ├── types/
 │       │   └── index.ts

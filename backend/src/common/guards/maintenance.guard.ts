@@ -32,38 +32,34 @@ export class MaintenanceGuard implements CanActivate {
 
     if (this.isAllowedDuringMaintenance(req)) return true;
 
-    let enabled: boolean;
-    let message: string | null = null;
-    try {
-      const cached = await this.getMaintenanceCached();
-      enabled = cached.enabled;
-      message = cached.message;
-    } catch {
-      return true;
-    }
+    const cached = await this.getMaintenanceCached().catch(() => null);
+    if (!cached) return true;
 
-    if (!enabled) return true;
+    if (!cached.enabled) return true;
 
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]) === true;
 
-    if (await this.isAdminRequest(req, isPublic)) return true;
+    if (await this.shouldAllowDuringMaintenance(req, isPublic)) return true;
 
-    const exception = new ServiceUnavailableException(
-      message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
-    );
-    exception.getResponse = () => ({
+    throw new ServiceUnavailableException({
       statusCode: 503,
-      message: message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
+      message: cached.message || 'System sedang dalam pemeliharaan. Silakan coba lagi beberapa saat.',
       error: 'Service Unavailable',
       code: 'MAINTENANCE',
     });
-    throw exception;
   }
 
-  private async isAdminRequest(req: Request, isPublic: boolean): Promise<boolean> {
+  /**
+   * Returns true if the request should be allowed through during maintenance:
+   * - Admin JWT → allowed
+   * - Invalid/expired JWT on a protected route → allow (let JwtAuthGuard handle 401)
+   * - Invalid/expired JWT on a public non-allowlisted route → block (return false = 503)
+   * - No token → block
+   */
+  private async shouldAllowDuringMaintenance(req: Request, isPublic: boolean): Promise<boolean> {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) return false;
 
@@ -75,6 +71,8 @@ export class MaintenanceGuard implements CanActivate {
       });
       return payload.role === Role.Admin;
     } catch {
+      // Invalid/expired token: block if this is a public route (no JwtAuthGuard fallback),
+      // allow if protected (JwtAuthGuard will return 401 with proper message)
       return !isPublic;
     }
   }

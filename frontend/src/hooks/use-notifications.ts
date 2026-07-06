@@ -3,7 +3,6 @@ import apiClient, { unwrapData, unwrapPage, type ApiEnvelope } from '@/lib/axios
 import { useNotificationStore } from '@/stores/notification-store';
 import type { Notification } from '@/types';
 import { UNREAD_NOTIFICATIONS_POLL_MS } from '@/lib/constants';
-import { useEffect } from 'react';
 
 export function useUnreadNotificationCount() {
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
@@ -15,13 +14,11 @@ export function useUnreadNotificationCount() {
       return unwrapData(response);
     },
     refetchInterval: UNREAD_NOTIFICATIONS_POLL_MS,
+    select: (data) => {
+      setUnreadCount(data.count);
+      return data;
+    },
   });
-
-  useEffect(() => {
-    if (query.data) {
-      setUnreadCount(query.data.count);
-    }
-  }, [query.data, setUnreadCount]);
 
   return query;
 }

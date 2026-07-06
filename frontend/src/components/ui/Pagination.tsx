@@ -62,10 +62,10 @@ export default function Pagination({ page, totalPages, onPageChange, limit, onLi
 
         {limit > 0 && totalPages > 1 && (
           <>
-            <p className="hidden sm:block text-sm text-navy-700 dark:text-blue-200">
+            <span className="hidden sm:block text-sm text-navy-700 dark:text-blue-200">
               Page <span className="font-medium">{page}</span> of{' '}
               <span className="font-medium">{totalPages}</span>
-            </p>
+            </span>
 
             <div className="flex items-center gap-1 sm:hidden">
               <button

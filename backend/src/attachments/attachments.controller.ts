@@ -20,8 +20,9 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { UploadAttachmentDto } from './dto/upload-attachment.dto';
 import { ALLOWED_MIME_TYPES } from '../common/utils/mime-validation.util';
+import { appConfig } from '../common/config/app.config';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = appConfig.fileUpload.maxDirectFileSize;
 
 @Controller()
 @UseGuards(JwtAuthGuard)
@@ -92,6 +93,8 @@ export class AttachmentsController {
     fileStream.on('error', () => {
       if (!res.headersSent) {
         res.status(500).json({ error: { code: 'STREAM_ERROR', message: 'Failed to read file' } });
+      } else {
+        res.end();
       }
     });
     fileStream.pipe(res);

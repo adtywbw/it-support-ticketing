@@ -3,16 +3,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsGateway } from './notifications.gateway';
+import { jwtModuleConfig } from '../common/config/jwt.config';
 
 @Module({
   imports: [
-    JwtModule.registerAsync({
-      useFactory: () => ({
-        secret: process.env.JWT_SECRET!,
-        signOptions: { algorithm: 'HS256' },
-        verifyOptions: { algorithms: ['HS256'] },
-      }),
-    }),
+    JwtModule.registerAsync(jwtModuleConfig),
   ],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationsGateway],

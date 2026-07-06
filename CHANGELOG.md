@@ -2,6 +2,73 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 35 — Code Review Comprehensive Fixes (2026-07-06)
+
+### Fixed (Critical)
+- **`HttpExceptionFilter` silent non-HTTP errors**: Added `Logger.error()` for non-HttpException exceptions before returning generic 500. Production debugging no longer blind to unhandled errors.
+- **`MaintenanceGuard` fragile `getResponse` mutation**: Replaced `exception.getResponse = () => ({})` with `ServiceUnavailableException({ ... })` body. Removed dead `enabled`/`message` variables.
+- **`PasswordInput` dangerous prop spreading + long-press UX**: Replaced `InputHTMLAttributes` raw spread with `Omit<'type'>` to prevent conflicting `type` prop. Changed long-press (100ms threshold) to standard click-toggle with eye icon.
+- **Duplicate thumbnail cache (CommentSection + AttachmentList)**: Extracted to shared `@/lib/thumbnail-cache.ts` with `cacheThumbnail()` and `getCachedThumbnail()`.
+
+### Fixed (Important)
+- **`RedisService` password injection heuristic**: Replaced `!url.includes('@')` with proper `parsedUrl.password` check — false positive when URL contains username but no password.
+- **`AttachmentsController` stream error handler**: Added `res.end()` in else branch to prevent hanging connections.
+- **`AttachmentsController` hardcoded `MAX_FILE_SIZE`**: Replaced literal `10 * 1024 * 1024` with `appConfig.fileUpload.maxDirectFileSize`.
+- **`app.config.ts` `Number(env) || default` pattern**: Extracted `envNumber()` helper that checks `val !== undefined` instead of truthy — allows `0` as valid override value.
+- **`JwtModule` duplicated registration**: Extracted shared config to `backend/src/common/config/jwt.config.ts` — both `AuthModule` and `NotificationsModule` import from the same source.
+- **`Navbar` dropdown accessibility**: Added `Escape` key listener to close notification and profile dropdowns.
+- **`UserManagement` missing client-side validation**: Added name/email/password checks before submission.
+- **`TicketFilters` JSON.stringify comparison**: Replaced with explicit field-by-field comparison for change detection.
+
+### Fixed (Minor)
+- **`CommentsController` hardcoded constants**: Replaced literal `MAX_FILE_SIZE` and `MAX_FILES_PER_COMMENT` with `appConfig.fileUpload` values.
+- **`CreateCommentDto` missing `@MinLength(1)`**: Added for consistency with other text-field DTOs.
+- **`UpdateSubCategoryDto` manual field definitions**: Replaced with `PartialType(CreateSubCategoryDto)` + `isActive` override.
+- **`Pagination` semantic HTML**: Changed `<p>` inside `<nav>` to `<span>`.
+- **`use-tickets` redundant JSON.stringify**: Removed from query key — TanStack Query v5 already performs stable hashing.
+- **`use-telegram` inline types**: Moved `TelegramSettings`, `TelegramConfig`, `TelegramCheckResult` to `@/types/index.ts`.
+- **`App.tsx` flash redirect**: Changed `/` redirect from `/login` to `/tickets` — authenticated users see redirect less often.
+- **`use-notifications` Zustand sync effect**: Replaced `useEffect` with `select` callback for count sync — eliminates unnecessary re-renders when count unchanged.
+
+### Changed
+- **`PasswordInput` UX**: Changed from "hold to reveal" (long-press with 100ms threshold) to standard click-toggle. Users now click the eye icon to toggle password visibility, matching platform conventions.
+- **`app.config.ts`**: Replaced inline `Number(env) || default` expressions with `envNumber(key, default)` helper. Behavior unchanged for all existing values (all positive).
+- **`MaintenanceGuard`**: Simplified `canActivate` — replaced try/catch with `.catch(() => null)` for Redis fetch; renamed `isAdminRequest` to `shouldAllowDuringMaintenance` with JSDoc.
+
+### Dependencies
+- `@nestjs/mapped-types` — already present, now used by `UpdateSubCategoryDto` via `PartialType`.
+
+### Verification
+- Backend: build ✅, ESLint **0 errors**
+- Frontend: build ✅ (597ms), ESLint **0 errors**
+
+### Files Changed
+- `backend/src/common/filters/http-exception.filter.ts` — Logger + non-HttpException logging
+- `backend/src/common/guards/maintenance.guard.ts` — simplified getResponse, renamed method
+- `backend/src/common/config/app.config.ts` — envNumber helper
+- `backend/src/common/config/jwt.config.ts` — NEW shared JWT config
+- `backend/src/redis/redis.service.ts` — parsedUrl.password check
+- `backend/src/attachments/attachments.controller.ts` — appConfig + res.end
+- `backend/src/comments/comments.controller.ts` — appConfig
+- `backend/src/comments/dto/create-comment.dto.ts` — @MinLength(1)
+- `backend/src/sub-categories/dto/update-sub-category.dto.ts` — PartialType
+- `backend/src/auth/auth.module.ts` — shared JWT config
+- `backend/src/notifications/notifications.module.ts` — shared JWT config
+- `frontend/src/lib/thumbnail-cache.ts` — NEW shared thumbnail cache
+- `frontend/src/components/ui/PasswordInput.tsx` — click-toggle, Omit props
+- `frontend/src/components/tickets/CommentSection.tsx` — use shared thumbnail cache
+- `frontend/src/components/tickets/AttachmentList.tsx` — use shared thumbnail cache
+- `frontend/src/layout/Navbar.tsx` — Escape key handler
+- `frontend/src/components/ui/Pagination.tsx` — p → span
+- `frontend/src/App.tsx` — / → /tickets
+- `frontend/src/hooks/use-tickets.ts` — remove JSON.stringify
+- `frontend/src/hooks/use-telegram.ts` — import from @/types
+- `frontend/src/hooks/use-notifications.ts` — select instead of useEffect
+- `frontend/src/types/index.ts` — Telegram types
+- `frontend/src/components/admin/UserManagement.tsx` — client-side validation
+- `frontend/src/components/tickets/TicketFilters.tsx` — field-by-field comparison
+- `frontend/src/components/account/TelegramConfigSection.tsx` — import from @/types
+
 ## Session 34 — Code Review Round 4 Fixes Batch 6 (2026-07-06)
 
 ### Fixed (Minor)

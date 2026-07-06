@@ -7,23 +7,11 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { formatDate, formatFileSize, getErrorMessage, getUserDisplayName } from '@/lib/utils';
+import { cacheThumbnail, getCachedThumbnail } from '@/lib/thumbnail-cache';
 import { ALLOWED_MIME_TYPES, MAX_DIRECT_ATTACHMENT_SIZE } from '@/lib/constants';
 
-const thumbnailCache = new Map<string, string>();
-const MAX_THUMBNAILS = 100;
-
-function cacheThumbnail(id: string, url: string) {
-  const existing = thumbnailCache.get(id);
-  if (existing) URL.revokeObjectURL(existing);
-  thumbnailCache.set(id, url);
-  if (thumbnailCache.size <= MAX_THUMBNAILS) return;
-  const [oldestId, oldestUrl] = thumbnailCache.entries().next().value as [string, string];
-  URL.revokeObjectURL(oldestUrl);
-  thumbnailCache.delete(oldestId);
-}
-
 function Thumbnail({ id, alt, onClick }: { id: string; alt: string; onClick: () => void }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(() => thumbnailCache.get(id) ?? null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(() => getCachedThumbnail(id) ?? null);
   const imgRef = useRef<HTMLDivElement>(null);
   const fetchedRef = useRef(false);
 

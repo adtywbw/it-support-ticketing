@@ -71,7 +71,7 @@ postgres/postgresql.conf
 - Frontend components: `frontend/src/components/{domain}/`.
 - Frontend hooks: `frontend/src/hooks/` for TanStack Query hooks.
 - Frontend stores: `frontend/src/stores/` for Zustand.
-- Frontend `types/` and `lib/` hold shared types, axios client, and utilities (including `sla-time.ts` for SLA duration conversion).
+- Frontend `types/` and `lib/` hold shared types, axios client, and utilities (including `sla-time.ts` for SLA duration conversion, `thumbnail-cache.ts` for shared image thumbnail URL management).
 - Use `kebab-case` files, `PascalCase` components/classes, and `camelCase` variables/functions.
 - Frontend uses functional components, named exports, Tailwind utilities, and `@/` alias.
 - Frontend visual system uses the Blue Operations palette from `tailwind.config.js`: `primary` (royal blue), `navy` (brand/dark surfaces), and `surface` (blue-tinted backgrounds). Prefer these tokens over slate classes.

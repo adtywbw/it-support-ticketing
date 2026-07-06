@@ -8,9 +8,8 @@ import {
   useUnlinkTelegram,
   useSendTestNotification,
   useCheckTelegram,
-  type TelegramSettings,
-  type CheckResult,
 } from '@/hooks/use-telegram';
+import type { TelegramSettings, TelegramCheckResult } from '@/types';
 import { getErrorMessage } from '@/lib/utils';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -42,7 +41,7 @@ export default function TelegramConfigSection() {
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [configLoaded, setConfigLoaded] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
-  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
+  const [checkResult, setCheckResult] = useState<TelegramCheckResult | null>(null);
   const initialConfig = useRef<{
     enabledEvents: string[];
     enableGroupChat: boolean;

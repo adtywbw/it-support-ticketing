@@ -82,7 +82,7 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 ### UI/UX
 - Dark mode toggle (persisted to localStorage, default light)
 - Sidebar minimize/expand with icon-only mode
-- Password reveal on hold (eye icon on all password fields)
+- Password show/hide toggle button (eye icon on all password fields)
 - Responsive mobile layout with hamburger menu
 - Blue Operations visual theme: royal-blue primary actions, navy/blue-black dark mode surfaces, blue-tinted light mode surfaces, and polished `SH` brand mark
 - Login page uses an Enterprise Portal / Support Assist layout with compact sign-in form, support cards, and FAQ panel

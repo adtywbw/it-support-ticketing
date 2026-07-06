@@ -91,7 +91,18 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
     }
   }, []);
 
-  const hasChanges = JSON.stringify(local) !== JSON.stringify(filters);
+  const hasChanges = local.status !== filters.status
+    || local.priority !== filters.priority
+    || local.slaStatus !== filters.slaStatus
+    || local.search !== filters.search
+    || local.categoryId !== filters.categoryId
+    || local.assignedToMe !== filters.assignedToMe
+    || local.datePreset !== filters.datePreset
+    || local.startDate !== filters.startDate
+    || local.endDate !== filters.endDate
+    || local.sortBy !== filters.sortBy
+    || local.sortOrder !== filters.sortOrder
+    || local.limit !== filters.limit;
 
   const statuses: { value: TicketStatus | ''; label: string }[] = [
     { value: '', label: 'All Statuses' },

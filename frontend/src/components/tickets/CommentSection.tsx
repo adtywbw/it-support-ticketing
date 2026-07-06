@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Pagination from '@/components/ui/Pagination';
 import { formatRelativeTime, formatFileSize, getUserDisplayName, getErrorMessage } from '@/lib/utils';
+import { cacheThumbnail, getCachedThumbnail } from '@/lib/thumbnail-cache';
 import Avatar from '@/components/ui/Avatar';
 import { ALLOWED_MIME_TYPES, MAX_COMMENT_ATTACHMENT_SIZE } from '@/lib/constants';
 
@@ -14,21 +15,8 @@ interface CommentSectionProps {
   ticketId: string;
 }
 
-const thumbnailCache = new Map<string, string>();
-const MAX_THUMBNAILS = 100;
-
-function cacheThumbnail(id: string, url: string) {
-  const existing = thumbnailCache.get(id);
-  if (existing) URL.revokeObjectURL(existing);
-  thumbnailCache.set(id, url);
-  if (thumbnailCache.size <= MAX_THUMBNAILS) return;
-  const [oldestId, oldestUrl] = thumbnailCache.entries().next().value as [string, string];
-  URL.revokeObjectURL(oldestUrl);
-  thumbnailCache.delete(oldestId);
-}
-
 function CommentFileThumbnail({ attachment, onPreview }: { attachment: { id: string; originalName: string }; onPreview: (id: string) => void }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(() => thumbnailCache.get(attachment.id) ?? null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(() => getCachedThumbnail(attachment.id) ?? null);
   const imgRef = useRef<HTMLDivElement>(null);
   const fetchedRef = useRef(false);
 

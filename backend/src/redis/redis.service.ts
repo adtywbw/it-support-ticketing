@@ -9,8 +9,8 @@ export class RedisService implements OnModuleDestroy {
     const tlsEnabled = process.env.REDIS_TLS === 'true';
     let url = process.env.REDIS_URL;
     if (url) {
-      if (process.env.REDIS_PASSWORD && !url.includes('@')) {
-        const parsedUrl = new URL(url);
+      const parsedUrl = new URL(url);
+      if (process.env.REDIS_PASSWORD && !parsedUrl.password) {
         parsedUrl.password = process.env.REDIS_PASSWORD;
         url = parsedUrl.toString();
       }

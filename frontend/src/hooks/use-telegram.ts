@@ -1,20 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { STALE_TIME_TELEGRAM_CONFIG } from '@/lib/constants';
-
-export interface TelegramSettings {
-  enabledEvents: string[];
-  enableGroupChat: boolean;
-  groupChatId?: string;
-  notifyIndividualsWhenGroupChat: boolean;
-  templates: Record<string, string>;
-}
-
-export interface TelegramConfig {
-  hasBotToken: boolean;
-  hasGroupChatId: boolean;
-  settings: TelegramSettings;
-}
+import type { TelegramSettings, TelegramConfig, TelegramCheckResult } from '@/types';
 
 export function useTelegramStatus(options?: { enabled?: boolean }) {
   return useQuery({
@@ -69,15 +56,10 @@ export function useTelegramConfig(options?: { enabled?: boolean }) {
   });
 }
 
-export interface CheckResult {
-  bot: { valid: boolean; username?: string; firstName?: string; error?: string };
-  groupChat: { valid: boolean; title?: string; type?: string; error?: string } | null;
-}
-
 export function useCheckTelegram() {
   return useMutation({
     mutationFn: async (data: { botToken?: string; groupChatId?: string }) => {
-      const res = await apiClient.post<ApiEnvelope<CheckResult>>('/telegram/check', data);
+      const res = await apiClient.post<ApiEnvelope<TelegramCheckResult>>('/telegram/check', data);
       return unwrapData(res);
     },
   });

@@ -75,6 +75,21 @@ export default function UserManagement() {
 
   const handleSubmit = async () => {
     setFormError('');
+    // Client-side validation
+    if (!formData.name.trim()) {
+      setFormError('Name is required');
+      return;
+    }
+    if (mode === 'create') {
+      if (!formData.email.trim()) {
+        setFormError('Email is required');
+        return;
+      }
+      if (!formData.password) {
+        setFormError('Password is required');
+        return;
+      }
+    }
     try {
       if (mode === 'create') {
         const payload: CreateUserPayload = {

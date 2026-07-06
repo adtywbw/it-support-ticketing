@@ -18,9 +18,10 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { ALLOWED_MIME_TYPES } from '../common/utils/mime-validation.util';
+import { appConfig } from '../common/config/app.config';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const MAX_FILES_PER_COMMENT = 3;
+const MAX_FILE_SIZE = appConfig.fileUpload.maxCommentFileSize;
+const MAX_FILES_PER_COMMENT = appConfig.fileUpload.maxFilesPerComment;
 
 @Controller('tickets/:ticketId/comments')
 @UseGuards(JwtAuthGuard)

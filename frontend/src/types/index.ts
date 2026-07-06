@@ -317,3 +317,22 @@ export interface Faq {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TelegramSettings {
+  enabledEvents: string[];
+  enableGroupChat: boolean;
+  groupChatId?: string;
+  notifyIndividualsWhenGroupChat: boolean;
+  templates: Record<string, string>;
+}
+
+export interface TelegramConfig {
+  hasBotToken: boolean;
+  hasGroupChatId: boolean;
+  settings: TelegramSettings;
+}
+
+export interface TelegramCheckResult {
+  bot: { valid: boolean; username?: string; firstName?: string; error?: string };
+  groupChat: { valid: boolean; title?: string; type?: string; error?: string } | null;
+}
