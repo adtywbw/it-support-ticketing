@@ -275,7 +275,7 @@ postgres/postgresql.conf
 - Stale-file cleanup: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that cross-references disk files against DB records and removes unmatched files. The `AttachmentRepository.findAllPaths()` method supports this. This is a best-effort guard against orphaned files from crashes during upload.
 - **File save ordering**: `CommentsService.create()` saves uploaded files **inside** the Prisma transaction callback, not before it. This ensures that if the transaction fails (e.g., max attachments exceeded), no files linger on disk. A catch block inside the transaction handles cleanup of partial saves.
 - **SLA lock sharing**: `SLAService.recalculateOpenTicketsForConfig()` (triggered by SLA config create/update) uses the same Redis lock key (`sla:check:lock`) as `checkSLA()` cron. If the cron is mid-flight when a config update triggers recalculation, the recalculation skips with a log message. This prevents concurrent writes to `slaDueAt`/`slaStatus` on overlapping ticket sets.
-- **Restore safety**: `MaintenanceService.restoreDatabase()` wraps `DROP SCHEMA ... CASCADE` in a psql `BEGIN;...COMMIT` block. If the restore pipe (gzip→awk→psql) fails, the transaction is automatically rolled back and the original schema (with pre-restore backup data) is preserved.
+- **Restore safety**: `MaintenanceService.restoreDatabase()` COMMITs `DROP SCHEMA ... CASCADE` in a separate psql call before the restore pipeline runs. If the restore pipe (gzip→awk→psql) fails, the schema is already dropped — safety is provided by the **pre-restore backup** (created automatically before the DROP SCHEMA), which the admin can use to recover.
 
 
 ## Dev Seed Credentials

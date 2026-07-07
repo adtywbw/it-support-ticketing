@@ -2,6 +2,23 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 51 — Fix: Restore Backup Gagal Karena DROP SCHEMA Tidak Pernah di-COMMIT (2026-07-07)
+
+### Fixed (Critical)
+- **`MaintenanceService.restoreDatabase()` — DROP SCHEMA tidak pernah di-COMMIT**: Psql pertama menjalankan `BEGIN; DROP SCHEMA ... CASCADE;` tanpa COMMIT. Ketika proses psql exit, PostgreSQL otomatis ROLLBACK transaction, jadi schema (termasuk enum type `AttachmentVisibility`) tidak jadi di-drop. Pipeline restore kemudian gagal dengan `ERROR: type "AttachmentVisibility" already exists`. **Ditambahkan `-c 'COMMIT;'`** di psql pertama agar DROP SCHEMA benar-benar jalan. Dihapus `&& psql -c 'COMMIT'` dari pipeline bash — tidak berguna karena koneksi DB berbeda (tidak bisa commit transaction dari psql sebelumnya) dan pg_dump sudah include COMMIT sendiri. (`maintenance.service.ts`)
+
+### Changed
+- **Safety model restore**: Sebelumnya DROP SCHEMA dan restore dalam satu transaction (jika gagal, DROP di-rollback). Sekarang DROP SCHEMA di-COMMIT terpisah sebelum restore pipeline. Safety digantikan oleh **pre-restore backup** yang dibuat otomatis sebelum DROP SCHEMA — jika restore gagal, admin bisa recovery dari pre-restore backup tersebut.
+- **`AGENTS.md`** — Update restore safety section: no longer wraps DROP+restore in a single transaction. Safety from pre-restore backup.
+- **`ARCHITECTURE.md`** — Update restore flow description to reflect committed DROP SCHEMA before restore pipe.
+
+### Files Changed
+- `backend/src/maintenance/maintenance.service.ts` — +commit on DROP SCHEMA, removed trailing psql commit from pipe
+
+### Verification
+- Restore test via API ✅ — `POST /maintenance/backups/20260707-060949112/restore` → `"Backup restored successfully. Please log in again."`
+- Server logs: 0 errors ✅
+
 ## Session 50 — Location Master Data + Item Code + Required Fields (2026-07-07)
 
 ### Added
