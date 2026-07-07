@@ -3,7 +3,7 @@
 ## Purpose
 - Compact project memory for agents; read before starting work.
 - If this file conflicts with current code, trust the code and mention/update this file when relevant.
-- Read `CHANGELOG.md` for regression context and historical changes (performance, bug fixes, security sessions 2–4); do not duplicate that history here.
+- Read `CHANGELOG.md` for regression context and historical changes; do not duplicate that history here.
 
 ## Stack Snapshot
 - Backend: NestJS 11, Prisma 5, PostgreSQL 16, Redis 7, Socket.IO notifications.
