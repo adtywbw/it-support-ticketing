@@ -49,11 +49,16 @@ export function useSocket() {
     socket.on('reconnect_attempt', () => {
       const latestToken = useAuthStore.getState().accessToken;
       if (latestToken) {
+        // Socket.IO re-reads socket.auth before each reconnection attempt.
+        // Update auth with the latest token so reconnection uses a fresh one.
         socket.auth = { token: latestToken };
       }
     });
 
+    // When accessToken changes (e.g. refresh), the effect tears down the old
+    // socket and creates a new one with the latest token.
     return () => {
+      socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };

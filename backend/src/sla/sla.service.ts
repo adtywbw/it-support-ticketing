@@ -33,11 +33,7 @@ export class SLAService {
     });
 
     if (!config || !config.isActive) {
-      const fallback = await this.slaConfigRepository.findFirst({
-        where: { isActive: true },
-        orderBy: { resolutionTimeMinutes: 'asc' },
-      });
-      return fallback || null;
+      return null;
     }
 
     return config;

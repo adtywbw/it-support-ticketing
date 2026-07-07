@@ -2,6 +2,22 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 53 — Code Review Round 2: Double Toast, SLA Fallback, Audit Log TTL, Socket (2026-07-07)
+
+### Fixed (Important)
+- **Double error display: 6 mutation hooks punya `onError` + component pakai `mutateAsync` try/catch dengan `toast.error()`**: Session 42 menambahkan `onError` ke semua hooks, tapi 3 component tetap pakai `mutateAsync` + try/catch sendiri. Akibatnya user melihat dua toast error setiap API gagal. **Dihapus `onError` dari hooks `useSetMaintenanceMode`, `useCreateBackup`, `useDeleteBackup`, `useRestoreBackup`, `useCreateUser`, `useUpdateUser`, `useDeleteUser`** — component sudah handle error via try/catch dengan toast masing-masing. Pattern konsisten: hooks tidak handle error display, consumer yang handle. (`use-maintenance.ts`, `use-users.ts`)
+
+### Fixed (Moderate)
+- **`SLAService.getSLAConfig()` fallback ke SLA config dari kategori lain**: Saat tidak ada SLA config yang cocok dengan `(categoryId, priority)`, method mencari fallback ANY active config dengan resolutionTime terendah — lintas kategori. Berarti ticket di "Software" bisa dapet SLA timing dari "Hardware". **Dihapus fallback — return `null` langsung.** Konsisten dengan AGENTS.md dan Prisma schema nullable. (`sla.service.ts`)
+- **`AuditLog` table unbounded growth**: Tidak ada TTL atau retention policy — data audit menumpuk selamanya. **Ditambahkan `@Cron('0 3 * * *') cleanupOldLogs()` di `AuditService`** yang hapus record lebih dari 90 hari setiap jam 3 pagi. (`audit.service.ts`)
+
+### Fixed (Minor)
+- **`useSocket` cleanup tidak panggil `removeAllListeners()`**: Saat effect cleanup jalan (token change, unmount), listener lama masih nempel di socket object. **Ditambahkan `socket.removeAllListeners()` sebelum `disconnect()`** untuk mencegah memory leak dan stale callback. (`use-socket.ts`)
+
+### Verification
+- Backend: build ✅, tests 757/757 ✅
+- Frontend: build ✅
+
 ## Session 52 — Code Review 2026-07-07: File Save Order, Guard Ordering, CI Pipeline, CsrfGuard (2026-07-07)
 
 ### Fixed (Critical)

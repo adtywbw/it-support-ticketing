@@ -36,7 +36,6 @@ export function useSetMaintenanceMode() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'mode'] });
     },
-    onError: (err) => toast.error(getErrorMessage(err, 'Failed to toggle maintenance mode')),
   });
 }
 
@@ -61,7 +60,6 @@ export function useCreateBackup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'backups'] });
     },
-    onError: (err) => toast.error(getErrorMessage(err, 'Failed to create backup')),
   });
 }
 
@@ -75,7 +73,6 @@ export function useDeleteBackup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'backups'] });
     },
-    onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete backup')),
   });
 }
 
@@ -94,7 +91,6 @@ export function useRestoreBackup() {
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'backups'] });
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'mode'] });
     },
-    onError: (err) => toast.error(getErrorMessage(err, 'Failed to restore backup')),
   });
 }
 
