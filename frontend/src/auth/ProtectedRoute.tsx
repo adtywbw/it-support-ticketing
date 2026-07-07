@@ -33,7 +33,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       })
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) setChecking(false);
+        setChecking(false);
       });
 
     return () => { cancelled = true; };
