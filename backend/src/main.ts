@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { getCorsOrigins, validateStartupEnv } from './common/utils/env-validation.util';
@@ -32,6 +33,16 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  // OpenAPI / Swagger
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('IT Support Ticketing API')
+    .setDescription('Full-stack ticketing system for internal IT support')
+    .setVersion('1.0.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, document);
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');

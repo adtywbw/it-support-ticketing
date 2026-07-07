@@ -9,6 +9,7 @@ import {
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Role, CommentType } from '@prisma/client';
@@ -22,6 +23,8 @@ import { appConfig } from '../common/config/app.config';
 const MAX_FILE_SIZE = appConfig.fileUpload.maxCommentFileSize;
 const MAX_FILES_PER_COMMENT = appConfig.fileUpload.maxFilesPerComment;
 
+@ApiTags('Comments')
+@ApiBearerAuth()
 @Controller('tickets/:ticketId/comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}

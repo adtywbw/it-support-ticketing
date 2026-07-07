@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { FaqsService } from './faqs.service';
 import { CreateFaqDto } from './dto/create-faq.dto';
@@ -7,6 +8,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
 
+@ApiTags('FAQs')
 @Controller('faqs')
 export class FaqsController {
   constructor(private readonly faqsService: FaqsService) {}

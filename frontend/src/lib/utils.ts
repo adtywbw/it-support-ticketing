@@ -1,4 +1,6 @@
-import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import format from 'date-fns/format';
+import formatDistanceToNow from 'date-fns/formatDistanceToNow';
+import parseISO from 'date-fns/parseISO';
 import { clsx, type ClassValue } from 'clsx';
 import type { TicketStatus, TicketPriority } from '@/types';
 

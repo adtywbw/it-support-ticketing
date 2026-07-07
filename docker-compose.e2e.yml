@@ -1,0 +1,56 @@
+# E2E Test Environment — isolated stack with separate DB/Redis
+# Usage: docker compose -f docker-compose.e2e.yml up -d --build
+#        cd backend && E2E_HOST=localhost E2E_PORT=3001 E2E_PROTOCOL=http npm run test:e2e
+
+services:
+  api-e2e:
+    build:
+      context: ./backend
+      target: production
+    restart: "no"
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: test
+      PORT: 3000
+      JWT_SECRET: e2e-test-secret-key-that-is-at-least-32-chars-long!
+      COOKIE_SECURE: "false"
+      DATABASE_URL: postgresql://ticketing:ticketing@db-e2e:5432/ticketing_e2e
+      REDIS_URL: redis://:ticketing@cache-e2e:6379/0
+      REDIS_PASSWORD: ticketing
+      CORS_ORIGIN: http://localhost:3001
+    depends_on:
+      db-e2e:
+        condition: service_healthy
+      cache-e2e:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  db-e2e:
+    image: postgres:16-alpine
+    restart: "no"
+    shm_size: 256mb
+    environment:
+      POSTGRES_USER: ticketing
+      POSTGRES_PASSWORD: ticketing
+      POSTGRES_DB: ticketing_e2e
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketing -d ticketing_e2e"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  cache-e2e:
+    image: redis:7-alpine
+    restart: "no"
+    command: redis-server --requirepass ticketing
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ticketing ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10

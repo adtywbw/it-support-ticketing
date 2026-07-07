@@ -10,6 +10,7 @@ import {
   Res,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
@@ -24,6 +25,8 @@ import { appConfig } from '../common/config/app.config';
 
 const MAX_FILE_SIZE = appConfig.fileUpload.maxDirectFileSize;
 
+@ApiTags('Attachments')
+@ApiBearerAuth()
 @Controller()
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}

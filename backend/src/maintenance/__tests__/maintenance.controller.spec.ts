@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MaintenanceController } from '../maintenance.controller';
 import { MaintenanceService } from '../maintenance.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 
 describe('MaintenanceController', () => {
@@ -17,10 +18,17 @@ describe('MaintenanceController', () => {
     getBackupFilePath: jest.fn(),
   };
 
+  const mockPrisma = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MaintenanceController],
-      providers: [{ provide: MaintenanceService, useValue: mockService }],
+      providers: [
+        { provide: MaintenanceService, useValue: mockService },
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
     }).compile();
     controller = module.get<MaintenanceController>(MaintenanceController);
     service = module.get(MaintenanceService);

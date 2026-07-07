@@ -7,12 +7,15 @@ import {
   Query,
   Body,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { QueryNotificationsDto } from '../common/dto/pagination-query.dto';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 
+@ApiTags('Notifications')
+@ApiBearerAuth()
 @Controller('notifications')
 export class NotificationsController {
   constructor(

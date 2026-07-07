@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { TelegramService } from './telegram.service';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -14,6 +15,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CheckTelegramConfigDto, UpdateTelegramConfigDto } from './dto/telegram-config.dto';
 
+@ApiTags('Telegram')
+@ApiBearerAuth()
 @Controller('telegram')
 export class TelegramController {
   constructor(private readonly telegramService: TelegramService) {}

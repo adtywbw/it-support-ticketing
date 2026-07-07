@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { SLAService } from './sla.service';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -14,6 +15,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CreateSlaConfigDto } from './dto/create-sla-config.dto';
 import { UpdateSlaConfigDto } from './dto/update-sla-config.dto';
 
+@ApiTags('SLA Configs')
+@ApiBearerAuth()
 @Controller('sla-configs')
 export class SLAController {
   constructor(private readonly slaService: SLAService) {}
