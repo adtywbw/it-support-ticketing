@@ -15,13 +15,14 @@ describe('Pagination', () => {
   it('renders page info', () => {
     render(<Pagination {...defaultProps} />);
     expect(screen.getByText(/Page/)).toBeDefined();
-    expect(screen.getByText('50')).toBeDefined(); // totalItems
+    expect(screen.getByText('50')).toBeDefined();
   });
 
   it('renders Previous and Next buttons', () => {
     render(<Pagination {...defaultProps} page={3} />);
     expect(screen.getByText('Previous')).toBeDefined();
-    expect(screen.getByText('Next')).toBeDefined();
+    // Both mobile and desktop have "Next" — 2 total
+    expect(screen.getAllByText('Next').length).toBe(2);
   });
 
   it('disables Previous on first page', () => {
@@ -31,13 +32,15 @@ describe('Pagination', () => {
 
   it('disables Next on last page', () => {
     render(<Pagination {...defaultProps} page={5} />);
-    expect(screen.getByText('Next')).toBeDisabled();
+    const all = screen.getAllByText('Next');
+    all.forEach((btn) => expect(btn).toBeDisabled());
   });
 
-  it('calls onPageChange when clicking Next', () => {
+  it('calls onPageChange when clicking desktop Next', () => {
     const onPageChange = vi.fn();
     render(<Pagination {...defaultProps} page={2} onPageChange={onPageChange} />);
-    fireEvent.click(screen.getByText('Next'));
+    const all = screen.getAllByText('Next');
+    fireEvent.click(all[1]); // second Next = desktop
     expect(onPageChange).toHaveBeenCalledWith(3);
   });
 
@@ -48,11 +51,10 @@ describe('Pagination', () => {
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
 
-  it('shows nothing when totalPages <= 0', () => {
+  it('shows items per page when totalPages <= 0', () => {
     const { container } = render(<Pagination {...defaultProps} totalPages={0} />);
-    // Nav element should still render (with items per page), but page buttons hidden
-    const nav = container.querySelector('nav');
-    expect(nav).toBeDefined();
+    expect(container.querySelector('nav')).toBeDefined();
+    expect(screen.getByLabelText('Items per page:')).toBeDefined();
   });
 
   it('renders items per page selector', () => {
@@ -67,16 +69,24 @@ describe('Pagination', () => {
     expect(onLimitChange).toHaveBeenCalledWith(25);
   });
 
-  it('renders page number buttons', () => {
+  it('renders page 1 and last page in desktop view', () => {
     render(<Pagination {...defaultProps} page={3} />);
-    // Page 1 and last page (5) should be visible
-    expect(screen.getByText('1')).toBeDefined();
-    expect(screen.getByText('5')).toBeDefined();
+    const buttons = screen.getAllByRole('button');
+    const pageNums = buttons
+      .filter((b) => !['Previous', 'Next', 'Prev'].includes(b.textContent || ''))
+      .map((b) => b.textContent);
+    expect(pageNums).toContain('1');
+    expect(pageNums).toContain('5');
   });
 
   it('highlights current page button', () => {
-    render(<Pagination {...defaultProps} page={1} />);
-    const pageOneButton = screen.getByText('1');
-    expect(pageOneButton.className).toContain('bg-primary-600');
+    const { container } = render(<Pagination {...defaultProps} page={1} />);
+    // Find the desktop nav buttons (not mobile)
+    const allButtons = container.querySelectorAll('nav button');
+    const currentPage = Array.from(allButtons).find(
+      (b) => b.className.includes('bg-primary-600'),
+    );
+    expect(currentPage).toBeDefined();
+    expect(currentPage?.textContent).toBe('1');
   });
 });
