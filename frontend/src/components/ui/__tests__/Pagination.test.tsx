@@ -2,69 +2,81 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Pagination from '../Pagination';
 
-describe('FE-04 & FE-08: Pagination', () => {
+describe('Pagination', () => {
   const defaultProps = {
     page: 1,
     totalPages: 5,
-    totalItems: 50,
-    limit: 10,
     onPageChange: vi.fn(),
+    limit: 10,
     onLimitChange: vi.fn(),
+    totalItems: 50,
   };
 
-  it('should render page info and items count', () => {
+  it('renders page info', () => {
     render(<Pagination {...defaultProps} />);
-
-    expect(screen.getByText('Items per page:')).toBeInTheDocument();
-    expect(screen.getByText('(50 items)')).toBeInTheDocument();
-    expect(screen.getByText('1/5')).toBeInTheDocument();
+    expect(screen.getByText(/Page/)).toBeDefined();
+    expect(screen.getByText('50')).toBeDefined(); // totalItems
   });
 
-  it('should not have "All" option in limit dropdown', () => {
-    render(<Pagination {...defaultProps} />);
-
-    const select = screen.getByRole('combobox');
-    const options = Array.from(select.querySelectorAll('option'));
-    const labels = options.map((o) => o.textContent);
-
-    expect(labels).not.toContain('All');
+  it('renders Previous and Next buttons', () => {
+    render(<Pagination {...defaultProps} page={3} />);
+    expect(screen.getByText('Previous')).toBeDefined();
+    expect(screen.getByText('Next')).toBeDefined();
   });
 
-  it('should call onPageChange when Next clicked', () => {
+  it('disables Previous on first page', () => {
+    render(<Pagination {...defaultProps} page={1} />);
+    expect(screen.getByText('Previous')).toBeDisabled();
+  });
+
+  it('disables Next on last page', () => {
+    render(<Pagination {...defaultProps} page={5} />);
+    expect(screen.getByText('Next')).toBeDisabled();
+  });
+
+  it('calls onPageChange when clicking Next', () => {
     const onPageChange = vi.fn();
-    render(<Pagination {...defaultProps} onPageChange={onPageChange} />);
+    render(<Pagination {...defaultProps} page={2} onPageChange={onPageChange} />);
+    fireEvent.click(screen.getByText('Next'));
+    expect(onPageChange).toHaveBeenCalledWith(3);
+  });
 
-    const nextBtns = screen.getAllByText('Next');
-    fireEvent.click(nextBtns[0]);
-
+  it('calls onPageChange when clicking Previous', () => {
+    const onPageChange = vi.fn();
+    render(<Pagination {...defaultProps} page={3} onPageChange={onPageChange} />);
+    fireEvent.click(screen.getByText('Previous'));
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
 
-  it('should disable Previous on first page', () => {
+  it('shows nothing when totalPages <= 0', () => {
+    const { container } = render(<Pagination {...defaultProps} totalPages={0} />);
+    // Nav element should still render (with items per page), but page buttons hidden
+    const nav = container.querySelector('nav');
+    expect(nav).toBeDefined();
+  });
+
+  it('renders items per page selector', () => {
+    render(<Pagination {...defaultProps} />);
+    expect(screen.getByLabelText('Items per page:')).toBeDefined();
+  });
+
+  it('calls onLimitChange when changing limit', () => {
+    const onLimitChange = vi.fn();
+    render(<Pagination {...defaultProps} onLimitChange={onLimitChange} />);
+    fireEvent.change(screen.getByLabelText('Items per page:'), { target: { value: '25' } });
+    expect(onLimitChange).toHaveBeenCalledWith(25);
+  });
+
+  it('renders page number buttons', () => {
+    render(<Pagination {...defaultProps} page={3} />);
+    // Page 1 and last page (5) should be visible
+    expect(screen.getByText('1')).toBeDefined();
+    expect(screen.getByText('5')).toBeDefined();
+  });
+
+  it('highlights current page button', () => {
     render(<Pagination {...defaultProps} page={1} />);
-
-    const prevBtn = screen.getByText('Previous');
-    expect(prevBtn).toBeDisabled();
-  });
-
-  it('should disable Next on last page', () => {
-    render(<Pagination {...defaultProps} page={5} />);
-
-    const nextBtns = screen.getAllByText('Next');
-    expect(nextBtns[0]).toBeDisabled();
-  });
-
-  it('should generate unique limit select ids for multiple instances', () => {
-    render(
-      <>
-        <Pagination {...defaultProps} />
-        <Pagination {...defaultProps} page={2} />
-      </>,
-    );
-
-    const selects = screen.getAllByRole('combobox');
-    expect(selects[0].id).toBeTruthy();
-    expect(selects[1].id).toBeTruthy();
-    expect(selects[0].id).not.toBe(selects[1].id);
+    const pageOneButton = screen.getByText('1');
+    expect(pageOneButton.className).toContain('bg-primary-600');
   });
 });

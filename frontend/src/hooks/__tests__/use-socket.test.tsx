@@ -26,6 +26,7 @@ const mockSocket = {
   }),
   disconnect: vi.fn(),
   emit: vi.fn(),
+  removeAllListeners: vi.fn(),
 };
 
 vi.mock('socket.io-client', () => ({
