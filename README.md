@@ -491,8 +491,12 @@ cd backend
 npm run test
 
 # Backend E2E tests (requires docker compose up -d)
+# Production stack (HTTPS with docker-compose.prod.yml):
 cd backend
 E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2e
+# Isolated stack (HTTP, separate DB/Redis, port 3001):
+docker compose -f docker-compose.e2e.yml up -d --build
+E2E_HOST=localhost E2E_PORT=3001 E2E_PROTOCOL=http npm run test:e2e
 
 # Frontend tests + lint (zero warnings policy)
 cd frontend
@@ -520,7 +524,7 @@ Frontend tests (213 tests, 44 suites):
 - All stores tested: auth-store
 - All pages tested: Login, Tickets, TicketDetail, Dashboard, CreateTicket, Notifications, MyAccount, Admin (Users, MasterData, Maintenance)
 - Utilities tested: sla-time, theme colors, app-initializers, global styles
-- E2E smoke test (14 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401 → maintenance mode (enable, health check, exempt path, disable)
+- E2E smoke test (15 tests) — health → login → categories → create location → create ticket → update status → comment → dashboard → delete → refresh 401 → maintenance mode (enable, health check, exempt path, disable)
 
 ## Scaling
 

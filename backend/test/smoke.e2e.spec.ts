@@ -63,6 +63,9 @@ describe('E2E Smoke Test', () => {
     ticketId: '',
     locationId: '',
   };
+
+  const runId = Date.now().toString(36);
+
   test('GET /health — returns healthy', async () => {
     const res = await request('GET', '/health');
     expect(res.status).toBe(200);
@@ -94,7 +97,7 @@ describe('E2E Smoke Test', () => {
   });
 
   test('POST /locations — creates a location for ticket', async () => {
-    const res = await request('POST', '/locations', { name: 'E2E Test Location' }, state.accessToken);
+    const res = await request('POST', '/locations', { name: `E2E Test Location ${runId}` }, state.accessToken);
     expect(res.status).toBe(201);
     expect(res.data.data.id).toBeDefined();
     state.locationId = res.data.data.id;

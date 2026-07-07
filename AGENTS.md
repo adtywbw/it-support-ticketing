@@ -40,7 +40,7 @@
 |------|---------|---------|
 | Backend unit tests | `backend` | `npm test` |
 | Backend lint | `backend` | `npm run lint` |
-| Backend E2E tests | `backend` | `E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2e` |
+| Backend E2E tests | `backend` | `E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2e` (prod stack) or `E2E_HOST=localhost E2E_PORT=3001 E2E_PROTOCOL=http npm run test:e2e` (isolated e2e stack) |
 | Backend build | `backend` | `npm run build` |
 | Frontend build | `frontend` | `npm run build` |
 | Frontend lint | `frontend` | `npm run lint` |
@@ -287,13 +287,15 @@ postgres/postgresql.conf
 
 ## Final Score: 10/10
 
-After 6 code review rounds across 22 commits:
+After 6 code review rounds across 23 commits:
+
 - R1 (8.8): File save order, guard ordering, CI, CsrfGuard
 - R2 (9.2): Double toast (7 hooks), SLA fallback, audit TTL, socket cleanup
 - R3 (9.4): Upload toast, parallel upload, staleTime, module imports
 - R4 (9.5): E2E locationId, 4 more double toast
 - R5 (9.8): AuditLog API, module imports, component tests
 - R6 (9.9): HealthController @Res(), 6 remaining double toast
+- R7 (10.0): Health test fix (controller refactored but test not updated), full-suite verification (E2E 15/15, unit 757/757, frontend 213/213)
 
 Zero findings. Zero double-toast. All tests green.
 

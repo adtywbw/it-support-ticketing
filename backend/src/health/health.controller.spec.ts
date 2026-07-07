@@ -1,8 +1,8 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-
 
 describe('HealthController', () => {
   let controller: HealthController;
@@ -27,21 +27,12 @@ describe('HealthController', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  function mockRes() {
-    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() } as any;
-    return res;
-  }
-
   it('returns healthy when DB and Redis are up', async () => {
     mockPrisma.healthCheck.mockResolvedValue(true);
     mockRedis.ping.mockResolvedValue(true);
     mockRedis.get.mockResolvedValue(null);
 
-    const res = mockRes();
-    await controller.check();
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    const body = res.json.mock.calls[0][0];
+    const body = await controller.check();
     expect(body.status).toBe('healthy');
     expect(body.checks.database).toBe('healthy');
     expect(body.checks.redis).toBe('healthy');
@@ -52,20 +43,19 @@ describe('HealthController', () => {
     mockPrisma.healthCheck.mockResolvedValue(false);
     mockRedis.ping.mockResolvedValue(true);
 
-    const res = mockRes();
-    await controller.check();
-
-    expect(res.status).toHaveBeenCalledWith(503);
-    expect(res.json.mock.calls[0][0].checks.database).toBe('unhealthy');
+    await expect(controller.check()).rejects.toThrow(ServiceUnavailableException);
+    await expect(controller.check()).rejects.toMatchObject({
+      response: { checks: { database: 'unhealthy' } },
+    });
   });
 
   it('handles Redis being unreachable', async () => {
     mockPrisma.healthCheck.mockResolvedValue(true);
     mockRedis.ping.mockRejectedValue(new Error('timeout'));
 
-    const res = mockRes();
-    await controller.check();
-
-    expect(res.json.mock.calls[0][0].checks.redis).toBe('unhealthy');
+    await expect(controller.check()).rejects.toThrow(ServiceUnavailableException);
+    await expect(controller.check()).rejects.toMatchObject({
+      response: { checks: { redis: 'unhealthy' } },
+    });
   });
 });

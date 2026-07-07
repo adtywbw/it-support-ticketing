@@ -2,6 +2,29 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 57 — Code Review Final: Health Test Fix, E2E Idempotency, Full-Suite Verification (2026-07-07)
+
+### Fixed (Minor)
+- **`health.controller.spec.ts` — test masih mock `@Res()` lama setelah controller direfactor**: Session 56 refactor controller dari `@Res()` ke `@HttpCode(200)` + return body langsung, tapi test tidak diupdate. Test masih pakai `mockRes()` yang membuat `res.status().json()` — tidak pernah dipanggil karena controller sudah return body langsung. **Diganti ke assertion return value + `rejects.toThrow` untuk unhealthy case.** (`health.controller.spec.ts`)
+- **E2E `POST /locations` — 409 Conflict on re-run**: Location name `'E2E Test Location'` memiliki `@unique` constraint di Prisma schema. Test gagal 409 saat dijalankan ulang karena nama sudah ada dari run sebelumnya. **Ditambahkan `runId` (timestamp base-36) ke nama lokasi** agar unik per run. (`smoke.e2e.spec.ts`)
+
+### Changed
+- **README.md**: E2E section sekarang dokumentasikan kedua approach — production stack (HTTPS) dan isolated e2e stack (HTTP port 3001). Test count updated 14→15.
+- **AGENTS.md**: E2E verification command updated dengan kedua opsi. R7 ditambahkan ke Final Score.
+- **CHANGELOG.md**: Session 57 added.
+
+### Verification (Full Suite)
+- Backend: build ✅, lint 0 errors ✅, tests 757/757 ✅
+- Frontend: build ✅, lint 0 errors ✅, tests 213/213 ✅
+- E2E (production HTTPS stack, 2nd run): 15/15 ✅ — idempotent, no test-data collision
+
+### Files Changed
+- `backend/src/health/health.controller.spec.ts` — mockRes → return value + rejects pattern
+- `backend/test/smoke.e2e.spec.ts` — runId for location name, fix corrupted patch (restore missing `const res` in health test)
+- `AGENTS.md` — R7 in Final Score, dual E2E command
+- `README.md` — dual E2E command, test count 14→15
+- `CHANGELOG.md` — Session 57 entry
+
 ## Session 56 — Code Review Round 6: HealthController @Res(), 6 Double Toast Cleanup (2026-07-07)
 
 ### Fixed (Critical)
