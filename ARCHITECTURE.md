@@ -67,6 +67,7 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `SlaConfigRepository` | `sLAConfig` | `SLAService`; also `findAllActive()` for pre-loaded config map in `performSLACheck` |
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
+| `LocationRepository` | `location` | `LocationsService` |
 
 The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users. It also manages a maintenance mode flag stored in Redis that blocks non-admin API requests via `MaintenanceGuard` while allowing Admin through via JWT verification.
 
@@ -110,6 +111,8 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ FK requesterId → users      UUID
 │ FK categoryId → categories  UUID
 │ FK subCategoryId → sub_categories  UUID? (nullable)
+│ FK locationId → locations    UUID? (nullable)
+│ itemCode                   VARCHAR(50)  @default("-")
 │ priority                  Priority  (Low|Medium|High|Critical)
 │ status                   TicketStatus (Open|InProgress|OnHold|Resolved|Closed)
 │ FK assignedToId → users    UUID? (nullable)
@@ -236,6 +239,17 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ NOTE: Singleton enforced by unique key; repository uses atomic upsert.
 └─────────────────────────────────────────────────────────────────────┘
 
+┌─────────────────────────────────────────────────────────────────────┐
+│ locations
+│ PK id (UUID)
+│ name (UNIQUE)               VARCHAR
+│ isActive                   Boolean
+│ createdAt                  DateTime
+│ updatedAt                  DateTime
+│ INDEXES: (isActive)
+│ 1──< tickets (locationId) — ON DELETE SET NULL
+└─────────────────────────────────────────────────────────────────────┘
+
 ```
 
 ---
@@ -316,6 +330,7 @@ it-support-ticketing/
 │       │       ├── sub-category.repository.ts
 │       │       ├── sla-config.repository.ts
 │       │       ├── notification.repository.ts
+│       │       ├── location.repository.ts
 │       │       ├── telegram-config.repository.ts
 │       ├── auth/
 │       │   ├── auth.module.ts
@@ -362,6 +377,13 @@ it-support-ticketing/
 │       │   ├── sub-categories.controller.ts
 │       │   ├── sub-categories.service.ts
 │       │   └── dto/
+│       ├── locations/
+│       │   ├── locations.module.ts
+│       │   ├── locations.controller.ts
+│       │   ├── locations.service.ts
+│       │   └── dto/
+│       │       ├── create-location.dto.ts
+│       │       └── update-location.dto.ts
 │       ├── sla/
 │       │   ├── sla.module.ts
 │       │   ├── sla.controller.ts
@@ -432,6 +454,7 @@ it-support-ticketing/
 │       │   ├── use-maintenance.ts
 │       │   ├── use-sla-configs.ts
 │       │   ├── use-change-password.ts
+│       │   ├── use-locations.ts
 │       │   └── use-socket.ts
 │       ├── auth/
 │       │   ├── LoginForm.tsx

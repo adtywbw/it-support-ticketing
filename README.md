@@ -115,7 +115,7 @@ See [ARCHITECTURE.md §4 Folder Structure](./ARCHITECTURE.md#4-folder-structure)
 
 ## Database Schema
 
-10 tables with proper indexes and foreign keys (users, tickets, comments, attachments, categories, sub_categories, sla_configs, ticket_history, notifications, telegram_config).
+11 tables with proper indexes and foreign keys (users, tickets, comments, attachments, categories, sub_categories, locations, sla_configs, ticket_history, notifications, telegram_config).
 
 See [ARCHITECTURE.md §3 Database Schema](./ARCHITECTURE.md#3-database-schema-erd-textual) for the full ERD with fields, indexes, and relationships.
 
@@ -201,6 +201,7 @@ The seed script creates:
 - **IT Support** user: `support@company.com` / `Support123!`
 - 2 categories (Hardware, Software) with SLA configs
 - 1 sample ticket
+- Locations can be added via Master Data (Admin) or seed script
 
 Production containers do not run seed automatically. If the seed script is run manually in production, `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` are required and the default admin/support passwords are updated to those values. The sample ticket is skipped when `NODE_ENV=production`.
 
@@ -384,6 +385,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | PATCH/DELETE | `/api/categories/:id` | Update / Delete category |
 | GET/POST | `/api/categories/:id/sub-categories` | List / Create sub-categories |
 | PATCH/DELETE | `/api/categories/:categoryId/sub-categories/:id` | Update / Delete sub-category |
+| GET/POST/PATCH/DELETE | `/api/locations` | List / Create / Update / Delete locations (Admin write; role-based read) |
 | GET/POST | `/api/sla-configs` | List / Create SLA configs |
 | PATCH | `/api/sla-configs/:id` | Update SLA config |
 | GET/POST | `/api/maintenance/backups` | List / Create operational backups (Admin only) |
@@ -427,7 +429,7 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | `/notifications` | In-app notifications | Authenticated |
 | `/my-account` | Profile info, self-service password change, notification preferences | Authenticated |
 | `/admin/users` | User management | Admin |
-| `/admin/master-data` | Categories, SLA configs | Admin |
+| `/admin/master-data` | Categories, Sub-categories, Locations, SLA configs, FAQ | Admin |
 | `/admin/maintenance` | Backup create/list/download/delete/restore + restore instructions | Admin |
 
 ## API Response Format

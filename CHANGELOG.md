@@ -2,7 +2,48 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
-## Session 47 — Code Review Final Batch: CSRF, Device Fingerprint, File Safety, Restore Transaction (2026-07-06)
+## Session 50 — Location Master Data + Item Code + Required Fields (2026-07-07)
+
+### Added
+- **Location master data model**: New `Location` table with soft-delete (`isActive`). Admin-managed CRUD from Master Data page. Soft-delete when location has related tickets; hard-delete when empty. (`prisma/schema.prisma`, `locations/` module — 4 new files)
+- **Item Code field on tickets**: Required `itemCode` field (`VARCHAR(50)`, default `-`) on every ticket. Displayed on create form, list, detail, and CSV export. (`create-ticket.dto.ts`, `tickets.service.ts`)
+- **`useLocations()` hook**: Reference data hook (30min staleTime) for fetching active locations. (`hooks/use-locations.ts` — NEW)
+- **Locations tab in Master Data**: Full CRUD table with Name, Total Tickets, Status columns and Add/Edit/Delete modal with soft-delete behavior. (`MasterDataManagement.tsx`)
+- **Location + Item Code columns in TicketList**: New columns after Category showing location name and item code. (`TicketList.tsx`)
+- **Location + Item Code in TicketDetail**: Info grid rows for Location and Item Code. (`TicketDetail.tsx`)
+- **Location + Item Code in CSV export**: Headers and data rows include Location and Item Code columns. (`tickets.service.ts`)
+- **Location API endpoints** (`GET/POST/PATCH/DELETE /api/locations`): Admin-only write; Admin sees all (incl. inactive), other roles see active only. (`locations.controller.ts`)
+
+### Changed
+- **Sub-category is now required**: `subCategoryId` changed from `@IsOptional()` to `@IsUUID() @IsNotEmpty()` in `CreateTicketDto`. Frontend validation + error display added. Label changed from "Sub-category (optional)" to "Sub-category". (`create-ticket.dto.ts`, `CreateTicketForm.tsx`, `types/index.ts`)
+- **Location is now required**: `locationId` changed from `@IsOptional()` to `@IsUUID() @IsNotEmpty()` in `CreateTicketDto`. Frontend validation + error display added. (`create-ticket.dto.ts`, `CreateTicketForm.tsx`, `types/index.ts`)
+- **Item Code is now required**: Already `@IsNotEmpty()` in backend; frontend validation now enforces it with error display. (`CreateTicketForm.tsx`)
+- **ProtectedRoute refresh fix**: Removed `!cancelled` guard from `.finally()` — Zustand's `set()` triggers synchronous React re-render within the same microtask, causing the effect cleanup to set `cancelled = true` before `.finally()` checks it, leaving `checking` stuck as `true` forever. (`ProtectedRoute.tsx`)
+- **Migration applied**: `20260707040709_add_locations_and_item_code` — creates `locations` table, adds `locationId` + `itemCode` columns to `tickets` with proper FK and indexes. (`prisma/migrations/` — NEW)
+
+### Files Changed (21 files, +582/-16 lines)
+- `backend/prisma/schema.prisma` — Location model + Ticket fields
+- `backend/prisma/migrations/20260707040709_add_locations_and_item_code/migration.sql` — NEW
+- `backend/src/common/repositories/location.repository.ts` — NEW
+- `backend/src/common/repositories/repositories.module.ts` — register LocationRepository
+- `backend/src/locations/` — NEW module (4 files)
+- `backend/src/app.module.ts` — register LocationsModule
+- `backend/src/tickets/dto/create-ticket.dto.ts` — subCategoryId, locationId required
+- `backend/src/tickets/tickets.service.ts` — location include + itemCode in create, list, detail, CSV
+- `backend/src/tickets/__tests__/create-ticket.dto.spec.ts` — update validData
+- `backend/src/tickets/tickets.service.spec.ts` — add subCategoryId + mock
+- `frontend/src/auth/ProtectedRoute.tsx` — fix refresh stuck loading
+- `frontend/src/types/index.ts` — Location + CreateTicketPayload types
+- `frontend/src/hooks/use-locations.ts` — NEW
+- `frontend/src/components/tickets/CreateTicketForm.tsx` — Location + Item Code + required validation
+- `frontend/src/components/tickets/TicketDetail.tsx` — Location & Item Code display
+- `frontend/src/components/tickets/TicketList.tsx` — Location & Item Code columns
+- `frontend/src/components/admin/MasterDataManagement.tsx` — Locations tab
+
+### Verification
+- Backend: build ✅, tests 757/757 ✅
+- Frontend: build ✅, tests 221/221 ✅
+- E2E (fresh production HTTPS): 13/13 ✅ — login, categories, locations CRUD, ticket create with all required fields, detail, list, CSV export, validation (missing subCategoryId/locationId/itemCode, invalid subCategoryId), ITSupport create, location CRUD, role-based access
 
 ### Added
 - **CSRF protection via `CsrfGuard`**: New global guard that checks `X-Requested-With: XMLHttpRequest` on all state-changing requests. Safe methods (GET, HEAD, OPTIONS) and exempt paths (`/auth/login`, `/auth/refresh`, `/auth/logout`, `/health`) bypass the check. Registered as the first `APP_GUARD` in `app.module.ts` — runs before `MaintenanceGuard` and `JwtAuthGuard`. (`common/guards/csrf.guard.ts` — NEW, `app.module.ts`)

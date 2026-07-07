@@ -54,9 +54,9 @@
 
 ## Project Structure
 ```
-backend/src/{auth,tickets,comments,attachments,categories,sub-categories,dashboard,users,sla,notifications,telegram,maintenance,health,faqs}
+backend/src/{auth,tickets,comments,attachments,categories,sub-categories,locations,dashboard,users,sla,notifications,telegram,maintenance,health,faqs}
 backend/src/dashboard/dto/query-dashboard-stats.dto.ts
-backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,sla-config,notification,telegram-config}.repository.ts
+backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,location,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/services/{audit,services}.module.ts
 backend/src/common/policies/attachment-visibility.policy.ts
 backend/src/common/utils/{upload,mime-validation,time,concurrency,env-validation,notification-preference,transform,pagination}.util.ts
@@ -214,6 +214,7 @@ postgres/postgresql.conf
   - `analytics`: `{ range, trend[], statusCounts, priorityCounts, slaComplianceRate, avgResolutionTimeByCategory[], topCategories[] }` — range-scoped analytics.
 - Users: `GET|POST|PATCH|DELETE /api/users`, `GET /api/users/:id`, `GET /api/users/assignable`; `GET ?includeInactive=true` includes inactive users.
 - Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, unread-count, and preferences (`GET|PATCH /api/notifications/preferences`) operations.
+- Locations: `GET|POST|PATCH|DELETE /api/locations`. Admin sees all (incl. `_count.tickets`); other roles see active only (`id`, `name`). Admin-only write.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
 - Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
 
