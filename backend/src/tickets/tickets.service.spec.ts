@@ -132,6 +132,7 @@ describe('TicketsService', () => {
       subject: 'Cannot connect to VPN',
       description: 'Getting error code 789 when connecting',
       categoryId: 'cat-1',
+      itemCode: '-',
       priority: Priority.High,
     };
     const now = new Date('2026-06-18T12:00:00Z');

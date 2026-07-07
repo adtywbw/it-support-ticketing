@@ -50,6 +50,8 @@ model Ticket {
   requesterId   String
   categoryId    String
   subCategoryId String?
+  locationId    String?
+  itemCode      String       @default("-") @db.VarChar(50)
   priority      Priority     @default(Medium)
   status        TicketStatus @default(Open)
   assignedToId  String?
@@ -65,6 +67,7 @@ model Ticket {
   assignedTo  User?           @relation("AssignedTickets", fields: [assignedToId], references: [id])
   category    Category        @relation(fields: [categoryId], references: [id])
   subCategory SubCategory?    @relation(fields: [subCategoryId], references: [id])
+  location    Location?       @relation(fields: [locationId], references: [id])
   comments    Comment[]
   attachments Attachment[]
   histories   TicketHistory[]
@@ -77,12 +80,26 @@ model Ticket {
   @@index([priority])
   @@index([categoryId])
   @@index([subCategoryId])
+  @@index([locationId])
   @@index([slaStatus])
   @@index([updatedAt])
   @@index([requesterId, createdAt])
   @@index([assignedToId, status])
   @@index([status, slaStatus])
   @@map("tickets")
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+
+  @@index([isActive])
+  @@map("locations")
 }
 
 enum TicketStatus {

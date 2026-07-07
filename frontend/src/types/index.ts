@@ -26,6 +26,9 @@ export interface Ticket {
   category?: Category;
   subCategoryId?: string | null;
   subCategory?: SubCategory;
+  locationId?: string | null;
+  location?: { id: string; name: string } | null;
+  itemCode: string;
   requesterId: string;
   requester?: { id: string; name: string; email: string };
   assignedToId?: string | null;
@@ -244,7 +247,27 @@ export interface CreateTicketPayload {
   description: string;
   categoryId: string;
   subCategoryId?: string;
+  locationId?: string;
+  itemCode: string;
   priority: TicketPriority;
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  isActive: boolean;
+  _count?: { tickets: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLocationPayload {
+  name: string;
+}
+
+export interface UpdateLocationPayload {
+  name?: string;
+  isActive?: boolean;
 }
 
 export interface CreateUserPayload {

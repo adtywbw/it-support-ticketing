@@ -159,6 +159,12 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
                     Category
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
+                    Location
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
+                    Item Code
+                  </th>
                   <SortHeader field="status" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Status</SortHeader>
                   <SortHeader field="priority" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Priority</SortHeader>
                   <SortHeader field="slaStatus" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>SLA Status</SortHeader>
@@ -194,6 +200,12 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-navy-500 dark:text-blue-300">
                       {ticket.category?.name ?? '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-navy-500 dark:text-blue-300">
+                      {ticket.location?.name ?? '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-navy-500 dark:text-blue-300">
+                      {ticket.itemCode || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge status={ticket.status} />

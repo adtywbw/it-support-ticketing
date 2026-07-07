@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import apiClient from '@/lib/axios';
+import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
@@ -15,13 +15,16 @@ import FaqManager from '@/components/admin/FaqManager';
 import type {
   Category,
   SubCategory,
+  Location,
   CreateCategoryPayload,
   UpdateCategoryPayload,
   CreateSubCategoryPayload,
   UpdateSubCategoryPayload,
+  CreateLocationPayload,
+  UpdateLocationPayload,
 } from '@/types';
 
-type Tab = 'categories' | 'subcategories' | 'sla' | 'faq';
+type Tab = 'categories' | 'subcategories' | 'sla' | 'faq' | 'locations';
 
 export default function MasterDataManagement() {
   const [activeTab, setActiveTab] = useState<Tab>('categories');
@@ -70,6 +73,16 @@ export default function MasterDataManagement() {
           >
             FAQ
           </button>
+          <button
+            onClick={() => setActiveTab('locations')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'locations'
+                ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                : 'border-transparent text-navy-500 hover:text-navy-700 dark:text-blue-300 dark:hover:text-blue-200'
+            }`}
+          >
+            Locations
+          </button>
         </nav>
       </div>
 
@@ -77,6 +90,7 @@ export default function MasterDataManagement() {
       {activeTab === 'subcategories' && <SubCategoryManager />}
       {activeTab === 'sla' && <SLAConfigManager />}
       {activeTab === 'faq' && <FaqManager />}
+      {activeTab === 'locations' && <LocationManager />}
     </div>
   );
 }
@@ -422,6 +436,167 @@ function SubCategoryManager() {
         onConfirm={() => deletingItem && deleteMutation.mutate(deletingItem)}
         title="Delete Sub-category"
         message="Are you sure you want to delete this sub-category?"
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={isPending}
+      />
+    </div>
+  );
+}
+
+function LocationManager() {
+  const queryClient = useQueryClient();
+  const { data: locations, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['locations'],
+    queryFn: async () => {
+      const response = await apiClient.get<ApiEnvelope<Location[]>>('/locations');
+      return unwrapData(response) as Location[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Location | null>(null);
+  const [formName, setFormName] = useState('');
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: async (payload: CreateLocationPayload) => {
+      await apiClient.post('/locations', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      setIsModalOpen(false);
+    },
+    onError: (err: unknown) => {
+      const msg = getErrorMessage(err, 'Failed to create location');
+      toast.error(msg);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: UpdateLocationPayload }) => {
+      await apiClient.patch(`/locations/${id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      setIsModalOpen(false);
+    },
+    onError: (err: unknown) => {
+      const msg = getErrorMessage(err, 'Failed to update location');
+      toast.error(msg);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/locations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
+      setIsDeleteOpen(false);
+    },
+    onError: (err: unknown) => {
+      const msg = getErrorMessage(err, 'Failed to delete location');
+      toast.error(msg);
+    },
+  });
+
+  const openCreate = () => {
+    setEditingItem(null);
+    setFormName('');
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (loc: Location) => {
+    setEditingItem(loc);
+    setFormName(loc.name);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (editingItem) {
+      updateMutation.mutate({
+        id: editingItem.id,
+        payload: { name: formName },
+      });
+    } else {
+      createMutation.mutate({ name: formName });
+    }
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+  if (isLoading) return <div className="card p-12"><LoadingSpinner size="lg" /></div>;
+  if (isError) return <ErrorMessage message={getErrorMessage(error, 'Failed to load')} onRetry={() => refetch()} />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button onClick={openCreate} className="btn-primary">Add Location</button>
+      </div>
+
+      {!locations || locations.length === 0 ? (
+        <div className="card">
+          <EmptyState title="No locations" description="Create your first location." action={<button onClick={openCreate} className="btn-primary">Add Location</button>} />
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-blue-100 dark:divide-navy-800">
+              <thead className="bg-blue-50 dark:bg-navy-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Total Tickets</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-blue-100 dark:bg-navy-900 dark:divide-navy-800">
+                {locations.map((loc) => (
+                  <tr key={loc.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
+                    <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{loc.name}</td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{loc._count?.tickets ?? 0}</td>
+                    <td className="px-6 py-4">
+                      {loc.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <button onClick={() => openEdit(loc)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
+                      <button
+                        onClick={() => { setDeletingId(loc.id); setIsDeleteOpen(true); }}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingItem ? 'Edit Location' : 'Add Location'}>
+        <div className="space-y-4">
+          <div>
+            <label className="label">Name</label>
+            <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} className="input" />
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button onClick={() => setIsModalOpen(false)} className="btn-secondary">Cancel</button>
+            <button onClick={handleSave} className="btn-primary" disabled={isPending}>{isPending ? 'Saving...' : 'Save'}</button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={() => deletingId && deleteMutation.mutate(deletingId)}
+        title="Delete Location"
+        message="Are you sure you want to delete this location? This action cannot be undone."
         confirmLabel="Delete"
         variant="danger"
         isLoading={isPending}

@@ -49,6 +49,8 @@ interface CsvExportTicket {
   priority: string;
   category?: { name: string } | null;
   subCategory?: { name: string } | null;
+  location?: { name: string } | null;
+  itemCode: string;
   requester?: { name: string } | null;
   assignedTo?: { name: string } | null;
   createdAt: Date;
@@ -172,6 +174,7 @@ export class TicketsService {
           assignedTo: { select: { id: true, name: true, email: true } },
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
+          location: { select: { id: true, name: true } },
           _count: {
             select: {
               comments: { where: { type: CommentType.PUBLIC } },
@@ -192,6 +195,7 @@ export class TicketsService {
           assignedTo: { select: { id: true, name: true, email: true } },
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
+          location: { select: { id: true, name: true } },
           _count: { select: { comments: true, attachments: true } },
         };
 
@@ -277,7 +281,7 @@ export class TicketsService {
       return `"${safe.replace(/"/g, '""')}"`;
     };
 
-    const headers = ['Ticket #', 'Subject', 'Status', 'Priority', 'Category', 'Sub Category', 'Created By', 'Assigned To', 'Created At', 'Resolved At', 'SLA Status'];
+    const headers = ['Ticket #', 'Subject', 'Status', 'Priority', 'Category', 'Sub Category', 'Location', 'Item Code', 'Created By', 'Assigned To', 'Created At', 'Resolved At', 'SLA Status'];
     res.write(headers.map(escapeCsv).join(',') + '\n');
 
     let totalExported = 0;
@@ -297,6 +301,7 @@ export class TicketsService {
           assignedTo: { select: { id: true, name: true, email: true } },
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
+          location: { select: { name: true } },
         };
 
         const batch = orderField === 'slaStatus'
@@ -340,6 +345,8 @@ export class TicketsService {
             ticket.priority,
             ticket.category?.name || '',
             ticket.subCategory?.name || '',
+            ticket.location?.name || '',
+            ticket.itemCode || '',
             ticket.requester?.name || '',
             ticket.assignedTo?.name || '',
             ticket.createdAt.toISOString(),
@@ -366,6 +373,7 @@ export class TicketsService {
       assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
       category: { select: { id: true, name: true } },
       subCategory: { select: { id: true, name: true } },
+      location: { select: { id: true, name: true } },
       _count: userRole === 'EndUser'
         ? {
             select: {
@@ -663,6 +671,10 @@ export class TicketsService {
               subCategory: createTicketDto.subCategoryId
                 ? { connect: { id: createTicketDto.subCategoryId } }
                 : undefined,
+              location: createTicketDto.locationId
+                ? { connect: { id: createTicketDto.locationId } }
+                : undefined,
+              itemCode: createTicketDto.itemCode,
               priority: createTicketDto.priority || Priority.Medium,
               slaDueAt,
               slaStatus,

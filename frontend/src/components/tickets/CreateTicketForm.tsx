@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCreateTicket, useUploadAttachment } from '@/hooks/use-tickets';
 import { useCategories } from '@/hooks/use-categories';
+import { useLocations } from '@/hooks/use-locations';
 import { useFileUpload } from '@/hooks/use-file-upload';
 import type { TicketPriority } from '@/types';
 import { formatFileSize } from '@/lib/utils';
@@ -14,6 +15,8 @@ interface FormData {
   description: string;
   categoryId: string;
   subCategoryId: string;
+  locationId: string;
+  itemCode: string;
   priority: TicketPriority | '';
 }
 
@@ -21,6 +24,8 @@ interface FormErrors {
   subject?: string;
   description?: string;
   categoryId?: string;
+  locationId?: string;
+  itemCode?: string;
   priority?: string;
 }
 
@@ -28,6 +33,7 @@ export default function CreateTicketForm() {
   const navigate = useNavigate();
   const { data: allCategories } = useCategories();
   const categories = allCategories?.filter((c) => c.isActive);
+  const { data: locations } = useLocations();
   const createMutation = useCreateTicket();
   const uploadMutation = useUploadAttachment();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,6 +43,8 @@ export default function CreateTicketForm() {
     description: '',
     categoryId: '',
     subCategoryId: '',
+    locationId: '',
+    itemCode: '',
     priority: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -77,6 +85,8 @@ export default function CreateTicketForm() {
         description: formData.description.trim(),
         categoryId: formData.categoryId,
         subCategoryId: formData.subCategoryId || undefined,
+        locationId: formData.locationId || undefined,
+        itemCode: formData.itemCode.trim() || '-',
         priority: formData.priority as TicketPriority,
       });
 
@@ -207,6 +217,44 @@ export default function CreateTicketForm() {
             <option value="Critical">Critical</option>
           </select>
           {errors.priority && <p className="mt-1 text-xs text-red-600">{errors.priority}</p>}
+        </div>
+
+        <div>
+          <label htmlFor="location" className="label">
+            Location
+          </label>
+          <select
+            id="location"
+            value={formData.locationId}
+            onChange={(e) =>
+              setFormData({ ...formData, locationId: e.target.value })
+            }
+            className={`input ${errors.locationId ? 'border-red-500' : ''}`}
+          >
+            <option value="">Select location</option>
+            {locations?.map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.name}
+              </option>
+            ))}
+          </select>
+          {errors.locationId && <p className="mt-1 text-xs text-red-600">{errors.locationId}</p>}
+        </div>
+
+        <div>
+          <label htmlFor="itemCode" className="label">
+            Item Code
+          </label>
+          <input
+            id="itemCode"
+            type="text"
+            value={formData.itemCode}
+            onChange={(e) => setFormData({ ...formData, itemCode: e.target.value })}
+            className={`input ${errors.itemCode ? 'border-red-500' : ''}`}
+            placeholder="Enter item code"
+          />
+          <p className="mt-1 text-xs text-navy-500 dark:text-blue-400">Jika tidak ada kode barang, isi "-"</p>
+          {errors.itemCode && <p className="mt-1 text-xs text-red-600">{errors.itemCode}</p>}
         </div>
       </div>
 

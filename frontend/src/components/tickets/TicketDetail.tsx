@@ -183,6 +183,16 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             </div>
 
             <div>
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Location</label>
+              <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">{ticket.location?.name ?? '-'}</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Item Code</label>
+              <p className="mt-1 text-sm text-navy-950 dark:text-blue-50">{ticket.itemCode || '-'}</p>
+            </div>
+
+            <div>
               <label className="text-xs font-medium text-navy-500 uppercase dark:text-blue-300">SLA Status</label>
               <p className={`mt-1 text-sm font-medium ${getSLAColor(ticket.slaStatus || '')}`}>
                 {ticket.slaStatus || 'N/A'}

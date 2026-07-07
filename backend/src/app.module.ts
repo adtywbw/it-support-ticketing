@@ -20,6 +20,7 @@ import { HealthModule } from './health/health.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { FaqsModule } from './faqs/faqs.module';
+import { LocationsModule } from './locations/locations.module';
 import { RepositoriesModule } from './common/repositories/repositories.module';
 import { ServicesModule } from './common/services/services.module';
 import { MaintenanceGuard } from './common/guards/maintenance.guard';
@@ -54,6 +55,7 @@ import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
     TelegramModule,
     MaintenanceModule,
     FaqsModule,
+    LocationsModule,
   ],
   providers: [
     {

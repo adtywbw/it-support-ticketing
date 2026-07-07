@@ -13,6 +13,7 @@ describe('CreateTicketDto', () => {
     subject: 'Cannot login to portal',
     description: 'I am unable to login to the customer portal since this morning.',
     categoryId: '550e8400-e29b-41d4-a716-446655440000',
+    itemCode: '-',
   };
 
   it('should pass with valid data', async () => {
