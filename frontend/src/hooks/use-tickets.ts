@@ -157,7 +157,6 @@ export function useUploadAttachment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['ticket', variables.ticketId, 'attachments'] });
     },
-    onError: (err) => toast.error(getErrorMessage(err, 'Failed to upload attachment')),
   });
 }
 

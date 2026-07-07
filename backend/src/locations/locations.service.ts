@@ -12,7 +12,7 @@ export class LocationsService {
   constructor(private readonly locationRepository: LocationRepository) {}
 
   async findAll() {
-    return this.locationRepository.findAll(true);
+    return this.locationRepository.findAll(true /* includeInactive */);
   }
 
   async findAllForForm() {

@@ -95,13 +95,14 @@ export default function CreateTicketForm() {
       });
 
       const uploadErrors: string[] = [];
-      for (const file of fileUpload.files) {
-        try {
-          await uploadMutation.mutateAsync({ ticketId: ticket.id, file });
-        } catch (err) {
-          uploadErrors.push(file.name);
-        }
-      }
+      const uploadResults = await Promise.allSettled(
+        fileUpload.files.map((file) =>
+          uploadMutation.mutateAsync({ ticketId: ticket.id, file }),
+        ),
+      );
+      uploadResults.forEach((r, i) => {
+        if (r.status === 'rejected') uploadErrors.push(fileUpload.files[i].name);
+      });
 
       if (uploadErrors.length > 0) {
         toast.error(`Ticket created, but failed to upload: ${uploadErrors.join(', ')}`);
