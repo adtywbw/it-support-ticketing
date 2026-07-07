@@ -71,7 +71,7 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 
 The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users. It also manages a maintenance mode flag stored in Redis that blocks non-admin API requests via `MaintenanceGuard` while allowing Admin through via JWT verification.
 
-All repositories are exported from `RepositoriesModule` (marked `@Global()`) and registered once in `AppModule` — no per-module imports needed, mirroring the pattern used by `PrismaModule`.
+All repositories are exported from `RepositoriesModule` (marked `@Global()`) and registered once in `AppModule`. All modules that inject repositories explicitly import `RepositoriesModule` in their `imports` array — no silent `@Global()` reliance.
 
 ---
 
@@ -413,9 +413,15 @@ it-support-ticketing/
 │       │   ├── dashboard.service.ts
 │       │   └── dto/
 │       │       └── query-dashboard-stats.dto.ts
-│       └── health/
-│           ├── health.module.ts
-│           └── health.controller.ts
+│   └── health/
+│       ├── health.module.ts
+│       └── health.controller.ts
+├── backend/src/audit-logs/
+│   ├── audit-logs.module.ts
+│   ├── audit-logs.controller.ts
+│   ├── audit-logs.service.ts
+│   └── dto/
+│       └── query-audit-log.dto.ts
 ├── frontend/
 │   ├── Dockerfile
 │   ├── nginx.conf

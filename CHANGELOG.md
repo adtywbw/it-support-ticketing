@@ -2,6 +2,43 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 56 — Code Review Round 6: HealthController @Res(), 6 Double Toast Cleanup (2026-07-07)
+
+### Fixed (Critical)
+- **HealthController uses `@Res()` anti-pattern**: Controller menggunakan `@Res()` (Express response object) yang BYPASS `TransformInterceptor` dan `HttpExceptionFilter`. Jika `prisma.healthCheck()` throw error unexpected (bukan return false), error tidak tertangani dan NestJS tidak bisa handle karena `@Res()` disable pipeline. **Refactor ke NestJS native**: `@HttpCode(200)` + return body langsung, `ServiceUnavailableException` untuk unhealthy. Error path sekarang melalui global exception filter. (`health.controller.ts`, `health.controller.spec.ts`)
+
+### Fixed (Important)
+- **6 inline `onError` + hook `onError` = double toast (remaining)**: Setelah R2-R4 membersihkan 11 double-toast, masih ada 6 tersisa di file yang belum diperiksa. **Dihapus semua inline `onError`**, hook handle error display. Affected: CommentSection (`useAddComment`), TicketDetail (`updateStatus`×2, `delete`), NotificationsPage (`markAsRead`). (`CommentSection.tsx`, `TicketDetail.tsx`, `NotificationsPage.tsx`)
+- **Unused imports**: `toast` di TicketDetail.tsx dan NotificationsPage.tsx setelah inline onError dihapus. **Cleaned**. (`TicketDetail.tsx`, `NotificationsPage.tsx`)
+
+### Verification
+- Backend: build ✅, lint ✅, tests 757/757 ✅
+- Frontend: build 541ms ✅, tests 213/213 ✅ (0 fail)
+
+## Session 55 — Gap Fixes: AuditLog API, Module Imports, Component Tests (2026-07-07)
+
+### Added
+- **`GET /api/audit-logs` endpoint (Admin-only)**: Paginated, filterable by action/entity/userId. Returns audit trail data yang sebelumnya write-only. (`audit-logs/` module — 4 files baru)
+- **Frontend component tests**: 20 new tests — StatusBadge (5), PriorityBadge (4), Pagination (11). Menggunakan testing-library `render`, `fireEvent`, `getByText`/`getAllByText`. (`StatusBadge.test.tsx`, `PriorityBadge.test.tsx`, `Pagination.test.tsx`)
+
+### Changed
+- **RepositoriesModule explicit import di 11 module**: Sebelumnya semua module rely pada `@Global()` silent. Sekarang TicketsModule, CommentsModule, AttachmentsModule, CategoriesModule, SubCategoriesModule, SLAModule, NotificationsModule, DashboardModule, TelegramModule, UsersModule, FaqsModule, LocationsModule **explicit import `RepositoriesModule`**. Dependency explicit, no silent `@Global()` reliance. (11 module files)
+- **`useSocket` test mock**: Tambah `removeAllListeners` stub. Fix 5 test failure setelah R2 add `removeAllListeners()` di hook cleanup. (`use-socket.test.tsx`)
+
+### Verification
+- Backend: build ✅, lint ✅, tests 757/757 ✅
+- Frontend: build 554ms ✅, tests 213/213 ✅ (20 added, 5 pre-existing fixed)
+
+## Session 54 — Code Review Round 4: E2E Location, 4 Double Toast (2026-07-07)
+
+### Fixed (Important)
+- **E2E test broken: missing `locationId` + `itemCode`**: Session 50 membuat `locationId` dan `itemCode` required di CreateTicketDto. E2E test tidak diupdate — selalu 400 validation error. **Ditambahkan locationId di state, test create location, dan field `locationId` + `itemCode` di payload ticket.** (`smoke.e2e.spec.ts`)
+- **4 `mutate()` + inline `onError` + hook `onError` = double toast**: TicketDetail assignMutation, Navbar markAsRead/clearAll/markAllAsRead. Hook juga punya `onError`. **Dihapus inline `onError`**, hook handle error display. (`TicketDetail.tsx`, `Navbar.tsx`)
+
+### Verification
+- Backend: build ✅, lint ✅, tests 757/757 ✅
+- Frontend: build ✅
+
 ## Session 53 — Code Review Round 2: Double Toast, SLA Fallback, Audit Log TTL, Socket (2026-07-07)
 
 ### Fixed (Important)

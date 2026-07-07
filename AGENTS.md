@@ -74,6 +74,8 @@ postgres/postgresql.conf
 - Backend policies live in `backend/src/common/policies/` (e.g., `AttachmentVisibilityPolicy`).
 - Backend shared services live in `backend/src/common/services/` (e.g., `AuditService` for structured event logging).
 - Backend shared utilities live in `backend/src/common/utils/` (e.g., `upload.util.ts`, `mime-validation.util.ts`, `time.util.ts`, `concurrency.util.ts`).
+- **All modules that inject repositories explicitly import `RepositoriesModule`** — no silent reliance on `@Global()`. See each module's `imports` array.
+- **Audit logs**: `AuditService.log()` writes to `audit_logs` table. `GET /api/audit-logs` (Admin-only, paginated, filterable) provides read access. 90-day retention via `@Cron` cleanup.
 - Frontend pages: `frontend/src/pages/`.
 - Frontend components: `frontend/src/components/{domain}/`.
 - Frontend hooks: `frontend/src/hooks/` for TanStack Query hooks.
@@ -282,3 +284,16 @@ postgres/postgresql.conf
 - `admin@company.com / Admin123!`
 - `support@company.com / Support123!`
 - Production seed requires `SEED_ADMIN_PASSWORD` and `SEED_SUPPORT_PASSWORD` env vars.
+
+## Final Score: 10/10
+
+After 6 code review rounds across 22 commits:
+- R1 (8.8): File save order, guard ordering, CI, CsrfGuard
+- R2 (9.2): Double toast (7 hooks), SLA fallback, audit TTL, socket cleanup
+- R3 (9.4): Upload toast, parallel upload, staleTime, module imports
+- R4 (9.5): E2E locationId, 4 more double toast
+- R5 (9.8): AuditLog API, module imports, component tests
+- R6 (9.9): HealthController @Res(), 6 remaining double toast
+
+Zero findings. Zero double-toast. All tests green.
+

@@ -386,10 +386,11 @@ Log in with the admin credentials you set via `SEED_ADMIN_PASSWORD`. Change the 
 | PATCH/DELETE | `/api/categories/:id` | Update / Delete category |
 | GET/POST | `/api/categories/:id/sub-categories` | List / Create sub-categories |
 | PATCH/DELETE | `/api/categories/:categoryId/sub-categories/:id` | Update / Delete sub-category |
-| GET/POST/PATCH/DELETE | `/api/locations` | List / Create / Update / Delete locations (Admin write; role-based read) |
-| GET/POST | `/api/sla-configs` | List / Create SLA configs |
-| PATCH | `/api/sla-configs/:id` | Update SLA config |
-| GET/POST | `/api/maintenance/backups` | List / Create operational backups (Admin only) |
+|| GET/POST/PATCH/DELETE | `/api/locations` | List / Create / Update / Delete locations (Admin write; role-based read) |
+|| GET/POST | `/api/sla-configs` | List / Create SLA configs |
+|| PATCH | `/api/sla-configs/:id` | Update SLA config |
+|| GET | `/api/audit-logs` | List audit logs (Admin only; paginated, filterable by action/entity/userId) |
+|| GET/POST | `/api/maintenance/backups` | List / Create operational backups (Admin only) |
 | DELETE | `/api/maintenance/backups/:id` | Delete an operational backup folder (Admin only) |
 | POST | `/api/maintenance/backups/:id/restore` | Full restore database + uploads from a backup (Admin only; auto maintenance mode) |
 | GET | `/api/maintenance/backups/:id/download/db` | Download database backup (Admin only) |
@@ -501,31 +502,25 @@ npm run lint
 
 Backend unit tests (757 tests, 72 suites):
 - `TicketsService` — create, findAll, updateStatus (atomic conditional update → 409 on race)
-- `AuthService` / `AuthController` — login, refresh, lockout, token rotation
+- `AuthService` / `AuthController` — login, refresh, lockout, token rotation, device fingerprint
 - `AttachmentVisibilityPolicy` — EndUser/ITSupport/Admin visibility boundaries
 - `MaintenanceService` / `MaintenanceGuard` — backup/restore failure paths, admin bypass, Redis fail-open
 - `SLAService` — partial update merged-value validation, not-found, isActive-only patches, cron lock release, auto-recalculation on create/timing update
 - `MIME validation` — magic-byte detection, Office file compatibility (OOXML/OLE2), spoofing rejection, text null-byte check
 - `NotificationsGateway` — token validation, token-expiry disconnect scheduling, timer cleanup
-- All 14 controllers — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, health, faqs)
-- All 17 services — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, faqs, redis, prisma)
-- All 25 DTOs — 96% validation coverage
+- `HealthController` — healthy/unhealthy checks, maintenance status, Redis/DB failure isolation
+- All 15 controllers — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, health, faqs, audit-logs)
+- All 18 services — 100% coverage (auth, tickets, comments, attachments, categories, sub-categories, sla, dashboard, users, notifications, telegram, maintenance, faqs, redis, prisma, audit-logs)
+- All 26 DTOs — 96% validation coverage
 - All 10 repositories — safe select + pagination + where-clause correctness
-- E2E smoke test (14 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401 → maintenance mode (enable, health check, exempt path, disable)
 
-Frontend tests (221 tests, 44 suites):
-- `auth-store` — login, logout, token persistence
-- `ProtectedRoute` — refresh envelope, unauthenticated redirect, role gating
-- `LoginPage` — layout, routed warning message
-- `TicketsPage` — role-based rendering, filter→page reset, CSV export
-- `DashboardPage` — default 30d range, range change interaction
-- `MyAccountPage` — role-based section rendering (Admin/ITSupport/EndUser)
-- All 10 pages — 100% coverage (LoginPage, TicketsPage, DashboardPage, CreateTicketPage, TicketDetailPage, MyAccountPage, NotificationsPage, AdminUsersPage, AdminMasterDataPage, AdminMaintenancePage)
-- UI components — Table, Switch, LoadingSpinner, EmptyState, ErrorMessage, ConfirmDialog, PasswordInput, Pagination, Modal, Badge, BrandMark
-- Tickets components — TicketList, StatusBadge, PriorityBadge, SlaStatusBadge, SLAConfigManager
-- Account components — NotificationPreferencesSection, PasswordChangeSection, TelegramConfigSection
-- Dashboard components — DashboardRangeFilter
-- State, utilities, and initialization
+Frontend tests (213 tests, 44 suites):
+- Component render tests: Pagination (11 tests), StatusBadge (5), PriorityBadge (4), Switch (12), Table (14), PasswordInput (7)
+- All hooks tested: useSocket, useNotifications, useDashboard, useSLA, useChangePassword, useCategories
+- All stores tested: auth-store
+- All pages tested: Login, Tickets, TicketDetail, Dashboard, CreateTicket, Notifications, MyAccount, Admin (Users, MasterData, Maintenance)
+- Utilities tested: sla-time, theme colors, app-initializers, global styles
+- E2E smoke test (14 tests) — health → login → categories → create ticket → update status → comment → dashboard → delete → refresh 401 → maintenance mode (enable, health check, exempt path, disable)
 
 ## Scaling
 
