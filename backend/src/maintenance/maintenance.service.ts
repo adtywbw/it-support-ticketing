@@ -389,9 +389,11 @@ export class MaintenanceService {
     }
 
     const pg = this.createPgOptions(databaseUrl);
-    // Wrap DROP SCHEMA and restore in a psql transaction so that if
-    // the restore pipeline fails mid-stream, the DROP SCHEMA can be
-    // rolled back instead of leaving an empty database.
+    // Drop the schema before restore. This runs in its own psql call
+    // (separate from the restore pipeline) — we COMMIT explicitly so
+    // the DROP actually takes effect. Safety: a pre-restore backup was
+    // already created, so if the restore pipeline fails, the admin can
+    // recover by restoring that pre-restore backup.
     await execFileAsync(
       'psql',
       [
@@ -401,6 +403,8 @@ export class MaintenanceService {
         'BEGIN;',
         '-c',
         `DROP SCHEMA IF EXISTS ${this.quoteIdentifier(pg.schema)} CASCADE;`,
+        '-c',
+        'COMMIT;',
       ],
       { env: { ...process.env, ...pg.env }, maxBuffer: 1024 * 1024 },
     );
@@ -419,13 +423,13 @@ export class MaintenanceService {
       '{ print }',
     ].join(' ');
 
-    // Run the restore pipe and COMMIT on success. If the pipe fails,
-    // ROLLBACK the schema drop.
+    // Run the restore pipe. pg_dump output already includes its own
+    // BEGIN/COMMIT wrapping, so the transaction is self-contained.
     await execFileAsync(
       'bash',
       [
         '-c',
-        `set -o pipefail && gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1 && psql -c 'COMMIT'`,
+        `set -o pipefail && gzip -dc "$DB_BACKUP_PATH" | awk ${this.shellQuote(restoreSqlRewrite)} | psql -v ON_ERROR_STOP=1`,
       ],
       {
         env: { ...process.env, ...pg.env, DB_BACKUP_PATH: dbPath },
