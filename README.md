@@ -320,7 +320,8 @@ docker compose exec api node dist/prisma/seed.js
 
 ```bash
 # Health check (includes DB, Redis, and maintenance status)
-curl https://helpdesk.rsmch.internal/api/health
+curl http://helpdesk.rsmch.internal/api/health
+# Note: use http:// for local dev (default compose), https:// for production (with docker-compose.prod.yml)
 
 # Container status
 docker compose ps

@@ -1,4 +1,5 @@
 import { Injectable, Logger, HttpException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -19,7 +20,7 @@ export class AuditService {
       entity,
       entityId,
       userId: userId ?? null,
-      metadata: (metadata ?? {}) as any,
+      metadata: (metadata ?? {}) as Prisma.InputJsonValue,
       createdAt: new Date(),
     };
 
@@ -28,7 +29,7 @@ export class AuditService {
 
     // Persist to database (fire-and-forget — never block the caller)
     try {
-      await this.prisma.auditLog.create({ data: entry as any });
+      await this.prisma.auditLog.create({ data: entry as Prisma.AuditLogCreateInput });
     } catch (error) {
       this.logger.warn(`Failed to persist audit log: ${error instanceof Error ? error.message : String(error)}`);
     }

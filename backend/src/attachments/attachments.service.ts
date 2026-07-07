@@ -120,8 +120,6 @@ export class AttachmentsService {
       ? AttachmentVisibility.PUBLIC
       : (visibility === AttachmentVisibility.INTERNAL ? AttachmentVisibility.INTERNAL : AttachmentVisibility.PUBLIC);
 
-    await this.storageService.save(file, filePath);
-
     try {
       return await this.attachmentRepository.transaction(async (tx) => {
         const attachmentCount = await tx.attachment.count({ where: { ticketId } });
@@ -130,6 +128,10 @@ export class AttachmentsService {
             `Maximum ${appConfig.fileUpload.maxFilesPerTicket} attachments per ticket`,
           );
         }
+
+        // Save file inside transaction — if save fails, transaction rolls back.
+        // If transaction fails after save, the catch block below cleans up.
+        await this.storageService.save(file, filePath);
 
         return tx.attachment.create({
           data: {
@@ -147,6 +149,7 @@ export class AttachmentsService {
         });
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
+      // Best-effort cleanup of any file saved inside the transaction
       await this.storageService.delete(filePath).catch(() => {});
       throw error;
     }

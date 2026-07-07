@@ -2,6 +2,26 @@
 
 Riwayat perubahan project yang dipindahkan dari `AGENTS.md` agar project memory tetap ringkas.
 
+## Session 52 — Code Review 2026-07-07: File Save Order, Guard Ordering, CI Pipeline, CsrfGuard (2026-07-07)
+
+### Fixed (Critical)
+- **`AttachmentsService.upload()` simpan file ke disk sebelum transaction**: Orphaned file bug yang SAMA dengan fix Session 47 di CommentsService, tapi tidak pernah diterapkan ke AttachmentsService. `storageService.save()` dipanggil SEBELUM Prisma transaction — crash antara save dan transaction start meninggalkan file yatim piatu di disk. **Dipindahkan `storageService.save()` ke dalam transaction callback**, sama seperti CommentsService. Catch block tetap dipertahankan untuk defense-in-depth cleanup. (`attachments.service.ts`)
+
+### Fixed (Important)
+- **`AppThrottlerGuard` jalan sebelum `JwtAuthGuard` — per-user rate limiting tidak bekerja**: Global guard ordering menempatkan `AppThrottlerGuard` sebelum `JwtAuthGuard`, jadi `req.user?.id` selalu undefined saat throttle key dihitung — SEMUA request fallback ke IP-based throttling, meski yang sudah login. **Dipindahkan `JwtAuthGuard` provider sebelum `AppThrottlerGuard`** di `providers` array `app.module.ts`. Sekarang guard order: CsrfGuard → MaintenanceGuard → JwtAuthGuard → AppThrottlerGuard. (`app.module.ts`)
+- **CI pipeline missing `prisma generate`**: Backend CI job tidak punya `npx prisma generate` step — `nest build` gagal tanpa generated Prisma client karena `@prisma/client` types belum ada. **Ditambahkan step** setelah `npm ci` dengan `DATABASE_URL` env dari service container. (`.github/workflows/ci.yml`)
+- **`CsrfGuard` Origin bypass tidak divalidasi**: Sebelumnya, SEMUA request dengan `Origin` header di-bypass dari CSRF check tanpa validasi — hanya blind trust ke CORS middleware. **Sekarang validasi Origin terhadap `getCorsOrigins()` set**, hanya allowed origins (same-origin atau CORS-configured) yang di-bypass. (`csrf.guard.ts`)
+
+### Fixed (Minor)
+- **`AuditService` cast metadata sebagai `any`**: `metadata: (metadata ?? {}) as any` — bypass type safety. **Diganti `as Prisma.InputJsonValue` untuk Prisma JSONB field, dan `as Prisma.AuditLogCreateInput` untuk create call.** (`audit.service.ts`)
+- **Frontend standalone nginx.conf tidak ada rate limiting**: `frontend/nginx.conf` tidak punya `limit_req_zone` — berbeda dengan main nginx proxy. **Ditambahkan `frontend_limit` zone 10r/s dengan burst 20.** (`frontend/nginx.conf`)
+- **README health check curl pakai HTTPS untuk default dev**: Contoh curl di README pakai `https://` tapi default compose adalah HTTP. **Diganti jadi `http://` dengan catatan untuk production.** (`README.md`)
+- **AGENTS.md**: Update dokumentasi guard ordering (JwtAuthGuard before AppThrottlerGuard) dan CsrfGuard Origin validation. (`AGENTS.md`)
+
+### Verification
+- Backend: build ✅, lint 0 errors ✅, tests 757/757 ✅
+- Frontend: build ✅ (1.03s)
+
 ## Session 51 — Fix: Restore Backup Gagal Karena DROP SCHEMA Tidak Pernah di-COMMIT (2026-07-07)
 
 ### Fixed (Critical)

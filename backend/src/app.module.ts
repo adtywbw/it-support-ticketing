@@ -70,12 +70,12 @@ import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
     },
     {
       provide: APP_GUARD,
-      useClass: AppThrottlerGuard,
+      useFactory: (reflector: Reflector) => new JwtAuthGuard(reflector),
+      inject: [Reflector],
     },
     {
       provide: APP_GUARD,
-      useFactory: (reflector: Reflector) => new JwtAuthGuard(reflector),
-      inject: [Reflector],
+      useClass: AppThrottlerGuard,
     },
     {
       provide: APP_INTERCEPTOR,
