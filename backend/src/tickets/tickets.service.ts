@@ -684,6 +684,7 @@ export class TicketsService {
               requester: { select: { id: true, name: true, email: true } },
               category: true,
               subCategory: true,
+              location: { select: { id: true, name: true } },
             },
           });
 
