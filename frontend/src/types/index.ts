@@ -246,8 +246,8 @@ export interface CreateTicketPayload {
   subject: string;
   description: string;
   categoryId: string;
-  subCategoryId?: string;
-  locationId?: string;
+  subCategoryId: string;
+  locationId: string;
   itemCode: string;
   priority: TicketPriority;
 }

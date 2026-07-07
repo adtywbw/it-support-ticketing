@@ -62,6 +62,9 @@ export default function CreateTicketForm() {
     else if (formData.description.trim().length < 10) newErrors.description = 'Description must be at least 10 characters';
 
     if (!formData.categoryId) newErrors.categoryId = 'Category is required';
+    if (!formData.subCategoryId) newErrors.subCategoryId = 'Sub-category is required';
+    if (!formData.locationId) newErrors.locationId = 'Location is required';
+    if (!formData.itemCode.trim()) newErrors.itemCode = 'Item Code is required';
     if (!formData.priority) newErrors.priority = 'Priority is required';
 
     setErrors(newErrors);
@@ -84,8 +87,8 @@ export default function CreateTicketForm() {
         subject: formData.subject.trim(),
         description: formData.description.trim(),
         categoryId: formData.categoryId,
-        subCategoryId: formData.subCategoryId || undefined,
-        locationId: formData.locationId || undefined,
+        subCategoryId: formData.subCategoryId,
+        locationId: formData.locationId,
         itemCode: formData.itemCode.trim() || '-',
         priority: formData.priority as TicketPriority,
       });
@@ -188,7 +191,7 @@ export default function CreateTicketForm() {
             onChange={(e) =>
               setFormData({ ...formData, subCategoryId: e.target.value })
             }
-            className="input"
+            className={`input ${errors.subCategoryId ? 'border-red-500' : ''}`}
             disabled={!formData.categoryId || subCategories.length === 0}
           >
             <option value="">Select sub-category</option>
@@ -198,6 +201,7 @@ export default function CreateTicketForm() {
               </option>
             ))}
           </select>
+          {errors.subCategoryId && <p className="mt-1 text-xs text-red-600">{errors.subCategoryId}</p>}
         </div>
 
         <div>

@@ -132,6 +132,8 @@ describe('TicketsService', () => {
       subject: 'Cannot connect to VPN',
       description: 'Getting error code 789 when connecting',
       categoryId: 'cat-1',
+      subCategoryId: 'sub-1',
+      locationId: 'loc-1',
       itemCode: '-',
       priority: Priority.High,
     };
@@ -140,6 +142,12 @@ describe('TicketsService', () => {
     beforeEach(() => {
       jest.useFakeTimers();
       jest.setSystemTime(now);
+      mockSubCategoryRepository.findById.mockResolvedValue({
+        id: 'sub-1',
+        categoryId: 'cat-1',
+        name: 'VPN Issues',
+        isActive: true,
+      });
     });
 
     afterEach(() => {
