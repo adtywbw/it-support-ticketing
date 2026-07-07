@@ -24,6 +24,7 @@ interface FormErrors {
   subject?: string;
   description?: string;
   categoryId?: string;
+  subCategoryId?: string;
   locationId?: string;
   itemCode?: string;
   priority?: string;
@@ -183,7 +184,7 @@ export default function CreateTicketForm() {
 
         <div>
           <label htmlFor="subCategory" className="label">
-            Sub-category (optional)
+            Sub-category
           </label>
           <select
             id="subCategory"
