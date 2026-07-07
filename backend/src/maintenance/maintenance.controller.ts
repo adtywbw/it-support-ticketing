@@ -9,7 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Role } from '@prisma/client';
 import { MaintenanceService } from './maintenance.service';
@@ -21,6 +21,7 @@ import { MaintenanceModeDto } from './dto/maintenance-mode.dto';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Maintenance')
+@ApiBearerAuth()
 @Controller('maintenance')
 export class MaintenanceController {
   constructor(

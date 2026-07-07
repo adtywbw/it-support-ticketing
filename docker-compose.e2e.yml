@@ -19,6 +19,7 @@ services:
       REDIS_URL: redis://:ticketing@cache-e2e:6379/0
       REDIS_PASSWORD: ticketing
       CORS_ORIGIN: http://localhost:3001
+      SEED_ON_START: "true"
     depends_on:
       db-e2e:
         condition: service_healthy

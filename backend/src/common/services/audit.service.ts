@@ -34,15 +34,15 @@ export class AuditService {
     }
   }
 
-  logAndThrow(
+  async logAndThrow(
     action: string,
     entity: string,
     entityId: string,
     userId: string,
     exception: HttpException,
     metadata?: Record<string, unknown>,
-  ): void {
-    this.log(action, entity, entityId, userId, {
+  ): Promise<void> {
+    await this.log(action, entity, entityId, userId, {
       ...metadata,
       exceptionMessage: exception.message,
       exceptionStatus: exception.getStatus(),
