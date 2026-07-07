@@ -45,7 +45,6 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
         if (id !== (ticket.assignedToId ?? null)) {
           assignMutation.mutate(
             { id: ticket.id, assignedToId: id },
-            { onError: (err) => toast.error(getErrorMessage(err, 'Failed to assign ticket')) },
           );
         }
       }}

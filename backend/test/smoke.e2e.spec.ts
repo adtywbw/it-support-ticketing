@@ -58,9 +58,10 @@ describe('E2E Smoke Test', () => {
   // State shared across sequential test cases within this describe block.
   // Tests run in order; each test that produces or consumes shared state
   // reads/writes these variables within its own test body.
-  const state: { accessToken: string; ticketId: string } = {
+  const state: { accessToken: string; ticketId: string; locationId: string } = {
     accessToken: '',
     ticketId: '',
+    locationId: '',
   };
   test('GET /health — returns healthy', async () => {
     const res = await request('GET', '/health');
@@ -92,6 +93,13 @@ describe('E2E Smoke Test', () => {
     expect(res.data.data[0]).toHaveProperty('_count');
   });
 
+  test('POST /locations — creates a location for ticket', async () => {
+    const res = await request('POST', '/locations', { name: 'E2E Test Location' }, state.accessToken);
+    expect(res.status).toBe(201);
+    expect(res.data.data.id).toBeDefined();
+    state.locationId = res.data.data.id;
+  });
+
   test('POST /tickets — creates a ticket', async () => {
     const catsRes = await request('GET', '/categories', undefined, state.accessToken);
     const catId = catsRes.data.data[0].id;
@@ -103,6 +111,8 @@ describe('E2E Smoke Test', () => {
       priority: 'Low',
       categoryId: catId,
       subCategoryId: subId,
+      locationId: state.locationId,
+      itemCode: 'E2E-001',
     }, state.accessToken);
     expect(res.status).toBe(201);
     expect(res.data.data.id).toBeDefined();

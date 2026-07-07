@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
 import apiClient, { unwrapData, type ApiEnvelope } from '@/lib/axios';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNotificationStore } from '@/stores/notification-store';
 import { useThemeStore } from '@/stores/theme-store';
 import { useMarkAsRead, useMarkAllAsRead, useClearAll } from '@/hooks/use-notifications';
 import { useLogout } from '@/hooks/use-auth';
-import { formatRelativeTime, getErrorMessage, getUserDisplayName } from '@/lib/utils';
+import { formatRelativeTime, getUserDisplayName } from '@/lib/utils';
 import { STALE_TIME_NOTIFICATION_DROPDOWN } from '@/lib/constants';
 import Avatar from '@/components/ui/Avatar';
 import type { Notification } from '@/types';
@@ -66,9 +65,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
 
   const handleNotificationClick = (notif: Notification) => {
     if (!notif.isRead) {
-      markAsRead.mutate(notif.id, {
-        onError: (err) => toast.error(getErrorMessage(err, 'Failed to mark notification as read')),
-      });
+      markAsRead.mutate(notif.id);
     }
     setNotifOpen(false);
     const ticketId =
@@ -163,9 +160,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 </button>
                 {data && data.length > 0 && (
                   <button
-                    onClick={() => clearAll.mutate(undefined, {
-                      onError: (err) => toast.error(getErrorMessage(err, 'Failed to clear notifications')),
-                    })}
+                    onClick={() => clearAll.mutate(undefined)}
                     disabled={clearAll.isPending}
                     className="w-full rounded-lg py-1.5 text-center text-sm text-navy-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-navy-800/60"
                   >
@@ -174,9 +169,7 @@ export default function Navbar({ onMenuToggle }: NavbarProps) {
                 )}
                 {data && data.some((n) => !n.isRead) && (
                   <button
-                    onClick={() => markAllAsRead.mutate(undefined, {
-                      onError: (err) => toast.error(getErrorMessage(err, 'Failed to mark all as read')),
-                    })}
+                    onClick={() => markAllAsRead.mutate(undefined)}
                     disabled={markAllAsRead.isPending}
                     className="w-full rounded-lg py-1.5 text-center text-sm text-navy-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-navy-800/60"
                   >
