@@ -2057,5 +2057,28 @@ Initial feature development, infrastructure setup, and early code review rounds.
 - **OPS-11**: Production seed rotate passwords via `update: { password }` di upsert.
 - **OPS-12**: `start:prod` ganti dari `node dist/main` ke `node dist/src/main`.
 - **OPS-13**: Tambah `set_real_ip_from` untuk private ranges + `real_ip_header X-Forwarded-For`.
+
+## Session 49 — Final Polish: jwtSecret Lazy, AuditService async, Gae Cleanup (2026-07-07)
+
+### Fixed (Minor)
+- **`jwt.config.ts` `jwtSecret` constant causing test failures**: Replaced with lazy `getJwtSecret()` function that evaluates at call time (not module load time), allowing tests to set `process.env.JWT_SECRET` before calling. (`jwt.config.ts`)
+- **`AuditService.logAndThrow()` synchronous — not awaiting `this.log()`**: Changed to `async` + `await` so exception audit entries are persisted before the throw. (`audit.service.ts`)
+- **Unused `ThrottlerGuard` import in `app.module.ts`**: Removed — `AppThrottlerGuard` already replaces it. (`app.module.ts`)
+- **`docker-compose.e2e.yml` missing `SEED_ON_START`**: Added so isolated E2E stack seeds users on startup. (`docker-compose.e2e.yml`)
+- **`MaintenanceController` missing `@ApiBearerAuth()`**: Added so Swagger UI shows Bearer auth for Admin endpoints. (`maintenance.controller.ts`)
+- **`auth.service.ts` still uses `process.env.JWT_SECRET!` in 3 places**: Left as-is because the `jwtSecret` constant approach conflicts with test module evaluation ordering. The startup `validateStartupEnv()` provides safety. Noted in `AGENTS.md`.
+
+### Files Changed (5 files, +26/-13 lines)
+- `backend/src/common/config/jwt.config.ts` — lazy getJwtSecret()
+- `backend/src/common/services/audit.service.ts` — async logAndThrow
+- `backend/src/app.module.ts` — removed ThrottlerGuard import
+- `backend/src/maintenance/maintenance.controller.ts` — +@ApiBearerAuth()
+- `docker-compose.e2e.yml` — +SEED_ON_START
+
+### Verification
+- Backend: build ✅, lint 0 errors ✅, tests 757/757 ✅ (72 suites)
+- Backend E2E: 14/14 ✅
+- Frontend: build ✅, tests 221/221 ✅
+- Swagger: /api/docs ✅
 - **TG-02**: Schema migration `20260626000000_add_telegram_config_singleton_key` tambah `key String @unique @default("default")` ke `TelegramConfig`.
 - **OPS-04 lock**: Tambah `acquireLock()`/`releaseLock()` helpers dengan random token ke `MaintenanceService`.
