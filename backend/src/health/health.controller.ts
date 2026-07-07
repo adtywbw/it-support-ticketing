@@ -1,6 +1,5 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, HttpCode, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { Public } from '../common/decorators/public.decorator';
@@ -15,10 +14,15 @@ export class HealthController {
   ) {}
 
   @Get()
-  async check(@Res() res: Response) {
+  @HttpCode(200)
+  async check() {
     const checks: Record<string, string> = {};
 
-    checks.database = (await this.prisma.healthCheck()) ? 'healthy' : 'unhealthy';
+    try {
+      checks.database = (await this.prisma.healthCheck()) ? 'healthy' : 'unhealthy';
+    } catch {
+      checks.database = 'unhealthy';
+    }
 
     try {
       const redisOk = await this.redisService.ping();
@@ -48,6 +52,10 @@ export class HealthController {
       maintenance,
     };
 
-    res.status(isHealthy ? 200 : 503).json(body);
+    if (!isHealthy) {
+      throw new ServiceUnavailableException(body);
+    }
+
+    return body;
   }
 }

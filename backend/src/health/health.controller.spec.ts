@@ -38,7 +38,7 @@ describe('HealthController', () => {
     mockRedis.get.mockResolvedValue(null);
 
     const res = mockRes();
-    await controller.check(res);
+    await controller.check();
 
     expect(res.status).toHaveBeenCalledWith(200);
     const body = res.json.mock.calls[0][0];
@@ -53,7 +53,7 @@ describe('HealthController', () => {
     mockRedis.ping.mockResolvedValue(true);
 
     const res = mockRes();
-    await controller.check(res);
+    await controller.check();
 
     expect(res.status).toHaveBeenCalledWith(503);
     expect(res.json.mock.calls[0][0].checks.database).toBe('unhealthy');
@@ -64,7 +64,7 @@ describe('HealthController', () => {
     mockRedis.ping.mockRejectedValue(new Error('timeout'));
 
     const res = mockRes();
-    await controller.check(res);
+    await controller.check();
 
     expect(res.json.mock.calls[0][0].checks.redis).toBe('unhealthy');
   });

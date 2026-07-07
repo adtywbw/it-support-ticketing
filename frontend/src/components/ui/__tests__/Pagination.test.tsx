@@ -12,7 +12,7 @@ describe('Pagination', () => {
     totalItems: 50,
   };
 
-  it('renders page info', () => {
+  it('renders page and 50 items', () => {
     render(<Pagination {...defaultProps} />);
     expect(screen.getByText(/Page/)).toBeDefined();
     expect(screen.getByText('50')).toBeDefined();

@@ -119,9 +119,6 @@ export default function CommentSection({ ticketId }: CommentSectionProps) {
           setIsInternal(false);
           fileUpload.clearFiles();
         },
-        onError: (err) => {
-          toast.error(getErrorMessage(err, 'Failed to post comment'));
-        },
       },
     );
   };

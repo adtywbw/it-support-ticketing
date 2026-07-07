@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
 import { useTicket, useUpdateTicketStatus, useAssignTicket, useDeleteTicket } from '@/hooks/use-tickets';
 import { useAssignableUsers } from '@/hooks/use-users';
 import { useAuthStore } from '@/stores/auth-store';
@@ -118,7 +117,6 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
                     onClick={() =>
                       updateStatusMutation.mutate(
                         { id: ticket.id, status },
-                        { onError: (err) => toast.error(getErrorMessage(err, 'Failed to update status')) },
                       )
                     }
                     className="btn-secondary btn-sm"
@@ -130,11 +128,10 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
               {canCloseOwnResolved && (
                 <button
                   onClick={() =>
-                    updateStatusMutation.mutate(
-                      { id: ticket.id, status: 'Closed' },
-                      { onError: (err) => toast.error(getErrorMessage(err, 'Failed to close ticket')) },
-                    )
-                  }
+                        updateStatusMutation.mutate(
+                          { id: ticket.id, status: 'Closed' },
+                        )
+                      }
                   className="btn-secondary btn-sm"
                   disabled={updateStatusMutation.isPending}
                 >
@@ -293,7 +290,6 @@ export default function TicketDetail({ ticketId }: TicketDetailProps) {
             onSuccess: () => {
               navigate('/tickets');
             },
-            onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete ticket')),
           });
         }}
         title="Delete Ticket"
