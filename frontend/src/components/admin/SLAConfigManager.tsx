@@ -36,6 +36,7 @@ export default function SLAConfigManager() {
   const [responseTime, setResponseTime] = useState<TimeInputState>(defaultResponseTime);
   const [resolutionTime, setResolutionTime] = useState<TimeInputState>(defaultResolutionTime);
   const [deleteItem, setDeleteItem] = useState<SLAConfig | null>(null);
+  const [blockedItem, setBlockedItem] = useState<{ name: string } | null>(null);
 
   const activeCategories = (categories ?? []).filter((category) => category.isActive);
   const isLoading = isSlaLoading || isCategoriesLoading;
@@ -197,7 +198,13 @@ export default function SLAConfigManager() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(config)} className="btn-secondary btn-sm">Edit</button>
-                        <button onClick={() => setDeleteItem(config)} className="btn-danger btn-sm">Delete</button>
+                        <button onClick={() => {
+                          if ((config._count?.tickets ?? 0) > 0) {
+                            setBlockedItem({ name: getCategoryName(config) + ' / ' + config.priority });
+                          } else {
+                            setDeleteItem(config);
+                          }
+                        }} className="btn-danger btn-sm">Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -317,6 +324,27 @@ export default function SLAConfigManager() {
         variant="danger"
         isLoading={isPending}
       />
+
+      <Modal isOpen={!!blockedItem} onClose={() => setBlockedItem(null)} title="Cannot Delete">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.072 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
+              <p className="text-sm text-navy-700 dark:text-blue-200">
+                <strong>{blockedItem?.name}</strong> cannot be deleted because it still has active tickets using this SLA configuration.
+              </p>
+              <p className="mt-3 text-sm text-navy-500 dark:text-blue-400">
+                Deactivate the SLA config instead — active tickets will have their SLA values cleared.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end pt-2">
+            <button onClick={() => setBlockedItem(null)} className="btn-primary">OK</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

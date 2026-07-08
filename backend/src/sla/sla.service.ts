@@ -40,7 +40,18 @@ export class SLAService {
   }
 
   async findAll() {
-    return this.slaConfigRepository.findAll();
+    const configs = await this.slaConfigRepository.findAll();
+    const configsWithCount = await Promise.all(
+      configs.map(async (config) => {
+        const ticketCount = await this.ticketRepository.count({
+          categoryId: config.categoryId,
+          priority: config.priority,
+          status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
+        });
+        return { ...config, _count: { tickets: ticketCount } };
+      }),
+    );
+    return configsWithCount;
   }
 
   async delete(id: string) {

@@ -323,6 +323,7 @@ export interface SLAConfig {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  _count?: { tickets: number };
 }
 
 export interface CreateSLAConfigPayload {
