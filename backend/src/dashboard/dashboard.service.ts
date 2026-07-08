@@ -220,8 +220,16 @@ export class DashboardService {
   private fillTrendGaps(from: Date, toExclusive: Date, rows: Array<{ day: string; count: number }>, stepDays: number) {
     const countByKey = new Map(rows.map((row) => [row.day, row.count]));
     const trend: Array<{ date: string; count: number }> = [];
-    for (let cursor = new Date(from); cursor.getTime() < toExclusive.getTime(); cursor = this.addDays(cursor, stepDays)) {
-      const key = this.formatDateKey(cursor);
+    // Align cursor to Monday when grouping by week so it matches
+    // PostgreSQL date_trunc('week', ...) which also starts on Monday.
+    const cursor = new Date(from);
+    if (stepDays >= 7) {
+      const dayOfWeek = cursor.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      cursor.setDate(cursor.getDate() + diff);
+    }
+    for (let c = cursor; c.getTime() < toExclusive.getTime(); c = this.addDays(c, stepDays)) {
+      const key = this.formatDateKey(c);
       trend.push({ date: key, count: countByKey.get(key) ?? 0 });
     }
     return trend;
