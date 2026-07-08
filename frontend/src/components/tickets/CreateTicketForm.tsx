@@ -34,7 +34,8 @@ export default function CreateTicketForm() {
   const navigate = useNavigate();
   const { data: allCategories } = useCategories();
   const categories = allCategories?.filter((c) => c.isActive);
-  const { data: locations } = useLocations();
+  const { data: allLocations } = useLocations();
+  const locations = allLocations?.filter((l) => l.isActive);
   const createMutation = useCreateTicket();
   const uploadMutation = useUploadAttachment();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +53,7 @@ export default function CreateTicketForm() {
   const fileUpload = useFileUpload({ maxSizePerFile: MAX_TICKET_ATTACHMENT_SIZE });
 
   const selectedCategory = categories?.find((c) => c.id === formData.categoryId);
-  const subCategories = selectedCategory?.subCategories ?? [];
+  const subCategories = (selectedCategory?.subCategories ?? []).filter((s) => s.isActive);
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
