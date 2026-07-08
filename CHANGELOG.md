@@ -48,6 +48,7 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
 - **Fix: SLA time zero-guard** — `splitMinutesForInput(0)` now returns `{ 0, 'minutes' }` instead of incorrectly matching `0 % 60 === 0` and returning "days".
 - **Fix: health controller semantics** — Changed `message || null` to `message ?? null` for nullish coalescing precision.
+- **Fix: CI pipeline + critical startup bug** — Added `prisma migrate deploy` step, `.nvmrc` files (Node 20 pinning), switched `setup-node` to `node-version-file`. Fixed `NestFactory` import typo in `main.ts` (`@nestjs/common` → `@nestjs/core` — backend crash on startup bug introduced in R4).
 - **Verification**: backend 757/757 ✅ | frontend 220/220 ✅ | E2E 36/36 ✅
 
 ## Session 63 — Code Review: Lock Error Handling, Missing onError, Duplicate Filter, E2E Stability (2026-07-08)
