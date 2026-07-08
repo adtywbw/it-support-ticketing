@@ -26,10 +26,17 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Refactor: shared sort-field constant** — Extracted `TICKET_SORT_FIELDS` into `QueryTicketDto`, imported by `TicketsService` to prevent DTO ↔ service sort allowlist drift.
 - **Fix: `NotificationsGateway` stale timer guard** — Added `expiryTimers.has()` check in setTimeout callback to prevent a stale timer from disconnecting a new socket.
 - **Fix: `AGENTS.md` bullet formatting** — Normalised `|- ` to `- ` on Common Pitfalls section.
-- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 15/15 (production HTTPS) ✅
-- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 15/15 (production HTTPS) ✅
+- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 36/36 (production HTTPS) ✅
 
-- **Fix: SLA cron lock release error handling** — `checkSLA()` finally block `.catch(() => {})` prevents unhandled error on Redis failure (matching `recalculateOpenTicketsForConfig` pattern).
+### Round 3 — Structured Logging, E2E Expansion, Pre-Commit Hooks, Pool Tuning
+
+- **Feat: request correlation ID middleware** — `RequestIdMiddleware` injects UUID per request, reads/propagates `X-Request-ID` header, logs `METHOD /path — correlationId=...` for structured tracing.
+- **Feat: E2E test expansion 15→36** — Added role isolation (EndUser 403, ITSupport 200), assignment flow, invalid transition conflict, SLA config listing, notification CRUD, CSV export, user CRUD, FAQ, health correlation-ID header verification.
+- **Feat: pre-commit hooks** — husky + lint-staged: staged `backend/**/*.ts` runs `eslint --fix` + `tsc --noEmit`; staged `frontend/**/*.{ts,tsx}` does the same.
+- **Perf: Prisma pool timeout** — Added `pool_timeout` to DATABASE_URL params alongside existing `connection_limit` for explicit connection pooling control.
+- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 36/36 (production HTTPS) ✅
+
+## Session 63 — Code Review: Lock Error Handling, Missing onError, Duplicate Filter, E2E Stability (2026-07-08) — `checkSLA()` finally block `.catch(() => {})` prevents unhandled error on Redis failure (matching `recalculateOpenTicketsForConfig` pattern).
 - **Fix: Maintenance restore lock release error handling** — `restoreBackup()` success path `releaseLock()` now `.catch(() => {})` to prevent unhandled rejection.
 - **Fix: missing frontend mutation onError** — `useUploadAttachment()` now shows toast on failure (only mutation hook missing error feedback).
 - **Refactor: extract duplicate filter logic** — `buildTicketQueryInput()` shared helper eliminates 80 lines of duplicated WHERE/sort building between `findAll()` and `exportCsvToResponse()`.

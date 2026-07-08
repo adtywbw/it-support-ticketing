@@ -60,6 +60,7 @@
 ```
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,locations,dashboard,users,sla,notifications,telegram,maintenance,health,faqs}
 backend/src/dashboard/dto/query-dashboard-stats.dto.ts
+backend/src/common/middleware/request-id.middleware.ts
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,location,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/services/{audit,services}.module.ts
 backend/src/common/policies/attachment-visibility.policy.ts
