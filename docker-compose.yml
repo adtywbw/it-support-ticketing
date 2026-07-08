@@ -60,6 +60,7 @@ services:
       - /tmp
       - /var/cache/nginx
       - /var/run
+      - /var/log/nginx
     logging:
       driver: "json-file"
       options:

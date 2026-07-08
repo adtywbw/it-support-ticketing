@@ -56,7 +56,8 @@ function buildOrderBy(field: string, dir: 'asc' | 'desc'): Prisma.TicketOrderByW
   return { [field]: dir };
 }
 
-/** Shape of a ticket row in the CSV export stream. */
+/**
+ * Shape of a ticket row in the CSV export stream. */
 interface CsvExportTicket {
   ticketNumber: string;
   subject: string;
@@ -71,6 +72,60 @@ interface CsvExportTicket {
   createdAt: Date;
   resolvedAt?: Date | null;
   slaStatus?: string | null;
+}
+
+interface TicketQueryInput {
+  where: Prisma.TicketWhereInput;
+  orderField: string;
+  orderDir: 'asc' | 'desc';
+}
+
+/** Shared filter building for findAll and exportCsvToResponse. */
+function buildTicketQueryInput(
+  dto: Pick<QueryTicketDto, 'status' | 'priority' | 'categoryId' | 'locationId' | 'assignedToId' | 'requesterId' | 'slaStatus' | 'dateFrom' | 'dateTo' | 'search' | 'sortBy' | 'sortOrder'>,
+  userRole: string,
+): TicketQueryInput {
+  const where: Prisma.TicketWhereInput = {};
+
+  if (dto.status?.length) where.status = { in: dto.status };
+  if (dto.priority?.length) where.priority = { in: dto.priority };
+  if (dto.categoryId?.length) where.categoryId = { in: dto.categoryId };
+  if (dto.locationId?.length) where.locationId = { in: dto.locationId };
+  if (dto.assignedToId) where.assignedToId = dto.assignedToId;
+  if (dto.requesterId && userRole !== 'EndUser') where.requesterId = { in: dto.requesterId };
+  if (dto.slaStatus?.length) where.slaStatus = { in: dto.slaStatus };
+
+  if (dto.dateFrom || dto.dateTo) {
+    const createdAtFilter: Prisma.DateTimeFilter = {};
+    if (dto.dateFrom) {
+      const startDate = new Date(dto.dateFrom);
+      startDate.setUTCHours(0, 0, 0, 0);
+      createdAtFilter.gte = startDate;
+    }
+    if (dto.dateTo) {
+      const endDate = new Date(dto.dateTo);
+      endDate.setUTCHours(23, 59, 59, 999);
+      createdAtFilter.lte = endDate;
+    }
+    where.createdAt = createdAtFilter;
+  }
+
+  if (dto.search) {
+    where.OR = [
+      { subject: { contains: dto.search, mode: 'insensitive' } },
+      { description: { contains: dto.search, mode: 'insensitive' } },
+      { ticketNumber: { contains: dto.search, mode: 'insensitive' } },
+      { itemCode: { contains: dto.search, mode: 'insensitive' } },
+      { location: { name: { contains: dto.search, mode: 'insensitive' } } },
+      { requester: { name: { contains: dto.search, mode: 'insensitive' } } },
+    ];
+  }
+
+  const sortBy = dto.sortBy || 'createdAt';
+  const orderField = ALLOWED_SORT_FIELDS.includes(sortBy as SortField) ? sortBy : 'createdAt';
+  const orderDir = dto.sortOrder === 'asc' ? 'asc' : 'desc';
+
+  return { where, orderField, orderDir };
 }
 
 @Injectable()
@@ -145,44 +200,7 @@ export class TicketsService {
       sortOrder = 'desc',
     } = queryTicketDto;
 
-    const where: Prisma.TicketWhereInput = {};
-
-    if (status?.length) where.status = { in: status };
-    if (priority?.length) where.priority = { in: priority };
-    if (categoryId?.length) where.categoryId = { in: categoryId };
-    if (locationId?.length) where.locationId = { in: locationId };
-    if (assignedToId) where.assignedToId = assignedToId;
-    if (requesterId && userRole !== 'EndUser') where.requesterId = { in: requesterId };
-    if (slaStatus?.length) where.slaStatus = { in: slaStatus };
-
-    if (dateFrom || dateTo) {
-      const createdAtFilter: Prisma.DateTimeFilter = {};
-      if (dateFrom) {
-        const startDate = new Date(dateFrom);
-        startDate.setUTCHours(0, 0, 0, 0);
-        createdAtFilter.gte = startDate;
-      }
-      if (dateTo) {
-        const endDate = new Date(dateTo);
-        endDate.setUTCHours(23, 59, 59, 999);
-        createdAtFilter.lte = endDate;
-      }
-      where.createdAt = createdAtFilter;
-    }
-
-    if (search) {
-      where.OR = [
-        { subject: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { ticketNumber: { contains: search, mode: 'insensitive' } },
-        { itemCode: { contains: search, mode: 'insensitive' } },
-        { location: { name: { contains: search, mode: 'insensitive' } } },
-        { requester: { name: { contains: search, mode: 'insensitive' } } },
-      ];
-    }
-
-    const orderField = ALLOWED_SORT_FIELDS.includes(sortBy as SortField) ? sortBy : 'createdAt';
-    const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
+    const { where, orderField, orderDir } = buildTicketQueryInput(queryTicketDto, userRole);
 
     const scope: TicketAccessScope = { userId, role: userRole as 'EndUser' | 'ITSupport' | 'Admin' };
 
@@ -283,43 +301,7 @@ export class TicketsService {
       sortBy = 'createdAt', sortOrder = 'desc',
     } = queryTicketDto;
 
-    const where: Prisma.TicketWhereInput = {};
-
-    if (status?.length) where.status = { in: status };
-    if (priority?.length) where.priority = { in: priority };
-    if (categoryId?.length) where.categoryId = { in: categoryId };
-    if (locationId?.length) where.locationId = { in: locationId };
-    if (assignedToId) where.assignedToId = assignedToId;
-    if (requesterId && userRole !== 'EndUser') where.requesterId = { in: requesterId };
-    if (slaStatus?.length) where.slaStatus = { in: slaStatus };
-
-    if (dateFrom || dateTo) {
-      const createdAtFilter: Prisma.DateTimeFilter = {};
-      if (dateFrom) {
-        const startDate = new Date(dateFrom);
-        startDate.setUTCHours(0, 0, 0, 0);
-        createdAtFilter.gte = startDate;
-      }
-      if (dateTo) {
-        const endDate = new Date(dateTo);
-        endDate.setUTCHours(23, 59, 59, 999);
-        createdAtFilter.lte = endDate;
-      }
-      where.createdAt = createdAtFilter;
-    }
-    if (search) {
-      where.OR = [
-        { subject: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { ticketNumber: { contains: search, mode: 'insensitive' } },
-        { itemCode: { contains: search, mode: 'insensitive' } },
-        { location: { name: { contains: search, mode: 'insensitive' } } },
-        { requester: { name: { contains: search, mode: 'insensitive' } } },
-      ];
-    }
-
-    const orderField = ALLOWED_SORT_FIELDS.includes(sortBy as SortField) ? sortBy : 'createdAt';
-    const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
+    const { where, orderField, orderDir } = buildTicketQueryInput(queryTicketDto, userRole);
 
     const escapeCsv = (value: unknown) => {
       const raw = String(value ?? '');

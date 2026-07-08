@@ -147,6 +147,8 @@ describe('E2E Smoke Test', () => {
 
   describe('Maintenance Mode', () => {
     test('PATCH /maintenance/mode — enable maintenance (Admin)', async () => {
+      // Small delay to let nginx rate-limit window drain
+      await new Promise((r) => setTimeout(r, 200));
       const res = await request('PATCH', '/maintenance/mode', { enabled: true, message: 'E2E smoke test maintenance' }, state.accessToken);
       if (res.status !== 200) {
         console.log('DEBUG maintenance enable:', JSON.stringify(res.data));

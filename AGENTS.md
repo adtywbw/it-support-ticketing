@@ -40,7 +40,7 @@
 |------|---------|---------|
 | Backend unit tests | `backend` | `npm test` |
 | Backend lint | `backend` | `npm run lint` |
-| Backend E2E tests | `backend` | `E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2e` (prod stack) or `E2E_HOST=localhost E2E_PORT=3001 E2E_PROTOCOL=http npm run test:e2e` (isolated e2e stack) |
+| Backend E2E tests | `backend` | `E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2e` (prod stack) or `E2E_HOST=localhost E2E_PORT=3001 E2E_PROTOCOL=http npm run test:e2e` (isolated e2e stack). Maintenance tests include 200ms delay before PATCH to stay within nginx 10r/s rate limit. |
 | Backend build | `backend` | `npm run build` |
 | Frontend build | `frontend` | `npm run build` |
 | Frontend lint | `frontend` | `npm run lint` |

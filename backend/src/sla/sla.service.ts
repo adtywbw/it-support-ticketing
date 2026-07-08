@@ -301,7 +301,7 @@ export class SLAService {
         SLAService.RELEASE_LOCK_SCRIPT,
         [lockKey],
         [lockToken],
-      );
+      ).catch(() => {});
     }
   }
 

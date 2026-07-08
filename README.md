@@ -497,6 +497,8 @@ E2E_HOST=helpdesk.rsmch.internal E2E_PORT=443 E2E_PROTOCOL=https npm run test:e2
 # Isolated stack (HTTP, separate DB/Redis, port 3001):
 docker compose -f docker-compose.e2e.yml up -d --build
 E2E_HOST=localhost E2E_PORT=3001 E2E_PROTOCOL=http npm run test:e2e
+# Note: maintenance mode E2E tests include a 200ms delay before PATCH to
+# stay within nginx's 10r/s rate-limit window after ~10 rapid requests.
 
 # Frontend tests + lint (zero warnings policy)
 cd frontend

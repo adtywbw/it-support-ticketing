@@ -2,6 +2,16 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 63 — Code Review: Lock Error Handling, Missing onError, Duplicate Filter, E2E Stability (2026-07-08)
+
+- **Fix: SLA cron lock release error handling** — `checkSLA()` finally block `.catch(() => {})` prevents unhandled error on Redis failure (matching `recalculateOpenTicketsForConfig` pattern).
+- **Fix: Maintenance restore lock release error handling** — `restoreBackup()` success path `releaseLock()` now `.catch(() => {})` to prevent unhandled rejection.
+- **Fix: missing frontend mutation onError** — `useUploadAttachment()` now shows toast on failure (only mutation hook missing error feedback).
+- **Refactor: extract duplicate filter logic** — `buildTicketQueryInput()` shared helper eliminates 80 lines of duplicated WHERE/sort building between `findAll()` and `exportCsvToResponse()`.
+- **Fix: nginx default_server access_log blocked by read_only** — `/var/log/nginx` added to nginx container tmpfs so access log can be written with `read_only: true`.
+- **Fix: E2E nginx rate limit 503** — Maintenance mode tests now include 200ms delay before first PATCH to account for nginx 10r/s api_limit zone.
+- **Verification**: backend 757/757 ✅ | frontend 213/213 ✅ | E2E 15/15 (production HTTPS) ✅
+
 ## Session 62 — Master Data UI Upgrade, Delete Guards, SLA Fixes (2026-07-08)
 
 - **Perf: blink fix** — TicketsPage imported eagerly (no React.lazy) + placeholderData removes loading spinner flash on first navigation.
