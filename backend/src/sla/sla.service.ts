@@ -108,6 +108,10 @@ export class SLAService {
         });
       }
 
+      if (data.isActive === false) {
+        await this.clearSlaForConfig(updated.categoryId, updated.priority);
+      }
+
       return updated;
     } catch (error) {
       this.handlePrismaWriteError(error);
@@ -206,6 +210,25 @@ export class SLAService {
         now,
       );
     }
+  }
+
+  /** Clear SLA due-at and status for non-terminal tickets using this config.
+   *  Called when an SLA config is deactivated so stale SLA values don't
+   *  linger on tickets that are no longer governed by an active rule. */
+  private async clearSlaForConfig(categoryId: string, priority: Priority) {
+    await this.ticketRepository.updateMany(
+      {
+        categoryId,
+        priority,
+        status: {
+          notIn: [TicketStatus.Resolved, TicketStatus.Closed],
+        },
+      },
+      {
+        slaDueAt: null,
+        slaStatus: null,
+      },
+    );
   }
 
   private handlePrismaWriteError(error: unknown): never {
