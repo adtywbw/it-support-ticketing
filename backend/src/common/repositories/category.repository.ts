@@ -13,6 +13,7 @@ export class CategoryRepository {
         subCategories: {
           where: includeInactive ? undefined : { isActive: true },
           orderBy: { name: 'asc' },
+          include: { _count: { select: { tickets: true } } },
         },
         slaConfigs: includeInactive ? undefined : { where: { isActive: true } },
         _count: { select: { tickets: true, subCategories: true, slaConfigs: true } },

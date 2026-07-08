@@ -665,7 +665,6 @@ function LocationManager() {
               <thead className="bg-blue-50 dark:bg-navy-900">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Total Tickets</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Active</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
@@ -674,7 +673,6 @@ function LocationManager() {
                 {locations.map((loc) => (
                   <tr key={loc.id} className="hover:bg-blue-50 dark:hover:bg-navy-800/60">
                     <td className="px-6 py-4 text-sm font-medium text-navy-950 dark:text-blue-50">{loc.name}</td>
-                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{loc._count?.tickets ?? 0}</td>
                     <td className="px-6 py-4">
                       <Switch checked={loc.isActive} onChange={() => toggleMutation.mutate({ id: loc.id, isActive: !loc.isActive })} disabled={toggleMutation.isPending} label={"Toggle " + loc.name} />
                     </td>
