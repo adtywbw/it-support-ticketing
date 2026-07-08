@@ -46,7 +46,6 @@ export class SLAService {
         const ticketCount = await this.ticketRepository.count({
           categoryId: config.categoryId,
           priority: config.priority,
-          status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
         });
         return { ...config, _count: { tickets: ticketCount } };
       }),
@@ -62,7 +61,6 @@ export class SLAService {
       where: {
         categoryId: config.categoryId,
         priority: config.priority,
-        status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
       },
       take: 1,
       select: { id: true },
@@ -70,7 +68,7 @@ export class SLAService {
 
     if (existingTickets.length > 0) {
       throw new ConflictException(
-        'Cannot delete SLA config: non-terminal tickets still use this category and priority combination.',
+        'Cannot delete SLA config: tickets still exist for this category and priority combination.',
       );
     }
 

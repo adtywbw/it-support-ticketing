@@ -333,10 +333,10 @@ export default function SLAConfigManager() {
             </svg>
             <div>
               <p className="text-sm text-navy-700 dark:text-blue-200">
-                <strong>{blockedItem?.name}</strong> cannot be deleted because it still has active tickets using this SLA configuration.
+                <strong>{blockedItem?.name}</strong> cannot be deleted because tickets still use this SLA configuration.
               </p>
               <p className="mt-3 text-sm text-navy-500 dark:text-blue-400">
-                Deactivate the SLA config instead — active tickets will have their SLA values cleared.
+                Deactivate the SLA config instead — it will stop applying to new tickets.
               </p>
             </div>
           </div>
