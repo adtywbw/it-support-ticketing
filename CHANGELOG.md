@@ -2,7 +2,9 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
-## Session 64 — TypeScript Code Review: Nullable Types, ESLint Plugin, Duplicate Refresh, Ref Patterns (2026-07-08)
+## Session 64 — TypeScript Code Review: Nullable Types, ESLint, Ref Patterns, Filter Sync, N+1 Query (2026-07-08)
+
+### Round 1 — Types, ESLint, Axios, Ref Patterns
 
 - **Fix: nullable field types** — Changed all API-returned nullable fields from optional (`?:`) to required-but-nullable (`: type | null`) in `types/index.ts` (`avatarUrl`, `subCategoryId`, `locationId`, `assignedToId`, `slaDueAt`, `slaStatus`, `resolvedAt`, `closedAt`, `commentId`, `visibility`, `description`, `oldValue`, `newValue`). Matches actual API contract where nullable fields are always present with `null` value.
 - **Fix: `AuthResponse`/`RefreshResponse` types** — `firstName`/`lastName` changed from optional to required (backend always sends them via `generateTokens()`).
@@ -14,6 +16,17 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Fix: ref access during render** — Moved `onCloseRef.current`, `onPageChangeRef.current`, and `entriesRef.current` assignments from render body to `useEffect` (×3 files: `Modal.tsx`, `TicketList.tsx`, `use-file-upload.ts`).
 - **Fix: `NotificationPreferencesSection`/`TelegramConfigSection` ref patterns** — Replaced `useRef` for initial config with `useState` to eliminate ref access during render.
 - **Fix: updated test mocks** — Added `avatarUrl: null` to all mock `User` objects across 9 test files.
+
+### Round 2 — Filter Sync, N+1 Query, Type Safety, Sort Constant
+
+- **Fix: `TicketFilters` useEffect sync overwrite** — Added `justAppliedRef` flag so the Apply→parent→prop→local sync loop doesn't clobber user edits immediately after clicking Apply.
+- **Fix: `UsersService` falsy guard** — Changed `role: value || 'EndUser'` to `role: value ?? 'EndUser'` (nullish coalescing prevents silent substitution of valid falsy values).
+- **Perf: `SLAService.findAll()` N+1 query** — Replaced per-config `COUNT(*)` loop with single batch `countTicketsByCategoryPriorityPairs()` query using `(categoryId, priority) IN (...)` — reduces RTT from N to 1.
+- **Fix: `AppThrottlerGuard` `any` cast** — Replaced `(req as any).user` with typed `Request & { user?: { id: string } }` intersection.
+- **Refactor: shared sort-field constant** — Extracted `TICKET_SORT_FIELDS` into `QueryTicketDto`, imported by `TicketsService` to prevent DTO ↔ service sort allowlist drift.
+- **Fix: `NotificationsGateway` stale timer guard** — Added `expiryTimers.has()` check in setTimeout callback to prevent a stale timer from disconnecting a new socket.
+- **Fix: `AGENTS.md` bullet formatting** — Normalised `|- ` to `- ` on Common Pitfalls section.
+- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 15/15 (production HTTPS) ✅
 - **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 15/15 (production HTTPS) ✅
 
 - **Fix: SLA cron lock release error handling** — `checkSLA()` finally block `.catch(() => {})` prevents unhandled error on Redis failure (matching `recalculateOpenTicketsForConfig` pattern).
