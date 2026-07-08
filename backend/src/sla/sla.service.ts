@@ -44,6 +44,25 @@ export class SLAService {
   }
 
   async delete(id: string) {
+    const config = await this.slaConfigRepository.findUnique({ id });
+    if (!config) throw new NotFoundException('SLA config not found');
+
+    const existingTickets = await this.ticketRepository.findMany({
+      where: {
+        categoryId: config.categoryId,
+        priority: config.priority,
+        status: { notIn: [TicketStatus.Resolved, TicketStatus.Closed] },
+      },
+      take: 1,
+      select: { id: true },
+    });
+
+    if (existingTickets.length > 0) {
+      throw new ConflictException(
+        'Cannot delete SLA config: non-terminal tickets still use this category and priority combination.',
+      );
+    }
+
     await this.slaConfigRepository.delete(id);
   }
 
