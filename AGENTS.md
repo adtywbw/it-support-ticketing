@@ -45,6 +45,7 @@
 | Frontend build | `frontend` | `npm run build` |
 | Frontend lint | `frontend` | `npm run lint` |
 | Frontend tests | `frontend` | `vitest` |
+| Frontend a11y tests | `frontend` | `vitest run src/__tests__/a11y.test.tsx` |
 | Full compose rebuild | repo root | `docker compose up --build` |
 | Start existing compose | repo root | `docker compose up -d` |
 | Build API image | repo root | `docker compose build api` |
@@ -61,6 +62,7 @@
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,locations,dashboard,users,sla,notifications,telegram,maintenance,health,faqs}
 backend/src/dashboard/dto/query-dashboard-stats.dto.ts
 backend/src/common/middleware/request-id.middleware.ts
+backend/src/common/logging/{json-logger,request-context}.ts
 backend/src/common/repositories/{user,ticket,comment,attachment,category,sub-category,location,sla-config,notification,telegram-config}.repository.ts
 backend/src/common/services/{audit,services}.module.ts
 backend/src/common/policies/attachment-visibility.policy.ts
@@ -79,6 +81,7 @@ postgres/postgresql.conf
 - Backend policies live in `backend/src/common/policies/` (e.g., `AttachmentVisibilityPolicy`).
 - Backend shared services live in `backend/src/common/services/` (e.g., `AuditService` for structured event logging).
 - Backend shared utilities live in `backend/src/common/utils/` (e.g., `upload.util.ts`, `mime-validation.util.ts`, `time.util.ts`, `concurrency.util.ts`).
+- **Logging infrastructure**: `JsonLogger` (NestJS custom logger → JSON output) and `requestContext` (AsyncLocalStorage correlation ID) live in `backend/src/common/logging/`. Every log line carries `correlationId` for distributed tracing. `RequestIdMiddleware` wraps each request in `requestContext.run()` so all downstream logs share the same ID.
 - **All modules that inject repositories explicitly import `RepositoriesModule`** — no silent reliance on `@Global()`. See each module's `imports` array.
 - **Audit logs**: `AuditService.log()` writes to `audit_logs` table. `GET /api/audit-logs` (Admin-only, paginated, filterable) provides read access. 90-day retention via `@Cron` cleanup.
 - Frontend pages: `frontend/src/pages/`.

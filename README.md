@@ -98,6 +98,15 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - `MaintenanceGuard` blocks non-admin API during maintenance; Admin bypasses via JWT verification
 - See [ARCHITECTURE.md §7](./ARCHITECTURE.md#7-security-architecture) for full security architecture
 
+### Observability
+- **Structured JSON logging** — every log line is JSON with `timestamp`, `level`, `correlationId`, `context`, and `message`; production logs only `log`/`error`/`warn`
+- **Request correlation** — `RequestIdMiddleware` generates/propagates `X-Request-ID` header, stored in `AsyncLocalStorage` so all logs from the same request share a correlation ID
+- See [ARCHITECTURE.md §8](./ARCHITECTURE.md#8-observability) for logging infrastructure
+
+### Accessibility (a11y)
+- **Automated tests** — 7 `jest-axe` tests on LoginPage, TicketsPage, Pagination, LoadingSpinner, EmptyState, ErrorMessage, ConfirmDialog
+- **Heading order compliance** — semantic heading levels enforced (`h1` page title → `h2` section → `h3` sub-section)
+
 ## Project Structure
 
 ```

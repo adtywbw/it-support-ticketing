@@ -122,7 +122,7 @@ export default function TicketList({
   const limit = filters.limit;
 
   const queryFilters = useMemo(
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
+     
     () => ({
       page,
       limit: filters.limit,
@@ -149,7 +149,7 @@ export default function TicketList({
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     [page, filters, user?.id],
   );
 
