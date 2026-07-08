@@ -662,3 +662,11 @@ it-support-ticketing/
 - **Nginx**: CSP, security headers repeated per location block (add_header inheritance), `default_server` for unmatched Host, dotfile deny.
 - **Secret hygiene**: `.env` permission `600`, `.gitignore` covers `.env.*`, strong credentials via `openssl rand`.
 - **CI/CD**: GitHub Actions workflow (`.github/workflows/ci.yml`) runs build + test on every PR and push to `main`. Backend job uses PostgreSQL and Redis service containers.
+
+## 8. Observability
+
+### Structured JSON Logging
+- **Custom logger**: `JsonLogger` extends NestJS `ConsoleLogger` — every log line is a JSON object with `timestamp`, `level`, `correlationId`, `context`, `message`, and optional `stack`.
+- **Correlation ID**: `RequestIdMiddleware` generates or propagates `X-Request-ID` header, stored in `AsyncLocalStorage` via `requestContext.run()`. Every log emitted during a request lifecycle carries the same correlation ID, enabling distributed tracing across services.
+- **Environment-aware levels**: Production logs only `log`/`error`/`warn`; development includes `debug`/`verbose`.
+- **Morgan HTTP logging**: `morgan('combined')` middleware provides HTTP access logs alongside structured app logs.

@@ -36,7 +36,17 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Perf: Prisma pool timeout** — Added `pool_timeout` to DATABASE_URL params alongside existing `connection_limit` for explicit connection pooling control.
 - **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 36/36 (production HTTPS) ✅
 
-## Session 63 — Code Review: Lock Error Handling, Missing onError, Duplicate Filter, E2E Stability (2026-07-08) — `checkSLA()` finally block `.catch(() => {})` prevents unhandled error on Redis failure (matching `recalculateOpenTicketsForConfig` pattern).
+### Round 4 — JSON Logging, A11y Tests, Observability Docs
+
+- **Feat: structured JSON logging** — `JsonLogger` extends NestJS `ConsoleLogger`, outputs every log line as JSON with `timestamp`, `level`, `correlationId`, `context`, `message`, and optional `stack`. `AsyncLocalStorage` propagates correlation ID through entire request lifecycle.
+- **Feat: automated accessibility tests** — 7 `jest-axe` tests covering LoginPage, TicketsPage, Pagination, LoadingSpinner, EmptyState, ErrorMessage, ConfirmDialog.
+- **Fix: EmptyState heading accessibility** — Changed `<h3>` to `<h2>` to satisfy heading-order rule (page-level `h1` from parent, then `h2` for section title).
+- **Docs: ARCHITECTURE.md §8 Observability** — New section documenting JSON logger, correlation ID propagation, and environment-aware log levels.
+- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 220/220 tests (incl. 7 a11y) ✅ | frontend build ✅ | E2E 36/36 (production HTTPS) ✅
+
+## Session 63 — Code Review: Lock Error Handling, Missing onError, Duplicate Filter, E2E Stability (2026-07-08)
+
+- **Fix: SLA cron lock release error handling**
 - **Fix: Maintenance restore lock release error handling** — `restoreBackup()` success path `releaseLock()` now `.catch(() => {})` to prevent unhandled rejection.
 - **Fix: missing frontend mutation onError** — `useUploadAttachment()` now shows toast on failure (only mutation hook missing error feedback).
 - **Refactor: extract duplicate filter logic** — `buildTicketQueryInput()` shared helper eliminates 80 lines of duplicated WHERE/sort building between `findAll()` and `exportCsvToResponse()`.
