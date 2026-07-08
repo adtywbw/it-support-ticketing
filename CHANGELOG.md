@@ -2,6 +2,13 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 61 — Master Data UI: Switch Toggle + Delete Guard (2026-07-08)
+
+- **Status → Switch toggle**: Category, SubCategory, Location tables now use `<Switch>` instead of `<Badge>`. Click toggles `isActive` inline.
+- **Delete guard**: Before delete, checks `_count.tickets` (and `_count.subCategories`, `_count.slaConfigs` for categories). If > 0, shows info modal with breakdown of what's blocking deletion — user can deactivate instead.
+- **`Category._count` type** extended with `subCategories` + `slaConfigs`
+- Verification: frontend tsc ✅, 213/213 ✅, build ✅
+
 ## Session 60 — Location & Created By Filters, Search Expanded, Master Data Sync (2026-07-08)
 
 - **Location filter** added: multi-select dropdown using `useLocations()` hook

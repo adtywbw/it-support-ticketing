@@ -79,7 +79,7 @@ export interface Category {
   createdAt: string;
   updatedAt: string;
   subCategories?: SubCategory[];
-  _count?: { tickets: number };
+  _count?: { tickets: number; subCategories: number; slaConfigs: number };
 }
 
 export interface SubCategory {
