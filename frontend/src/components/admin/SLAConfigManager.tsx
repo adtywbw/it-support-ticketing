@@ -4,11 +4,10 @@ import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
-import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useCategories } from '@/hooks/use-categories';
 import { useCreateSLAConfig, useSLAConfigs, useUpdateSLAConfig } from '@/hooks/use-sla-configs';
 import { formatSLADuration, isValidSLAWindow, splitMinutesForInput, toMinutes, type SLATimeUnit } from '@/lib/sla-time';
-import Badge from '@/components/ui/Badge';
+import Switch from '@/components/ui/Switch';
 import { getErrorMessage, getPriorityColor } from '@/lib/utils';
 import type { SLAConfig, TicketPriority } from '@/types';
 
@@ -34,7 +33,6 @@ export default function SLAConfigManager() {
   const [formPriority, setFormPriority] = useState<TicketPriority>('Medium');
   const [responseTime, setResponseTime] = useState<TimeInputState>(defaultResponseTime);
   const [resolutionTime, setResolutionTime] = useState<TimeInputState>(defaultResolutionTime);
-  const [toggleItem, setToggleItem] = useState<SLAConfig | null>(null);
 
   const activeCategories = (categories ?? []).filter((category) => category.isActive);
   const isLoading = isSlaLoading || isCategoriesLoading;
@@ -138,23 +136,6 @@ export default function SLAConfigManager() {
     );
   };
 
-  const handleToggle = () => {
-    if (!toggleItem) return;
-
-    updateMutation.mutate(
-      { id: toggleItem.id, payload: { isActive: !toggleItem.isActive } },
-      {
-        onSuccess: () => {
-          setToggleItem(null);
-          toast.success(toggleItem.isActive ? 'SLA config deactivated' : 'SLA config activated');
-        },
-        onError: (err: unknown) => {
-          toast.error(getErrorMessage(err, 'Failed to update SLA config'));
-        },
-      },
-    );
-  };
-
   if (isLoading) return <div className="card p-12"><LoadingSpinner size="lg" /></div>;
   if (isError) {
     return (
@@ -192,7 +173,7 @@ export default function SLAConfigManager() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Priority</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Response Time</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Resolution Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Active</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
               </thead>
@@ -208,16 +189,12 @@ export default function SLAConfigManager() {
                     <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.responseTimeMinutes)}</td>
                     <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatSLADuration(config.resolutionTimeMinutes)}</td>
                     <td className="px-6 py-4">
-                      {config.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
+                      <Switch checked={config.isActive} onChange={() => updateMutation.mutate({ id: config.id, payload: { isActive: !config.isActive } })} disabled={isPending} label={"Toggle " + getCategoryName(config)} />
                     </td>
-                    <td className="px-6 py-4 text-right text-sm">
-                      <button onClick={() => openEdit(config)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
-                      <button
-                        onClick={() => setToggleItem(config)}
-                        className={config.isActive ? 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300' : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'}
-                      >
-                        {config.isActive ? 'Deactivate' : 'Activate'}
-                      </button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEdit(config)} className="btn-secondary btn-sm">Edit</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -319,17 +296,6 @@ export default function SLAConfigManager() {
           </div>
         </div>
       </Modal>
-
-      <ConfirmDialog
-        isOpen={!!toggleItem}
-        onClose={() => setToggleItem(null)}
-        onConfirm={handleToggle}
-        title={toggleItem?.isActive ? 'Deactivate SLA Config' : 'Activate SLA Config'}
-        message={toggleItem?.isActive ? 'This SLA config will no longer be used as an active rule.' : 'This SLA config will become available as an active rule.'}
-        confirmLabel={toggleItem?.isActive ? 'Deactivate' : 'Activate'}
-        variant={toggleItem?.isActive ? 'danger' : 'primary'}
-        isLoading={isPending}
-      />
     </div>
   );
 }
