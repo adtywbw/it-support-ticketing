@@ -226,9 +226,10 @@ export default function UserManagement() {
                         </button>
                         <button
                           onClick={() => {
-                            if ((u._count?.tickets ?? 0) > 0 || (u._count?.comments ?? 0) > 0 || (u._count?.attachments ?? 0) > 0) {
+                            if ((u._count?.createdTickets ?? 0) > 0 || (u._count?.assignedTickets ?? 0) > 0 || (u._count?.comments ?? 0) > 0 || (u._count?.attachments ?? 0) > 0) {
                               const reasons: string[] = [];
-                              if (u._count!.tickets > 0) reasons.push(`${u._count!.tickets} ticket(s)`);
+                              if (u._count!.createdTickets > 0) reasons.push(`${u._count!.createdTickets} created ticket(s)`);
+                              if (u._count!.assignedTickets > 0) reasons.push(`${u._count!.assignedTickets} assigned ticket(s)`);
                               if (u._count!.comments > 0) reasons.push(`${u._count!.comments} comment(s)`);
                               if (u._count!.attachments > 0) reasons.push(`${u._count!.attachments} attachment(s)`);
                               setBlockedItem({ name: getUserDisplayName(u), reasons });

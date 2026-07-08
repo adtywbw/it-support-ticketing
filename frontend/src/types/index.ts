@@ -9,7 +9,7 @@ export interface User {
   avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
-  _count?: { tickets: number; comments: number; attachments: number };
+  _count?: { createdTickets: number; assignedTickets: number; comments: number; attachments: number };
 }
 
 export type TicketStatus = 'Open' | 'InProgress' | 'OnHold' | 'Resolved' | 'Closed';

@@ -12,7 +12,7 @@ const USER_SAFE_SELECT = {
   avatarUrl: true,
   createdAt: true,
   updatedAt: true,
-  _count: { select: { tickets: true, comments: true, attachments: true } },
+  _count: { select: { createdTickets: true, assignedTickets: true, comments: true, attachments: true } },
 } as const;
 
 const USER_SAFE_SELECT_WITH_PASSWORD = {
