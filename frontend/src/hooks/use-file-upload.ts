@@ -1,5 +1,8 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ALLOWED_MIME_TYPES, MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_TICKET_ATTACHMENT_SIZE,
+} from "@/lib/constants";
 
 export interface UseFileUploadOptions {
   maxFiles?: number;
@@ -32,7 +35,9 @@ function createFilePreview(file: File): FileEntry {
   return { file, url, revoke: () => URL.revokeObjectURL(url) };
 }
 
-export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUploadReturn {
+export function useFileUpload(
+  options: UseFileUploadOptions = {},
+): UseFileUploadReturn {
   const {
     maxFiles = 3,
     maxSizePerFile = MAX_TICKET_ATTACHMENT_SIZE,
@@ -42,7 +47,10 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const entriesRef = useRef<FileEntry[]>([]);
-  entriesRef.current = entries;
+
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
 
   const files = useMemo(() => entries.map((e) => e.file), [entries]);
   const previewUrls = useMemo(() => entries.map((e) => e.url), [entries]);
@@ -62,7 +70,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
   const validateFile = useCallback(
     (file: File): string | null => {
       if (!allowedMimeTypes.includes(file.type)) {
-        return `File type "${file.type || 'unknown'}" is not allowed`;
+        return `File type "${file.type || "unknown"}" is not allowed`;
       }
       if (file.size > maxSizePerFile) {
         const sizeMB = maxSizePerFile / (1024 * 1024);

@@ -1,4 +1,4 @@
-export type UserRole = 'EndUser' | 'ITSupport' | 'Admin';
+export type UserRole = "EndUser" | "ITSupport" | "Admin";
 
 export interface User {
   id: string;
@@ -6,15 +6,25 @@ export interface User {
   name: string;
   role: UserRole;
   isActive: boolean;
-  avatarUrl?: string | null;
+  avatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
-  _count?: { createdTickets: number; assignedTickets: number; comments: number; attachments: number };
+  _count?: {
+    createdTickets: number;
+    assignedTickets: number;
+    comments: number;
+    attachments: number;
+  };
 }
 
-export type TicketStatus = 'Open' | 'InProgress' | 'OnHold' | 'Resolved' | 'Closed';
-export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Critical';
-export type SLAStatus = 'OnTrack' | 'AtRisk' | 'Breached';
+export type TicketStatus =
+  | "Open"
+  | "InProgress"
+  | "OnHold"
+  | "Resolved"
+  | "Closed";
+export type TicketPriority = "Low" | "Medium" | "High" | "Critical";
+export type SLAStatus = "OnTrack" | "AtRisk" | "Breached";
 
 export interface Ticket {
   id: string;
@@ -25,20 +35,20 @@ export interface Ticket {
   priority: TicketPriority;
   categoryId: string;
   category?: Category;
-  subCategoryId?: string | null;
+  subCategoryId: string | null;
   subCategory?: SubCategory;
-  locationId?: string | null;
-  location?: { id: string; name: string } | null;
+  locationId: string | null;
+  location: { id: string; name: string } | null;
   itemCode: string;
   requesterId: string;
   requester?: { id: string; name: string; email: string };
-  assignedToId?: string | null;
-  assignedTo?: User | null;
+  assignedToId: string | null;
+  assignedTo: User | null;
   channel: string;
-  slaDueAt?: string | null;
-  slaStatus?: SLAStatus | null;
-  resolvedAt?: string | null;
-  closedAt?: string | null;
+  slaDueAt: string | null;
+  slaStatus: SLAStatus | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
   histories?: AuditTrailEntry[];
   comments?: Comment[];
   attachments?: Attachment[];
@@ -51,9 +61,15 @@ export interface Comment {
   id: string;
   ticketId: string;
   userId: string;
-  user?: { id: string; name: string; email: string; role?: string; avatarUrl?: string | null };
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role?: string;
+    avatarUrl: string | null;
+  };
   content: string;
-  type: 'PUBLIC' | 'INTERNAL';
+  type: "PUBLIC" | "INTERNAL";
   attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
@@ -62,20 +78,20 @@ export interface Comment {
 export interface Attachment {
   id: string;
   ticketId: string;
-  commentId?: string;
+  commentId: string | null;
   userId: string;
   user?: { id: string; name: string };
   originalName: string;
   size: number;
   mimeType: string;
-  visibility?: 'PUBLIC' | 'INTERNAL';
+  visibility: "PUBLIC" | "INTERNAL";
   createdAt: string;
 }
 
 export interface Category {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -87,7 +103,7 @@ export interface SubCategory {
   id: string;
   categoryId: string;
   name: string;
-  description?: string;
+  description: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -138,8 +154,8 @@ export interface AuditTrailEntry {
   userId: string;
   user?: { id: string; name: string; email: string };
   field: string;
-  oldValue?: string;
-  newValue?: string;
+  oldValue: string | null;
+  newValue: string | null;
   createdAt: string;
 }
 
@@ -153,7 +169,7 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export type DashboardRangePreset = '7d' | '30d' | '90d' | 'custom';
+export type DashboardRangePreset = "7d" | "30d" | "90d" | "custom";
 
 export interface DashboardStatsQuery {
   range: DashboardRangePreset;
@@ -222,13 +238,13 @@ export interface LoginCredentials {
 }
 
 export interface AuthResponse {
-  user: User & { firstName?: string; lastName?: string };
+  user: User & { firstName: string; lastName: string };
   accessToken: string;
 }
 
 export interface RefreshResponse {
   accessToken: string;
-  user: User & { firstName?: string; lastName?: string };
+  user: User & { firstName: string; lastName: string };
 }
 
 export interface TicketFilters {
@@ -316,7 +332,7 @@ export interface UpdateSubCategoryPayload {
 export interface SLAConfig {
   id: string;
   categoryId: string;
-  category?: Pick<Category, 'id' | 'name'>;
+  category?: Pick<Category, "id" | "name">;
   priority: TicketPriority;
   responseTimeMinutes: number;
   resolutionTimeMinutes: number;
@@ -363,6 +379,16 @@ export interface TelegramConfig {
 }
 
 export interface TelegramCheckResult {
-  bot: { valid: boolean; username?: string; firstName?: string; error?: string };
-  groupChat: { valid: boolean; title?: string; type?: string; error?: string } | null;
+  bot: {
+    valid: boolean;
+    username?: string;
+    firstName?: string;
+    error?: string;
+  };
+  groupChat: {
+    valid: boolean;
+    title?: string;
+    type?: string;
+    error?: string;
+  } | null;
 }

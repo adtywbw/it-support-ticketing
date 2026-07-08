@@ -2,7 +2,19 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
-## Session 63 — Code Review: Lock Error Handling, Missing onError, Duplicate Filter, E2E Stability (2026-07-08)
+## Session 64 — TypeScript Code Review: Nullable Types, ESLint Plugin, Duplicate Refresh, Ref Patterns (2026-07-08)
+
+- **Fix: nullable field types** — Changed all API-returned nullable fields from optional (`?:`) to required-but-nullable (`: type | null`) in `types/index.ts` (`avatarUrl`, `subCategoryId`, `locationId`, `assignedToId`, `slaDueAt`, `slaStatus`, `resolvedAt`, `closedAt`, `commentId`, `visibility`, `description`, `oldValue`, `newValue`). Matches actual API contract where nullable fields are always present with `null` value.
+- **Fix: `AuthResponse`/`RefreshResponse` types** — `firstName`/`lastName` changed from optional to required (backend always sends them via `generateTokens()`).
+- **Feat: `eslint-plugin-react-hooks` installed** (frontend) — enabled `react-hooks/recommended` rules. Configures `set-state-in-effect: warn` (form init patterns) and `preserve-manual-memoization: off` (experimental).
+- **Fix: axios FormData upload retry** — Refresh+retry now skips `multipart/form-data` requests since FormData streams cannot be re-consumed.
+- **Refactor: deduplicated `refreshAccessToken()`** — Extracted shared function, removed duplicate inline refresh logic from axios interceptor.
+- **Fix: `ProtectedRoute` stale closure** — Used `useAuthStore.getState().login()` in `.then()` callback to avoid closure over changing `login` reference. Removed `login` from effect deps.
+- **Fix: `ProtectedRoute` navigateState pattern** — Changed from `useRef({ from: location }).current` to `useMemo(() => ({ from: location }), [])` to satisfy `react-hooks/refs` rule.
+- **Fix: ref access during render** — Moved `onCloseRef.current`, `onPageChangeRef.current`, and `entriesRef.current` assignments from render body to `useEffect` (×3 files: `Modal.tsx`, `TicketList.tsx`, `use-file-upload.ts`).
+- **Fix: `NotificationPreferencesSection`/`TelegramConfigSection` ref patterns** — Replaced `useRef` for initial config with `useState` to eliminate ref access during render.
+- **Fix: updated test mocks** — Added `avatarUrl: null` to all mock `User` objects across 9 test files.
+- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 213/213 tests ✅ | frontend build ✅ | E2E 15/15 (production HTTPS) ✅
 
 - **Fix: SLA cron lock release error handling** — `checkSLA()` finally block `.catch(() => {})` prevents unhandled error on Redis failure (matching `recalculateOpenTicketsForConfig` pattern).
 - **Fix: Maintenance restore lock release error handling** — `restoreBackup()` success path `releaseLock()` now `.catch(() => {})` to prevent unhandled rejection.

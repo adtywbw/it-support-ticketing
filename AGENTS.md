@@ -94,6 +94,7 @@ postgres/postgresql.conf
 - Backend imports are relative within modules.
 - DTO validation uses `class-validator` with `whitelist` and `forbidNonWhitelisted`.
 - Backend ESLint config file is `eslint.config.mjs` (ES module `.mjs` extension to avoid Node.js module-type warning; if you create a new ESLint config or migrate existing, use `.mjs` or add `"type": "module"`).
+- Frontend ESLint uses `eslint-plugin-react-hooks` with `react-hooks/recommended` rules. The `set-state-in-effect` rule is set to `warn` (acceptable for form initialization from API data). The `preserve-manual-memoization` rule is `off` (experimental, conflicts with stable state refs from `useState`).
 - Throw `BadRequestException`/`NotFoundException` on backend; use `toast.error()` on frontend.
 
 ## State Management
@@ -252,8 +253,8 @@ postgres/postgresql.conf
 - WebSocket `NotificationsGateway` must validate the `Origin` header in `handleConnection()` against the allowed CORS origins before processing any token. This provides defense-in-depth alongside the `@WebSocketGateway` cors config.
 - Frontend errors: use `toast.error()`, not just `throw` or `console.error`.
 - Frontend mutation hooks: ALL `useMutation` hooks MUST have an `onError` callback with `toast.error(getErrorMessage(err, 'Operation failed'))` — silent failures leave users confused. Exception: when a hook is consumed exclusively via `mutateAsync` + try/catch with `toast.error()` in the component, the hook must NOT have `onError` to prevent double error display. Pick ONE pattern per hook: (a) `onError` in hook + `mutate` (no try/catch in component), or (b) no `onError` + `mutateAsync` + try/catch with toast. (`useSetMaintenanceMode`, `useCreateBackup`, `useDeleteBackup`, `useRestoreBackup`, `useCreateUser`, `useUpdateUser`, `useDeleteUser` follow pattern (b).)
-- Frontend `ProtectedRoute`: the `navigateState` for `<Navigate>` redirect MUST use `useRef({ from: location }).current` (stable reference), NOT a plain object `{ from: location }` — a new object reference on every render causes infinite `<Navigate>` redirect loops.
-- Frontend `Modal` Escape handler: use `useRef(onClose)` + stable `useCallback` with empty deps to prevent re-registering the `keydown` listener every time the parent passes a new `onClose` reference.
+- Frontend `ProtectedRoute`: the `navigateState` for `<Navigate>` redirect MUST use `useMemo(() => ({ from: location }), [])` (stable reference), NOT a plain object `{ from: location }` — a new object reference on every render causes infinite `<Navigate>` redirect loops.
+- Frontend `Modal` Escape handler: use `useRef(onClose)` + `useEffect` to sync ref + stable `useCallback` with empty deps to prevent re-registering the `keydown` listener every time the parent passes a new `onClose` reference. Do NOT assign `ref.current` during render — the `react-hooks/refs` rule flags it. Move the assignment to `useEffect`.
 - Frontend `queryFilters` in list components: wrap in `useMemo` to prevent object reference instability — TanStack Query's deep-hashing is wasted on every render if a new object is created inline. Follow the `serializeQuery()` pattern from `use-dashboard.ts`.
 - Backend Redis service: all core methods (`set`, `get`, `del`, `incr`, `eval`, `deleteByPattern`, etc.) must have try/catch with `Logger.error()` for observability. Callers that handle Redis failures (e.g., `AuthService.checkAccountLocked`) should use their own try/catch and fail open where appropriate.
 - Backend auth fail-open: `checkAccountLocked()` and `resetFailedLogin()` must catch Redis errors and fail open (allow login through) rather than throwing 500 — a Redis outage should not block all logins.

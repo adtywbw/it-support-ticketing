@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import toast from 'react-hot-toast';
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   useTelegramStatus,
   useTelegramConfig,
@@ -8,14 +8,14 @@ import {
   useUnlinkTelegram,
   useSendTestNotification,
   useCheckTelegram,
-} from '@/hooks/use-telegram';
-import type { TelegramSettings, TelegramCheckResult } from '@/types';
-import { getErrorMessage } from '@/lib/utils';
+} from "@/hooks/use-telegram";
+import type { TelegramSettings, TelegramCheckResult } from "@/types";
+import { getErrorMessage } from "@/lib/utils";
 
 const EVENT_LABELS: Record<string, string> = {
-  'ticket.created': 'New Ticket Created',
-  'ticket.assigned': 'Ticket Assigned',
-  'ticket.status.updated': 'Ticket Status Updated',
+  "ticket.created": "New Ticket Created",
+  "ticket.assigned": "Ticket Assigned",
+  "ticket.status.updated": "Ticket Status Updated",
 };
 
 const EVENT_KEYS = Object.keys(EVENT_LABELS);
@@ -30,19 +30,22 @@ export default function TelegramConfigSection() {
   const checkTelegram = useCheckTelegram();
 
   const [showCode, setShowCode] = useState(false);
-  const [linkCode, setLinkCode] = useState('');
+  const [linkCode, setLinkCode] = useState("");
 
-  const [botToken, setBotToken] = useState('');
+  const [botToken, setBotToken] = useState("");
   const [botTokenTouched, setBotTokenTouched] = useState(false);
   const [enabledEvents, setEnabledEvents] = useState<string[]>([]);
   const [enableGroupChat, setEnableGroupChat] = useState(false);
-  const [notifyIndividualsWhenGroupChat, setNotifyIndividualsWhenGroupChat] = useState(false);
-  const [groupChatId, setGroupChatId] = useState('');
+  const [notifyIndividualsWhenGroupChat, setNotifyIndividualsWhenGroupChat] =
+    useState(false);
+  const [groupChatId, setGroupChatId] = useState("");
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [configLoaded, setConfigLoaded] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
-  const [checkResult, setCheckResult] = useState<TelegramCheckResult | null>(null);
-  const initialConfig = useRef<{
+  const [checkResult, setCheckResult] = useState<TelegramCheckResult | null>(
+    null,
+  );
+  const [initialConfig, setInitialConfig] = useState<{
     enabledEvents: string[];
     enableGroupChat: boolean;
     notifyIndividualsWhenGroupChat: boolean;
@@ -52,18 +55,24 @@ export default function TelegramConfigSection() {
   useEffect(() => {
     if (!telegramConfig.data || configLoaded) return;
 
-    initialConfig.current = {
+    // Initialize form state from fetched config once.
+    // This effect intentionally calls setState synchronously to hydrate
+    // the form on first load — a shared state key pattern, not cascading.
+    setInitialConfig({
       enabledEvents: telegramConfig.data.settings.enabledEvents || [],
       enableGroupChat: telegramConfig.data.settings.enableGroupChat || false,
-      notifyIndividualsWhenGroupChat: telegramConfig.data.settings.notifyIndividualsWhenGroupChat || false,
+      notifyIndividualsWhenGroupChat:
+        telegramConfig.data.settings.notifyIndividualsWhenGroupChat || false,
       templates: telegramConfig.data.settings.templates || {},
-    };
-    setBotToken('');
+    });
+    setBotToken("");
     setBotTokenTouched(false);
     setEnabledEvents(telegramConfig.data.settings.enabledEvents || []);
     setEnableGroupChat(telegramConfig.data.settings.enableGroupChat || false);
-    setNotifyIndividualsWhenGroupChat(telegramConfig.data.settings.notifyIndividualsWhenGroupChat || false);
-    setGroupChatId('');
+    setNotifyIndividualsWhenGroupChat(
+      telegramConfig.data.settings.notifyIndividualsWhenGroupChat || false,
+    );
+    setGroupChatId("");
     setTemplates(telegramConfig.data.settings.templates || {});
     setConfigLoaded(true);
   }, [configLoaded, telegramConfig.data]);
@@ -74,7 +83,9 @@ export default function TelegramConfigSection() {
       setLinkCode(result.code);
       setShowCode(true);
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Failed to generate Telegram link code'));
+      toast.error(
+        getErrorMessage(err, "Failed to generate Telegram link code"),
+      );
     }
   };
 
@@ -87,10 +98,10 @@ export default function TelegramConfigSection() {
       });
       setCheckResult(result);
       if (result.bot.valid && (!result.groupChat || result.groupChat.valid)) {
-        toast.success('Configuration looks good!');
+        toast.success("Configuration looks good!");
       }
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to check configuration'));
+      toast.error(getErrorMessage(err, "Failed to check configuration"));
     }
   };
 
@@ -111,42 +122,51 @@ export default function TelegramConfigSection() {
       settings.groupChatId = groupChatId || undefined;
     }
     try {
-      await updateConfig.mutateAsync({ ...(botTokenTouched ? { botToken } : {}), settings });
-      initialConfig.current = {
+      await updateConfig.mutateAsync({
+        ...(botTokenTouched ? { botToken } : {}),
+        settings,
+      });
+      setInitialConfig({
         enabledEvents: settings.enabledEvents,
         enableGroupChat: settings.enableGroupChat,
         notifyIndividualsWhenGroupChat: settings.notifyIndividualsWhenGroupChat,
         templates: settings.templates,
-      };
-      setBotToken('');
+      });
+      setBotToken("");
       setBotTokenTouched(false);
-      setGroupChatId('');
+      setGroupChatId("");
       setCheckResult(null);
       setConfigSaved(true);
       setTimeout(() => setConfigSaved(false), 3000);
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Failed to save Telegram configuration'));
+      toast.error(
+        getErrorMessage(err, "Failed to save Telegram configuration"),
+      );
     }
   };
 
-  const checkHasError = checkResult && (
-    !checkResult.bot.valid || (checkResult.groupChat && !checkResult.groupChat.valid)
-  );
+  const checkHasError =
+    checkResult &&
+    (!checkResult.bot.valid ||
+      (checkResult.groupChat && !checkResult.groupChat.valid));
 
-  const init = initialConfig.current;
-  const hasChanges = init && (
-    botTokenTouched ||
-    groupChatId !== '' ||
-    enableGroupChat !== init.enableGroupChat ||
-    notifyIndividualsWhenGroupChat !== init.notifyIndividualsWhenGroupChat ||
-    JSON.stringify([...enabledEvents].sort()) !== JSON.stringify([...init.enabledEvents].sort()) ||
-    JSON.stringify(templates) !== JSON.stringify(init.templates)
-  );
+  const init = initialConfig;
+  const hasChanges =
+    init &&
+    (botTokenTouched ||
+      groupChatId !== "" ||
+      enableGroupChat !== init.enableGroupChat ||
+      notifyIndividualsWhenGroupChat !== init.notifyIndividualsWhenGroupChat ||
+      JSON.stringify([...enabledEvents].sort()) !==
+        JSON.stringify([...init.enabledEvents].sort()) ||
+      JSON.stringify(templates) !== JSON.stringify(init.templates));
 
   return (
     <>
       <hr className="my-6 border-blue-100 dark:border-navy-800" />
-      <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50 mb-4">Telegram</h2>
+      <h2 className="text-lg font-semibold text-navy-950 dark:text-blue-50 mb-4">
+        Telegram
+      </h2>
 
       {telegramStatus.data?.linked ? (
         <div className="space-y-3 mb-6">
@@ -159,21 +179,25 @@ export default function TelegramConfigSection() {
               className="btn-secondary"
               disabled={unlinkTelegram.isPending}
             >
-              {unlinkTelegram.isPending ? 'Unlinking...' : 'Unlink Telegram'}
+              {unlinkTelegram.isPending ? "Unlinking..." : "Unlink Telegram"}
             </button>
             <button
               onClick={async () => {
                 try {
                   await sendTestNotification.mutateAsync();
-                  toast.success('Test notification sent!');
+                  toast.success("Test notification sent!");
                 } catch (err: unknown) {
-                  toast.error(getErrorMessage(err, 'Failed to send test notification'));
+                  toast.error(
+                    getErrorMessage(err, "Failed to send test notification"),
+                  );
                 }
               }}
               className="btn-secondary"
               disabled={sendTestNotification.isPending}
             >
-              {sendTestNotification.isPending ? 'Sending...' : 'Test Notification'}
+              {sendTestNotification.isPending
+                ? "Sending..."
+                : "Test Notification"}
             </button>
           </div>
         </div>
@@ -188,7 +212,7 @@ export default function TelegramConfigSection() {
               className="btn-primary"
               disabled={generateCode.isPending}
             >
-              {generateCode.isPending ? 'Generating...' : 'Link Telegram'}
+              {generateCode.isPending ? "Generating..." : "Link Telegram"}
             </button>
           ) : (
             <div className="space-y-2">
@@ -199,9 +223,13 @@ export default function TelegramConfigSection() {
                 {linkCode}
               </div>
               <p className="text-xs text-navy-500 dark:text-blue-300">
-                1. Open Telegram and search for <strong>@your_bot_username</strong>
+                1. Open Telegram and search for{" "}
+                <strong>@your_bot_username</strong>
                 <br />
-                2. Send <code className="bg-blue-50 dark:bg-navy-900 px-1 rounded">/start {linkCode}</code>
+                2. Send{" "}
+                <code className="bg-blue-50 dark:bg-navy-900 px-1 rounded">
+                  /start {linkCode}
+                </code>
                 <br />
                 3. Expires in 5 minutes
               </p>
@@ -229,15 +257,23 @@ export default function TelegramConfigSection() {
               type="password"
               className="input flex-1"
               value={botToken}
-              onChange={(e) => { setBotToken(e.target.value); setBotTokenTouched(true); setCheckResult(null); }}
-              placeholder={telegramConfig.data?.hasBotToken ? 'Token configured' : 'TELEGRAM_BOT_TOKEN'}
+              onChange={(e) => {
+                setBotToken(e.target.value);
+                setBotTokenTouched(true);
+                setCheckResult(null);
+              }}
+              placeholder={
+                telegramConfig.data?.hasBotToken
+                  ? "Token configured"
+                  : "TELEGRAM_BOT_TOKEN"
+              }
             />
             <button
               onClick={handleCheck}
               className="btn-secondary whitespace-nowrap"
               disabled={checkTelegram.isPending}
             >
-              {checkTelegram.isPending ? 'Checking...' : 'Check'}
+              {checkTelegram.isPending ? "Checking..." : "Check"}
             </button>
           </div>
           {checkResult && (
@@ -245,7 +281,9 @@ export default function TelegramConfigSection() {
               <div className="flex items-center gap-1.5 text-xs">
                 {checkResult.bot.valid ? (
                   <>
-                    <span className="text-green-600 dark:text-green-400">✅</span>
+                    <span className="text-green-600 dark:text-green-400">
+                      ✅
+                    </span>
                     <span className="text-green-600 dark:text-green-400">
                       Bot @{checkResult.bot.username} valid
                     </span>
@@ -263,9 +301,12 @@ export default function TelegramConfigSection() {
                 <div className="flex items-center gap-1.5 text-xs">
                   {checkResult.groupChat.valid ? (
                     <>
-                      <span className="text-green-600 dark:text-green-400">✅</span>
                       <span className="text-green-600 dark:text-green-400">
-                        Group {checkResult.groupChat.title} ({checkResult.groupChat.type}) found
+                        ✅
+                      </span>
+                      <span className="text-green-600 dark:text-green-400">
+                        Group {checkResult.groupChat.title} (
+                        {checkResult.groupChat.type}) found
                       </span>
                     </>
                   ) : (
@@ -286,7 +327,10 @@ export default function TelegramConfigSection() {
           <label className="label">Notification Events</label>
           <div className="space-y-2 mt-1">
             {EVENT_KEYS.map((event) => (
-              <label key={event} className="flex items-center gap-2 cursor-pointer">
+              <label
+                key={event}
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   checked={enabledEvents.includes(event)}
@@ -303,7 +347,10 @@ export default function TelegramConfigSection() {
               <input
                 type="checkbox"
                 checked={enableGroupChat}
-                onChange={(e) => { setEnableGroupChat(e.target.checked); setCheckResult(null); }}
+                onChange={(e) => {
+                  setEnableGroupChat(e.target.checked);
+                  setCheckResult(null);
+                }}
                 className="h-4 w-4 rounded border-blue-200 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-navy-700 dark:text-blue-200">
@@ -319,7 +366,10 @@ export default function TelegramConfigSection() {
               <input
                 type="checkbox"
                 checked={notifyIndividualsWhenGroupChat}
-                onChange={(e) => { setNotifyIndividualsWhenGroupChat(e.target.checked); setCheckResult(null); }}
+                onChange={(e) => {
+                  setNotifyIndividualsWhenGroupChat(e.target.checked);
+                  setCheckResult(null);
+                }}
                 className="h-4 w-4 rounded border-blue-200 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-navy-700 dark:text-blue-200">
@@ -332,8 +382,15 @@ export default function TelegramConfigSection() {
                 type="text"
                 className="input"
                 value={groupChatId}
-                onChange={(e) => { setGroupChatId(e.target.value); setCheckResult(null); }}
-                placeholder={telegramConfig.data?.hasGroupChatId ? 'Group ID configured' : '-1001234567890'}
+                onChange={(e) => {
+                  setGroupChatId(e.target.value);
+                  setCheckResult(null);
+                }}
+                placeholder={
+                  telegramConfig.data?.hasGroupChatId
+                    ? "Group ID configured"
+                    : "-1001234567890"
+                }
               />
               {checkResult?.groupChat && !checkResult.groupChat.valid && (
                 <p className="mt-1 text-xs text-red-600 dark:text-red-400">
@@ -347,7 +404,9 @@ export default function TelegramConfigSection() {
         <div>
           <label className="label">Message Templates</label>
           <p className="text-xs text-navy-500 dark:text-blue-300 mb-2">
-            Available variables: {'{ticketNumber}'}, {'{subject}'}, {'{priority}'}, {'{createdBy}'}, {'{oldStatus}'}, {'{newStatus}'}, {'{assignedBy}'}, {'{url}'}
+            Available variables: {"{ticketNumber}"}, {"{subject}"},{" "}
+            {"{priority}"}, {"{createdBy}"}, {"{oldStatus}"}, {"{newStatus}"},{" "}
+            {"{assignedBy}"}, {"{url}"}
           </p>
           <div className="space-y-3">
             {EVENT_KEYS.map((event) => (
@@ -357,9 +416,12 @@ export default function TelegramConfigSection() {
                 </label>
                 <textarea
                   className="input font-mono text-xs h-20"
-                  value={templates[event] || ''}
+                  value={templates[event] || ""}
                   onChange={(e) =>
-                    setTemplates((prev) => ({ ...prev, [event]: e.target.value }))
+                    setTemplates((prev) => ({
+                      ...prev,
+                      [event]: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -372,7 +434,7 @@ export default function TelegramConfigSection() {
           className="btn-primary w-full"
           disabled={updateConfig.isPending || (!hasChanges && !!checkHasError)}
         >
-          {updateConfig.isPending ? 'Saving...' : 'Save Settings'}
+          {updateConfig.isPending ? "Saving..." : "Save Settings"}
         </button>
 
         {checkHasError && !hasChanges && (

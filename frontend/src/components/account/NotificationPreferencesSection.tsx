@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
-} from '@/hooks/use-notification-preferences';
-import type { NotificationPreferencesMap } from '@/types';
-import { getErrorMessage } from '@/lib/utils';
+} from "@/hooks/use-notification-preferences";
+import type { NotificationPreferencesMap } from "@/types";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function NotificationPreferencesSection() {
   const { data, isLoading } = useNotificationPreferences();
@@ -15,11 +15,13 @@ export default function NotificationPreferencesSection() {
     {},
   );
   const [loaded, setLoaded] = useState(false);
-  const initialRef = useRef<NotificationPreferencesMap | null>(null);
+  const [initial, setInitial] = useState<NotificationPreferencesMap | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!data || loaded) return;
-    initialRef.current = { ...data.preferences };
+    setInitial({ ...data.preferences });
     setPreferences({ ...data.preferences });
     setLoaded(true);
   }, [data, loaded]);
@@ -34,17 +36,17 @@ export default function NotificationPreferencesSection() {
   const handleSave = async () => {
     try {
       await updateMutation.mutateAsync(preferences);
-      initialRef.current = { ...preferences };
-      toast.success('Notification preferences saved.');
+      setInitial({ ...preferences });
+      toast.success("Notification preferences saved.");
     } catch (err: unknown) {
       toast.error(
-        getErrorMessage(err, 'Failed to save notification preferences'),
+        getErrorMessage(err, "Failed to save notification preferences"),
       );
     }
   };
 
-  const hasChanges = initialRef.current
-    ? JSON.stringify(preferences) !== JSON.stringify(initialRef.current)
+  const hasChanges = initial
+    ? JSON.stringify(preferences) !== JSON.stringify(initial)
     : false;
 
   if (isLoading) {
@@ -67,10 +69,7 @@ export default function NotificationPreferencesSection() {
       </p>
       <div className="space-y-2">
         {(data?.availableEvents ?? []).map(({ event, label }) => (
-          <label
-            key={event}
-            className="flex items-center gap-2 cursor-pointer"
-          >
+          <label key={event} className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={preferences[event] ?? true}
@@ -88,7 +87,7 @@ export default function NotificationPreferencesSection() {
         className="btn-primary w-full mt-4"
         disabled={!hasChanges || updateMutation.isPending}
       >
-        {updateMutation.isPending ? 'Saving...' : 'Save Preferences'}
+        {updateMutation.isPending ? "Saving..." : "Save Preferences"}
       </button>
     </>
   );

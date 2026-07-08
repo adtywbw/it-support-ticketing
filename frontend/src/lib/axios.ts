@@ -1,9 +1,13 @@
-import axios from 'axios';
-import type { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import { useAuthStore } from '@/stores/auth-store';
-import type { User } from '@/types';
+import axios from "axios";
+import type {
+  AxiosError,
+  InternalAxiosRequestConfig,
+  AxiosResponse,
+} from "axios";
+import { useAuthStore } from "@/stores/auth-store";
+import type { User } from "@/types";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -24,7 +28,10 @@ export function unwrapData<T>(response: AxiosResponse<ApiEnvelope<T>>): T {
   return response.data.data;
 }
 
-export function unwrapPage<T>(response: AxiosResponse<ApiEnvelope<T[]>>): { data: T[]; meta: ApiEnvelope<T[]>['meta'] } {
+export function unwrapPage<T>(response: AxiosResponse<ApiEnvelope<T[]>>): {
+  data: T[];
+  meta: ApiEnvelope<T[]>["meta"];
+} {
   return {
     data: response.data.data,
     meta: response.data.meta,
@@ -54,6 +61,21 @@ function processQueue(error: unknown, token: string | null) {
   failedQueue = [];
 }
 
+/** Shared refresh-token call used by both the interceptor and ProtectedRoute. */
+export async function refreshAccessToken(): Promise<{
+  accessToken: string;
+  user: User;
+}> {
+  const response = await axios.post<{
+    data: { accessToken: string; user: User };
+  }>(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
+  const { accessToken, user } = response.data.data;
+  if (!accessToken) {
+    throw new Error("No access token received");
+  }
+  return { accessToken, user };
+}
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const state = useAuthStore.getState();
@@ -68,9 +90,22 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
-    if (error.response?.status === 401 && !originalRequest._retry && error.response?.config?.url !== '/auth/refresh' && error.response?.config?.url !== '/auth/login') {
+    // Do NOT retry multipart/form-data uploads — FormData is a stream that
+    // cannot be re-read once consumed in the original request.
+    if (originalRequest?.data instanceof FormData) {
+      return Promise.reject(error);
+    }
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      error.response?.config?.url !== "/auth/refresh" &&
+      error.response?.config?.url !== "/auth/login"
+    ) {
       const state = useAuthStore.getState();
       if (!state.accessToken) {
         return Promise.reject(error);
@@ -91,16 +126,7 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await axios.post<{ data: { accessToken: string; user: User } }>(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
-        const { accessToken, user } = response.data.data;
-
-        if (!accessToken) {
-          const authError = new Error('No access token received');
-          processQueue(authError, null);
-          useAuthStore.getState().logout();
-          window.location.href = '/login';
-          return Promise.reject(authError);
-        }
+        const { accessToken, user } = await refreshAccessToken();
 
         useAuthStore.getState().setAccessToken(accessToken);
         if (user) {
@@ -112,7 +138,7 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         useAuthStore.getState().logout();
-        window.location.href = '/login';
+        window.location.href = "/login";
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -121,10 +147,10 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 503) {
       const role = useAuthStore.getState().user?.role;
-      if (role === 'Admin') {
+      if (role === "Admin") {
         const currentPath = window.location.pathname;
-        if (currentPath !== '/admin/maintenance' && currentPath !== '/login') {
-          window.location.href = '/admin/maintenance';
+        if (currentPath !== "/admin/maintenance" && currentPath !== "/login") {
+          window.location.href = "/admin/maintenance";
         }
       }
       return Promise.reject(error);
@@ -133,18 +159,5 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
-export async function refreshAccessToken(): Promise<{ accessToken: string; user: User }> {
-  const response = await axios.post<{ data: { accessToken: string; user: User } }>(
-    `${API_BASE_URL}/auth/refresh`,
-    {},
-    { withCredentials: true },
-  );
-  const { accessToken, user } = response.data.data;
-  if (!accessToken) {
-    throw new Error('No access token received');
-  }
-  return { accessToken, user };
-}
 
 export default apiClient;
