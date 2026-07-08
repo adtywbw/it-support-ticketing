@@ -2,6 +2,29 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 62 — Master Data UI Upgrade, Delete Guards, SLA Fixes (2026-07-08)
+
+- **Perf: blink fix** — TicketsPage imported eagerly (no React.lazy) + placeholderData removes loading spinner flash on first navigation.
+- **Feat: full column sort** — 11 columns sortable on Tickets table; CSV export respects sort.
+- **Feat: multi-select checkbox filters** — Status/Priority/SLA Status/Category via MultiSelect component; comma-separated API.
+- **Feat: Location & Created By filters** — `locationId`/`requesterId` arrays in DTO; `GET /api/users/active` endpoint; auto-sync with Master Data mutations.
+- **Feat: search expanded** — Added `itemCode`, `location.name`, `requester.name` to ticket search (6 fields total).
+- **Feat: Master Data Switch toggle** — Categories, SubCategories, Locations, SLA Configs: Status Badge replaced with inline Switch. Toggle updates `isActive` directly.
+- **Feat: delete guards with blocked popup** — Categories, Locations, SubCategories, Users, SLA Configs check `_count` before ConfirmDialog; blocked popup shown if related records exist.
+- **Style: unified action buttons** — All tables (Users, Categories, SubCategories, Locations, SLA Configs, Backups) now use `btn-secondary btn-sm`/`btn-danger btn-sm` with `gap-2` flex wrapper (FAQ pattern).
+- **Fix: filter inactive subcategories & locations** — CreateTicketForm now filters `isActive` on subcategories and locations (was only filtering categories).
+- **Fix: sub-category delete** — Backend throws `ConflictException` instead of silent soft-delete. `_count.tickets` added to subcategories in categories API.
+- **Fix: user delete guard** — `USER_SAFE_SELECT` now includes `_count` (createdTickets, assignedTickets, comments, attachments). Frontend shows blocked popup if counts > 0.
+- **Fix: correct _count relation names** — `tickets` → `createdTickets`/`assignedTickets` in `USER_SAFE_SELECT` (wrong relation name broke login).
+- **Feat: lock assignment on inactive user** — When assigned user is deactivated, assign dropdown is disabled with tooltip. `useUpdateUser` invalidates `['tickets']` + `['users', 'assignable']`.
+- **Feat: SLA Config Delete** — `DELETE /api/sla-configs/:id` endpoint + frontend Delete button + ConfirmDialog. Checks ALL tickets before allowing delete.
+- **Fix: SLA clear on deactivate** — `isActive: false` now clears `slaDueAt`/`slaStatus` for non-terminal tickets via `clearSlaForConfig()`.
+- **Fix: stale SLA values** — `TicketsService.stripStaleSlaValues()` nuls out SLA fields when the matching SLA config is inactive (runs on every ticket list/detail fetch).
+- **Fix: auto-refetch on nav** — Global `refetchOnMount: 'always'` added to `createAppQueryClient()` so page navigation always fetches fresh data.
+- **Fix: E2E health test** — Fixed envelope nesting (`res.data.data` instead of `res.data`).
+
+- **SLA Config Manager** — Unified with Switch toggle, Delete button, delete guard, blocked popup. `findAll()` now includes `_count.tickets` (non-terminal count per category+priority). `findAllActive()` exposed as public method.
+
 ## Session 61 — Master Data UI: Switch Toggle + Delete Guard (2026-07-08)
 
 - **Status → Switch toggle**: Category, SubCategory, Location tables now use `<Switch>` instead of `<Badge>`. Click toggles `isActive` inline.

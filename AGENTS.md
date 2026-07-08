@@ -52,6 +52,10 @@
 | Operational backup | repo root | `./scripts/backup.sh` |
 | Logs | repo root | `docker compose logs -f SERVICE` where `SERVICE` is `api`, `frontend`, or `nginx` |
 
+## New / Changed UI Components
+- `frontend/src/components/ui/Switch.tsx` — inline toggle switch, used by all Master Data sections (Categories, Locations, SubCategories, SLA Configs, Users status)
+- `frontend/src/components/ui/SearchableSelect.tsx` — type-to-search dropdown (created then reverted; Master Data uses native `<select>`)
+
 ## Project Structure
 ```
 backend/src/{auth,tickets,comments,attachments,categories,sub-categories,locations,dashboard,users,sla,notifications,telegram,maintenance,health,faqs}
@@ -94,7 +98,7 @@ postgres/postgresql.conf
 
 ## State Management
 - TanStack Query owns server state: tickets, users, categories, sla-configs, notifications, dashboard stats, notification preferences.
-- StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Global query defaults are `staleTime: 0` and `refetchOnWindowFocus: true` (operational data stays fresh); reference hooks opt into longer caches via explicit `staleTime`. Hooks without explicit staleTime inherit the global 0 (refetch on mount/focus).
+- StaleTime tiers: reference data 5–30 min (`STALE_TIME_*` in `lib/constants.ts`), operational data 10–30s. Global query defaults are `staleTime: 0`, `refetchOnWindowFocus: true`, and `refetchOnMount: 'always'` (set in `createAppQueryClient()` in `lib/app-initializers.ts`) so every page navigation triggers a background refetch. Reference hooks opt into longer caches via explicit `staleTime`. Hooks without explicit staleTime inherit the global 0 (refetch on mount/focus).
 - Zustand persisted state: theme only. Startup applies the persisted theme via `applyInitialTheme()` in `lib/app-initializers.ts` before React renders, reading the `pref`/`mode` shape (not the legacy `isDark` key).
 - Zustand non-persisted state: auth user/accessToken and notification count.
 - React state owns form and component-local UI state.
@@ -209,7 +213,7 @@ postgres/postgresql.conf
 - Ticket children: `GET|POST /api/tickets/:id/comments|attachments`; EndUser sees only own visible resources.
 - Categories: `GET|POST|PATCH|DELETE /api/categories`, `GET /api/categories/:id`, and `/api/categories/:categoryId/sub-categories`.
 - Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path.
-- SLA: `GET|POST|PATCH /api/sla-configs`. Create and timing update auto-recalculate affected non-terminal tickets.
+- SLA: `GET|POST|PATCH|DELETE /api/sla-configs`. Create and timing update auto-recalculate affected non-terminal tickets. Delete blocked when tickets exist. `isActive`-only deactivation clears `slaDueAt`/`slaStatus` on non-terminal tickets.
 - Dashboard: `GET /api/dashboard/stats` supports range query (`?range=7d|30d|90d|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`); returns `{ current, attention, analytics }`.
   - `current`: `{ activeTickets, open, inProgress, slaRisk, unassigned }` — snapshot counts of active (non-Resolved/Closed) tickets.
   - `attention`: `{ slaRisk[], highPriority[], unassigned[] }` — top 5 tickets per attention category (serialized with ISO date strings).
@@ -234,7 +238,7 @@ postgres/postgresql.conf
 - `Ticket`: `ticketNumber` (from sequence, not MAX), `status`, `priority`; `visibility` does not exist on the Ticket model — visibility belongs to `Attachment`.
 - `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (for display only), filename on disk = uuid + safe extension.
 - `Comment`: there is no `isInternal` boolean field — use the `type: CommentType` field (`PUBLIC`|`INTERNAL`). Internal attachment visibility is controlled via `AttachmentVisibilityPolicy`.
-- `SLAConfig`: unique constraint on `(categoryId, priority)`. `SLAService.create()` and `SLAService.update()` auto-recalculate affected non-terminal tickets' `slaDueAt` and `slaStatus` after timing changes (`responseTimeMinutes`/`resolutionTimeMinutes`). `isActive`-only updates do NOT trigger recalculation. Recalculation skips `Resolved`/`Closed` tickets.
+- `SLAConfig`: unique constraint on `(categoryId, priority)`. `SLAService.create()` and `SLAService.update()` auto-recalculate affected non-terminal tickets' `slaDueAt` and `slaStatus` after timing changes (`responseTimeMinutes`/`resolutionTimeMinutes`). `isActive`-only updates deactivate the config AND clear `slaDueAt`/`slaStatus` for non-terminal tickets via `clearSlaForConfig()`. Recalculation skips `Resolved`/`Closed` tickets. SLA config delete is blocked if ANY ticket exists for that `(categoryId, priority)`.
 - `Ticket`: `slaDueAt` (`DateTime?`) and `slaStatus` (`SLAStatus?`) are nullable — when no SLA config matches the ticket's `(categoryId, priority)`, both are `null` instead of a 24h fallback. `SLAService.calculateSlaStatus()` accepts `Date | null` and returns `null` when `slaDueAt` is null. The periodic SLA breach check skips tickets with `slaDueAt IS NULL`.
 - `TelegramConfig`: singleton, always accessed via `key = "default"`, use `findOrCreate()` (atomic `upsert`) from the repository — do not call `findFirst()` or `create()` directly.
 
@@ -277,7 +281,13 @@ postgres/postgresql.conf
 - Stale-file cleanup: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that cross-references disk files against DB records and removes unmatched files. The `AttachmentRepository.findAllPaths()` method supports this. This is a best-effort guard against orphaned files from crashes during upload.
 - **File save ordering**: `CommentsService.create()` saves uploaded files **inside** the Prisma transaction callback, not before it. This ensures that if the transaction fails (e.g., max attachments exceeded), no files linger on disk. A catch block inside the transaction handles cleanup of partial saves.
 - **SLA lock sharing**: `SLAService.recalculateOpenTicketsForConfig()` (triggered by SLA config create/update) uses the same Redis lock key (`sla:check:lock`) as `checkSLA()` cron. If the cron is mid-flight when a config update triggers recalculation, the recalculation skips with a log message. This prevents concurrent writes to `slaDueAt`/`slaStatus` on overlapping ticket sets.
-- **Restore safety**: `MaintenanceService.restoreDatabase()` COMMITs `DROP SCHEMA ... CASCADE` in a separate psql call before the restore pipeline runs. If the restore pipe (gzip→awk→psql) fails, the schema is already dropped — safety is provided by the **pre-restore backup** (created automatically before the DROP SCHEMA), which the admin can use to recover.
+|- **Restore safety**: `MaintenanceService.restoreDatabase()` COMMITs `DROP SCHEMA ... CASCADE` in a separate psql call before the restore pipeline runs. If the restore pipe (gzip→awk→psql) fails, the schema is already dropped — safety is provided by the **pre-restore backup** (created automatically before the DROP SCHEMA), which the admin can use to recover.
+|- **SubCategory delete**: backend throws `ConflictException` when tickets exist (no silent soft-delete). Frontend shows blocked popup if `_count.tickets > 0`.
+|- **User delete guard**: `USER_SAFE_SELECT` includes `_count { createdTickets, assignedTickets, comments, attachments }`. Frontend checks counts before showing ConfirmDialog.
+|- **Ticket assignment lock**: when `assignedTo.isActive === false`, the assign dropdown is disabled with tooltip "Assigned user is inactive — reactivate to change". `useUpdateUser` invalidates `['tickets']` and `['users', 'assignable']` on any user update.
+|- **Stale SLA values**: `TicketsService.stripStaleSlaValues()` nuls out `slaDueAt`/`slaStatus` for tickets whose SLA config is inactive. Runs on every ticket list/detail fetch.
+|- **Master Data UI**: all tables use `<Switch>` for Active toggle and `btn-secondary btn-sm` / `btn-danger btn-sm` for actions. Delete buttons check `_count` before showing ConfirmDialog.
+|- **Auto-refetch**: `refetchOnMount: 'always'` in global query defaults — every page navigation refetches data in background.
 
 
 ## Dev Seed Credentials
