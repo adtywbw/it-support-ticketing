@@ -194,6 +194,10 @@ npm install
 npm run dev
 ```
 
+### Pre-Commit Hooks
+
+Staged TypeScript files are automatically linted via `husky` + `lint-staged`: `eslint --fix` runs on `backend/src/**/*.ts` and `frontend/src/**/*.{ts,tsx}` before each commit. Install hooks with `npx husky install` (runs automatically via `npm install`).
+
 ### Seed Data
 
 The seed script creates:
