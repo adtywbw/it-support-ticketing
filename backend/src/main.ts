@@ -13,7 +13,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.use(cookieParser());
-  app.use(helmet());
+  app.use(helmet({ hsts: false })); // HSTS handled by nginx
   app.use(morgan('combined'));
 
   app.getHttpAdapter().getInstance().set('trust proxy', 1);

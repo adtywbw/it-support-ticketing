@@ -10,7 +10,8 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Refactor: extract duplicate filter logic** — `buildTicketQueryInput()` shared helper eliminates 80 lines of duplicated WHERE/sort building between `findAll()` and `exportCsvToResponse()`.
 - **Fix: nginx default_server access_log blocked by read_only** — `/var/log/nginx` added to nginx container tmpfs so access log can be written with `read_only: true`.
 - **Fix: E2E nginx rate limit 503** — Maintenance mode tests now include 200ms delay before first PATCH to account for nginx 10r/s api_limit zone.
-- **Verification**: backend 757/757 ✅ | frontend 213/213 ✅ | E2E 15/15 (production HTTPS) ✅
+- **Fix: HSTS missing on static file locations (Critical)** — nginx `add_header` in location blocks overrides server-level HSTS. Moved HSTS into all 6 location blocks (`/`, `/index.html`, `/assets/`, `/api/`, `/api/maintenance/`, `/socket.io/`). Disabled NestJS helmet HSTS to prevent double headers on API paths.
+- **Verification**: backend 757/757 ✅ | frontend 213/213 ✅ | E2E 15/15 (production HTTPS) ✅ | HSTS verified on all paths ✅
 
 ## Session 62 — Master Data UI Upgrade, Delete Guards, SLA Fixes (2026-07-08)
 
