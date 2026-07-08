@@ -268,6 +268,7 @@ describe("E2E Extended Tests", () => {
   // ── CSV Export ───────────────────────────────────────────────────
 
   test("GET /tickets/export/csv — returns CSV with headers", async () => {
+    await new Promise((r) => setTimeout(r, 200)); // drain rate limit
     const res = await request(
       "GET",
       "/tickets/export/csv",
@@ -333,6 +334,7 @@ describe("E2E Extended Tests", () => {
   // ── Health / Correlation ID ──────────────────────────────────────
 
   test("GET /health — returns health status", async () => {
+    await new Promise((r) => setTimeout(r, 200)); // drain rate limit
     const res = await request("GET", "/health");
     expect(res.status).toBe(200);
     expect(res.data.data.status).toBe("healthy");
@@ -341,6 +343,7 @@ describe("E2E Extended Tests", () => {
   // ── FAQ ──────────────────────────────────────────────────────────
 
   test("GET /faqs — returns public FAQs", async () => {
+    await new Promise((r) => setTimeout(r, 200)); // drain rate limit
     const res = await request("GET", "/faqs");
     expect(res.status).toBe(200);
     expect(Array.isArray(res.data.data)).toBe(true);
