@@ -6,9 +6,9 @@ import ProtectedRoute from '@/auth/ProtectedRoute';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import MaintenanceBanner from '@/components/MaintenanceBanner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import TicketsPage from '@/pages/TicketsPage';
 
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
-const TicketsPage = lazy(() => import('@/pages/TicketsPage'));
 const CreateTicketPage = lazy(() => import('@/pages/CreateTicketPage'));
 const TicketDetailPage = lazy(() => import('@/pages/TicketDetailPage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));

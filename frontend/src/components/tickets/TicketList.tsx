@@ -96,7 +96,7 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     onFiltersChange({ ...filters, sortBy: field, sortOrder: newOrder as 'asc' | 'desc' });
   };
 
-  const { data, isLoading, isError, error, refetch } = useTickets(queryFilters);
+  const { data, isError, error, refetch } = useTickets(queryFilters);
 
   // Use a ref for onPageChange to avoid re-running the effect when the
   // callback identity changes (e.g., when the parent passes an inline arrow
@@ -110,7 +110,11 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     if (page > totalPages) onPageChangeRef.current(totalPages || 1);
   }, [limit, data?.meta, page]);
 
-  if (isLoading) {
+  const tickets = data?.data ?? [];
+  const meta = data?.meta;
+  const loadingInitial = !data && !isError;
+
+  if (loadingInitial) {
     return (
       <div className="card p-12">
         <LoadingSpinner size="lg" />
@@ -126,9 +130,6 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
       />
     );
   }
-
-  const tickets = data?.data ?? [];
-  const meta = data?.meta;
 
   return (
     <div className="space-y-4">

@@ -22,7 +22,7 @@ export function useTickets(filters: TicketFilters) {
       const response = await apiClient.get<ApiEnvelope<Ticket[]>>(`/tickets?${params.toString()}`);
       return unwrapPage(response);
     },
-    placeholderData: (prev) => prev,
+    placeholderData: (prev) => prev ?? { data: [], meta: { page: 1, limit: 10, total: 0, totalPages: 1 } },
   });
 }
 

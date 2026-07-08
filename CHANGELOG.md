@@ -10,6 +10,7 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Backend**: `locationId` + `requesterId` as multi-value arrays in DTO, service, and raw SQL. Raw SQL updated with `t.` alias and conditional LEFT JOINs for relation-field search
 - **New endpoint**: `GET /api/users/active` — returns all active users as flat list (Admin/ITSupport)
 - **Master Data sync**: ticketing filters auto-refresh because mutations in MasterDataManagement already invalidate `['categories']`, `['locations']`, and `['users']` query keys — no additional work needed
+- **Blink fix**: TicketsPage imported eagerly (no `React.lazy`), `useTickets` uses `placeholderData` with empty fallback — eliminates double-spinner flash on first navigation
 - Verification: backend 757/757 ✅, frontend 213/213 ✅, lint 0 errors ✅, build ✅
 
 ## Session 59 — Multi-Select Checkbox Filters on Tickets Page (2026-07-08)
