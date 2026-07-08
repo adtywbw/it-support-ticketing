@@ -211,28 +211,28 @@ export default function UserManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {u.isActive ? <Badge variant="success">Active</Badge> : <Badge variant="danger">Inactive</Badge>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <button onClick={() => openEdit(u)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setUserToToggle(u);
-                          setIsConfirmOpen(true);
-                        }}
-                        className={`${u.isActive ? 'text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300' : 'text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'} mr-3`}
-                      >
-                        {u.isActive ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setUserToDelete(u);
-                          setIsDeleteConfirmOpen(true);
-                        }}
-                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        Delete
-                      </button>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEdit(u)} className="btn-secondary btn-sm">Edit</button>
+                        <button
+                          onClick={() => {
+                            setUserToToggle(u);
+                            setIsConfirmOpen(true);
+                          }}
+                          className={`btn-sm ${u.isActive ? 'btn-danger' : 'btn-primary'}`}
+                        >
+                          {u.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUserToDelete(u);
+                            setIsDeleteConfirmOpen(true);
+                          }}
+                          className="btn-danger btn-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -241,9 +241,11 @@ function CategoryManager() {
                     <td className="px-6 py-4">
                       <Switch checked={cat.isActive} onChange={() => toggleMutation.mutate({ id: cat.id, isActive: !cat.isActive })} disabled={toggleMutation.isPending} label={"Toggle " + cat.name} />
                     </td>
-                    <td className="px-6 py-4 text-right text-sm">
-                      <button onClick={() => openEdit(cat)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
-                      <button onClick={() => handleDeleteClick(cat)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEdit(cat)} className="btn-secondary btn-sm">Edit</button>
+                        <button onClick={() => handleDeleteClick(cat)} className="btn-danger btn-sm">Delete</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -458,9 +460,10 @@ function SubCategoryManager() {
                     <td className="px-6 py-4">
                       <Switch checked={sub.isActive} onChange={() => toggleMutation.mutate({ id: sub.id, categoryId: sub.categoryId, isActive: !sub.isActive })} disabled={toggleMutation.isPending} label={"Toggle " + sub.name} />
                     </td>
-                    <td className="px-6 py-4 text-right text-sm">
-                      <button onClick={() => openEdit(sub)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
-                      <button onClick={() => handleDeleteClick(sub)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEdit(sub)} className="btn-secondary btn-sm">Edit</button>
+                        <button onClick={() => handleDeleteClick(sub)} className="btn-danger btn-sm">Delete</button>                      </div>
                     </td>
                   </tr>
                 ))}
@@ -675,9 +678,10 @@ function LocationManager() {
                     <td className="px-6 py-4">
                       <Switch checked={loc.isActive} onChange={() => toggleMutation.mutate({ id: loc.id, isActive: !loc.isActive })} disabled={toggleMutation.isPending} label={"Toggle " + loc.name} />
                     </td>
-                    <td className="px-6 py-4 text-right text-sm">
-                      <button onClick={() => openEdit(loc)} className="text-primary-600 hover:text-primary-800 mr-3 dark:text-primary-400 dark:hover:text-primary-300">Edit</button>
-                      <button onClick={() => handleDeleteClick(loc)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEdit(loc)} className="btn-secondary btn-sm">Edit</button>
+                        <button onClick={() => handleDeleteClick(loc)} className="btn-danger btn-sm">Delete</button>                      </div>
                     </td>
                   </tr>
                 ))}

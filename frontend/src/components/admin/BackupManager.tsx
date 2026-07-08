@@ -170,13 +170,13 @@ export default function BackupManager({ maintenanceEnabled }: BackupManagerProps
                     <td className="whitespace-nowrap px-6 py-4 font-mono text-sm text-navy-500 dark:text-blue-300">{backup.id}</td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatBytes(backup.files.db.size)}</td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{formatBytes(backup.files.uploads.size)}</td>
-                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                      <div className="flex items-center justify-end gap-3">
+                    <td className="whitespace-nowrap px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => handleDownload(backup, 'db')}
                           disabled={isActionPending || !backup.files.db.exists || downloading === `${backup.id}-db`}
-                          className="text-primary-600 hover:text-primary-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-primary-400 dark:hover:text-primary-300"
+                          className="btn-secondary btn-sm"
                         >
                           DB
                         </button>
@@ -184,7 +184,7 @@ export default function BackupManager({ maintenanceEnabled }: BackupManagerProps
                           type="button"
                           onClick={() => handleDownload(backup, 'uploads')}
                           disabled={isActionPending || !backup.files.uploads.exists || downloading === `${backup.id}-uploads`}
-                          className="text-primary-600 hover:text-primary-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-primary-400 dark:hover:text-primary-300"
+                          className="btn-secondary btn-sm"
                         >
                           Uploads
                         </button>
@@ -192,7 +192,7 @@ export default function BackupManager({ maintenanceEnabled }: BackupManagerProps
                           type="button"
                           onClick={() => openRestoreDialog(backup)}
                           disabled={isActionPending || !maintenanceEnabled || !backup.files.db.exists || !backup.files.uploads.exists}
-                          className="text-amber-600 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-amber-400 dark:hover:text-amber-300"
+                          className="btn-secondary btn-sm"
                         >
                           Restore
                         </button>
@@ -200,7 +200,7 @@ export default function BackupManager({ maintenanceEnabled }: BackupManagerProps
                           type="button"
                           onClick={() => setBackupToDelete(backup)}
                           disabled={isActionPending}
-                          className="text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400 dark:hover:text-red-300"
+                          className="btn-danger btn-sm"
                         >
                           Delete
                         </button>
