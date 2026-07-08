@@ -37,9 +37,24 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
 const ALLOWED_SORT_FIELDS = [
   'createdAt', 'updatedAt', 'slaDueAt', 'priority',
   'ticketNumber', 'subject', 'status', 'slaStatus',
+  'itemCode', 'category', 'location', 'assignedTo', 'requester',
 ] as const;
 
 type SortField = typeof ALLOWED_SORT_FIELDS[number];
+
+/** Map a sortBy field name to a Prisma TicketOrderByWithRelationInput.
+ *  Relation fields (category, location, assignedTo, requester) need
+ *  nested-object syntax; direct fields use the shorthand. */
+function buildOrderBy(field: string, dir: 'asc' | 'desc'): Prisma.TicketOrderByWithRelationInput {
+  const relMap: Record<string, () => Prisma.TicketOrderByWithRelationInput> = {
+    category:   () => ({ category: { name: dir } }),
+    location:   () => ({ location: { name: dir } }),
+    assignedTo: () => ({ assignedTo: { name: dir } }),
+    requester:  () => ({ requester: { name: dir } }),
+  };
+  if (field in relMap) return relMap[field]();
+  return { [field]: dir };
+}
 
 /** Shape of a ticket row in the CSV export stream. */
 interface CsvExportTicket {
@@ -223,7 +238,7 @@ export class TicketsService {
             where,
             skip: limit > 0 ? (page - 1) * limit : 0,
             take: limit > 0 ? limit : undefined,
-            orderBy: { [orderField]: orderDir },
+            orderBy: buildOrderBy(orderField, orderDir),
             include,
           }, scope),
       this.ticketRepository.countForUser(where, scope),
@@ -326,7 +341,7 @@ export class TicketsService {
           : await this.ticketRepository.findManyForUser({
               where,
               orderBy: [
-                { [orderField]: orderDir },
+                buildOrderBy(orderField, orderDir),
                 { id: orderDir },
               ] as Prisma.TicketOrderByWithRelationInput[],
               skip: offset,

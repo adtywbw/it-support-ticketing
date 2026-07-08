@@ -49,6 +49,8 @@ export default function TicketsPage() {
     if (filters.assignedToMe && user?.id) params.append('assignedToId', user.id);
     if (filters.startDate) params.append('dateFrom', filters.startDate);
     if (filters.endDate) params.append('dateTo', filters.endDate);
+    params.append('sortBy', filters.sortBy);
+    params.append('sortOrder', filters.sortOrder);
     return params.toString();
   };
 

@@ -2,6 +2,14 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 58 — Full Column Sort on Tickets Table (2026-07-08)
+
+- **All columns sortable**: Category, Location, Item Code, Assigned To, Created By now click-to-sort via `<SortHeader>`
+- **Backend `buildOrderBy()`**: maps relation fields (category, location, assignedTo, requester) to Prisma nested `{ relation: { name: dir } }` syntax; direct fields (itemCode, etc.) stay as shorthand
+- **CSV export respects sort**: `sortBy` & `sortOrder` now sent as query params to export endpoint — exported CSV matches current list view sort
+- Validation `@IsIn` list updated with 5 new sortBy values
+- Verification: backend tsc ✅, lint 0 errors, 757/757 ✅; frontend build ✅, lint 0 errors; endpoint test 7/7 ✅
+
 ## Session 57 — Code Review Final: Health Test Fix, E2E Idempotency (2026-07-07)
 
 - **health.controller.spec.ts**: mockRes → return value + rejects (controller sdh refactor @Res() ke @HttpCode())

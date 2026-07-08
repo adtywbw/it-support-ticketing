@@ -156,24 +156,14 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                 <tr>
                   <SortHeader field="ticketNumber" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Ticket #</SortHeader>
                   <SortHeader field="subject" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Subject</SortHeader>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
-                    Item Code
-                  </th>
+                  <SortHeader field="category" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Category</SortHeader>
+                  <SortHeader field="location" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Location</SortHeader>
+                  <SortHeader field="itemCode" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Item Code</SortHeader>
                   <SortHeader field="status" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Status</SortHeader>
                   <SortHeader field="priority" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Priority</SortHeader>
                   <SortHeader field="slaStatus" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>SLA Status</SortHeader>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
-                    Assigned To
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
-                    Created By
-                  </th>
+                  <SortHeader field="assignedTo" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Assigned To</SortHeader>
+                  <SortHeader field="requester" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Created By</SortHeader>
                   <SortHeader field="createdAt" sortBy={filters.sortBy} sortOrder={filters.sortOrder} onSort={handleSort}>Created</SortHeader>
                   {isAdmin && (
                     <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 dark:text-blue-300 uppercase tracking-wider">
