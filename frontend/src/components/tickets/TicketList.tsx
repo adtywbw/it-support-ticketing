@@ -13,6 +13,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import { formatDateTime, getUserDisplayName, getErrorMessage } from '@/lib/utils';
 import TicketFilters, { type FilterValues } from './TicketFilters';
 
@@ -231,30 +232,22 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-navy-500 dark:text-blue-300">
                       {canAssign ? (
-                        <select
+                        <SearchableSelect
                           value={ticket.assignedToId ?? ''}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
-                            const id = e.target.value || null;
+                          onChange={(id) => {
                             if (id !== (ticket.assignedToId ?? null)) {
                               assignMutation.mutate(
-                                { id: ticket.id, assignedToId: id },
+                                { id: ticket.id, assignedToId: id || null },
                                 { onError: (err) => toast.error(getErrorMessage(err, 'Failed to assign ticket')) },
                               );
                             }
                           }}
+                          options={(assignableUsers ?? []).map((u) => ({ value: u.id, label: u.name }))}
+                          placeholder="Unassigned"
                           disabled={assignMutation.isPending || ticket.assignedTo?.isActive === false}
                           title={ticket.assignedTo?.isActive === false ? 'Assigned user is inactive — reactivate to change' : ''}
-                          className="input text-xs py-1 px-2"
-                        >
-                          <option value="">Unassigned</option>
-                          {assignableUsers
-                            ?.map((u) => (
-                              <option key={u.id} value={u.id}>
-                                {u.name}
-                              </option>
-                            ))}
-                        </select>
+                          className="w-[160px]"
+                        />
                       ) : (
                         ticket.assignedTo ? getUserDisplayName(ticket.assignedTo) : '-'
                       )}

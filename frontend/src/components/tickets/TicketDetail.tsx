@@ -12,6 +12,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { formatDateTime, formatRelativeTime, getSLAColor, getUserDisplayName, getErrorMessage } from '@/lib/utils';
 import Avatar from '@/components/ui/Avatar';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 import type { TicketStatus, Ticket } from '@/types';
 
 interface TicketDetailProps {
@@ -36,28 +37,21 @@ function AssignedToDisplay({ ticket }: { ticket: Ticket }) {
 
 function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: string; name: string }[] }) {
   const assignMutation = useAssignTicket();
+  const options = users.map((u) => ({ value: u.id, label: u.name }));
   return (
-    <select
+    <SearchableSelect
       value={ticket.assignedToId ?? ''}
-      onChange={(e) => {
-        const id = e.target.value || null;
+      onChange={(id) => {
         if (id !== (ticket.assignedToId ?? null)) {
-          assignMutation.mutate(
-            { id: ticket.id, assignedToId: id },
-          );
+          assignMutation.mutate({ id: ticket.id, assignedToId: id || null });
         }
       }}
-      className="mt-1 input text-sm"
+      options={options}
+      placeholder="Unassigned"
       disabled={assignMutation.isPending || ticket.assignedTo?.isActive === false}
       title={ticket.assignedTo?.isActive === false ? 'Assigned user is inactive — reactivate to change' : ''}
-    >
-      <option value="">Unassigned</option>
-      {users?.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.name}
-          </option>
-        ))}
-    </select>
+      className="mt-1"
+    />
   );
 }
 
