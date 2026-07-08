@@ -103,12 +103,12 @@ export class TicketRepository {
   async findManySortedBySlaStatus(args: {
     scope: TicketAccessScope;
     filters: {
-      status?: TicketStatus;
-      priority?: Priority;
-      categoryId?: string;
+      status?: TicketStatus[];
+      priority?: Priority[];
+      categoryId?: string[];
       assignedToId?: string;
       requesterId?: string;
-      slaStatus?: SLAStatus;
+      slaStatus?: SLAStatus[];
       dateFrom?: string;
       dateTo?: string;
       search?: string;
@@ -125,12 +125,12 @@ export class TicketRepository {
     }
 
     const f = args.filters;
-    if (f.status) conditions.push(Prisma.sql`"status"::text = ${f.status}`);
-    if (f.priority) conditions.push(Prisma.sql`"priority"::text = ${f.priority}`);
-    if (f.categoryId) conditions.push(Prisma.sql`"categoryId" = ${f.categoryId}`);
+    if (f.status?.length) conditions.push(Prisma.sql`"status"::text = ANY (ARRAY[${Prisma.join(f.status)}]::text[])`);
+    if (f.priority?.length) conditions.push(Prisma.sql`"priority"::text = ANY (ARRAY[${Prisma.join(f.priority)}]::text[])`);
+    if (f.categoryId?.length) conditions.push(Prisma.sql`"categoryId" = ANY (ARRAY[${Prisma.join(f.categoryId)}]::uuid[])`);
     if (f.assignedToId) conditions.push(Prisma.sql`"assignedToId" = ${f.assignedToId}`);
     if (f.requesterId) conditions.push(Prisma.sql`"requesterId" = ${f.requesterId}`);
-    if (f.slaStatus) conditions.push(Prisma.sql`"slaStatus"::text = ${f.slaStatus}`);
+    if (f.slaStatus?.length) conditions.push(Prisma.sql`"slaStatus"::text = ANY (ARRAY[${Prisma.join(f.slaStatus)}]::text[])`);
 
     if (f.dateFrom) {
       const startDate = new Date(f.dateFrom);

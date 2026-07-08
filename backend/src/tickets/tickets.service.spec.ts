@@ -438,9 +438,9 @@ describe('TicketsService', () => {
       mockTicketRepository.countForUser.mockResolvedValue(1);
 
       const queryTicketDto: QueryTicketDto = {
-        status: TicketStatus.Open,
-        priority: Priority.High,
-        categoryId: 'cat-1',
+        status: [TicketStatus.Open],
+        priority: [Priority.High],
+        categoryId: ['cat-1'],
         page: 2,
         limit: 5,
       };
@@ -450,9 +450,9 @@ describe('TicketsService', () => {
       expect(mockTicketRepository.findManyForUser).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            status: TicketStatus.Open,
-            priority: Priority.High,
-            categoryId: 'cat-1',
+            status: { in: [TicketStatus.Open] },
+            priority: { in: [Priority.High] },
+            categoryId: { in: ['cat-1'] },
           },
           skip: 5,
           take: 5,
@@ -462,9 +462,9 @@ describe('TicketsService', () => {
 
       expect(mockTicketRepository.countForUser).toHaveBeenCalledWith(
         {
-          status: TicketStatus.Open,
-          priority: Priority.High,
-          categoryId: 'cat-1',
+          status: { in: [TicketStatus.Open] },
+          priority: { in: [Priority.High] },
+          categoryId: { in: ['cat-1'] },
         },
         expect.any(Object),
       );
@@ -592,14 +592,14 @@ describe('TicketsService', () => {
       const queryTicketDto: QueryTicketDto = {
         sortBy: 'slaStatus',
         sortOrder: 'asc',
-        slaStatus: SLAStatus.Breached,
+        slaStatus: [SLAStatus.Breached],
       };
 
       await service.findAll(queryTicketDto, 'Admin', 'admin-1');
 
       expect(mockTicketRepository.findManySortedBySlaStatus).toHaveBeenCalledWith(
         expect.objectContaining({
-          filters: expect.objectContaining({ slaStatus: SLAStatus.Breached }),
+          filters: expect.objectContaining({ slaStatus: [SLAStatus.Breached] }),
         }),
       );
     });

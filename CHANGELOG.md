@@ -2,6 +2,15 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 59 — Multi-Select Checkbox Filters on Tickets Page (2026-07-08)
+
+- **Filter UI change**: Status, Priority, SLA Status, Category now use multi-select dropdowns with checkboxes (replaces single-select `<select>`). Date filter unchanged.
+- **Backend `QueryTicketDto`**: `status`, `priority`, `slaStatus`, `categoryId` → arrays. `@Transform(splitComma)` splits comma-separated query params; service uses Prisma `{ in: [...] }` filter
+- **Raw SQL update**: `findManySortedBySlaStatus` uses `= ANY(ARRAY[...])` for multi-value filters
+- **`MultiSelect` component** (new): reusable dropdown with checkboxes, "Select All", click-outside-close, badge counter
+- **CSV export**: arrays joined with comma before sending to API
+- **Verify**: endpoint test — `?status=Resolved,Closed` ✅, `?priority=Low,Medium,High` ✅, `?slaStatus=OnTrack,AtRisk,Breached` ✅, invalid value 400 ✅; backend 757/757 ✅; frontend 213/213 ✅; lint 0 errors ✅
+
 ## Session 58 — Full Column Sort on Tickets Table (2026-07-08)
 
 - **All columns sortable**: Category, Location, Item Code, Assigned To, Created By now click-to-sort via `<SortHeader>`

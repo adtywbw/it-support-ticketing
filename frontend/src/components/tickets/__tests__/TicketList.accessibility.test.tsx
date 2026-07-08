@@ -52,7 +52,7 @@ describe('TicketList accessibility', () => {
     render(
       <MemoryRouter>
         <TicketList
-          filters={{ status: '', priority: '', slaStatus: '', search: '', categoryId: '', assignedToMe: false, datePreset: 'all', startDate: '', endDate: '', limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }}
+          filters={{ status: [], priority: [], slaStatus: [], search: '', categoryId: [], assignedToMe: false, datePreset: 'all', startDate: '', endDate: '', limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }}
           onFiltersChange={vi.fn()}
           page={1}
           onPageChange={vi.fn()}

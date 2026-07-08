@@ -148,7 +148,7 @@ describe('TicketsPage', () => {
       fireEvent.click(screen.getByText('Export CSV'));
 
       await waitFor(() => {
-        expect(apiClient.get).toHaveBeenCalledWith('/tickets/export/csv', { responseType: 'blob' });
+        expect(apiClient.get).toHaveBeenCalledWith('/tickets/export/csv?sortBy=createdAt&sortOrder=desc', { responseType: 'blob' });
       });
       expect(createObjectURL).toHaveBeenCalled();
     });

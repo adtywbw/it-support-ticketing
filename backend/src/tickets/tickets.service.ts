@@ -146,12 +146,12 @@ export class TicketsService {
 
     const where: Prisma.TicketWhereInput = {};
 
-    if (status) where.status = status;
-    if (priority) where.priority = priority;
-    if (categoryId) where.categoryId = categoryId;
+    if (status?.length) where.status = { in: status };
+    if (priority?.length) where.priority = { in: priority };
+    if (categoryId?.length) where.categoryId = { in: categoryId };
     if (assignedToId) where.assignedToId = assignedToId;
     if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
-    if (slaStatus) where.slaStatus = slaStatus;
+    if (slaStatus?.length) where.slaStatus = { in: slaStatus };
 
     if (dateFrom || dateTo) {
       const createdAtFilter: Prisma.DateTimeFilter = {};
@@ -258,12 +258,12 @@ export class TicketsService {
 
     const where: Prisma.TicketWhereInput = {};
 
-    if (status) where.status = status;
-    if (priority) where.priority = priority;
-    if (categoryId) where.categoryId = categoryId;
+    if (status?.length) where.status = { in: status };
+    if (priority?.length) where.priority = { in: priority };
+    if (categoryId?.length) where.categoryId = { in: categoryId };
     if (assignedToId) where.assignedToId = assignedToId;
     if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
-    if (slaStatus) where.slaStatus = slaStatus;
+    if (slaStatus?.length) where.slaStatus = { in: slaStatus };
 
     if (dateFrom || dateTo) {
       const createdAtFilter: Prisma.DateTimeFilter = {};

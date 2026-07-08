@@ -231,8 +231,9 @@ export interface RefreshResponse {
 }
 
 export interface TicketFilters {
-  status?: TicketStatus;
-  priority?: TicketPriority;
+  status?: string;
+  priority?: string;
+  slaStatus?: string;
   search?: string;
   assignedToId?: string;
   page?: number;
@@ -240,6 +241,8 @@ export interface TicketFilters {
   startDate?: string;
   endDate?: string;
   categoryId?: string;
+  sortBy?: string;
+  sortOrder?: string;
 }
 
 export interface CreateTicketPayload {

@@ -2,15 +2,16 @@ import { useState, useEffect, useCallback } from 'react';
 import type { TicketStatus, TicketPriority, SLAStatus } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
 import { useAuthStore } from '@/stores/auth-store';
+import MultiSelect from '@/components/ui/MultiSelect';
 
 export type DatePreset = 'all' | 'today' | '7days' | '30days' | 'month' | 'custom';
 
 export interface FilterValues {
-  status: TicketStatus | '';
-  priority: TicketPriority | '';
-  slaStatus: SLAStatus | '';
+  status: TicketStatus[];
+  priority: TicketPriority[];
+  slaStatus: SLAStatus[];
   search: string;
-  categoryId: string | '';
+  categoryId: string[];
   assignedToMe: boolean;
   datePreset: DatePreset;
   startDate: string;
@@ -65,6 +66,11 @@ const datePresetOptions: { value: DatePreset; label: string }[] = [
   { value: 'custom', label: 'Custom' },
 ];
 
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((v) => b.includes(v));
+}
+
 export default function TicketFilters({ filters, onFiltersChange }: TicketFiltersProps) {
   const [local, setLocal] = useState(filters);
   const { data: categories } = useCategories();
@@ -91,11 +97,11 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
     }
   }, []);
 
-  const hasChanges = local.status !== filters.status
-    || local.priority !== filters.priority
-    || local.slaStatus !== filters.slaStatus
+  const hasChanges = !arraysEqual(local.status, filters.status)
+    || !arraysEqual(local.priority, filters.priority)
+    || !arraysEqual(local.slaStatus, filters.slaStatus)
+    || !arraysEqual(local.categoryId, filters.categoryId)
     || local.search !== filters.search
-    || local.categoryId !== filters.categoryId
     || local.assignedToMe !== filters.assignedToMe
     || local.datePreset !== filters.datePreset
     || local.startDate !== filters.startDate
@@ -104,8 +110,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
     || local.sortOrder !== filters.sortOrder
     || local.limit !== filters.limit;
 
-  const statuses: { value: TicketStatus | ''; label: string }[] = [
-    { value: '', label: 'All Statuses' },
+  const statusOptions = [
     { value: 'Open', label: 'Open' },
     { value: 'InProgress', label: 'In Progress' },
     { value: 'OnHold', label: 'On Hold' },
@@ -113,16 +118,14 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
     { value: 'Closed', label: 'Closed' },
   ];
 
-  const priorities: { value: TicketPriority | ''; label: string }[] = [
-    { value: '', label: 'All Priorities' },
+  const priorityOptions = [
     { value: 'Low', label: 'Low' },
     { value: 'Medium', label: 'Medium' },
     { value: 'High', label: 'High' },
     { value: 'Critical', label: 'Critical' },
   ];
 
-  const slaStatuses: { value: SLAStatus | ''; label: string }[] = [
-    { value: '', label: 'All SLA Statuses' },
+  const slaStatusOptions = [
     { value: 'OnTrack', label: 'On Track' },
     { value: 'AtRisk', label: 'At Risk' },
     { value: 'Breached', label: 'Breached' },
@@ -140,58 +143,33 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         />
       </div>
 
-      <select
-        value={local.status}
-        onChange={(e) => update({ status: e.target.value as TicketStatus | '' })}
-        className="input w-auto"
-        aria-label="Status filter"
-      >
-        {statuses.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </select>
+      <MultiSelect
+        label="Status"
+        options={statusOptions}
+        selected={local.status}
+        onChange={(v) => update({ status: v as TicketStatus[] })}
+      />
 
-      <select
-        value={local.priority}
-        onChange={(e) => update({ priority: e.target.value as TicketPriority | '' })}
-        className="input w-auto"
-        aria-label="Priority filter"
-      >
-        {priorities.map((p) => (
-          <option key={p.value} value={p.value}>
-            {p.label}
-          </option>
-        ))}
-      </select>
+      <MultiSelect
+        label="Priority"
+        options={priorityOptions}
+        selected={local.priority}
+        onChange={(v) => update({ priority: v as TicketPriority[] })}
+      />
 
-      <select
-        value={local.slaStatus}
-        onChange={(e) => update({ slaStatus: e.target.value as SLAStatus | '' })}
-        className="input w-auto"
-        aria-label="SLA status filter"
-      >
-        {slaStatuses.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </select>
+      <MultiSelect
+        label="SLA Status"
+        options={slaStatusOptions}
+        selected={local.slaStatus}
+        onChange={(v) => update({ slaStatus: v as SLAStatus[] })}
+      />
 
-      <select
-        value={local.categoryId}
-        onChange={(e) => update({ categoryId: e.target.value })}
-        className="input w-auto"
-        aria-label="Category filter"
-      >
-        <option value="">All Categories</option>
-        {categories?.map((cat) => (
-          <option key={cat.id} value={cat.id}>
-            {cat.name}
-          </option>
-        ))}
-      </select>
+      <MultiSelect
+        label="Category"
+        options={(categories ?? []).map((c) => ({ value: c.id, label: c.name }))}
+        selected={local.categoryId}
+        onChange={(v) => update({ categoryId: v })}
+      />
 
       <select
         value={local.datePreset}

@@ -24,11 +24,11 @@ const mockTickets = [
 const meta = { page: 1, limit: 10, total: 1, totalPages: 1 };
 
 const defaultFilters = {
-  status: '' as const,
-  priority: '' as const,
-  slaStatus: '' as const,
+  status: [],
+  priority: [],
+  slaStatus: [],
   search: '',
-  categoryId: '',
+  categoryId: [],
   assignedToMe: false,
   datePreset: 'all' as const,
   startDate: '',

@@ -15,11 +15,11 @@ export default function TicketsPage() {
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FilterValues>({
-    status: '',
-    priority: '',
-    slaStatus: '',
+    status: [],
+    priority: [],
+    slaStatus: [],
     search: '',
-    categoryId: '',
+    categoryId: [],
     assignedToMe: false,
     datePreset: 'all',
     startDate: '',
@@ -41,11 +41,11 @@ export default function TicketsPage() {
 
   const buildExportParams = () => {
     const params = new URLSearchParams();
-    if (filters.status) params.append('status', filters.status);
-    if (filters.priority) params.append('priority', filters.priority);
-    if (filters.slaStatus) params.append('slaStatus', filters.slaStatus);
+    if (filters.status.length > 0) params.append('status', filters.status.join(','));
+    if (filters.priority.length > 0) params.append('priority', filters.priority.join(','));
+    if (filters.slaStatus.length > 0) params.append('slaStatus', filters.slaStatus.join(','));
     if (filters.search) params.append('search', filters.search);
-    if (filters.categoryId) params.append('categoryId', filters.categoryId);
+    if (filters.categoryId.length > 0) params.append('categoryId', filters.categoryId.join(','));
     if (filters.assignedToMe && user?.id) params.append('assignedToId', user.id);
     if (filters.startDate) params.append('dateFrom', filters.startDate);
     if (filters.endDate) params.append('dateTo', filters.endDate);

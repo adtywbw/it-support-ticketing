@@ -8,7 +8,9 @@ import { getErrorMessage } from '@/lib/utils';
 export function useTickets(filters: TicketFilters) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== '' && value !== null) {
+    if (Array.isArray(value)) {
+      if (value.length > 0) params.append(key, value.join(','));
+    } else if (value !== undefined && value !== '' && value !== null) {
       params.append(key, String(value));
     }
   });

@@ -10,8 +10,15 @@ import {
   IsDateString,
   IsIn,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { TicketStatus, Priority, SLAStatus } from '@prisma/client';
+
+/** Split comma-separated query param into array for multi-select filters. */
+function splitComma({ value }: { value: unknown }): string[] | undefined {
+  if (typeof value === 'string') return value.split(',').map((s) => s.trim()).filter(Boolean);
+  if (Array.isArray(value)) return value;
+  return undefined;
+}
 
 export class QueryTicketDto {
   @IsOptional()
@@ -28,16 +35,19 @@ export class QueryTicketDto {
   limit?: number;
 
   @IsOptional()
-  @IsEnum(TicketStatus)
-  status?: TicketStatus;
+  @Transform(splitComma)
+  @IsEnum(TicketStatus, { each: true })
+  status?: TicketStatus[];
 
   @IsOptional()
-  @IsEnum(Priority)
-  priority?: Priority;
+  @Transform(splitComma)
+  @IsEnum(Priority, { each: true })
+  priority?: Priority[];
 
   @IsOptional()
-  @IsUUID()
-  categoryId?: string;
+  @Transform(splitComma)
+  @IsUUID('4', { each: true })
+  categoryId?: string[];
 
   @IsOptional()
   @IsUUID()
@@ -48,8 +58,9 @@ export class QueryTicketDto {
   requesterId?: string;
 
   @IsOptional()
-  @IsEnum(SLAStatus)
-  slaStatus?: SLAStatus;
+  @Transform(splitComma)
+  @IsEnum(SLAStatus, { each: true })
+  slaStatus?: SLAStatus[];
 
   @IsOptional()
   @IsDateString()
