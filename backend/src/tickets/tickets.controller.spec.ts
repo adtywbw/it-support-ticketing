@@ -143,7 +143,7 @@ describe('TicketsController', () => {
       await controller.exportCsv(queryDto as any, mockUser, mockRes);
 
       expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv');
-      expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="tickets-export.csv"');
+      expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Disposition', expect.stringMatching(/^attachment; filename="tickets-\d{4}-\d{2}-\d{2}\.csv"$/));
       expect(ticketsService.exportCsvToResponse).toHaveBeenCalledWith(mockRes, queryDto, mockUser.role, mockUser.id);
     });
   });

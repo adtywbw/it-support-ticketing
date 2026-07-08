@@ -58,7 +58,8 @@ export class TicketsController {
     @Res() res: Response,
   ) {
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="tickets-export.csv"');
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Disposition', `attachment; filename="tickets-${date}.csv"`);
     await this.ticketsService.exportCsvToResponse(res, queryTicketDto, user.role, user.id);
   }
 
