@@ -69,7 +69,7 @@ describe('E2E Smoke Test', () => {
   test('GET /health — returns healthy', async () => {
     const res = await request('GET', '/health');
     expect(res.status).toBe(200);
-    expect(res.data.status).toBe('healthy');
+    expect(res.data.data.status).toBe('healthy');
   });
 
   test('POST /auth/login — logs in as admin', async () => {
@@ -158,7 +158,7 @@ describe('E2E Smoke Test', () => {
     test('GET /health — still returns healthy during maintenance', async () => {
       const res = await request('GET', '/health');
       expect(res.status).toBe(200);
-      expect(res.data.maintenance.enabled).toBe(true);
+      expect(res.data.data.maintenance.enabled).toBe(true);
     });
 
     test('POST /auth/login — still works during maintenance (exempt path)', async () => {
@@ -180,7 +180,7 @@ describe('E2E Smoke Test', () => {
     test('GET /health — maintenance disabled', async () => {
       const res = await request('GET', '/health');
       expect(res.status).toBe(200);
-      expect(res.data.maintenance.enabled).toBe(false);
+      expect(res.data.data.maintenance.enabled).toBe(false);
     });
   });
 });
