@@ -53,6 +53,10 @@ export class SLAService {
     return configsWithCount;
   }
 
+  async findAllActive() {
+    return this.slaConfigRepository.findAllActive();
+  }
+
   async delete(id: string) {
     const config = await this.slaConfigRepository.findUnique({ id });
     if (!config) throw new NotFoundException('SLA config not found');

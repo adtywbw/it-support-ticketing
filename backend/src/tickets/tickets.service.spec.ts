@@ -62,6 +62,9 @@ describe('TicketsService', () => {
     calculateSlaStatus: jest.fn((slaDueAt: Date | null, _resolutionTimeMinutes: number, now: Date) =>
       slaDueAt && slaDueAt <= now ? 'Breached' : 'OnTrack',
     ),
+    findAllActive: jest.fn().mockResolvedValue([
+      { categoryId: 'cat-1', priority: 'High', responseTimeMinutes: 120, resolutionTimeMinutes: 480 },
+    ]),
   };
 
   const mockEventEmitter = {
@@ -393,6 +396,7 @@ describe('TicketsService', () => {
         id: 'ticket-1',
         ticketNumber: 'TKT-001',
         subject: 'VPN Issue',
+        categoryId: 'cat-1',
         status: TicketStatus.Open,
         priority: Priority.High,
         slaDueAt: new Date(),

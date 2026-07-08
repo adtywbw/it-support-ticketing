@@ -250,7 +250,28 @@ export class TicketsService {
       this.ticketRepository.countForUser(where, scope),
     ]);
 
-    return { data: tickets, meta: buildPaginationMeta(total, limit, page) };
+    // Null out SLA fields for tickets whose SLA config is inactive
+    const cleaned = await this.stripStaleSlaValues(tickets);
+
+    return { data: cleaned, meta: buildPaginationMeta(total, limit, page) };
+  }
+
+  /**
+   * For tickets that still have slaDueAt/slaStatus set but whose matching SLA
+   * config has been deactivated, null out those fields so the frontend does
+   * not display stale SLA info.
+   */
+  private async stripStaleSlaValues(tickets: any[]) {
+    const activeConfigs = await this.slaService.findAllActive();
+    const activeKeys = new Set(
+      activeConfigs.map((c: { categoryId: string; priority: string }) => `${c.categoryId}:${c.priority}`),
+    );
+    return tickets.map((t) => {
+      if (t.slaDueAt && !activeKeys.has(`${t.categoryId}:${t.priority}`)) {
+        return { ...t, slaDueAt: null, slaStatus: null };
+      }
+      return t;
+    });
   }
 
   async exportCsvToResponse(res: Response, queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
@@ -429,7 +450,8 @@ export class TicketsService {
       throw new ForbiddenException('Access denied');
     }
 
-    return ticket;
+    const [cleaned] = await this.stripStaleSlaValues([ticket]);
+    return cleaned;
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string, userRole: string) {
