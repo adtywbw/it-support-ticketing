@@ -243,7 +243,8 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
                               );
                             }
                           }}
-                          disabled={assignMutation.isPending}
+                          disabled={assignMutation.isPending || ticket.assignedTo?.isActive === false}
+                          title={ticket.assignedTo?.isActive === false ? 'Assigned user is inactive — reactivate to change' : ''}
                           className="input text-xs py-1 px-2"
                         >
                           <option value="">Unassigned</option>

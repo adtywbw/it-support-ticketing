@@ -48,7 +48,8 @@ function AssignedToSelect({ ticket, users }: { ticket: Ticket; users: { id: stri
         }
       }}
       className="mt-1 input text-sm"
-      disabled={assignMutation.isPending}
+      disabled={assignMutation.isPending || ticket.assignedTo?.isActive === false}
+      title={ticket.assignedTo?.isActive === false ? 'Assigned user is inactive — reactivate to change' : ''}
     >
       <option value="">Unassigned</option>
       {users?.map((u) => (

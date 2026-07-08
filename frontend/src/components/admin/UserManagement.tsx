@@ -327,7 +327,15 @@ export default function UserManagement() {
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleToggleActive}
         title={userToToggle?.isActive ? 'Deactivate User' : 'Activate User'}
-        message={`Are you sure you want to ${userToToggle?.isActive ? 'deactivate' : 'activate'} ${userToToggle ? getUserDisplayName(userToToggle) : ''}?`}
+        message={
+          userToToggle?.isActive
+            ? `Are you sure you want to deactivate ${userToToggle ? getUserDisplayName(userToToggle) : ''}?${
+                (userToToggle?._count?.assignedTickets ?? 0) > 0
+                  ? ` This user is assigned to ${userToToggle!._count!.assignedTickets} ticket(s) — assignments will be locked until reactivated.`
+                  : ''
+              }`
+            : `Are you sure you want to activate ${userToToggle ? getUserDisplayName(userToToggle) : ''}?`
+        }
         confirmLabel={userToToggle?.isActive ? 'Deactivate' : 'Activate'}
         variant={userToToggle?.isActive ? 'danger' : 'primary'}
         isLoading={isPending}

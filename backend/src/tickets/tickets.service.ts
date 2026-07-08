@@ -191,7 +191,7 @@ export class TicketsService {
     const include = userRole === 'EndUser'
       ? {
           requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true, isActive: true } },
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
           location: { select: { id: true, name: true } },
@@ -212,7 +212,7 @@ export class TicketsService {
         }
       : {
           requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true, isActive: true } },
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
           location: { select: { id: true, name: true } },
@@ -323,7 +323,7 @@ export class TicketsService {
       while (totalExported < MAX_EXPORT_ROWS && !aborted) {
         const exportInclude = {
           requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true, isActive: true } },
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
           location: { select: { name: true } },
@@ -396,7 +396,7 @@ export class TicketsService {
   async findById(id: string, userRole?: string, userId?: string) {
     const include: Prisma.TicketFindUniqueArgs['include'] = {
       requester: { select: { id: true, name: true, email: true, avatarUrl: true } },
-      assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true } },
+      assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true, isActive: true } },
       category: { select: { id: true, name: true } },
       subCategory: { select: { id: true, name: true } },
       location: { select: { id: true, name: true } },
