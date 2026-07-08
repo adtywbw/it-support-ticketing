@@ -50,6 +50,7 @@ export default function UserManagement() {
   const [userToToggle, setUserToToggle] = useState<User | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [blockedItem, setBlockedItem] = useState<{ name: string; reasons: string[] } | null>(null);
 
   const openCreate = () => {
     setMode('create');
@@ -225,8 +226,16 @@ export default function UserManagement() {
                         </button>
                         <button
                           onClick={() => {
-                            setUserToDelete(u);
-                            setIsDeleteConfirmOpen(true);
+                            if ((u._count?.tickets ?? 0) > 0 || (u._count?.comments ?? 0) > 0 || (u._count?.attachments ?? 0) > 0) {
+                              const reasons: string[] = [];
+                              if (u._count!.tickets > 0) reasons.push(`${u._count!.tickets} ticket(s)`);
+                              if (u._count!.comments > 0) reasons.push(`${u._count!.comments} comment(s)`);
+                              if (u._count!.attachments > 0) reasons.push(`${u._count!.attachments} attachment(s)`);
+                              setBlockedItem({ name: getUserDisplayName(u), reasons });
+                            } else {
+                              setUserToDelete(u);
+                              setIsDeleteConfirmOpen(true);
+                            }
                           }}
                           className="btn-danger btn-sm"
                         >
@@ -333,6 +342,30 @@ export default function UserManagement() {
         variant="danger"
         isLoading={isPending}
       />
+
+      <Modal isOpen={!!blockedItem} onClose={() => setBlockedItem(null)} title="Cannot Delete">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.072 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
+              <p className="text-sm text-navy-700 dark:text-blue-200">
+                <strong>{blockedItem?.name}</strong> cannot be deleted because they still have:
+              </p>
+              <ul className="mt-2 list-disc list-inside text-sm text-navy-600 dark:text-blue-300 space-y-1">
+                {blockedItem?.reasons.map((r, i) => <li key={i}>{r}</li>)}
+              </ul>
+              <p className="mt-3 text-sm text-navy-500 dark:text-blue-400">
+                Deactivate the user instead — their data will be preserved.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end pt-2">
+            <button onClick={() => setBlockedItem(null)} className="btn-primary">OK</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

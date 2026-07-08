@@ -71,7 +71,7 @@ export class UsersService {
     if (existing) {
       if (!existing.isActive) {
         const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
-        const reactivated = await this.userRepository.update(existing.id, {
+        const { _count: _uc, ...reactivated } = await this.userRepository.update(existing.id, {
           password: hashedPassword,
           name: createUserDto.name,
           role: createUserDto.role || 'EndUser',
