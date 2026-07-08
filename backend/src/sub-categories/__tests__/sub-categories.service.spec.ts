@@ -101,10 +101,11 @@ describe('SubCategoriesService', () => {
   });
 
   describe('delete', () => {
-    it('soft-deletes when tickets exist', async () => {
+    it('throws ConflictException when tickets exist', async () => {
       subRepo.findUnique.mockResolvedValue({ id: 'sub-1', _count: { tickets: 5 } });
-      await service.delete('sub-1');
-      expect(subRepo.update).toHaveBeenCalledWith('sub-1', { isActive: false });
+      await expect(service.delete('sub-1')).rejects.toThrow('Cannot delete');
+      expect(subRepo.update).not.toHaveBeenCalled();
+      expect(subRepo.delete).not.toHaveBeenCalled();
     });
 
     it('hard-deletes when no tickets', async () => {

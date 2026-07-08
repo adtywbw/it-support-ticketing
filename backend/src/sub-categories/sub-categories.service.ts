@@ -91,7 +91,9 @@ export class SubCategoriesService {
     }
 
     if (subCategory._count.tickets > 0) {
-      await this.subCategoryRepository.update(id, { isActive: false });
+      throw new ConflictException(
+        `Cannot delete: ${subCategory._count.tickets} ticket(s) still use this sub-category. Deactivate it instead.`,
+      );
     } else {
       await this.subCategoryRepository.delete(id);
     }
