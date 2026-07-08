@@ -70,7 +70,7 @@ export class DashboardService {
       this.ticketRepository.getDashboardStatusCounts(range.from, range.toExclusive),
       this.ticketRepository.getDashboardPriorityCounts(range.from, range.toExclusive),
       this.ticketRepository.getDashboardSLAStatsForRange(range.from, range.toExclusive),
-      this.ticketRepository.getDailyTrends(range.from, range.toExclusive),
+      this.ticketRepository.getDailyTrends(range.from, range.toExclusive, this.isLongRange(range.preset, range.from, range.toExclusive) ? 'week' : 'day'),
       this.ticketRepository.getAvgResolutionTimeByCategoryForRange(range.from, range.toExclusive),
       this.ticketRepository.getTopCategories(range.from, range.toExclusive),
     ]);
@@ -84,7 +84,7 @@ export class DashboardService {
           from: this.formatDateKey(range.from),
           to: this.formatDateKey(range.displayTo),
         },
-        trend: this.fillDailyTrend(range.from, range.toExclusive, dailyTrendRows),
+        trend: this.fillTrendGaps(range.from, range.toExclusive, dailyTrendRows, this.isLongRange(range.preset, range.from, range.toExclusive) ? 7 : 1),
         statusCounts: this.buildEnumCounts(Object.values(TicketStatus), statusCounts, 'status'),
         priorityCounts: this.buildEnumCounts(Object.values(Priority), priorityCounts, 'priority'),
         slaComplianceRate: this.calculateComplianceRate(slaStats),
@@ -169,6 +169,15 @@ export class DashboardService {
     };
   }
 
+  private isLongRange(preset: string, from: Date, to: Date) {
+    if (preset === '90d') return true;
+    if (preset === 'custom') {
+      const days = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24);
+      return days > 30;
+    }
+    return false;
+  }
+
   private serializeAttention(attention: DashboardAttentionTickets) {
     return {
       // Safety cap: repository already limits to 5 via `take: 5`, but
@@ -208,12 +217,12 @@ export class DashboardService {
     return stats.total > 0 ? Math.round((stats.onTrack / stats.total) * 100) : 100;
   }
 
-  private fillDailyTrend(from: Date, toExclusive: Date, rows: Array<{ day: string; count: number }>) {
-    const countByDay = new Map(rows.map((row) => [row.day, row.count]));
+  private fillTrendGaps(from: Date, toExclusive: Date, rows: Array<{ day: string; count: number }>, stepDays: number) {
+    const countByKey = new Map(rows.map((row) => [row.day, row.count]));
     const trend: Array<{ date: string; count: number }> = [];
-    for (let cursor = new Date(from); cursor.getTime() < toExclusive.getTime(); cursor = this.addDays(cursor, 1)) {
+    for (let cursor = new Date(from); cursor.getTime() < toExclusive.getTime(); cursor = this.addDays(cursor, stepDays)) {
       const key = this.formatDateKey(cursor);
-      trend.push({ date: key, count: countByDay.get(key) ?? 0 });
+      trend.push({ date: key, count: countByKey.get(key) ?? 0 });
     }
     return trend;
   }
