@@ -95,11 +95,11 @@ export default function AnalyticsSection({ analytics }: AnalyticsSectionProps) {
           {analytics.trend.length === 0 || maxTrend === 0 ? (
             <p className="text-sm text-navy-400 dark:text-blue-400">No ticket activity in this period</p>
           ) : (
-            <div className="flex h-36 items-end gap-1 overflow-x-auto min-w-0">
+            <div className="flex h-48 items-end gap-px">
               {analytics.trend.map((item) => (
-                <div key={item.date} className="flex flex-1 flex-col items-center gap-1 min-w-0" title={`${item.date}: ${item.count} tickets`}>
+                <div key={item.date} className="flex flex-1 flex-col items-center gap-1 min-w-0" title={`${item.date}: ${item.count} ${item.count === 1 ? 'ticket' : 'tickets'}`}>
                   <div className="w-full rounded-t bg-primary-500" style={{ height: `${(item.count / maxTrend) * 100}%` }} />
-                  <span className="origin-left rotate-45 whitespace-nowrap text-xs text-navy-500 dark:text-blue-300">{item.date.slice(5)}</span>
+                  <span className="text-[10px] text-navy-400 dark:text-blue-400 leading-tight">{item.date.slice(5)}</span>
                 </div>
               ))}
             </div>
