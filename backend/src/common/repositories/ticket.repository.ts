@@ -122,35 +122,40 @@ export class TicketRepository {
     const conditions: Prisma.Sql[] = [];
 
     if (args.scope.role === 'EndUser') {
-      conditions.push(Prisma.sql`"requesterId" = ${args.scope.userId}`);
+      conditions.push(Prisma.sql`t."requesterId" = ${args.scope.userId}`);
     }
 
     const f = args.filters;
-    if (f.status?.length) conditions.push(Prisma.sql`"status"::text = ANY (ARRAY[${Prisma.join(f.status)}]::text[])`);
-    if (f.priority?.length) conditions.push(Prisma.sql`"priority"::text = ANY (ARRAY[${Prisma.join(f.priority)}]::text[])`);
-    if (f.categoryId?.length) conditions.push(Prisma.sql`"categoryId" = ANY (ARRAY[${Prisma.join(f.categoryId)}]::uuid[])`);
-    if (f.locationId?.length) conditions.push(Prisma.sql`"locationId" = ANY (ARRAY[${Prisma.join(f.locationId)}]::uuid[])`);
-    if (f.assignedToId) conditions.push(Prisma.sql`"assignedToId" = ${f.assignedToId}`);
-    if (f.requesterId?.length) conditions.push(Prisma.sql`"requesterId" = ANY (ARRAY[${Prisma.join(f.requesterId)}]::uuid[])`);
-    if (f.slaStatus?.length) conditions.push(Prisma.sql`"slaStatus"::text = ANY (ARRAY[${Prisma.join(f.slaStatus)}]::text[])`);
+    if (f.status?.length) conditions.push(Prisma.sql`t."status"::text = ANY (ARRAY[${Prisma.join(f.status)}]::text[])`);
+    if (f.priority?.length) conditions.push(Prisma.sql`t."priority"::text = ANY (ARRAY[${Prisma.join(f.priority)}]::text[])`);
+    if (f.categoryId?.length) conditions.push(Prisma.sql`t."categoryId" = ANY (ARRAY[${Prisma.join(f.categoryId)}]::uuid[])`);
+    if (f.locationId?.length) conditions.push(Prisma.sql`t."locationId" = ANY (ARRAY[${Prisma.join(f.locationId)}]::uuid[])`);
+    if (f.assignedToId) conditions.push(Prisma.sql`t."assignedToId" = ${f.assignedToId}`);
+    if (f.requesterId?.length) conditions.push(Prisma.sql`t."requesterId" = ANY (ARRAY[${Prisma.join(f.requesterId)}]::uuid[])`);
+    if (f.slaStatus?.length) conditions.push(Prisma.sql`t."slaStatus"::text = ANY (ARRAY[${Prisma.join(f.slaStatus)}]::text[])`);
 
     if (f.dateFrom) {
       const startDate = new Date(f.dateFrom);
       startDate.setUTCHours(0, 0, 0, 0);
-      conditions.push(Prisma.sql`"createdAt" >= ${startDate}`);
+      conditions.push(Prisma.sql`t."createdAt" >= ${startDate}`);
     }
     if (f.dateTo) {
       const endDate = new Date(f.dateTo);
       endDate.setUTCHours(23, 59, 59, 999);
-      conditions.push(Prisma.sql`"createdAt" <= ${endDate}`);
+      conditions.push(Prisma.sql`t."createdAt" <= ${endDate}`);
     }
 
     if (f.search) {
       const pattern = `%${f.search}%`;
       conditions.push(
-        Prisma.sql`("subject" ILIKE ${pattern} OR "description" ILIKE ${pattern} OR "ticketNumber" ILIKE ${pattern})`,
+        Prisma.sql`(t."subject" ILIKE ${pattern} OR t."description" ILIKE ${pattern} OR t."ticketNumber" ILIKE ${pattern} OR t."itemCode" ILIKE ${pattern} OR COALESCE(loc."name",'') ILIKE ${pattern} OR COALESCE(req."name",'') ILIKE ${pattern})`,
       );
     }
+
+    const hasSearch = !!f.search;
+    const joinClause = hasSearch
+      ? Prisma.sql`LEFT JOIN locations loc ON loc.id = t."locationId"\nLEFT JOIN users req ON req.id = t."requesterId"\n`
+      : Prisma.empty;
 
     const whereClause =
       conditions.length > 0
@@ -166,7 +171,8 @@ export class TicketRepository {
         : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM tickets
+      SELECT t.id FROM tickets t
+      ${joinClause}
       ${whereClause}
       ORDER BY CASE "slaStatus"
                 WHEN 'Breached' THEN 0

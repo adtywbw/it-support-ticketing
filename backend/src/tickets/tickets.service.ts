@@ -175,6 +175,9 @@ export class TicketsService {
         { subject: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
         { ticketNumber: { contains: search, mode: 'insensitive' } },
+        { itemCode: { contains: search, mode: 'insensitive' } },
+        { location: { name: { contains: search, mode: 'insensitive' } } },
+        { requester: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
@@ -288,6 +291,9 @@ export class TicketsService {
         { subject: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
         { ticketNumber: { contains: search, mode: 'insensitive' } },
+        { itemCode: { contains: search, mode: 'insensitive' } },
+        { location: { name: { contains: search, mode: 'insensitive' } } },
+        { requester: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
