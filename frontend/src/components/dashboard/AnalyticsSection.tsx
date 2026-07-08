@@ -96,12 +96,19 @@ export default function AnalyticsSection({ analytics }: AnalyticsSectionProps) {
             <p className="text-sm text-navy-400 dark:text-blue-400">No ticket activity in this period</p>
           ) : (
             <div className="flex h-48 items-end gap-px">
-              {analytics.trend.map((item) => (
-                <div key={item.date} className="flex flex-1 flex-col items-center gap-1 min-w-0" title={`${item.date}: ${item.count} ${item.count === 1 ? 'ticket' : 'tickets'}`}>
-                  <div className="w-full rounded-t bg-primary-500" style={{ height: `${(item.count / maxTrend) * 100}%` }} />
-                  <span className="text-[10px] text-navy-400 dark:text-blue-400 leading-tight">{item.date.slice(5)}</span>
-                </div>
-              ))}
+              {analytics.trend.map((item) => {
+                const pct = maxTrend > 0 ? Math.round((item.count / maxTrend) * 100) : 0;
+                return (
+                  <div key={item.date} className="flex flex-1 flex-col min-w-0 h-full" title={`${item.date}: ${item.count} ${item.count === 1 ? 'ticket' : 'tickets'}`}>
+                    <div className="flex-1" />
+                    {item.count > 0 && (
+                      <div className="w-full rounded-t bg-primary-400 transition-all duration-300" style={{ height: `${Math.max(pct, 4)}%` }} />
+                    )}
+                    {item.count === 0 && <div className="w-full" style={{ height: '4%' }} />}
+                    <span className="text-[9px] text-center text-navy-400 dark:text-blue-400 leading-tight mt-0.5">{item.date.slice(5)}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
