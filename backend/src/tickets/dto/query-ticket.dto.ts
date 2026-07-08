@@ -50,12 +50,18 @@ export class QueryTicketDto {
   categoryId?: string[];
 
   @IsOptional()
+  @Transform(splitComma)
+  @IsUUID('4', { each: true })
+  locationId?: string[];
+
+  @IsOptional()
   @IsUUID()
   assignedToId?: string;
 
   @IsOptional()
-  @IsUUID()
-  requesterId?: string;
+  @Transform(splitComma)
+  @IsUUID('4', { each: true })
+  requesterId?: string[];
 
   @IsOptional()
   @Transform(splitComma)

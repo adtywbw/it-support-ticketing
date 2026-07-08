@@ -134,6 +134,7 @@ export class TicketsService {
       status,
       priority,
       categoryId,
+      locationId,
       assignedToId,
       requesterId,
       slaStatus,
@@ -149,8 +150,9 @@ export class TicketsService {
     if (status?.length) where.status = { in: status };
     if (priority?.length) where.priority = { in: priority };
     if (categoryId?.length) where.categoryId = { in: categoryId };
+    if (locationId?.length) where.locationId = { in: locationId };
     if (assignedToId) where.assignedToId = assignedToId;
-    if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
+    if (requesterId && userRole !== 'EndUser') where.requesterId = { in: requesterId };
     if (slaStatus?.length) where.slaStatus = { in: slaStatus };
 
     if (dateFrom || dateTo) {
@@ -222,6 +224,7 @@ export class TicketsService {
               status,
               priority,
               categoryId,
+              locationId,
               assignedToId,
               requesterId: userRole !== 'EndUser' ? requesterId : undefined,
               slaStatus,
@@ -251,7 +254,7 @@ export class TicketsService {
     const MAX_EXPORT_ROWS = appConfig.tickets.maxExportRows;
     const BATCH_SIZE = appConfig.tickets.exportBatchSize;
     const {
-      status, priority, categoryId, assignedToId, requesterId,
+      status, priority, categoryId, locationId, assignedToId, requesterId,
       slaStatus, dateFrom, dateTo, search,
       sortBy = 'createdAt', sortOrder = 'desc',
     } = queryTicketDto;
@@ -261,8 +264,9 @@ export class TicketsService {
     if (status?.length) where.status = { in: status };
     if (priority?.length) where.priority = { in: priority };
     if (categoryId?.length) where.categoryId = { in: categoryId };
+    if (locationId?.length) where.locationId = { in: locationId };
     if (assignedToId) where.assignedToId = assignedToId;
-    if (requesterId && userRole !== 'EndUser') where.requesterId = requesterId;
+    if (requesterId && userRole !== 'EndUser') where.requesterId = { in: requesterId };
     if (slaStatus?.length) where.slaStatus = { in: slaStatus };
 
     if (dateFrom || dateTo) {
@@ -326,6 +330,7 @@ export class TicketsService {
                 status,
                 priority,
                 categoryId,
+                locationId,
                 assignedToId,
                 requesterId: userRole !== 'EndUser' ? requesterId : undefined,
                 slaStatus,

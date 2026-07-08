@@ -39,6 +39,14 @@ vi.mock('@/hooks/use-categories', () => ({
   useCategories: vi.fn(() => ({ data: [] })),
 }));
 
+vi.mock('@/hooks/use-locations', () => ({
+  useLocations: () => ({ data: [] }),
+}));
+
+vi.mock('@/hooks/use-all-users', () => ({
+  useAllUsers: () => ({ data: [] }),
+}));
+
 describe('TicketList accessibility', () => {
   beforeEach(() => {
     useAuthStore.setState({
@@ -52,7 +60,7 @@ describe('TicketList accessibility', () => {
     render(
       <MemoryRouter>
         <TicketList
-          filters={{ status: [], priority: [], slaStatus: [], search: '', categoryId: [], assignedToMe: false, datePreset: 'all', startDate: '', endDate: '', limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }}
+          filters={{ status: [], priority: [], slaStatus: [], search: '', categoryId: [], locationId: [], requesterId: [], assignedToMe: false, datePreset: 'all', startDate: '', endDate: '', limit: 10, sortBy: 'createdAt', sortOrder: 'desc' }}
           onFiltersChange={vi.fn()}
           page={1}
           onPageChange={vi.fn()}

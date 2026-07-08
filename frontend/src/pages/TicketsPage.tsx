@@ -20,6 +20,8 @@ export default function TicketsPage() {
     slaStatus: [],
     search: '',
     categoryId: [],
+    locationId: [],
+    requesterId: [],
     assignedToMe: false,
     datePreset: 'all',
     startDate: '',
@@ -46,6 +48,8 @@ export default function TicketsPage() {
     if (filters.slaStatus.length > 0) params.append('slaStatus', filters.slaStatus.join(','));
     if (filters.search) params.append('search', filters.search);
     if (filters.categoryId.length > 0) params.append('categoryId', filters.categoryId.join(','));
+    if (filters.locationId.length > 0) params.append('locationId', filters.locationId.join(','));
+    if (filters.requesterId.length > 0) params.append('requesterId', filters.requesterId.join(','));
     if (filters.assignedToMe && user?.id) params.append('assignedToId', user.id);
     if (filters.startDate) params.append('dateFrom', filters.startDate);
     if (filters.endDate) params.append('dateTo', filters.endDate);

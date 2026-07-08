@@ -46,6 +46,12 @@ export class UsersController {
     return this.usersService.findAssignable();
   }
 
+  @Get('active')
+  @Roles(Role.ITSupport, Role.Admin)
+  async findAllActive() {
+    return this.usersService.findAllActive();
+  }
+
   @Get(':id')
   @Roles(Role.Admin)
   async findById(@Param('id') id: string) {

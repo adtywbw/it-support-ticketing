@@ -241,6 +241,8 @@ export interface TicketFilters {
   startDate?: string;
   endDate?: string;
   categoryId?: string;
+  locationId?: string;
+  requesterId?: string;
   sortBy?: string;
   sortOrder?: string;
 }

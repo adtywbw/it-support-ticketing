@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { TicketStatus, TicketPriority, SLAStatus } from '@/types';
 import { useCategories } from '@/hooks/use-categories';
+import { useLocations } from '@/hooks/use-locations';
+import { useAllUsers } from '@/hooks/use-all-users';
 import { useAuthStore } from '@/stores/auth-store';
 import MultiSelect from '@/components/ui/MultiSelect';
 
@@ -12,6 +14,8 @@ export interface FilterValues {
   slaStatus: SLAStatus[];
   search: string;
   categoryId: string[];
+  locationId: string[];
+  requesterId: string[];
   assignedToMe: boolean;
   datePreset: DatePreset;
   startDate: string;
@@ -74,6 +78,8 @@ function arraysEqual(a: string[], b: string[]): boolean {
 export default function TicketFilters({ filters, onFiltersChange }: TicketFiltersProps) {
   const [local, setLocal] = useState(filters);
   const { data: categories } = useCategories();
+  const { data: locations } = useLocations();
+  const { data: allUsers } = useAllUsers();
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
@@ -101,6 +107,8 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
     || !arraysEqual(local.priority, filters.priority)
     || !arraysEqual(local.slaStatus, filters.slaStatus)
     || !arraysEqual(local.categoryId, filters.categoryId)
+    || !arraysEqual(local.locationId, filters.locationId)
+    || !arraysEqual(local.requesterId, filters.requesterId)
     || local.search !== filters.search
     || local.assignedToMe !== filters.assignedToMe
     || local.datePreset !== filters.datePreset
@@ -170,6 +178,22 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         selected={local.categoryId}
         onChange={(v) => update({ categoryId: v })}
       />
+
+      <MultiSelect
+        label="Location"
+        options={(locations ?? []).map((l) => ({ value: l.id, label: l.name }))}
+        selected={local.locationId}
+        onChange={(v) => update({ locationId: v })}
+      />
+
+      {user && (user.role === 'ITSupport' || user.role === 'Admin') && (
+        <MultiSelect
+          label="Created By"
+          options={(allUsers ?? []).map((u) => ({ value: u.id, label: u.name }))}
+          selected={local.requesterId}
+          onChange={(v) => update({ requesterId: v })}
+        />
+      )}
 
       <select
         value={local.datePreset}

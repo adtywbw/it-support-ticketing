@@ -29,6 +29,8 @@ const defaultFilters = {
   slaStatus: [],
   search: '',
   categoryId: [],
+  locationId: [],
+  requesterId: [],
   assignedToMe: false,
   datePreset: 'all' as const,
   startDate: '',
@@ -58,6 +60,14 @@ vi.mock('@/hooks/use-tickets', () => ({
   useUpdateTicketPriority: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useAssignTicket: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDeleteTicket: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
+vi.mock('@/hooks/use-locations', () => ({
+  useLocations: () => ({ data: [] }),
+}));
+
+vi.mock('@/hooks/use-all-users', () => ({
+  useAllUsers: () => ({ data: [] }),
 }));
 
 vi.mock('@/hooks/use-users', () => ({

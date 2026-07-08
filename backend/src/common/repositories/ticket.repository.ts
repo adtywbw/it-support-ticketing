@@ -106,8 +106,9 @@ export class TicketRepository {
       status?: TicketStatus[];
       priority?: Priority[];
       categoryId?: string[];
+      locationId?: string[];
       assignedToId?: string;
-      requesterId?: string;
+      requesterId?: string[];
       slaStatus?: SLAStatus[];
       dateFrom?: string;
       dateTo?: string;
@@ -128,8 +129,9 @@ export class TicketRepository {
     if (f.status?.length) conditions.push(Prisma.sql`"status"::text = ANY (ARRAY[${Prisma.join(f.status)}]::text[])`);
     if (f.priority?.length) conditions.push(Prisma.sql`"priority"::text = ANY (ARRAY[${Prisma.join(f.priority)}]::text[])`);
     if (f.categoryId?.length) conditions.push(Prisma.sql`"categoryId" = ANY (ARRAY[${Prisma.join(f.categoryId)}]::uuid[])`);
+    if (f.locationId?.length) conditions.push(Prisma.sql`"locationId" = ANY (ARRAY[${Prisma.join(f.locationId)}]::uuid[])`);
     if (f.assignedToId) conditions.push(Prisma.sql`"assignedToId" = ${f.assignedToId}`);
-    if (f.requesterId) conditions.push(Prisma.sql`"requesterId" = ${f.requesterId}`);
+    if (f.requesterId?.length) conditions.push(Prisma.sql`"requesterId" = ANY (ARRAY[${Prisma.join(f.requesterId)}]::uuid[])`);
     if (f.slaStatus?.length) conditions.push(Prisma.sql`"slaStatus"::text = ANY (ARRAY[${Prisma.join(f.slaStatus)}]::text[])`);
 
     if (f.dateFrom) {

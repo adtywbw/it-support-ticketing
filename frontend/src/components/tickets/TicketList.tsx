@@ -82,6 +82,8 @@ export default function TicketList({ filters, onFiltersChange, page, onPageChang
     ...(filters.slaStatus.length > 0 && { slaStatus: filters.slaStatus.join(',') }),
     ...(filters.search && { search: filters.search }),
     ...(filters.categoryId.length > 0 && { categoryId: filters.categoryId.join(',') }),
+    ...(filters.locationId.length > 0 && { locationId: filters.locationId.join(',') }),
+    ...(filters.requesterId.length > 0 && { requesterId: filters.requesterId.join(',') }),
     ...(filters.assignedToMe && user?.id && { assignedToId: user.id }),
     ...(filters.startDate && { dateFrom: filters.startDate }),
     ...(filters.endDate && { dateTo: filters.endDate }),

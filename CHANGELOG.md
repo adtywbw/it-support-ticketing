@@ -2,6 +2,15 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 60 — Location & Created By Filters + Master Data Sync (2026-07-08)
+
+- **Location filter** added: multi-select dropdown using `useLocations()` hook
+- **Created By (Requester) filter** added: multi-select dropdown using new `GET /api/users/active` endpoint (returns all active users for Admin/ITSupport)
+- **Backend**: `locationId` + `requesterId` as multi-value arrays in DTO, service, and raw SQL
+- **New endpoint**: `GET /api/users/active` — returns all active users as flat list (Admin/ITSupport)
+- **Master Data sync**: ticketing filters auto-refresh because mutations in MasterDataManagement already invalidate `['categories']`, `['locations']`, and `['users']` query keys — no additional work needed
+- Verification: backend 757/757 ✅, frontend 213/213 ✅, lint 0 errors ✅, build ✅
+
 ## Session 59 — Multi-Select Checkbox Filters on Tickets Page (2026-07-08)
 
 - **Filter UI change**: Status, Priority, SLA Status, Category now use multi-select dropdowns with checkboxes (replaces single-select `<select>`). Date filter unchanged.

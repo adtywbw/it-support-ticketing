@@ -60,6 +60,10 @@ export class UsersService {
     return this.userRepository.findAssignable();
   }
 
+  async findAllActive() {
+    return this.userRepository.findAllActive();
+  }
+
   async create(createUserDto: CreateUserDto) {
     const normalizedEmail = createUserDto.email.toLowerCase().trim();
     const existing = await this.userRepository.existsByEmail(normalizedEmail);

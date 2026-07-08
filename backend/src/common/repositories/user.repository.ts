@@ -142,6 +142,14 @@ export class UserRepository {
     });
   }
 
+  async findAllActive() {
+    return this.prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findTelegramLinkedUsers() {
     return this.prisma.user.findMany({
       where: {
