@@ -5,25 +5,39 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
-} from '@nestjs/common';
-import { Response } from 'express';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TicketRepository, TicketAccessScope } from '../common/repositories/ticket.repository';
-import { CategoryRepository } from '../common/repositories/category.repository';
-import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
-import { UserRepository } from '../common/repositories/user.repository';
-import { SLAService } from '../sla/sla.service';
-import { CreateTicketDto } from './dto/create-ticket.dto';
-import { QueryTicketDto } from './dto/query-ticket.dto';
-import { UpdateStatusDto } from './dto/update-status.dto';
-import { AssignTicketDto } from './dto/assign-ticket.dto';
-import { UpdatePriorityDto } from './dto/update-priority.dto';
-import { TicketStatus, Priority, SLAStatus, CommentType, AttachmentVisibility, Prisma } from '@prisma/client';
-import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
-import type { StorageService } from '../attachments/interfaces/storage-service.interface';
-import { AttachmentVisibilityPolicy } from '../common/policies/attachment-visibility.policy';
-import { buildPaginationMeta } from '../common/utils/pagination.util';
-import { appConfig } from '../common/config/app.config';
+} from "@nestjs/common";
+import { Response } from "express";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import {
+  TicketRepository,
+  TicketAccessScope,
+} from "../common/repositories/ticket.repository";
+import { CategoryRepository } from "../common/repositories/category.repository";
+import { SubCategoryRepository } from "../common/repositories/sub-category.repository";
+import { UserRepository } from "../common/repositories/user.repository";
+import { SLAService } from "../sla/sla.service";
+import { CreateTicketDto } from "./dto/create-ticket.dto";
+import {
+  QueryTicketDto,
+  TICKET_SORT_FIELDS,
+  type TicketSortField,
+} from "./dto/query-ticket.dto";
+import { UpdateStatusDto } from "./dto/update-status.dto";
+import { AssignTicketDto } from "./dto/assign-ticket.dto";
+import { UpdatePriorityDto } from "./dto/update-priority.dto";
+import {
+  TicketStatus,
+  Priority,
+  SLAStatus,
+  CommentType,
+  AttachmentVisibility,
+  Prisma,
+} from "@prisma/client";
+import { STORAGE_SERVICE } from "../attachments/interfaces/storage-service.interface";
+import type { StorageService } from "../attachments/interfaces/storage-service.interface";
+import { AttachmentVisibilityPolicy } from "../common/policies/attachment-visibility.policy";
+import { buildPaginationMeta } from "../common/utils/pagination.util";
+import { appConfig } from "../common/config/app.config";
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Open]: [TicketStatus.InProgress],
@@ -34,23 +48,21 @@ const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
 };
 
 /** Allowlist of sort-by fields usable in ticket list and CSV export queries. */
-const ALLOWED_SORT_FIELDS = [
-  'createdAt', 'updatedAt', 'slaDueAt', 'priority',
-  'ticketNumber', 'subject', 'status', 'slaStatus',
-  'itemCode', 'category', 'location', 'assignedTo', 'requester',
-] as const;
-
-type SortField = typeof ALLOWED_SORT_FIELDS[number];
+// Sort fields are defined and validated in QueryTicketDto; import them here
+// to keep the DTO ↔ service contract in sync.
 
 /** Map a sortBy field name to a Prisma TicketOrderByWithRelationInput.
  *  Relation fields (category, location, assignedTo, requester) need
  *  nested-object syntax; direct fields use the shorthand. */
-function buildOrderBy(field: string, dir: 'asc' | 'desc'): Prisma.TicketOrderByWithRelationInput {
+function buildOrderBy(
+  field: string,
+  dir: "asc" | "desc",
+): Prisma.TicketOrderByWithRelationInput {
   const relMap: Record<string, () => Prisma.TicketOrderByWithRelationInput> = {
-    category:   () => ({ category: { name: dir } }),
-    location:   () => ({ location: { name: dir } }),
+    category: () => ({ category: { name: dir } }),
+    location: () => ({ location: { name: dir } }),
     assignedTo: () => ({ assignedTo: { name: dir } }),
-    requester:  () => ({ requester: { name: dir } }),
+    requester: () => ({ requester: { name: dir } }),
   };
   if (field in relMap) return relMap[field]();
   return { [field]: dir };
@@ -77,12 +89,26 @@ interface CsvExportTicket {
 interface TicketQueryInput {
   where: Prisma.TicketWhereInput;
   orderField: string;
-  orderDir: 'asc' | 'desc';
+  orderDir: "asc" | "desc";
 }
 
 /** Shared filter building for findAll and exportCsvToResponse. */
 function buildTicketQueryInput(
-  dto: Pick<QueryTicketDto, 'status' | 'priority' | 'categoryId' | 'locationId' | 'assignedToId' | 'requesterId' | 'slaStatus' | 'dateFrom' | 'dateTo' | 'search' | 'sortBy' | 'sortOrder'>,
+  dto: Pick<
+    QueryTicketDto,
+    | "status"
+    | "priority"
+    | "categoryId"
+    | "locationId"
+    | "assignedToId"
+    | "requesterId"
+    | "slaStatus"
+    | "dateFrom"
+    | "dateTo"
+    | "search"
+    | "sortBy"
+    | "sortOrder"
+  >,
   userRole: string,
 ): TicketQueryInput {
   const where: Prisma.TicketWhereInput = {};
@@ -92,7 +118,8 @@ function buildTicketQueryInput(
   if (dto.categoryId?.length) where.categoryId = { in: dto.categoryId };
   if (dto.locationId?.length) where.locationId = { in: dto.locationId };
   if (dto.assignedToId) where.assignedToId = dto.assignedToId;
-  if (dto.requesterId && userRole !== 'EndUser') where.requesterId = { in: dto.requesterId };
+  if (dto.requesterId && userRole !== "EndUser")
+    where.requesterId = { in: dto.requesterId };
   if (dto.slaStatus?.length) where.slaStatus = { in: dto.slaStatus };
 
   if (dto.dateFrom || dto.dateTo) {
@@ -112,18 +139,20 @@ function buildTicketQueryInput(
 
   if (dto.search) {
     where.OR = [
-      { subject: { contains: dto.search, mode: 'insensitive' } },
-      { description: { contains: dto.search, mode: 'insensitive' } },
-      { ticketNumber: { contains: dto.search, mode: 'insensitive' } },
-      { itemCode: { contains: dto.search, mode: 'insensitive' } },
-      { location: { name: { contains: dto.search, mode: 'insensitive' } } },
-      { requester: { name: { contains: dto.search, mode: 'insensitive' } } },
+      { subject: { contains: dto.search, mode: "insensitive" } },
+      { description: { contains: dto.search, mode: "insensitive" } },
+      { ticketNumber: { contains: dto.search, mode: "insensitive" } },
+      { itemCode: { contains: dto.search, mode: "insensitive" } },
+      { location: { name: { contains: dto.search, mode: "insensitive" } } },
+      { requester: { name: { contains: dto.search, mode: "insensitive" } } },
     ];
   }
 
-  const sortBy = dto.sortBy || 'createdAt';
-  const orderField = ALLOWED_SORT_FIELDS.includes(sortBy as SortField) ? sortBy : 'createdAt';
-  const orderDir = dto.sortOrder === 'asc' ? 'asc' : 'desc';
+  const sortBy = dto.sortBy || "createdAt";
+  const orderField = (TICKET_SORT_FIELDS as readonly string[]).includes(sortBy)
+    ? sortBy
+    : "createdAt";
+  const orderDir = dto.sortOrder === "asc" ? "asc" : "desc";
 
   return { where, orderField, orderDir };
 }
@@ -142,16 +171,27 @@ export class TicketsService {
   ) {}
 
   async create(createTicketDto: CreateTicketDto, requesterId: string) {
-    const category = await this.categoryRepository.findById(createTicketDto.categoryId, {});
+    const category = await this.categoryRepository.findById(
+      createTicketDto.categoryId,
+      {},
+    );
 
     if (!category || !category.isActive) {
-      throw new BadRequestException('Category not found');
+      throw new BadRequestException("Category not found");
     }
 
     if (createTicketDto.subCategoryId) {
-      const subCategory = await this.subCategoryRepository.findById(createTicketDto.subCategoryId);
-      if (!subCategory || !subCategory.isActive || subCategory.categoryId !== createTicketDto.categoryId) {
-        throw new BadRequestException('Invalid sub-category for the selected category');
+      const subCategory = await this.subCategoryRepository.findById(
+        createTicketDto.subCategoryId,
+      );
+      if (
+        !subCategory ||
+        !subCategory.isActive ||
+        subCategory.categoryId !== createTicketDto.categoryId
+      ) {
+        throw new BadRequestException(
+          "Invalid sub-category for the selected category",
+        );
       }
     }
 
@@ -170,7 +210,7 @@ export class TicketsService {
       slaConfig,
     );
 
-    this.eventEmitter.emit('ticket.created', {
+    this.eventEmitter.emit("ticket.created", {
       ticketId: ticket.id,
       ticketNumber: ticket.ticketNumber,
       subject: ticket.subject,
@@ -182,7 +222,11 @@ export class TicketsService {
     return ticket;
   }
 
-  async findAll(queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
+  async findAll(
+    queryTicketDto: QueryTicketDto,
+    userRole: string,
+    userId: string,
+  ) {
     const {
       page = 1,
       limit = 10,
@@ -196,49 +240,60 @@ export class TicketsService {
       dateFrom,
       dateTo,
       search,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
+      sortBy = "createdAt",
+      sortOrder = "desc",
     } = queryTicketDto;
 
-    const { where, orderField, orderDir } = buildTicketQueryInput(queryTicketDto, userRole);
+    const { where, orderField, orderDir } = buildTicketQueryInput(
+      queryTicketDto,
+      userRole,
+    );
 
-    const scope: TicketAccessScope = { userId, role: userRole as 'EndUser' | 'ITSupport' | 'Admin' };
+    const scope: TicketAccessScope = {
+      userId,
+      role: userRole as "EndUser" | "ITSupport" | "Admin",
+    };
 
     // For EndUser, count only PUBLIC comments and visible attachments to
     // avoid two extra post-query enrichment queries. For other roles, count all.
-    const include = userRole === 'EndUser'
-      ? {
-          requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true, isActive: true } },
-          category: { select: { id: true, name: true } },
-          subCategory: { select: { id: true, name: true } },
-          location: { select: { id: true, name: true } },
-          _count: {
-            select: {
-              comments: { where: { type: CommentType.PUBLIC } },
-              attachments: {
-                where: {
-                  visibility: AttachmentVisibility.PUBLIC,
-                  OR: [
-                    { commentId: null },
-                    { comment: { type: CommentType.PUBLIC } },
-                  ],
+    const include =
+      userRole === "EndUser"
+        ? {
+            requester: { select: { id: true, name: true, email: true } },
+            assignedTo: {
+              select: { id: true, name: true, email: true, isActive: true },
+            },
+            category: { select: { id: true, name: true } },
+            subCategory: { select: { id: true, name: true } },
+            location: { select: { id: true, name: true } },
+            _count: {
+              select: {
+                comments: { where: { type: CommentType.PUBLIC } },
+                attachments: {
+                  where: {
+                    visibility: AttachmentVisibility.PUBLIC,
+                    OR: [
+                      { commentId: null },
+                      { comment: { type: CommentType.PUBLIC } },
+                    ],
+                  },
                 },
               },
             },
-          },
-        }
-      : {
-          requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true, isActive: true } },
-          category: { select: { id: true, name: true } },
-          subCategory: { select: { id: true, name: true } },
-          location: { select: { id: true, name: true } },
-          _count: { select: { comments: true, attachments: true } },
-        };
+          }
+        : {
+            requester: { select: { id: true, name: true, email: true } },
+            assignedTo: {
+              select: { id: true, name: true, email: true, isActive: true },
+            },
+            category: { select: { id: true, name: true } },
+            subCategory: { select: { id: true, name: true } },
+            location: { select: { id: true, name: true } },
+            _count: { select: { comments: true, attachments: true } },
+          };
 
     const [tickets, total] = await Promise.all([
-      orderField === 'slaStatus'
+      orderField === "slaStatus"
         ? this.ticketRepository.findManySortedBySlaStatus({
             scope,
             filters: {
@@ -247,7 +302,7 @@ export class TicketsService {
               categoryId,
               locationId,
               assignedToId,
-              requesterId: userRole !== 'EndUser' ? requesterId : undefined,
+              requesterId: userRole !== "EndUser" ? requesterId : undefined,
               slaStatus,
               dateFrom,
               dateTo,
@@ -258,13 +313,16 @@ export class TicketsService {
             sortOrder: orderDir,
             include,
           })
-        : this.ticketRepository.findManyForUser({
-            where,
-            skip: limit > 0 ? (page - 1) * limit : 0,
-            take: limit > 0 ? limit : undefined,
-            orderBy: buildOrderBy(orderField, orderDir),
-            include,
-          }, scope),
+        : this.ticketRepository.findManyForUser(
+            {
+              where,
+              skip: limit > 0 ? (page - 1) * limit : 0,
+              take: limit > 0 ? limit : undefined,
+              orderBy: buildOrderBy(orderField, orderDir),
+              include,
+            },
+            scope,
+          ),
       this.ticketRepository.countForUser(where, scope),
     ]);
 
@@ -282,7 +340,10 @@ export class TicketsService {
   private async stripStaleSlaValues(tickets: any[]) {
     const activeConfigs = await this.slaService.findAllActive();
     const activeKeys = new Set(
-      activeConfigs.map((c: { categoryId: string; priority: string }) => `${c.categoryId}:${c.priority}`),
+      activeConfigs.map(
+        (c: { categoryId: string; priority: string }) =>
+          `${c.categoryId}:${c.priority}`,
+      ),
     );
     return tickets.map((t) => {
       if (t.slaDueAt && !activeKeys.has(`${t.categoryId}:${t.priority}`)) {
@@ -292,76 +353,120 @@ export class TicketsService {
     });
   }
 
-  async exportCsvToResponse(res: Response, queryTicketDto: QueryTicketDto, userRole: string, userId: string) {
+  async exportCsvToResponse(
+    res: Response,
+    queryTicketDto: QueryTicketDto,
+    userRole: string,
+    userId: string,
+  ) {
     const MAX_EXPORT_ROWS = appConfig.tickets.maxExportRows;
     const BATCH_SIZE = appConfig.tickets.exportBatchSize;
     const {
-      status, priority, categoryId, locationId, assignedToId, requesterId,
-      slaStatus, dateFrom, dateTo, search,
-      sortBy = 'createdAt', sortOrder = 'desc',
+      status,
+      priority,
+      categoryId,
+      locationId,
+      assignedToId,
+      requesterId,
+      slaStatus,
+      dateFrom,
+      dateTo,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "desc",
     } = queryTicketDto;
 
-    const { where, orderField, orderDir } = buildTicketQueryInput(queryTicketDto, userRole);
+    const { where, orderField, orderDir } = buildTicketQueryInput(
+      queryTicketDto,
+      userRole,
+    );
 
     const escapeCsv = (value: unknown) => {
-      const raw = String(value ?? '');
+      const raw = String(value ?? "");
       const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
       return `"${safe.replace(/"/g, '""')}"`;
     };
 
-    const headers = ['Ticket #', 'Subject', 'Status', 'Priority', 'Category', 'Sub Category', 'Location', 'Item Code', 'Created By', 'Assigned To', 'Created At', 'Resolved At', 'SLA Status'];
-    res.write(headers.map(escapeCsv).join(',') + '\n');
+    const headers = [
+      "Ticket #",
+      "Subject",
+      "Status",
+      "Priority",
+      "Category",
+      "Sub Category",
+      "Location",
+      "Item Code",
+      "Created By",
+      "Assigned To",
+      "Created At",
+      "Resolved At",
+      "SLA Status",
+    ];
+    res.write(headers.map(escapeCsv).join(",") + "\n");
 
     let totalExported = 0;
     let offset = 0;
     let aborted = false;
-    const scope: TicketAccessScope = { userId, role: userRole as TicketAccessScope['role'] };
+    const scope: TicketAccessScope = {
+      userId,
+      role: userRole as TicketAccessScope["role"],
+    };
 
     // Handle client disconnect — abort the streaming loop to avoid
     // unhandled stream errors from res.write() on a closed connection.
-    res.on('error', () => { aborted = true; });
-    res.on('close', () => { aborted = true; });
+    res.on("error", () => {
+      aborted = true;
+    });
+    res.on("close", () => {
+      aborted = true;
+    });
 
     try {
       while (totalExported < MAX_EXPORT_ROWS && !aborted) {
         const exportInclude = {
           requester: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true, isActive: true } },
+          assignedTo: {
+            select: { id: true, name: true, email: true, isActive: true },
+          },
           category: { select: { id: true, name: true } },
           subCategory: { select: { id: true, name: true } },
           location: { select: { name: true } },
         };
 
-        const batch = orderField === 'slaStatus'
-          ? await this.ticketRepository.findManySortedBySlaStatus({
-              scope,
-              filters: {
-                status,
-                priority,
-                categoryId,
-                locationId,
-                assignedToId,
-                requesterId: userRole !== 'EndUser' ? requesterId : undefined,
-                slaStatus,
-                dateFrom,
-                dateTo,
-                search,
-              },
-              skip: offset,
-              take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
-              sortOrder: orderDir,
-              include: exportInclude,
-            })
-          : await this.ticketRepository.findManyForUser({
-              where,
-              orderBy: [
-                buildOrderBy(orderField, orderDir),
-                { id: orderDir },
-              ] as Prisma.TicketOrderByWithRelationInput[],
-              skip: offset,
-              take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
-              include: exportInclude,
-            }, scope);
+        const batch =
+          orderField === "slaStatus"
+            ? await this.ticketRepository.findManySortedBySlaStatus({
+                scope,
+                filters: {
+                  status,
+                  priority,
+                  categoryId,
+                  locationId,
+                  assignedToId,
+                  requesterId: userRole !== "EndUser" ? requesterId : undefined,
+                  slaStatus,
+                  dateFrom,
+                  dateTo,
+                  search,
+                },
+                skip: offset,
+                take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
+                sortOrder: orderDir,
+                include: exportInclude,
+              })
+            : await this.ticketRepository.findManyForUser(
+                {
+                  where,
+                  orderBy: [
+                    buildOrderBy(orderField, orderDir),
+                    { id: orderDir },
+                  ] as Prisma.TicketOrderByWithRelationInput[],
+                  skip: offset,
+                  take: Math.min(BATCH_SIZE, MAX_EXPORT_ROWS - totalExported),
+                  include: exportInclude,
+                },
+                scope,
+              );
 
         if (batch.length === 0) break;
 
@@ -372,17 +477,17 @@ export class TicketsService {
             ticket.subject,
             ticket.status,
             ticket.priority,
-            ticket.category?.name || '',
-            ticket.subCategory?.name || '',
-            ticket.location?.name || '',
-            ticket.itemCode || '',
-            ticket.requester?.name || '',
-            ticket.assignedTo?.name || '',
+            ticket.category?.name || "",
+            ticket.subCategory?.name || "",
+            ticket.location?.name || "",
+            ticket.itemCode || "",
+            ticket.requester?.name || "",
+            ticket.assignedTo?.name || "",
             ticket.createdAt.toISOString(),
-            ticket.resolvedAt?.toISOString() || '',
-            ticket.slaStatus || '',
+            ticket.resolvedAt?.toISOString() || "",
+            ticket.slaStatus || "",
           ];
-          res.write(row.map(escapeCsv).join(',') + '\n');
+          res.write(row.map(escapeCsv).join(",") + "\n");
           totalExported++;
         }
 
@@ -397,25 +502,39 @@ export class TicketsService {
   }
 
   async findById(id: string, userRole?: string, userId?: string) {
-    const include: Prisma.TicketFindUniqueArgs['include'] = {
-      requester: { select: { id: true, name: true, email: true, avatarUrl: true } },
-      assignedTo: { select: { id: true, name: true, email: true, avatarUrl: true, isActive: true } },
+    const include: Prisma.TicketFindUniqueArgs["include"] = {
+      requester: {
+        select: { id: true, name: true, email: true, avatarUrl: true },
+      },
+      assignedTo: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatarUrl: true,
+          isActive: true,
+        },
+      },
       category: { select: { id: true, name: true } },
       subCategory: { select: { id: true, name: true } },
       location: { select: { id: true, name: true } },
-      _count: userRole === 'EndUser'
-        ? {
-            select: {
-              comments: { where: { type: CommentType.PUBLIC } },
-              attachments: { where: AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere() },
-            },
-          }
-        : { select: { comments: true, attachments: true } },
+      _count:
+        userRole === "EndUser"
+          ? {
+              select: {
+                comments: { where: { type: CommentType.PUBLIC } },
+                attachments: {
+                  where:
+                    AttachmentVisibilityPolicy.buildVisibleAttachmentCountWhere(),
+                },
+              },
+            }
+          : { select: { comments: true, attachments: true } },
     };
 
-    if (userRole !== 'EndUser') {
+    if (userRole !== "EndUser") {
       include.histories = {
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           user: { select: { id: true, name: true } },
         },
@@ -425,107 +544,125 @@ export class TicketsService {
     const ticket = await this.ticketRepository.findById(id, include);
 
     if (!ticket) {
-      throw new NotFoundException('Ticket not found');
+      throw new NotFoundException("Ticket not found");
     }
 
-    if (userRole === 'EndUser' && ticket.requesterId !== userId) {
-      throw new ForbiddenException('Access denied');
+    if (userRole === "EndUser" && ticket.requesterId !== userId) {
+      throw new ForbiddenException("Access denied");
     }
 
     const [cleaned] = await this.stripStaleSlaValues([ticket]);
     return cleaned;
   }
 
-  async updateStatus(id: string, updateStatusDto: UpdateStatusDto, userId: string, userRole: string) {
-    const result = await this.ticketRepository.transaction(async (tx): Promise<{
-      ticket: {
-        id: string;
-        ticketNumber: string;
-        subject: string;
-        status: TicketStatus;
-        requesterId: string;
-        assignedToId: string | null;
-      };
-      oldStatus: TicketStatus;
-      updatedTicket: unknown;
-    }> => {
-      const ticket = await tx.ticket.findUnique({ where: { id } });
-      if (!ticket) {
-        throw new NotFoundException('Ticket not found');
-      }
-
-      if (userRole === 'EndUser') {
-        if (ticket.requesterId !== userId) {
-          throw new ForbiddenException('Access denied');
-        }
-        if (updateStatusDto.status !== TicketStatus.Closed) {
-          throw new ForbiddenException('End users can only close their own tickets');
-        }
-        if (ticket.status !== TicketStatus.Resolved) {
-          throw new ForbiddenException('End users can only close resolved tickets');
-        }
-      }
-
-      const oldStatus = ticket.status as TicketStatus;
-      const validNextStates = VALID_TRANSITIONS[oldStatus];
-      if (!validNextStates.includes(updateStatusDto.status)) {
-        throw new BadRequestException(
-          `Cannot transition from ${ticket.status} to ${updateStatusDto.status}`,
-        );
-      }
-
-      const updateData: Prisma.TicketUpdateManyMutationInput = {
-        status: updateStatusDto.status,
-      };
-
-      if (updateStatusDto.status === TicketStatus.Resolved) {
-        updateData.resolvedAt = new Date();
-      }
-
-      if (updateStatusDto.status === TicketStatus.Closed) {
-        updateData.closedAt = new Date();
-      }
-
-      if (oldStatus === TicketStatus.Closed && updateStatusDto.status !== TicketStatus.Closed) {
-        updateData.closedAt = null;
-        updateData.resolvedAt = null;
-      }
-
-      const updated = await tx.ticket.updateMany({
-        where: { id, status: oldStatus },
-        data: updateData,
-      });
-      if (updated.count !== 1) {
-        throw new ConflictException('Ticket status changed. Please refresh and retry.');
-      }
-
-      await tx.ticketHistory.create({
-        data: {
-          ticketId: id,
-          userId,
-          field: 'status',
-          oldValue: oldStatus,
-          newValue: updateStatusDto.status,
-        },
-      });
-
-      return {
+  async updateStatus(
+    id: string,
+    updateStatusDto: UpdateStatusDto,
+    userId: string,
+    userRole: string,
+  ) {
+    const result = await this.ticketRepository.transaction(
+      async (
+        tx,
+      ): Promise<{
         ticket: {
-          id: ticket.id,
-          ticketNumber: ticket.ticketNumber,
-          subject: ticket.subject,
-          status: ticket.status as TicketStatus,
-          requesterId: ticket.requesterId,
-          assignedToId: ticket.assignedToId,
-        },
-        oldStatus,
-        updatedTicket: await tx.ticket.findUnique({ where: { id } }),
-      };
-    });
+          id: string;
+          ticketNumber: string;
+          subject: string;
+          status: TicketStatus;
+          requesterId: string;
+          assignedToId: string | null;
+        };
+        oldStatus: TicketStatus;
+        updatedTicket: unknown;
+      }> => {
+        const ticket = await tx.ticket.findUnique({ where: { id } });
+        if (!ticket) {
+          throw new NotFoundException("Ticket not found");
+        }
+
+        if (userRole === "EndUser") {
+          if (ticket.requesterId !== userId) {
+            throw new ForbiddenException("Access denied");
+          }
+          if (updateStatusDto.status !== TicketStatus.Closed) {
+            throw new ForbiddenException(
+              "End users can only close their own tickets",
+            );
+          }
+          if (ticket.status !== TicketStatus.Resolved) {
+            throw new ForbiddenException(
+              "End users can only close resolved tickets",
+            );
+          }
+        }
+
+        const oldStatus = ticket.status as TicketStatus;
+        const validNextStates = VALID_TRANSITIONS[oldStatus];
+        if (!validNextStates.includes(updateStatusDto.status)) {
+          throw new BadRequestException(
+            `Cannot transition from ${ticket.status} to ${updateStatusDto.status}`,
+          );
+        }
+
+        const updateData: Prisma.TicketUpdateManyMutationInput = {
+          status: updateStatusDto.status,
+        };
+
+        if (updateStatusDto.status === TicketStatus.Resolved) {
+          updateData.resolvedAt = new Date();
+        }
+
+        if (updateStatusDto.status === TicketStatus.Closed) {
+          updateData.closedAt = new Date();
+        }
+
+        if (
+          oldStatus === TicketStatus.Closed &&
+          updateStatusDto.status !== TicketStatus.Closed
+        ) {
+          updateData.closedAt = null;
+          updateData.resolvedAt = null;
+        }
+
+        const updated = await tx.ticket.updateMany({
+          where: { id, status: oldStatus },
+          data: updateData,
+        });
+        if (updated.count !== 1) {
+          throw new ConflictException(
+            "Ticket status changed. Please refresh and retry.",
+          );
+        }
+
+        await tx.ticketHistory.create({
+          data: {
+            ticketId: id,
+            userId,
+            field: "status",
+            oldValue: oldStatus,
+            newValue: updateStatusDto.status,
+          },
+        });
+
+        return {
+          ticket: {
+            id: ticket.id,
+            ticketNumber: ticket.ticketNumber,
+            subject: ticket.subject,
+            status: ticket.status as TicketStatus,
+            requesterId: ticket.requesterId,
+            assignedToId: ticket.assignedToId,
+          },
+          oldStatus,
+          updatedTicket: await tx.ticket.findUnique({ where: { id } }),
+        };
+      },
+    );
 
     const { ticket, oldStatus } = result;
 
-    this.eventEmitter.emit('ticket.status.updated', {
+    this.eventEmitter.emit("ticket.status.updated", {
       ticketId: id,
       ticketNumber: ticket.ticketNumber,
       subject: ticket.subject,
@@ -539,44 +676,56 @@ export class TicketsService {
     return result.updatedTicket;
   }
 
-  async assignTicket(id: string, assignTicketDto: AssignTicketDto, userId: string) {
+  async assignTicket(
+    id: string,
+    assignTicketDto: AssignTicketDto,
+    userId: string,
+  ) {
     const ticket = await this.ticketRepository.findById(id);
     if (!ticket) {
-      throw new NotFoundException('Ticket not found');
+      throw new NotFoundException("Ticket not found");
     }
 
     if (assignTicketDto.assignedToId) {
-      const assignedUser = await this.userRepository.getForValidation(assignTicketDto.assignedToId);
-      if (!assignedUser || assignedUser.role === 'EndUser' || !assignedUser.isActive) {
-        throw new BadRequestException('Cannot assign ticket to this user');
+      const assignedUser = await this.userRepository.getForValidation(
+        assignTicketDto.assignedToId,
+      );
+      if (
+        !assignedUser ||
+        assignedUser.role === "EndUser" ||
+        !assignedUser.isActive
+      ) {
+        throw new BadRequestException("Cannot assign ticket to this user");
       }
     }
 
     const oldAssigneeId = ticket.assignedToId;
 
-    const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
-      const updated = await tx.ticket.update({
-        where: { id },
-        data: {
-          assignedTo: assignTicketDto.assignedToId
-            ? { connect: { id: assignTicketDto.assignedToId } }
-            : { disconnect: true },
-        },
-      });
-      await tx.ticketHistory.create({
-        data: {
-          ticketId: id,
-          userId,
-          field: 'assignedTo',
-          oldValue: oldAssigneeId || null,
-          newValue: assignTicketDto.assignedToId || null,
-        },
-      });
-      return updated;
-    });
+    const updatedTicket = await this.ticketRepository.transaction(
+      async (tx) => {
+        const updated = await tx.ticket.update({
+          where: { id },
+          data: {
+            assignedTo: assignTicketDto.assignedToId
+              ? { connect: { id: assignTicketDto.assignedToId } }
+              : { disconnect: true },
+          },
+        });
+        await tx.ticketHistory.create({
+          data: {
+            ticketId: id,
+            userId,
+            field: "assignedTo",
+            oldValue: oldAssigneeId || null,
+            newValue: assignTicketDto.assignedToId || null,
+          },
+        });
+        return updated;
+      },
+    );
 
     if (assignTicketDto.assignedToId) {
-      this.eventEmitter.emit('ticket.assigned', {
+      this.eventEmitter.emit("ticket.assigned", {
         ticketId: id,
         ticketNumber: ticket.ticketNumber,
         subject: ticket.subject,
@@ -588,10 +737,14 @@ export class TicketsService {
     return updatedTicket;
   }
 
-  async updatePriority(id: string, updatePriorityDto: UpdatePriorityDto, userId: string) {
+  async updatePriority(
+    id: string,
+    updatePriorityDto: UpdatePriorityDto,
+    userId: string,
+  ) {
     const ticket = await this.ticketRepository.findById(id);
     if (!ticket) {
-      throw new NotFoundException('Ticket not found');
+      throw new NotFoundException("Ticket not found");
     }
 
     const oldPriority = ticket.priority;
@@ -607,31 +760,37 @@ export class TicketsService {
       ? new Date(createdAt + slaConfig.resolutionTimeMinutes * 60 * 1000)
       : null;
     const slaStatus = slaConfig
-      ? this.slaService.calculateSlaStatus(slaDueAt, slaConfig.resolutionTimeMinutes, new Date())
+      ? this.slaService.calculateSlaStatus(
+          slaDueAt,
+          slaConfig.resolutionTimeMinutes,
+          new Date(),
+        )
       : null;
 
-    const updatedTicket = await this.ticketRepository.transaction(async (tx) => {
-      const updated = await tx.ticket.update({
-        where: { id },
-        data: {
-          priority: newPriority,
-          slaDueAt,
-          slaStatus,
-        },
-      });
-      await tx.ticketHistory.create({
-        data: {
-          ticketId: id,
-          userId,
-          field: 'priority',
-          oldValue: oldPriority,
-          newValue: newPriority,
-        },
-      });
-      return updated;
-    });
+    const updatedTicket = await this.ticketRepository.transaction(
+      async (tx) => {
+        const updated = await tx.ticket.update({
+          where: { id },
+          data: {
+            priority: newPriority,
+            slaDueAt,
+            slaStatus,
+          },
+        });
+        await tx.ticketHistory.create({
+          data: {
+            ticketId: id,
+            userId,
+            field: "priority",
+            oldValue: oldPriority,
+            newValue: newPriority,
+          },
+        });
+        return updated;
+      },
+    );
 
-    this.eventEmitter.emit('ticket.priority.updated', {
+    this.eventEmitter.emit("ticket.priority.updated", {
       ticketId: id,
       ticketNumber: updatedTicket.ticketNumber,
       oldPriority,
@@ -647,7 +806,7 @@ export class TicketsService {
     });
 
     if (!ticket) {
-      throw new NotFoundException('Ticket not found');
+      throw new NotFoundException("Ticket not found");
     }
 
     const ticketNumber = ticket.ticketNumber;
@@ -662,7 +821,8 @@ export class TicketsService {
     });
 
     // Best-effort file cleanup after DB commit
-    const ticketAttachments = (ticket as { attachments?: Array<{ path: string }> }).attachments ?? [];
+    const ticketAttachments =
+      (ticket as { attachments?: Array<{ path: string }> }).attachments ?? [];
     for (const attachment of ticketAttachments) {
       try {
         await this.storageService.delete(attachment.path);
@@ -671,7 +831,7 @@ export class TicketsService {
       }
     }
 
-    this.eventEmitter.emit('ticket.deleted', {
+    this.eventEmitter.emit("ticket.deleted", {
       ticketId: id,
       ticketNumber,
       deletedBy: userId,
@@ -683,7 +843,11 @@ export class TicketsService {
     requesterId: string,
     slaConfig: { resolutionTimeMinutes: number } | null,
   ) {
-    for (let attempt = 0; attempt < appConfig.tickets.creationRetries; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < appConfig.tickets.creationRetries;
+      attempt += 1
+    ) {
       try {
         return await this.ticketRepository.transaction(async (tx) => {
           const ticketNumber = await this.generateTicketNumber(tx);
@@ -722,7 +886,7 @@ export class TicketsService {
             data: {
               ticketId: ticket.id,
               userId: requesterId,
-              field: 'status',
+              field: "status",
               oldValue: null,
               newValue: TicketStatus.Open,
             },
@@ -731,26 +895,33 @@ export class TicketsService {
           return ticket;
         });
       } catch (error) {
-        if (attempt < appConfig.tickets.creationRetries - 1 && this.isRetryableTicketNumberError(error)) {
+        if (
+          attempt < appConfig.tickets.creationRetries - 1 &&
+          this.isRetryableTicketNumberError(error)
+        ) {
           continue;
         }
         throw error;
       }
     }
 
-    throw new BadRequestException('Failed to create ticket');
+    throw new BadRequestException("Failed to create ticket");
   }
 
   private isRetryableTicketNumberError(error: unknown) {
-    return error instanceof Prisma.PrismaClientKnownRequestError &&
-      (error.code === 'P2002' || error.code === 'P2034');
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === "P2002" || error.code === "P2034")
+    );
   }
 
-  private async generateTicketNumber(tx: Prisma.TransactionClient): Promise<string> {
+  private async generateTicketNumber(
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
     const result = await tx.$queryRaw<{ seq: bigint }[]>`
       SELECT nextval('ticket_number_seq') AS seq
     `;
 
-    return `TKT-${String(Number(result[0].seq)).padStart(3, '0')}`;
+    return `TKT-${String(Number(result[0].seq)).padStart(3, "0")}`;
   }
 }

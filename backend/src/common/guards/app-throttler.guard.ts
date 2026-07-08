@@ -1,6 +1,9 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
-import { Request } from 'express';
+import { Injectable, ExecutionContext } from "@nestjs/common";
+import { ThrottlerGuard } from "@nestjs/throttler";
+import { Request } from "express";
+
+/** Request augmented by Passport after JWT verification. */
+type AuthenticatedRequest = Request & { user?: { id: string } };
 
 /**
  * Custom ThrottlerGuard that uses the authenticated user's ID as the
@@ -14,10 +17,10 @@ import { Request } from 'express';
  */
 @Injectable()
 export class AppThrottlerGuard extends ThrottlerGuard {
-  protected async getTracker(req: Request): Promise<string> {
-    const user = (req as any).user;
-    if (user?.id) {
-      return `user:${user.id}`;
+  protected async getTracker(req: AuthenticatedRequest): Promise<string> {
+    const id = req?.user?.id;
+    if (id) {
+      return `user:${id}`;
     }
     return `ip:${req.ip}`;
   }

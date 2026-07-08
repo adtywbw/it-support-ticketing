@@ -4,17 +4,19 @@ import {
   ConflictException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import * as bcrypt from 'bcrypt';
-import { Prisma } from '@prisma/client';
-import { UserRepository } from '../common/repositories/user.repository';
-import { RedisService } from '../redis/redis.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+} from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import * as bcrypt from "bcrypt";
+import { Prisma } from "@prisma/client";
+import { UserRepository } from "../common/repositories/user.repository";
+import { RedisService } from "../redis/redis.service";
+import { CreateUserDto } from "./dto/create-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
 
 /** Return type when an inactive user is reactivated via create(). */
-type ReactivatedUser = Prisma.UserGetPayload<Record<string, never>> & { reactivated: boolean };
+type ReactivatedUser = Prisma.UserGetPayload<Record<string, never>> & {
+  reactivated: boolean;
+};
 
 @Injectable()
 export class UsersService {
@@ -33,7 +35,7 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
     return user;
   }
@@ -41,7 +43,7 @@ export class UsersService {
   async findByIdWithPassword(id: string) {
     const user = await this.userRepository.findByIdWithPassword(id);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
     return user;
   }
@@ -71,18 +73,19 @@ export class UsersService {
     if (existing) {
       if (!existing.isActive) {
         const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
-        const { _count: _uc, ...reactivated } = await this.userRepository.update(existing.id, {
-          password: hashedPassword,
-          name: createUserDto.name,
-          role: createUserDto.role || 'EndUser',
-          isActive: true,
-        });
+        const { _count: _uc, ...reactivated } =
+          await this.userRepository.update(existing.id, {
+            password: hashedPassword,
+            name: createUserDto.name,
+            role: createUserDto.role ?? "EndUser",
+            isActive: true,
+          });
         return {
           ...reactivated,
           reactivated: true,
         } as ReactivatedUser;
       }
-      throw new ConflictException('Email already in use');
+      throw new ConflictException("Email already in use");
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
@@ -90,21 +93,24 @@ export class UsersService {
       email: normalizedEmail,
       password: hashedPassword,
       name: createUserDto.name,
-      role: createUserDto.role || 'EndUser',
+      role: createUserDto.role ?? "EndUser",
     });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     const normalizedEmail = updateUserDto.email?.toLowerCase().trim();
-    if (normalizedEmail !== undefined && normalizedEmail.toLowerCase() !== user.email.toLowerCase()) {
+    if (
+      normalizedEmail !== undefined &&
+      normalizedEmail.toLowerCase() !== user.email.toLowerCase()
+    ) {
       const existing = await this.userRepository.existsByEmail(normalizedEmail);
       if (existing) {
-        throw new ConflictException('Email already in use');
+        throw new ConflictException("Email already in use");
       }
     }
 
@@ -119,11 +125,13 @@ export class UsersService {
     const result = await this.userRepository.update(id, data);
 
     if (updateUserDto.password) {
-      await this.eventEmitter.emitAsync('user.password_changed', { userId: id });
+      await this.eventEmitter.emitAsync("user.password_changed", {
+        userId: id,
+      });
     }
 
     if (user.isActive && updateUserDto.isActive === false) {
-      await this.eventEmitter.emitAsync('user.deactivated', { userId: id });
+      await this.eventEmitter.emitAsync("user.deactivated", { userId: id });
     }
 
     return result;
@@ -131,34 +139,38 @@ export class UsersService {
 
   async delete(id: string, requesterId?: string): Promise<void> {
     if (id === requesterId) {
-      throw new BadRequestException('Cannot delete your own account');
+      throw new BadRequestException("Cannot delete your own account");
     }
 
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     // Revoke all refresh tokens BEFORE deleting the user from DB.
     // This prevents a scenario where the DB delete succeeds but token
     // revocation (done via async event emission) fails, leaving orphaned
     // tokens in Redis that could be used for replay after reactivation.
-    await this.redisService.deleteByPattern(`refresh:${id}:*`).catch((error) => {
-      this.logger.warn(`Failed to revoke refresh tokens for user ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    });
+    await this.redisService
+      .deleteByPattern(`refresh:${id}:*`)
+      .catch((error) => {
+        this.logger.warn(
+          `Failed to revoke refresh tokens for user ${id}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      });
 
     try {
       await this.userRepository.transactionDelete(id);
     } catch {
       throw new ConflictException(
-        'Cannot delete user with existing tickets, comments, or attachments. Deactivate the user instead.',
+        "Cannot delete user with existing tickets, comments, or attachments. Deactivate the user instead.",
       );
     }
     try {
-      await this.eventEmitter.emitAsync('user.deleted', { userId: id });
+      await this.eventEmitter.emitAsync("user.deleted", { userId: id });
     } catch (error) {
       this.logger.error(
-        `Failed to emit user.deleted event for user ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to emit user.deleted event for user ${id}: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
   }

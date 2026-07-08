@@ -1,12 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { TicketStatus, TicketPriority, SLAStatus } from '@/types';
-import { useCategories } from '@/hooks/use-categories';
-import { useLocations } from '@/hooks/use-locations';
-import { useAllUsers } from '@/hooks/use-all-users';
-import { useAuthStore } from '@/stores/auth-store';
-import MultiSelect from '@/components/ui/MultiSelect';
+import { useState, useEffect, useCallback, useRef } from "react";
+import type { TicketStatus, TicketPriority, SLAStatus } from "@/types";
+import { useCategories } from "@/hooks/use-categories";
+import { useLocations } from "@/hooks/use-locations";
+import { useAllUsers } from "@/hooks/use-all-users";
+import { useAuthStore } from "@/stores/auth-store";
+import MultiSelect from "@/components/ui/MultiSelect";
 
-export type DatePreset = 'all' | 'today' | '7days' | '30days' | 'month' | 'custom';
+export type DatePreset =
+  | "all"
+  | "today"
+  | "7days"
+  | "30days"
+  | "month"
+  | "custom";
 
 export interface FilterValues {
   status: TicketStatus[];
@@ -21,7 +27,7 @@ export interface FilterValues {
   startDate: string;
   endDate: string;
   sortBy: string;
-  sortOrder: 'asc' | 'desc';
+  sortOrder: "asc" | "desc";
   limit: number;
 }
 
@@ -32,42 +38,48 @@ interface TicketFiltersProps {
 
 function formatDate(d: Date): string {
   const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
-function computeDateRange(preset: DatePreset): { startDate: string; endDate: string } {
+function computeDateRange(preset: DatePreset): {
+  startDate: string;
+  endDate: string;
+} {
   const now = new Date();
   const today = formatDate(now);
 
   switch (preset) {
-    case 'today':
+    case "today":
       return { startDate: today, endDate: today };
-    case '7days': {
+    case "7days": {
       const d = new Date();
       d.setDate(d.getDate() - 6);
       return { startDate: formatDate(d), endDate: today };
     }
-    case '30days': {
+    case "30days": {
       const d = new Date();
       d.setDate(d.getDate() - 29);
       return { startDate: formatDate(d), endDate: today };
     }
-    case 'month':
-      return { startDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, endDate: today };
+    case "month":
+      return {
+        startDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`,
+        endDate: today,
+      };
     default:
-      return { startDate: '', endDate: '' };
+      return { startDate: "", endDate: "" };
   }
 }
 
 const datePresetOptions: { value: DatePreset; label: string }[] = [
-  { value: 'all', label: 'All Time' },
-  { value: 'today', label: 'Today' },
-  { value: '7days', label: 'Last 7 Days' },
-  { value: '30days', label: 'Last 30 Days' },
-  { value: 'month', label: 'This Month' },
-  { value: 'custom', label: 'Custom' },
+  { value: "all", label: "All Time" },
+  { value: "today", label: "Today" },
+  { value: "7days", label: "Last 7 Days" },
+  { value: "30days", label: "Last 30 Days" },
+  { value: "month", label: "This Month" },
+  { value: "custom", label: "Custom" },
 ];
 
 function arraysEqual(a: string[], b: string[]): boolean {
@@ -75,18 +87,30 @@ function arraysEqual(a: string[], b: string[]): boolean {
   return a.every((v) => b.includes(v));
 }
 
-export default function TicketFilters({ filters, onFiltersChange }: TicketFiltersProps) {
+export default function TicketFilters({
+  filters,
+  onFiltersChange,
+}: TicketFiltersProps) {
   const [local, setLocal] = useState(filters);
+  const justAppliedRef = useRef(false);
   const { data: categories } = useCategories();
   const { data: locations } = useLocations();
   const { data: allUsers } = useAllUsers();
   const user = useAuthStore((s) => s.user);
 
+  // Sync external filter changes into local state, but skip the frame
+  // immediately after Apply was clicked — otherwise the new filters object
+  // from the parent would overwrite local state and defeat the apply flow.
   useEffect(() => {
+    if (justAppliedRef.current) {
+      justAppliedRef.current = false;
+      return;
+    }
     setLocal(filters);
   }, [filters]);
 
   const handleApply = () => {
+    justAppliedRef.current = true;
     onFiltersChange(local);
   };
 
@@ -95,48 +119,54 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
   };
 
   const handleDatePresetChange = useCallback((preset: DatePreset) => {
-    if (preset === 'custom') {
+    if (preset === "custom") {
       setLocal((prev) => ({ ...prev, datePreset: preset }));
     } else {
       const range = computeDateRange(preset);
-      setLocal((prev) => ({ ...prev, datePreset: preset, startDate: range.startDate, endDate: range.endDate }));
+      setLocal((prev) => ({
+        ...prev,
+        datePreset: preset,
+        startDate: range.startDate,
+        endDate: range.endDate,
+      }));
     }
   }, []);
 
-  const hasChanges = !arraysEqual(local.status, filters.status)
-    || !arraysEqual(local.priority, filters.priority)
-    || !arraysEqual(local.slaStatus, filters.slaStatus)
-    || !arraysEqual(local.categoryId, filters.categoryId)
-    || !arraysEqual(local.locationId, filters.locationId)
-    || !arraysEqual(local.requesterId, filters.requesterId)
-    || local.search !== filters.search
-    || local.assignedToMe !== filters.assignedToMe
-    || local.datePreset !== filters.datePreset
-    || local.startDate !== filters.startDate
-    || local.endDate !== filters.endDate
-    || local.sortBy !== filters.sortBy
-    || local.sortOrder !== filters.sortOrder
-    || local.limit !== filters.limit;
+  const hasChanges =
+    !arraysEqual(local.status, filters.status) ||
+    !arraysEqual(local.priority, filters.priority) ||
+    !arraysEqual(local.slaStatus, filters.slaStatus) ||
+    !arraysEqual(local.categoryId, filters.categoryId) ||
+    !arraysEqual(local.locationId, filters.locationId) ||
+    !arraysEqual(local.requesterId, filters.requesterId) ||
+    local.search !== filters.search ||
+    local.assignedToMe !== filters.assignedToMe ||
+    local.datePreset !== filters.datePreset ||
+    local.startDate !== filters.startDate ||
+    local.endDate !== filters.endDate ||
+    local.sortBy !== filters.sortBy ||
+    local.sortOrder !== filters.sortOrder ||
+    local.limit !== filters.limit;
 
   const statusOptions = [
-    { value: 'Open', label: 'Open' },
-    { value: 'InProgress', label: 'In Progress' },
-    { value: 'OnHold', label: 'On Hold' },
-    { value: 'Resolved', label: 'Resolved' },
-    { value: 'Closed', label: 'Closed' },
+    { value: "Open", label: "Open" },
+    { value: "InProgress", label: "In Progress" },
+    { value: "OnHold", label: "On Hold" },
+    { value: "Resolved", label: "Resolved" },
+    { value: "Closed", label: "Closed" },
   ];
 
   const priorityOptions = [
-    { value: 'Low', label: 'Low' },
-    { value: 'Medium', label: 'Medium' },
-    { value: 'High', label: 'High' },
-    { value: 'Critical', label: 'Critical' },
+    { value: "Low", label: "Low" },
+    { value: "Medium", label: "Medium" },
+    { value: "High", label: "High" },
+    { value: "Critical", label: "Critical" },
   ];
 
   const slaStatusOptions = [
-    { value: 'OnTrack', label: 'On Track' },
-    { value: 'AtRisk', label: 'At Risk' },
-    { value: 'Breached', label: 'Breached' },
+    { value: "OnTrack", label: "On Track" },
+    { value: "AtRisk", label: "At Risk" },
+    { value: "Breached", label: "Breached" },
   ];
 
   return (
@@ -174,7 +204,10 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
 
       <MultiSelect
         label="Category"
-        options={(categories ?? []).map((c) => ({ value: c.id, label: c.name }))}
+        options={(categories ?? []).map((c) => ({
+          value: c.id,
+          label: c.name,
+        }))}
         selected={local.categoryId}
         onChange={(v) => update({ categoryId: v })}
       />
@@ -186,10 +219,13 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         onChange={(v) => update({ locationId: v })}
       />
 
-      {user && (user.role === 'ITSupport' || user.role === 'Admin') && (
+      {user && (user.role === "ITSupport" || user.role === "Admin") && (
         <MultiSelect
           label="Created By"
-          options={(allUsers ?? []).map((u) => ({ value: u.id, label: u.name }))}
+          options={(allUsers ?? []).map((u) => ({
+            value: u.id,
+            label: u.name,
+          }))}
           selected={local.requesterId}
           onChange={(v) => update({ requesterId: v })}
         />
@@ -208,7 +244,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         ))}
       </select>
 
-      {local.datePreset === 'custom' && (
+      {local.datePreset === "custom" && (
         <>
           <input
             type="date"
@@ -229,7 +265,7 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         </>
       )}
 
-      {user && (user.role === 'ITSupport' || user.role === 'Admin') && (
+      {user && (user.role === "ITSupport" || user.role === "Admin") && (
         <label className="flex items-center gap-2 text-sm text-navy-700 dark:text-blue-200 cursor-pointer whitespace-nowrap">
           <input
             type="checkbox"
@@ -241,7 +277,11 @@ export default function TicketFilters({ filters, onFiltersChange }: TicketFilter
         </label>
       )}
 
-      <button onClick={handleApply} disabled={!hasChanges} className="btn-primary">
+      <button
+        onClick={handleApply}
+        disabled={!hasChanges}
+        className="btn-primary"
+      >
         Apply
       </button>
     </div>

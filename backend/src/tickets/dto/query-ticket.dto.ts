@@ -9,13 +9,36 @@ import {
   MaxLength,
   IsDateString,
   IsIn,
-} from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { TicketStatus, Priority, SLAStatus } from '@prisma/client';
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { TicketStatus, Priority, SLAStatus } from "@prisma/client";
+
+/** Sortable ticket columns — shared with tickets service. */
+export const TICKET_SORT_FIELDS = [
+  "createdAt",
+  "updatedAt",
+  "slaDueAt",
+  "priority",
+  "ticketNumber",
+  "subject",
+  "status",
+  "slaStatus",
+  "itemCode",
+  "category",
+  "location",
+  "assignedTo",
+  "requester",
+] as const;
+
+export type TicketSortField = (typeof TICKET_SORT_FIELDS)[number];
 
 /** Split comma-separated query param into array for multi-select filters. */
 function splitComma({ value }: { value: unknown }): string[] | undefined {
-  if (typeof value === 'string') return value.split(',').map((s) => s.trim()).filter(Boolean);
+  if (typeof value === "string")
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   if (Array.isArray(value)) return value;
   return undefined;
 }
@@ -46,12 +69,12 @@ export class QueryTicketDto {
 
   @IsOptional()
   @Transform(splitComma)
-  @IsUUID('4', { each: true })
+  @IsUUID("4", { each: true })
   categoryId?: string[];
 
   @IsOptional()
   @Transform(splitComma)
-  @IsUUID('4', { each: true })
+  @IsUUID("4", { each: true })
   locationId?: string[];
 
   @IsOptional()
@@ -60,7 +83,7 @@ export class QueryTicketDto {
 
   @IsOptional()
   @Transform(splitComma)
-  @IsUUID('4', { each: true })
+  @IsUUID("4", { each: true })
   requesterId?: string[];
 
   @IsOptional()
@@ -82,10 +105,10 @@ export class QueryTicketDto {
   search?: string;
 
   @IsOptional()
-  @IsIn(['createdAt', 'updatedAt', 'slaDueAt', 'priority', 'ticketNumber', 'subject', 'status', 'slaStatus', 'itemCode', 'category', 'location', 'assignedTo', 'requester'])
+  @IsIn(TICKET_SORT_FIELDS as readonly string[])
   sortBy?: string;
 
   @IsOptional()
-  @IsIn(['asc', 'desc'])
-  sortOrder?: 'asc' | 'desc';
+  @IsIn(["asc", "desc"])
+  sortOrder?: "asc" | "desc";
 }

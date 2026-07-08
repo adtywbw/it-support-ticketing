@@ -1,12 +1,18 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { Cron } from '@nestjs/schedule';
-import { SlaConfigRepository } from '../common/repositories/sla-config.repository';
-import { TicketRepository } from '../common/repositories/ticket.repository';
-import { CategoryRepository } from '../common/repositories/category.repository';
-import { RedisService } from '../redis/redis.service';
-import { Priority, SLAStatus, TicketStatus } from '@prisma/client';
-import { appConfig } from '../common/config/app.config';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import { Cron } from "@nestjs/schedule";
+import { SlaConfigRepository } from "../common/repositories/sla-config.repository";
+import { TicketRepository } from "../common/repositories/ticket.repository";
+import { CategoryRepository } from "../common/repositories/category.repository";
+import { RedisService } from "../redis/redis.service";
+import { Priority, SLAStatus, TicketStatus } from "@prisma/client";
+import { appConfig } from "../common/config/app.config";
 
 @Injectable()
 export class SLAService {
@@ -41,16 +47,26 @@ export class SLAService {
 
   async findAll() {
     const configs = await this.slaConfigRepository.findAll();
-    const configsWithCount = await Promise.all(
-      configs.map(async (config) => {
-        const ticketCount = await this.ticketRepository.count({
-          categoryId: config.categoryId,
-          priority: config.priority,
-        });
-        return { ...config, _count: { tickets: ticketCount } };
-      }),
+    if (configs.length === 0) return [];
+
+    // Batch-count tickets per (categoryId, priority) in one query
+    // instead of N individual COUNT queries.
+    const pairs = configs.map((c) => ({
+      categoryId: c.categoryId,
+      priority: c.priority,
+    }));
+    const counts =
+      await this.ticketRepository.countTicketsByCategoryPriorityPairs(pairs);
+    const countMap = new Map(
+      counts.map((c) => [`${c.categoryId}:${c.priority}`, c.count]),
     );
-    return configsWithCount;
+
+    return configs.map((config) => ({
+      ...config,
+      _count: {
+        tickets: countMap.get(`${config.categoryId}:${config.priority}`) ?? 0,
+      },
+    }));
   }
 
   async findAllActive() {
@@ -59,7 +75,7 @@ export class SLAService {
 
   async delete(id: string) {
     const config = await this.slaConfigRepository.findUnique({ id });
-    if (!config) throw new NotFoundException('SLA config not found');
+    if (!config) throw new NotFoundException("SLA config not found");
 
     const existingTickets = await this.ticketRepository.findMany({
       where: {
@@ -72,7 +88,7 @@ export class SLAService {
 
     if (existingTickets.length > 0) {
       throw new ConflictException(
-        'Cannot delete SLA config: tickets still exist for this category and priority combination.',
+        "Cannot delete SLA config: tickets still exist for this category and priority combination.",
       );
     }
 
@@ -87,9 +103,12 @@ export class SLAService {
   }) {
     this.assertSlaWindow(data.responseTimeMinutes, data.resolutionTimeMinutes);
 
-    const category = await this.categoryRepository.findById(data.categoryId, {});
+    const category = await this.categoryRepository.findById(
+      data.categoryId,
+      {},
+    );
     if (!category) {
-      throw new NotFoundException('Category not found');
+      throw new NotFoundException("Category not found");
     }
 
     try {
@@ -122,14 +141,18 @@ export class SLAService {
   ) {
     const existing = await this.slaConfigRepository.findUnique({ id });
     if (!existing) {
-      throw new NotFoundException('SLA config not found');
+      throw new NotFoundException("SLA config not found");
     }
 
-    const shouldRecalculate = data.responseTimeMinutes !== undefined || data.resolutionTimeMinutes !== undefined;
+    const shouldRecalculate =
+      data.responseTimeMinutes !== undefined ||
+      data.resolutionTimeMinutes !== undefined;
 
     if (shouldRecalculate) {
-      const responseTimeMinutes = data.responseTimeMinutes ?? existing.responseTimeMinutes;
-      const resolutionTimeMinutes = data.resolutionTimeMinutes ?? existing.resolutionTimeMinutes;
+      const responseTimeMinutes =
+        data.responseTimeMinutes ?? existing.responseTimeMinutes;
+      const resolutionTimeMinutes =
+        data.resolutionTimeMinutes ?? existing.resolutionTimeMinutes;
       this.assertSlaWindow(responseTimeMinutes, resolutionTimeMinutes);
     }
 
@@ -154,9 +177,14 @@ export class SLAService {
     }
   }
 
-  private assertSlaWindow(responseTimeMinutes: number, resolutionTimeMinutes: number) {
+  private assertSlaWindow(
+    responseTimeMinutes: number,
+    resolutionTimeMinutes: number,
+  ) {
     if (resolutionTimeMinutes < responseTimeMinutes) {
-      throw new BadRequestException('Resolution time must be greater than or equal to response time');
+      throw new BadRequestException(
+        "Resolution time must be greater than or equal to response time",
+      );
     }
   }
 
@@ -188,21 +216,23 @@ export class SLAService {
   }) {
     // Acquire the same lock as the cron checkSLA() to prevent concurrent
     // writes to slaDueAt/slaStatus on the same ticket set.
-    const lockKey = 'sla:check:lock';
+    const lockKey = "sla:check:lock";
     const lockToken = `recalc:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-    const acquired = await this.redisService.setNx(lockKey, lockToken, appConfig.sla.checkLockTtl).catch(() => false);
+    const acquired = await this.redisService
+      .setNx(lockKey, lockToken, appConfig.sla.checkLockTtl)
+      .catch(() => false);
     if (!acquired) {
-      this.logger.log('SLA check lock held by another operation, skipping recalculation');
+      this.logger.log(
+        "SLA check lock held by another operation, skipping recalculation",
+      );
       return;
     }
     try {
       await this.doRecalculate(config);
     } finally {
-      await this.redisService.eval(
-        SLAService.RELEASE_LOCK_SCRIPT,
-        [lockKey],
-        [lockToken],
-      ).catch(() => {});
+      await this.redisService
+        .eval(SLAService.RELEASE_LOCK_SCRIPT, [lockKey], [lockToken])
+        .catch(() => {});
     }
   }
 
@@ -228,7 +258,7 @@ export class SLAService {
         },
         select: { id: true },
         take: batchSize,
-        orderBy: { id: 'asc' },
+        orderBy: { id: "asc" },
       });
 
       if (tickets.length === 0) break;
@@ -268,40 +298,45 @@ export class SLAService {
   }
 
   private handlePrismaWriteError(error: unknown): never {
-    const code = typeof error === 'object' && error !== null && 'code' in error
-      ? (error as { code?: string }).code
-      : undefined;
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? (error as { code?: string }).code
+        : undefined;
 
-    if (code === 'P2002') {
-      throw new ConflictException('SLA config already exists for this category and priority');
+    if (code === "P2002") {
+      throw new ConflictException(
+        "SLA config already exists for this category and priority",
+      );
     }
-    if (code === 'P2025') {
-      throw new NotFoundException('SLA config not found');
+    if (code === "P2025") {
+      throw new NotFoundException("SLA config not found");
     }
     throw error;
   }
 
-  @Cron('*/5 * * * *')
+  @Cron("*/5 * * * *")
   async checkSLA() {
-    const lockKey = 'sla:check:lock';
+    const lockKey = "sla:check:lock";
     const lockToken = `lock:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-    const acquired = await this.redisService.setNx(lockKey, lockToken, appConfig.sla.checkLockTtl);
+    const acquired = await this.redisService.setNx(
+      lockKey,
+      lockToken,
+      appConfig.sla.checkLockTtl,
+    );
 
     if (!acquired) {
-      this.logger.log('SLA check already running, skipping');
+      this.logger.log("SLA check already running, skipping");
       return;
     }
 
     try {
       await this.performSLACheck();
     } catch (error) {
-      this.logger.error('SLA check failed', error);
+      this.logger.error("SLA check failed", error);
     } finally {
-      await this.redisService.eval(
-        SLAService.RELEASE_LOCK_SCRIPT,
-        [lockKey],
-        [lockToken],
-      ).catch(() => {});
+      await this.redisService
+        .eval(SLAService.RELEASE_LOCK_SCRIPT, [lockKey], [lockToken])
+        .catch(() => {});
     }
   }
 
@@ -313,10 +348,16 @@ export class SLAService {
     // Pre-load all active SLA configs grouped by categoryId to avoid
     // per-ticket joins in the batch loop
     const allActiveConfigs = await this.slaConfigRepository.findAllActive();
-    const slaConfigMap = new Map<string, Array<{ priority: Priority; resolutionTimeMinutes: number }>>();
+    const slaConfigMap = new Map<
+      string,
+      Array<{ priority: Priority; resolutionTimeMinutes: number }>
+    >();
     for (const config of allActiveConfigs) {
       const entries = slaConfigMap.get(config.categoryId) ?? [];
-      entries.push({ priority: config.priority, resolutionTimeMinutes: config.resolutionTimeMinutes });
+      entries.push({
+        priority: config.priority,
+        resolutionTimeMinutes: config.resolutionTimeMinutes,
+      });
       slaConfigMap.set(config.categoryId, entries);
     }
 
@@ -337,7 +378,7 @@ export class SLAService {
           slaStatus: true,
         },
         take: batchSize,
-        orderBy: { id: 'asc' },
+        orderBy: { id: "asc" },
       });
 
       if (batch.length === 0) break;
@@ -370,7 +411,8 @@ export class SLAService {
         if (newSlaStatus !== ticket.slaStatus) {
           if (newSlaStatus === SLAStatus.OnTrack) onTrack.push(ticket.id);
           else if (newSlaStatus === SLAStatus.AtRisk) atRisk.push(ticket.id);
-          else if (newSlaStatus === SLAStatus.Breached) breached.push(ticket.id);
+          else if (newSlaStatus === SLAStatus.Breached)
+            breached.push(ticket.id);
 
           this.logger.log(
             `Ticket ${ticket.ticketNumber} SLA status changed from ${ticket.slaStatus} to ${newSlaStatus}`,
@@ -396,7 +438,6 @@ export class SLAService {
           { slaStatus: SLAStatus.Breached },
         );
       }
-
     }
   }
 }

@@ -3,14 +3,14 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
-} from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { OnEvent } from '@nestjs/event-emitter';
-import { JwtService } from '@nestjs/jwt';
-import { Injectable } from '@nestjs/common';
-import { UserRepository } from '../common/repositories/user.repository';
-import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
-import { getCorsOrigins } from '../common/utils/env-validation.util';
+} from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
+import { OnEvent } from "@nestjs/event-emitter";
+import { JwtService } from "@nestjs/jwt";
+import { Injectable } from "@nestjs/common";
+import { UserRepository } from "../common/repositories/user.repository";
+import { JwtPayload } from "../common/interfaces/jwt-payload.interface";
+import { getCorsOrigins } from "../common/utils/env-validation.util";
 
 interface NotificationPayload {
   userId: string;
@@ -22,7 +22,7 @@ interface NotificationPayload {
 @Injectable()
 @WebSocketGateway({
   cors: { origin: getCorsOrigins(), credentials: true },
-  namespace: '/notifications',
+  namespace: "/notifications",
 })
 export class NotificationsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
@@ -58,7 +58,7 @@ export class NotificationsGateway
 
     const token = client.handshake.auth?.token;
 
-    if (typeof token !== 'string' || !token.trim()) {
+    if (typeof token !== "string" || !token.trim()) {
       client.disconnect();
       return;
     }
@@ -66,10 +66,10 @@ export class NotificationsGateway
     try {
       const payload = this.jwtService.verify<JwtPayload>(token, {
         secret: process.env.JWT_SECRET!,
-        algorithms: ['HS256'],
+        algorithms: ["HS256"],
       });
 
-      if (payload.tokenType !== 'access') {
+      if (payload.tokenType !== "access") {
         client.disconnect();
         return;
       }
@@ -84,7 +84,10 @@ export class NotificationsGateway
 
       // Enforce per-user connection limit to prevent resource exhaustion
       const existing = this.userSockets.get(userId);
-      if (existing && existing.size >= NotificationsGateway.MAX_CONNECTIONS_PER_USER) {
+      if (
+        existing &&
+        existing.size >= NotificationsGateway.MAX_CONNECTIONS_PER_USER
+      ) {
         client.disconnect();
         return;
       }
@@ -135,26 +138,31 @@ export class NotificationsGateway
     const safeDelay = Math.min(delayMs, MAX_SETTIMEOUT_DELAY);
 
     const timer = setTimeout(() => {
-      this.expiryTimers.delete(client.id);
-      client.disconnect();
+      // Guard: only disconnect if this socket's timer is still tracked.
+      // Prevents a stale timer from disconnecting a new socket that reused
+      // the same client.id (theoretical, as Socket.IO regenerates IDs).
+      if (this.expiryTimers.has(client.id)) {
+        this.expiryTimers.delete(client.id);
+        client.disconnect();
+      }
     }, safeDelay);
 
     this.expiryTimers.set(client.id, timer);
   }
 
-  @OnEvent('notification.created')
+  @OnEvent("notification.created")
   handleNotification(notification: NotificationPayload) {
     this.server
       .to(`user:${notification.userId}`)
-      .emit('notification', notification);
+      .emit("notification", notification);
   }
 
-  @OnEvent('user.deactivated')
+  @OnEvent("user.deactivated")
   handleUserDeactivated(payload: { userId: string }) {
     this.disconnectUserSockets(payload.userId);
   }
 
-  @OnEvent('user.deleted')
+  @OnEvent("user.deleted")
   handleUserDeleted(payload: { userId: string }) {
     this.disconnectUserSockets(payload.userId);
   }

@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, Priority, SLAStatus, TicketStatus } from '@prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { Prisma, Priority, SLAStatus, TicketStatus } from "@prisma/client";
 
 export type TicketAccessScope = {
   userId: string;
-  role: 'EndUser' | 'ITSupport' | 'Admin';
+  role: "EndUser" | "ITSupport" | "Admin";
 };
 
 /**
@@ -17,7 +17,7 @@ export function buildTicketAccessWhere(
   scope: TicketAccessScope,
   where: Prisma.TicketWhereInput = {},
 ): Prisma.TicketWhereInput {
-  if (scope.role === 'EndUser') {
+  if (scope.role === "EndUser") {
     return { ...where, requesterId: scope.userId };
   }
   return where;
@@ -65,7 +65,7 @@ export class TicketRepository {
     return this.prisma.ticket.create(args);
   }
 
-  async findById(id: string, include?: Prisma.TicketFindUniqueArgs['include']) {
+  async findById(id: string, include?: Prisma.TicketFindUniqueArgs["include"]) {
     const args: Prisma.TicketFindUniqueArgs = { where: { id } };
     if (include) args.include = include;
     return this.prisma.ticket.findUnique(args);
@@ -116,23 +116,42 @@ export class TicketRepository {
     };
     skip: number;
     take: number | undefined;
-    sortOrder: 'asc' | 'desc';
+    sortOrder: "asc" | "desc";
     include: Prisma.TicketInclude;
   }) {
     const conditions: Prisma.Sql[] = [];
 
-    if (args.scope.role === 'EndUser') {
+    if (args.scope.role === "EndUser") {
       conditions.push(Prisma.sql`t."requesterId" = ${args.scope.userId}`);
     }
 
     const f = args.filters;
-    if (f.status?.length) conditions.push(Prisma.sql`t."status"::text = ANY (ARRAY[${Prisma.join(f.status)}]::text[])`);
-    if (f.priority?.length) conditions.push(Prisma.sql`t."priority"::text = ANY (ARRAY[${Prisma.join(f.priority)}]::text[])`);
-    if (f.categoryId?.length) conditions.push(Prisma.sql`t."categoryId" = ANY (ARRAY[${Prisma.join(f.categoryId)}]::uuid[])`);
-    if (f.locationId?.length) conditions.push(Prisma.sql`t."locationId" = ANY (ARRAY[${Prisma.join(f.locationId)}]::uuid[])`);
-    if (f.assignedToId) conditions.push(Prisma.sql`t."assignedToId" = ${f.assignedToId}`);
-    if (f.requesterId?.length) conditions.push(Prisma.sql`t."requesterId" = ANY (ARRAY[${Prisma.join(f.requesterId)}]::uuid[])`);
-    if (f.slaStatus?.length) conditions.push(Prisma.sql`t."slaStatus"::text = ANY (ARRAY[${Prisma.join(f.slaStatus)}]::text[])`);
+    if (f.status?.length)
+      conditions.push(
+        Prisma.sql`t."status"::text = ANY (ARRAY[${Prisma.join(f.status)}]::text[])`,
+      );
+    if (f.priority?.length)
+      conditions.push(
+        Prisma.sql`t."priority"::text = ANY (ARRAY[${Prisma.join(f.priority)}]::text[])`,
+      );
+    if (f.categoryId?.length)
+      conditions.push(
+        Prisma.sql`t."categoryId" = ANY (ARRAY[${Prisma.join(f.categoryId)}]::uuid[])`,
+      );
+    if (f.locationId?.length)
+      conditions.push(
+        Prisma.sql`t."locationId" = ANY (ARRAY[${Prisma.join(f.locationId)}]::uuid[])`,
+      );
+    if (f.assignedToId)
+      conditions.push(Prisma.sql`t."assignedToId" = ${f.assignedToId}`);
+    if (f.requesterId?.length)
+      conditions.push(
+        Prisma.sql`t."requesterId" = ANY (ARRAY[${Prisma.join(f.requesterId)}]::uuid[])`,
+      );
+    if (f.slaStatus?.length)
+      conditions.push(
+        Prisma.sql`t."slaStatus"::text = ANY (ARRAY[${Prisma.join(f.slaStatus)}]::text[])`,
+      );
 
     if (f.dateFrom) {
       const startDate = new Date(f.dateFrom);
@@ -159,10 +178,10 @@ export class TicketRepository {
 
     const whereClause =
       conditions.length > 0
-        ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+        ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
         : Prisma.empty;
 
-    const validatedOrder = args.sortOrder === 'asc' ? 'asc' : 'desc';
+    const validatedOrder = args.sortOrder === "asc" ? "asc" : "desc";
     const orderDir = Prisma.raw(validatedOrder.toUpperCase());
 
     const limitClause =
@@ -207,13 +226,15 @@ export class TicketRepository {
   }
 
   async getDashboardCurrentSnapshot() {
-    const rows = await this.prisma.$queryRaw<Array<{
-      activeTickets: number;
-      open: number;
-      inProgress: number;
-      slaRisk: number;
-      unassigned: number;
-    }>>`
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        activeTickets: number;
+        open: number;
+        inProgress: number;
+        slaRisk: number;
+        unassigned: number;
+      }>
+    >`
       SELECT
         COUNT(*) FILTER (WHERE "status" NOT IN ('Resolved', 'Closed'))::int AS "activeTickets",
         COUNT(*) FILTER (WHERE "status" = 'Open')::int AS "open",
@@ -235,7 +256,11 @@ export class TicketRepository {
           slaStatus: { in: [SLAStatus.Breached, SLAStatus.AtRisk] },
         },
         select: dashboardTicketSummarySelect,
-        orderBy: [{ slaStatus: 'desc' }, { slaDueAt: 'asc' }, { createdAt: 'asc' }],
+        orderBy: [
+          { slaStatus: "desc" },
+          { slaDueAt: "asc" },
+          { createdAt: "asc" },
+        ],
         take: 5,
       }),
       this.prisma.ticket.findMany({
@@ -244,7 +269,11 @@ export class TicketRepository {
           priority: { in: [Priority.Critical, Priority.High] },
         },
         select: dashboardTicketSummarySelect,
-        orderBy: [{ priority: 'desc' }, { slaDueAt: 'asc' }, { createdAt: 'asc' }],
+        orderBy: [
+          { priority: "desc" },
+          { slaDueAt: "asc" },
+          { createdAt: "asc" },
+        ],
         take: 5,
       }),
       this.prisma.ticket.findMany({
@@ -253,7 +282,7 @@ export class TicketRepository {
           assignedToId: null,
         },
         select: dashboardTicketSummarySelect,
-        orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+        orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
         take: 5,
       }),
     ]);
@@ -282,7 +311,9 @@ export class TicketRepository {
     now: Date,
   ) {
     if (ids.length === 0) return;
-    const atRiskThresholdMinutes = Math.round(resolutionTimeMinutes * atRiskRatio);
+    const atRiskThresholdMinutes = Math.round(
+      resolutionTimeMinutes * atRiskRatio,
+    );
     await this.prisma.$executeRaw`
       UPDATE tickets
       SET
@@ -297,11 +328,16 @@ export class TicketRepository {
     `;
   }
 
-  async updateMany(where: Prisma.TicketWhereInput, data: Prisma.TicketUpdateManyMutationInput) {
+  async updateMany(
+    where: Prisma.TicketWhereInput,
+    data: Prisma.TicketUpdateManyMutationInput,
+  ) {
     return this.prisma.ticket.updateMany({ where, data });
   }
 
-  async countPublicCommentsByTicketIds(ticketIds: string[]): Promise<Array<{ ticketId: string; count: number }>> {
+  async countPublicCommentsByTicketIds(
+    ticketIds: string[],
+  ): Promise<Array<{ ticketId: string; count: number }>> {
     if (ticketIds.length === 0) return [];
     return this.prisma.$queryRaw<Array<{ ticketId: string; count: number }>>`
       SELECT "ticketId", COUNT(*)::int AS count
@@ -312,7 +348,9 @@ export class TicketRepository {
     `;
   }
 
-  async countVisibleAttachmentsByTicketIds(ticketIds: string[]): Promise<Array<{ ticketId: string; count: number }>> {
+  async countVisibleAttachmentsByTicketIds(
+    ticketIds: string[],
+  ): Promise<Array<{ ticketId: string; count: number }>> {
     if (ticketIds.length === 0) return [];
     return this.prisma.$queryRaw<Array<{ ticketId: string; count: number }>>`
       SELECT a."ticketId", COUNT(*)::int AS count
@@ -327,7 +365,7 @@ export class TicketRepository {
 
   async getDashboardStatusCounts(from: Date, to: Date) {
     return this.prisma.ticket.groupBy({
-      by: ['status'],
+      by: ["status"],
       where: { createdAt: { gte: from, lt: to } },
       _count: { id: true },
     });
@@ -335,19 +373,21 @@ export class TicketRepository {
 
   async getDashboardPriorityCounts(from: Date, to: Date) {
     return this.prisma.ticket.groupBy({
-      by: ['priority'],
+      by: ["priority"],
       where: { createdAt: { gte: from, lt: to } },
       _count: { id: true },
     });
   }
 
   async getDashboardSLAStatsForRange(from: Date, to: Date) {
-    const rows = await this.prisma.$queryRaw<Array<{
-      total: number;
-      onTrack: number;
-      atRisk: number;
-      breached: number;
-    }>>`
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        total: number;
+        onTrack: number;
+        atRisk: number;
+        breached: number;
+      }>
+    >`
       SELECT
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE "slaStatus" = 'OnTrack')::int AS "onTrack",
@@ -361,12 +401,14 @@ export class TicketRepository {
   }
 
   async getAvgResolutionTimeByCategoryForRange(from: Date, to: Date) {
-    return this.prisma.$queryRaw<Array<{
-      categoryId: string;
-      categoryName: string;
-      avgResolutionMinutes: number;
-      ticketCount: bigint;
-    }>>`
+    return this.prisma.$queryRaw<
+      Array<{
+        categoryId: string;
+        categoryName: string;
+        avgResolutionMinutes: number;
+        ticketCount: bigint;
+      }>
+    >`
       SELECT
         t."categoryId" AS "categoryId",
         c.name AS "categoryName",
@@ -384,11 +426,13 @@ export class TicketRepository {
   }
 
   async getTopCategories(from: Date, to: Date) {
-    return this.prisma.$queryRaw<Array<{
-      categoryId: string;
-      categoryName: string;
-      count: bigint;
-    }>>`
+    return this.prisma.$queryRaw<
+      Array<{
+        categoryId: string;
+        categoryName: string;
+        count: bigint;
+      }>
+    >`
       SELECT
         t."categoryId" AS "categoryId",
         c.name AS "categoryName",
@@ -403,8 +447,8 @@ export class TicketRepository {
     `;
   }
 
-  async getDailyTrends(from: Date, to: Date, groupBy: 'day' | 'week' = 'day') {
-    if (groupBy === 'week') {
+  async getDailyTrends(from: Date, to: Date, groupBy: "day" | "week" = "day") {
+    if (groupBy === "week") {
       return this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
         SELECT to_char(date_trunc('week', "createdAt"), 'YYYY-MM-DD') AS day,
                COUNT(*)::int AS count
@@ -433,4 +477,20 @@ export class TicketRepository {
     return this.prisma.$transaction(fn, options);
   }
 
+  /** Batch-counts tickets grouped by (categoryId, priority) to avoid N+1 queries. */
+  async countTicketsByCategoryPriorityPairs(
+    pairs: Array<{ categoryId: string; priority: string }>,
+  ): Promise<Array<{ categoryId: string; priority: string; count: number }>> {
+    if (pairs.length === 0) return [];
+    return this.prisma.$queryRaw<
+      Array<{ categoryId: string; priority: string; count: number }>
+    >`
+      SELECT "categoryId", "priority"::text, COUNT(*)::int AS count
+      FROM tickets
+      WHERE ("categoryId", "priority"::text) IN (
+        ${Prisma.join(pairs.map((p) => Prisma.sql`(${p.categoryId}, ${p.priority})`))}
+      )
+      GROUP BY "categoryId", "priority"
+    `;
+  }
 }
