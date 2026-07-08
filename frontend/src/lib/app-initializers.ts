@@ -17,6 +17,7 @@ export function createAppQueryClient() {
         staleTime: 0,
         retry: 1,
         refetchOnWindowFocus: true,
+        refetchOnMount: 'always',
       },
     },
   });

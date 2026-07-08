@@ -13,6 +13,7 @@ describe('app initializers', () => {
     expect(client.getDefaultOptions().queries?.staleTime).toBe(0);
     expect(client.getDefaultOptions().queries?.retry).toBe(1);
     expect(client.getDefaultOptions().queries?.refetchOnWindowFocus).toBe(true);
+    expect(client.getDefaultOptions().queries?.refetchOnMount).toBe('always');
   });
 
   it('applies persisted dark mode before React renders', () => {
