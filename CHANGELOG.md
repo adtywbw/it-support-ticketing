@@ -24,6 +24,10 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Fix: E2E health test** — Fixed envelope nesting (`res.data.data` instead of `res.data`).
 
 - **SLA Config Manager** — Unified with Switch toggle, Delete button, delete guard, blocked popup. `findAll()` now includes `_count.tickets` (non-terminal count per category+priority). `findAllActive()` exposed as public method.
+- **Feat: weekly trend chart** — `getDailyTrends()` supports `'day'|'week'` grouping. 90d+ ranges auto-group into weekly bars (~14 instead of 90). `fillTrendGaps()` aligns cursor to Monday when step >= 7.
+- **Fix: trend chart rendering** — Bar layout rewritten (flex-1 spacer + h-full columns) for reliable percentage height. Min bar height 4%. Removed overflow-hidden.
+- **Fix: SQL date_trunc literal** — Split `getDailyTrends` into day/week branches (PostgreSQL requires literal 'day'/'week', not parameterized).
+- **Feat: dynamic CSV filename** — `tickets-export.csv` → `tickets-YYYY-MM-DD.csv`.
 
 ## Session 61 — Master Data UI: Switch Toggle + Delete Guard (2026-07-08)
 

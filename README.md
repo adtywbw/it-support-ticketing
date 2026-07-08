@@ -34,7 +34,7 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - File attachments (max 5/ticket, 10MB each, magic-byte validation, safe filenames, public/internal visibility)
 - Full audit trail on status/assignee/priority changes
 - Filter by status, priority, category, assigned to me, date range (dropdown presets: All Time, Today, Last 7 Days, Last 30 Days, This Month, Custom)
-- Export CSV with current filters (ITSupport & Admin)
+- Export CSV with current filters (ITSupport & Admin), filename: `tickets-YYYY-MM-DD.csv`
 
 ### SLA Management
 - Configurable SLA per category + priority

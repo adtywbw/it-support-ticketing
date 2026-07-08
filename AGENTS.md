@@ -280,7 +280,7 @@ postgres/postgresql.conf
 - File upload validation: use the shared `useFileUpload()` hook (frontend) for MIME type checks, size limits, preview URLs, and error management. The hook centralizes logic that was previously duplicated across `CreateTicketForm`, `CommentSection`, and `AttachmentList`. The hook cleans up blob URLs on unmount via `useEffect` — no manual cleanup needed by consumers.
 - Stale-file cleanup: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that cross-references disk files against DB records and removes unmatched files. The `AttachmentRepository.findAllPaths()` method supports this. This is a best-effort guard against orphaned files from crashes during upload.
 - **File save ordering**: `CommentsService.create()` saves uploaded files **inside** the Prisma transaction callback, not before it. This ensures that if the transaction fails (e.g., max attachments exceeded), no files linger on disk. A catch block inside the transaction handles cleanup of partial saves.
-- **SLA lock sharing**: `SLAService.recalculateOpenTicketsForConfig()` (triggered by SLA config create/update) uses the same Redis lock key (`sla:check:lock`) as `checkSLA()` cron. If the cron is mid-flight when a config update triggers recalculation, the recalculation skips with a log message. This prevents concurrent writes to `slaDueAt`/`slaStatus` on overlapping ticket sets.
+|- **SLA lock sharing**: `SLAService.recalculateOpenTicketsForConfig()` (triggered by SLA config create/update) uses the same Redis lock key (`sla:check:lock`) as `checkSLA()` cron. If the cron is mid-flight when a config update triggers recalculation, the recalculation skips with a log message. This prevents concurrent writes to `slaDueAt`/`slaStatus` on overlapping ticket sets.
 |- **Restore safety**: `MaintenanceService.restoreDatabase()` COMMITs `DROP SCHEMA ... CASCADE` in a separate psql call before the restore pipeline runs. If the restore pipe (gzip→awk→psql) fails, the schema is already dropped — safety is provided by the **pre-restore backup** (created automatically before the DROP SCHEMA), which the admin can use to recover.
 |- **SubCategory delete**: backend throws `ConflictException` when tickets exist (no silent soft-delete). Frontend shows blocked popup if `_count.tickets > 0`.
 |- **User delete guard**: `USER_SAFE_SELECT` includes `_count { createdTickets, assignedTickets, comments, attachments }`. Frontend checks counts before showing ConfirmDialog.
@@ -288,7 +288,8 @@ postgres/postgresql.conf
 |- **Stale SLA values**: `TicketsService.stripStaleSlaValues()` nuls out `slaDueAt`/`slaStatus` for tickets whose SLA config is inactive. Runs on every ticket list/detail fetch.
 |- **Master Data UI**: all tables use `<Switch>` for Active toggle and `btn-secondary btn-sm` / `btn-danger btn-sm` for actions. Delete buttons check `_count` before showing ConfirmDialog.
 |- **Auto-refetch**: `refetchOnMount: 'always'` in global query defaults — every page navigation refetches data in background.
-
+|- **Dashboard trend grouping**: `getDailyTrends()` supports `'day'` or `'week'` grouping. 90d and custom >30d ranges use weekly bars (~14) via `date_trunc('week', ...)`. `fillTrendGaps()` aligns cursor to Monday when `stepDays >= 7`.
+|- **CSV filename**: `tickets/export/csv` → filename `tickets-YYYY-MM-DD.csv` (dynamic date).
 
 ## Dev Seed Credentials
 - `admin@company.com / Admin123!`
