@@ -44,9 +44,15 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Docs: ARCHITECTURE.md §8 Observability** — New section documenting JSON logger, correlation ID propagation, and environment-aware log levels.
 - **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend tsc 0 errors ✅ | frontend lint 0 errors ✅ | frontend 220/220 tests (incl. 7 a11y) ✅ | frontend build ✅ | E2E 36/36 (production HTTPS) ✅
 
+### Round 5 — Final Polish
+
+- **Fix: SLA time zero-guard** — `splitMinutesForInput(0)` now returns `{ 0, 'minutes' }` instead of incorrectly matching `0 % 60 === 0` and returning "days".
+- **Fix: health controller semantics** — Changed `message || null` to `message ?? null` for nullish coalescing precision.
+- **Verification**: backend 757/757 ✅ | frontend 220/220 ✅ | E2E 36/36 ✅
+
 ## Session 63 — Code Review: Lock Error Handling, Missing onError, Duplicate Filter, E2E Stability (2026-07-08)
 
-- **Fix: SLA cron lock release error handling**
+- **Fix: SLA cron lock release error handling** — `checkSLA()` finally block `.catch(() => {})` prevents unhandled error on Redis failure (matching `recalculateOpenTicketsForConfig` pattern).
 - **Fix: Maintenance restore lock release error handling** — `restoreBackup()` success path `releaseLock()` now `.catch(() => {})` to prevent unhandled rejection.
 - **Fix: missing frontend mutation onError** — `useUploadAttachment()` now shows toast on failure (only mutation hook missing error feedback).
 - **Refactor: extract duplicate filter logic** — `buildTicketQueryInput()` shared helper eliminates 80 lines of duplicated WHERE/sort building between `findAll()` and `exportCsvToResponse()`.
