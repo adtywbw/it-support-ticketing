@@ -41,4 +41,8 @@ export class SlaConfigRepository {
   async update(id: string, data: Prisma.SLAConfigUpdateInput) {
     return this.prisma.sLAConfig.update({ where: { id }, data });
   }
+
+  async delete(id: string) {
+    return this.prisma.sLAConfig.delete({ where: { id } });
+  }
 }

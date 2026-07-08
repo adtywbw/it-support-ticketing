@@ -4,8 +4,9 @@ import Modal from '@/components/ui/Modal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorMessage from '@/components/ui/ErrorMessage';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useCategories } from '@/hooks/use-categories';
-import { useCreateSLAConfig, useSLAConfigs, useUpdateSLAConfig } from '@/hooks/use-sla-configs';
+import { useCreateSLAConfig, useSLAConfigs, useUpdateSLAConfig, useDeleteSLAConfig } from '@/hooks/use-sla-configs';
 import { formatSLADuration, isValidSLAWindow, splitMinutesForInput, toMinutes, type SLATimeUnit } from '@/lib/sla-time';
 import Switch from '@/components/ui/Switch';
 import { getErrorMessage, getPriorityColor } from '@/lib/utils';
@@ -26,6 +27,7 @@ export default function SLAConfigManager() {
   const { data: categories, isLoading: isCategoriesLoading, isError: isCategoriesError, error: categoriesError, refetch: refetchCategories } = useCategories();
   const createMutation = useCreateSLAConfig();
   const updateMutation = useUpdateSLAConfig();
+  const deleteMutation = useDeleteSLAConfig();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SLAConfig | null>(null);
@@ -33,12 +35,13 @@ export default function SLAConfigManager() {
   const [formPriority, setFormPriority] = useState<TicketPriority>('Medium');
   const [responseTime, setResponseTime] = useState<TimeInputState>(defaultResponseTime);
   const [resolutionTime, setResolutionTime] = useState<TimeInputState>(defaultResolutionTime);
+  const [deleteItem, setDeleteItem] = useState<SLAConfig | null>(null);
 
   const activeCategories = (categories ?? []).filter((category) => category.isActive);
   const isLoading = isSlaLoading || isCategoriesLoading;
   const isError = isSlaError || isCategoriesError;
   const error = slaError || categoriesError;
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   const openCreate = () => {
     setEditingItem(null);
@@ -194,6 +197,7 @@ export default function SLAConfigManager() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(config)} className="btn-secondary btn-sm">Edit</button>
+                        <button onClick={() => setDeleteItem(config)} className="btn-danger btn-sm">Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -296,6 +300,23 @@ export default function SLAConfigManager() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deleteItem}
+        onClose={() => setDeleteItem(null)}
+        onConfirm={() => {
+          if (deleteItem) {
+            deleteMutation.mutate(deleteItem.id, {
+              onSettled: () => setDeleteItem(null),
+            });
+          }
+        }}
+        title="Delete SLA Config"
+        message={`Are you sure you want to delete SLA config for ${deleteItem ? getCategoryName(deleteItem) : ''} / ${deleteItem?.priority ?? ''}?`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={isPending}
+      />
     </div>
   );
 }

@@ -43,6 +43,10 @@ export class SLAService {
     return this.slaConfigRepository.findAll();
   }
 
+  async delete(id: string) {
+    await this.slaConfigRepository.delete(id);
+  }
+
   async create(data: {
     categoryId: string;
     priority: Priority;

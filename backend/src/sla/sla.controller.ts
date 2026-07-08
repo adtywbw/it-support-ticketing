@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -43,5 +44,13 @@ export class SLAController {
     @Body() body: UpdateSlaConfigDto,
   ) {
     return this.slaService.update(id, body);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
+  async delete(@Param('id') id: string) {
+    await this.slaService.delete(id);
+    return { message: 'SLA config deleted successfully' };
   }
 }

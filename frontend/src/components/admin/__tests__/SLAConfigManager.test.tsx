@@ -13,6 +13,7 @@ vi.mock('@/hooks/use-sla-configs', () => ({
   useSLAConfigs: () => mockUseSLAConfigs(),
   useCreateSLAConfig: () => mockUseCreateSLAConfig(),
   useUpdateSLAConfig: () => mockUseUpdateSLAConfig(),
+  useDeleteSLAConfig: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/use-categories', () => ({

@@ -47,3 +47,19 @@ export function useUpdateSLAConfig() {
     onError: (err) => toast.error(getErrorMessage(err, 'Failed to update SLA config')),
   });
 }
+
+export function useDeleteSLAConfig() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/sla-configs/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sla-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'stats'] });
+      toast.success('SLA config deleted');
+    },
+    onError: (err) => toast.error(getErrorMessage(err, 'Failed to delete SLA config')),
+  });
+}
