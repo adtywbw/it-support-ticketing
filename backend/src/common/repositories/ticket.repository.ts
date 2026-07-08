@@ -404,14 +404,24 @@ export class TicketRepository {
   }
 
   async getDailyTrends(from: Date, to: Date, groupBy: 'day' | 'week' = 'day') {
-    const trunc = groupBy === 'week' ? 'week' : 'day';
+    if (groupBy === 'week') {
+      return this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
+        SELECT to_char(date_trunc('week', "createdAt"), 'YYYY-MM-DD') AS day,
+               COUNT(*)::int AS count
+        FROM tickets
+        WHERE "createdAt" >= ${from}
+          AND "createdAt" < ${to}
+        GROUP BY date_trunc('week', "createdAt")
+        ORDER BY day ASC
+      `;
+    }
     return this.prisma.$queryRaw<Array<{ day: string; count: number }>>`
-      SELECT to_char(date_trunc(${trunc}, "createdAt"), 'YYYY-MM-DD') AS day,
+      SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS day,
              COUNT(*)::int AS count
       FROM tickets
       WHERE "createdAt" >= ${from}
         AND "createdAt" < ${to}
-      GROUP BY date_trunc(${trunc}, "createdAt")
+      GROUP BY date_trunc('day', "createdAt")
       ORDER BY day ASC
     `;
   }
