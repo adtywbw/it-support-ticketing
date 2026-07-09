@@ -2,6 +2,16 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 65 — Code Review: Full App Deep-Dive Fixes (2026-07-09)
+
+- **Fix: WebP MIME magic-byte signature (Critical)** — Removed broken hardcoded file-size bytes from `MIME_SIGNATURES`. Added special-case detection in `detectMimeFromMagicBytes()` that checks RIFF header (bytes 0-3) + WEBP chunk (bytes 8-11), skipping the variable file-size field. Prevents silent bypass of MIME integrity checks for WebP uploads.
+- **Fix: `CreateTicketDto` optional fields (Critical)** — Added `@IsOptional()` to `subCategoryId` and `locationId` to match the nullable Prisma schema. The service layer already handled optional connects correctly; DTO validation now allows omitting these fields.
+- **Fix: `frontend/nginx.conf` SPA cache-control (Important)** — Added separate `/assets/` (immutable 1yr) and `= /index.html` (no-cache) location blocks with cache headers + full security headers, matching main `nginx.conf`. Prevents stale cached assets after deployments.
+- **Refactor: `AuditLogRepository`** — Created new repository following the established pattern. `AuditService` and `AuditLogsService` now inject `AuditLogRepository` instead of `PrismaService` directly. Registered in `RepositoriesModule`; `ServicesModule` and `AuditLogsModule` import explicitly per convention.
+- **Security: Swagger gated behind dev mode** — OpenAPI docs at `/docs` only mounted when `NODE_ENV !== 'production'`, preventing API schema exposure in production.
+- **Security: ticket creation rate-limit** — `POST /api/tickets` now throttled at 5 req/min per user via `@Throttle` decorator, preventing spam ticket creation.
+- **Verification**: backend lint 0 errors ✅ | backend 757/757 tests ✅ | frontend lint 0 errors ✅ | frontend build ✅ | E2E 36/36 (production HTTPS) ✅
+
 ## Session 64 — TypeScript Code Review: Nullable Types, ESLint, Ref Patterns, Filter Sync, N+1 Query (2026-07-08)
 
 ### Round 1 — Types, ESLint, Axios, Ref Patterns

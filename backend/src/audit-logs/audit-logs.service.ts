@@ -1,29 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { AuditLogRepository } from '../common/repositories/audit-log.repository';
 import { QueryAuditLogDto } from './dto/query-audit-log.dto';
 
 @Injectable()
 export class AuditLogsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly auditLogRepository: AuditLogRepository) {}
 
   async findAll(query: QueryAuditLogDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
+    const where: Prisma.AuditLogWhereInput = {};
     if (query.action) where.action = query.action;
     if (query.entity) where.entity = query.entity;
     if (query.userId) where.userId = query.userId;
 
     const [data, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
+      this.auditLogRepository.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      this.prisma.auditLog.count({ where }),
+      this.auditLogRepository.count({ where }),
     ]);
 
     return {

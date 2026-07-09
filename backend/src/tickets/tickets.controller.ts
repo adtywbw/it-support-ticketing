@@ -39,6 +39,7 @@ export class TicketsController {
   }
 
   @Post()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(RolesGuard)
   @Roles(Role.EndUser, Role.ITSupport, Role.Admin)
   async create(

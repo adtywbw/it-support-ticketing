@@ -40,15 +40,17 @@ async function bootstrap() {
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  // OpenAPI / Swagger
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle("IT Support Ticketing API")
-    .setDescription("Full-stack ticketing system for internal IT support")
-    .setVersion("1.0.0")
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup("docs", app, document);
+  // OpenAPI / Swagger — only enabled in development for security
+  if (process.env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle("IT Support Ticketing API")
+      .setDescription("Full-stack ticketing system for internal IT support")
+      .setVersion("1.0.0")
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup("docs", app, document);
+  }
 
   const port = process.env.PORT || 3000;
   await app.listen(port, "0.0.0.0");

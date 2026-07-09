@@ -1,13 +1,13 @@
 import { Injectable, Logger, HttpException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogRepository } from '../repositories/audit-log.repository';
 
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly auditLogRepository: AuditLogRepository) {}
 
   /**
    * Periodic cleanup of old audit log entries to prevent unbounded table growth.
@@ -17,7 +17,7 @@ export class AuditService {
   async cleanupOldLogs() {
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
     try {
-      const { count } = await this.prisma.auditLog.deleteMany({
+      const { count } = await this.auditLogRepository.deleteMany({
         where: { createdAt: { lt: cutoff } },
       });
       if (count > 0) {
@@ -49,7 +49,7 @@ export class AuditService {
 
     // Persist to database (fire-and-forget — never block the caller)
     try {
-      await this.prisma.auditLog.create({ data: entry as Prisma.AuditLogCreateInput });
+      await this.auditLogRepository.create(entry as Prisma.AuditLogCreateInput);
     } catch (error) {
       this.logger.warn(`Failed to persist audit log: ${error instanceof Error ? error.message : String(error)}`);
     }

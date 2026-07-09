@@ -21,7 +21,8 @@ const MIME_SIGNATURES: Array<{ mime: string; bytes: number[]; offset: number }> 
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff], offset: 0 },
   { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0 },
   { mime: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38], offset: 0 },
-  { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50], offset: 0 },
+  // WebP handled separately in detectMimeFromMagicBytes — RIFF header has
+  // a variable file-size field at bytes 4-7 that must be skipped during comparison.
   { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 },
   { mime: 'application/zip', bytes: [0x50, 0x4b, 0x03, 0x04], offset: 0 },
   { mime: 'application/x-rar-compressed', bytes: [0x52, 0x61, 0x72, 0x21], offset: 0 },
@@ -64,6 +65,17 @@ export function detectMimeFromMagicBytes(buffer: Buffer): string | null {
       if (match) return sig.mime;
     }
   }
+
+  // WebP: RIFF header (bytes 0-3) + WEBP chunk (bytes 8-11).
+  // Bytes 4-7 are the variable file size — skip them during comparison.
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+    buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+
   return null;
 }
 

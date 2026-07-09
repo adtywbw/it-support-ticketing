@@ -67,7 +67,9 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `SlaConfigRepository` | `sLAConfig` | `SLAService`; also `findAllActive()` for pre-loaded config map in `performSLACheck` |
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
+| `FaqRepository` | `faq` | `FaqsService` |
 | `LocationRepository` | `location` | `LocationsService` |
+| `AuditLogRepository` | `auditLog` | `AuditService`, `AuditLogsService` |
 
 The `MaintenanceModule` is intentionally operational rather than domain-persistent: it uses filesystem access and OS tools (`pg_dump`, `gzip`, `tar`) to create, download, and delete backups under `/app/backups`, and is restricted to Admin users. It also manages a maintenance mode flag stored in Redis that blocks non-admin API requests via `MaintenanceGuard` while allowing Admin through via JWT verification.
 
@@ -650,7 +652,7 @@ it-support-ticketing/
 ### File Upload Security
 - **Stale-file cleanup**: `AttachmentsService` runs a `@Cron('0 */6 * * *') cleanupOrphanedFiles()` that lists the uploads directory, cross-references against `Attachment` DB records via `findAllPaths()`, and removes files without matching DB entries. This is a best-effort guard against orphaned files from crashes during the upload flow (files are saved to disk before DB transaction commit).
 - **Extension whitelist**: `upload.util.ts` — only `.jpg`, `.png`, `.pdf`, `.docx`, etc. Non-whitelisted extensions stripped.
-- **Magic byte verification**: `mime-validation.util.ts` — 8 signatures (JPEG, PNG, GIF, WebP, PDF, ZIP, RAR, OLE2/DOC). Text files checked for null bytes. A `MIME_COMPATIBILITY_MAP` allows compatible container mismatches: OOXML files (`.docx`/`.xlsx`) are ZIP containers detected as `application/zip`, and legacy `.xls` shares the OLE2 CFB signature with `application/msword`. Obvious spoofing (e.g., ZIP declared as `image/png`) is still rejected. Shared across comments and attachments modules.
+- **Magic byte verification**: `mime-validation.util.ts` — 7 signatures in `MIME_SIGNATURES` (JPEG, PNG, GIF, PDF, ZIP, RAR, OLE2/DOC) plus a special-case handler for WebP (RIFF header with variable file-size bytes 4-7 skipped). Text files checked for null bytes. A `MIME_COMPATIBILITY_MAP` allows compatible container mismatches: OOXML files (`.docx`/`.xlsx`) are ZIP containers detected as `application/zip`, and legacy `.xls` shares the OLE2 CFB signature with `application/msword`. Obvious spoofing (e.g., ZIP declared as `image/png`) is still rejected. Shared across comments and attachments modules.
 - **Path traversal prevention**: `path.basename()` + `resolvedPath.startsWith(uploadRoot)` double check.
 - **`originalName` sanitization**: `path.basename()` + `substring(0, 255)` before DB storage.
 - **`path` field exclusion**: `ATTACHMENT_SAFE_SELECT` and comment repository `select` — filesystem path never exposed to clients.
@@ -661,6 +663,7 @@ it-support-ticketing/
 - **Least-privilege env**: `backend/.env.db` (DB only), `backend/.env.cache` (Redis only), `backend/.env` (API full set).
 - **Nginx**: CSP, security headers repeated per location block (add_header inheritance), `default_server` for unmatched Host, dotfile deny.
 - **Secret hygiene**: `.env` permission `600`, `.gitignore` covers `.env.*`, strong credentials via `openssl rand`.
+- **Swagger gate**: OpenAPI docs at `/docs` are only mounted when `NODE_ENV !== 'production'` to prevent API schema exposure.
 - **CI/CD**: GitHub Actions workflow (`.github/workflows/ci.yml`) runs build + test on every PR and push to `main`. Backend job uses PostgreSQL and Redis service containers.
 
 ## 8. Observability

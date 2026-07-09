@@ -9,6 +9,7 @@ import { SlaConfigRepository } from './sla-config.repository';
 import { NotificationRepository } from './notification.repository';
 import { TelegramConfigRepository } from './telegram-config.repository';
 import { FaqRepository } from './faq.repository';
+import { AuditLogRepository } from './audit-log.repository';
 import { LocationRepository } from './location.repository';
 
 @Global()
@@ -25,6 +26,7 @@ import { LocationRepository } from './location.repository';
     TelegramConfigRepository,
     FaqRepository,
     LocationRepository,
+    AuditLogRepository,
   ],
   exports: [
     UserRepository,
@@ -38,6 +40,7 @@ import { LocationRepository } from './location.repository';
     TelegramConfigRepository,
     FaqRepository,
     LocationRepository,
+    AuditLogRepository,
   ],
 })
 export class RepositoriesModule {}

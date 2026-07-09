@@ -33,15 +33,15 @@ export class CreateTicketDto {
   @IsUUID()
   categoryId: string;
 
-  @ApiProperty({ description: 'Sub-category ID', example: '550e8400-e29b-41d4-a716-446655440001' })
+  @ApiProperty({ description: 'Sub-category ID', required: false, example: '550e8400-e29b-41d4-a716-446655440001' })
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  subCategoryId: string;
+  subCategoryId?: string;
 
-  @ApiProperty({ description: 'Location ID', example: '550e8400-e29b-41d4-a716-446655440002' })
+  @ApiProperty({ description: 'Location ID', required: false, example: '550e8400-e29b-41d4-a716-446655440002' })
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  locationId: string;
+  locationId?: string;
 
   @ApiProperty({ description: 'Item code / part number', example: 'IC-001' })
   @Transform(trimString)
