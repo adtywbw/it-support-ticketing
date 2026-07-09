@@ -32,7 +32,7 @@ export class LocationsController {
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string) {
+  async findById(@Param('id') id: string, @CurrentUser() _user: { role: Role }) {
     return this.locationsService.findById(id);
   }
 

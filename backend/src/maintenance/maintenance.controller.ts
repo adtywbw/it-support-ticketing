@@ -26,6 +26,10 @@ import { Public } from '../common/decorators/public.decorator';
 export class MaintenanceController {
   constructor(
     private readonly maintenanceService: MaintenanceService,
+    // PrismaService is injected directly (not via repository) because
+    // the controller performs operational/infrastructure queries
+    // (pg_stat_statements, pg_stat_activity) that are outside the
+    // domain repository pattern. This is an intentional exception.
     private readonly prisma: PrismaService,
   ) {}
 

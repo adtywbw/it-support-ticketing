@@ -6,7 +6,8 @@ import ProtectedRoute from '@/auth/ProtectedRoute';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import MaintenanceBanner from '@/components/MaintenanceBanner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import TicketsPage from '@/pages/TicketsPage';
+
+const TicketsPage = lazy(() => import('@/pages/TicketsPage'));
 
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const CreateTicketPage = lazy(() => import('@/pages/CreateTicketPage'));

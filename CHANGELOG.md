@@ -2,6 +2,16 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 69 — Code Review R5: Shutdown Fix, SSL Rate Limit, Bundle Optimization (2026-07-09)
+
+- **Fix: `enableShutdownHooks()` order (Important)** — Moved BEFORE `app.listen()`. NestJS requires this order; calling after means SIGTERM handlers are never registered. Prisma `$disconnect()` and `@Cron` cleanup now work correctly on Docker stop.
+- **Fix: nginx SSL `/api/maintenance/` rate limit (Important)** — Added `limit_req zone=api_limit burst=5 nodelay` to match HTTP config. Previous SSL config had no rate limit on maintenance endpoints, bypassing general `/api/` limit.
+- **Perf: Vite vendor chunk splitting** — Added `manualChunks` splitting React/ReactDOM/Router (`vendor`), TanStack Query (`query`), and Socket.IO (`socket`). Main bundle reduced from 272KB → 131KB (52% reduction).
+- **Refactor: `TicketsPage` lazy-loaded** — Converted from eager import to `lazy(() => import(...))` for consistency with all other pages. Now a separate 18KB chunk.
+- **Docs: `MaintenanceController` PrismaService comment** — Added comment explaining direct Prisma injection for operational queries as intentional exception to repository pattern.
+- **Fix: `GET /locations/:id` add `@CurrentUser()` for auth context** — Matches `GET /` pattern. Full data returned to all authenticated roles (low sensitivity).
+- **Verification**: lint 0 errors ✅ | backend 783/783 tests ✅ | backend build ✅ | frontend lint 0 errors ✅ | frontend build ✅ (595ms)
+
 ## Session 68 — Code Review R4: Shutdown Hooks, Race Conditions, Test Coverage, SLA Reopen (2026-07-09)
 
 - **Fix: graceful shutdown (Critical)** — Added `app.enableShutdownHooks()` in `main.ts`. Prisma and Redis connections now properly disconnect on SIGTERM, preventing connection leaks on deploy.
