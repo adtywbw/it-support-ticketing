@@ -849,8 +849,11 @@ export class TicketsService {
     this.eventEmitter.emit("ticket.priority.updated", {
       ticketId: id,
       ticketNumber: updatedTicket.ticketNumber,
+      subject: ticket.subject,
       oldPriority,
       newPriority,
+      assignedToId: ticket.assignedToId,
+      requesterId: ticket.requesterId,
     });
 
     return updatedTicket;

@@ -22,6 +22,11 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     label: 'Ticket Status Updated',
     roles: [Role.EndUser, Role.ITSupport, Role.Admin],
   },
+  {
+    event: 'ticket.priority.updated',
+    label: 'Ticket Priority Changed',
+    roles: [Role.EndUser, Role.ITSupport, Role.Admin],
+  },
 ];
 
 export function getEventsForRole(role: Role): { event: string; label: string }[] {

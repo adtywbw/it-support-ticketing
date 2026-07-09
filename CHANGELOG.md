@@ -2,6 +2,17 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 70 — Code Review R6: Priority Notifications, Double Toast, Submission Guard (2026-07-09)
+
+- **Feat: `ticket.priority.updated` notification (High)** — Added `@OnEvent` handler in `NotificationsService` for priority change events. Notifies both assignee and requester via in-app + WebSocket. Added to `NOTIFICATION_EVENTS` list as 4th event (all roles).
+- **Feat: `ticket.priority.updated` Telegram listener (High)** — Added handler in `TelegramListener` for priority change events. Sends message with old/new priority to configured channels.
+- **Fix: `ticket.priority.updated` emit payload** — Extended with `assignedToId`, `requesterId`, and `subject` to support notification handlers.
+- **Fix: duplicate toast on priority/assign error (Medium)** — Removed inline `onError` from `TicketList` for `useUpdateTicketPriority` and `useAssignTicket`. Hooks already have `onError` — was violating AGENTS.md convention.
+- **Fix: CreateTicketForm concurrent submission guard (Medium)** — Added `|| isPending` check to `handleSubmit` to prevent duplicate ticket creation on rapid double-click/Enter before mutation state updates.
+- **Fix: GET /locations/:id role filtering (Low)** — Non-Admin users now only see `{ id, name }` instead of full object with `_count.tickets`.
+- **Test: notification-preference tests updated** — All 10 affected tests updated for the new 4th event.
+- **Verification**: lint 0 errors ✅ | 783/783 tests ✅ | frontend build ✅
+
 ## Session 69 — Code Review R5: Shutdown Fix, SSL Rate Limit, Bundle Optimization (2026-07-09)
 
 - **Fix: `enableShutdownHooks()` order (Important)** — Moved BEFORE `app.listen()`. NestJS requires this order; calling after means SIGTERM handlers are never registered. Prisma `$disconnect()` and `@Cron` cleanup now work correctly on Docker stop.

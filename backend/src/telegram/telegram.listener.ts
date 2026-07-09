@@ -60,4 +60,21 @@ export class TelegramListener {
       url: `${process.env.APP_URL || ''}/tickets/${payload.ticketId}`,
     });
   }
+
+  @OnEvent('ticket.priority.updated')
+  async handleTicketPriorityUpdated(payload: {
+    ticketId: string;
+    ticketNumber: string;
+    subject: string;
+    oldPriority: string;
+    newPriority: string;
+  }) {
+    await this.telegramService.sendEvent('ticket.priority.updated', {
+      ticketNumber: payload.ticketNumber,
+      subject: payload.subject,
+      oldPriority: payload.oldPriority,
+      newPriority: payload.newPriority,
+      url: `${process.env.APP_URL || ''}/tickets/${payload.ticketId}`,
+    });
+  }
 }

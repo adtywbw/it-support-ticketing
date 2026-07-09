@@ -216,11 +216,13 @@ describe('NotificationsService', () => {
         'ticket.created': false,
         'ticket.assigned': true,
         'ticket.status.updated': true,
+        'ticket.priority.updated': true,
       });
       expect(result.availableEvents.map((e) => e.event)).toEqual([
         'ticket.created',
         'ticket.assigned',
         'ticket.status.updated',
+        'ticket.priority.updated',
       ]);
     });
 
@@ -234,10 +236,11 @@ describe('NotificationsService', () => {
       expect(Object.keys(result.preferences)).toEqual([
         'ticket.created',
         'ticket.status.updated',
+        'ticket.priority.updated',
       ]);
       expect(
         result.availableEvents.map((e) => e.event),
-      ).toEqual(['ticket.created', 'ticket.status.updated']);
+      ).toEqual(['ticket.created', 'ticket.status.updated', 'ticket.priority.updated']);
     });
   });
 
@@ -255,6 +258,7 @@ describe('NotificationsService', () => {
           'ticket.created': false,
           'ticket.assigned': true,
           'ticket.status.updated': true,
+          'ticket.priority.updated': true,
         },
       );
       expect(result.preferences['ticket.created']).toBe(false);

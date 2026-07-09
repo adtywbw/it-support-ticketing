@@ -32,8 +32,11 @@ export class LocationsController {
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string, @CurrentUser() _user: { role: Role }) {
-    return this.locationsService.findById(id);
+  async findById(@Param('id') id: string, @CurrentUser() user: { role: Role }) {
+    const location = await this.locationsService.findById(id);
+    if (user.role === Role.Admin) return location;
+    // Non-admin users only see id and name (same shape as findAllForForm)
+    return { id: location.id, name: location.name };
   }
 
   @Post()

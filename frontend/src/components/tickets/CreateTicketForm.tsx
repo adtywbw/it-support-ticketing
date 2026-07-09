@@ -82,7 +82,7 @@ export default function CreateTicketForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || isPending) return;
 
     try {
       const ticket = await createMutation.mutateAsync({

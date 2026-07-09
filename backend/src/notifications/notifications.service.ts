@@ -248,4 +248,43 @@ export class NotificationsService {
       }
     }
   }
+
+  @OnEvent('ticket.priority.updated')
+  async handleTicketPriorityUpdated(payload: {
+    ticketId: string;
+    ticketNumber: string;
+    subject: string;
+    oldPriority: string;
+    newPriority: string;
+    assignedToId: string | null;
+    requesterId: string;
+  }) {
+    const targetIds = [
+      payload.assignedToId,
+      payload.requesterId,
+    ].filter((id): id is string => !!id);
+    const uniqueIds = [...new Set(targetIds)];
+    const prefsMap =
+      await this.userRepository.getNotificationPreferences(uniqueIds);
+
+    for (const userId of uniqueIds) {
+      const prefs = prefsMap.get(userId);
+      if (!this.isEnabled(prefs, 'ticket.priority.updated')) continue;
+      try {
+        await this.create({
+          userId,
+          title: 'Ticket Priority Changed',
+          message: `Ticket ${payload.ticketNumber}: ${payload.subject} priority changed from ${payload.oldPriority} to ${payload.newPriority}`,
+          data: {
+            ticketId: payload.ticketId,
+            type: 'ticket_priority_updated',
+            oldPriority: payload.oldPriority,
+            newPriority: payload.newPriority,
+          },
+        });
+      } catch (err) {
+        this.logger.error(`Failed to create ticket.priority.updated notification for user ${userId}: ${err}`);
+      }
+    }
+  }
 }

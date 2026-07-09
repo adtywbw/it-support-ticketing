@@ -8,12 +8,13 @@ import {
 
 describe('notification-preference util', () => {
   describe('NOTIFICATION_EVENTS', () => {
-    it('defines the three canonical events', () => {
+    it('defines the canonical events', () => {
       const events = NOTIFICATION_EVENTS.map((e) => e.event);
       expect(events).toEqual([
         'ticket.created',
         'ticket.assigned',
         'ticket.status.updated',
+        'ticket.priority.updated',
       ]);
     });
   });
@@ -21,21 +22,22 @@ describe('notification-preference util', () => {
   describe('getEventsForRole', () => {
     it('excludes ticket.assigned for EndUser', () => {
       const events = getEventsForRole(Role.EndUser).map((e) => e.event);
-      expect(events).toEqual(['ticket.created', 'ticket.status.updated']);
+      expect(events).toEqual(['ticket.created', 'ticket.status.updated', 'ticket.priority.updated']);
     });
 
-    it('includes all three events for ITSupport', () => {
+    it('includes all events for ITSupport', () => {
       const events = getEventsForRole(Role.ITSupport).map((e) => e.event);
       expect(events).toEqual([
         'ticket.created',
         'ticket.assigned',
         'ticket.status.updated',
+        'ticket.priority.updated',
       ]);
     });
 
-    it('includes all three events for Admin', () => {
+    it('includes all events for Admin', () => {
       const events = getEventsForRole(Role.Admin).map((e) => e.event);
-      expect(events.length).toBe(3);
+      expect(events.length).toBe(4);
     });
   });
 
@@ -79,6 +81,7 @@ describe('notification-preference util', () => {
         'ticket.created': true,
         'ticket.assigned': true,
         'ticket.status.updated': true,
+        'ticket.priority.updated': true,
       });
     });
 
@@ -89,6 +92,7 @@ describe('notification-preference util', () => {
         'ticket.created': false,
         'ticket.assigned': true,
         'ticket.status.updated': true,
+        'ticket.priority.updated': true,
       });
     });
 
@@ -101,6 +105,7 @@ describe('notification-preference util', () => {
       expect(result).toEqual({
         'ticket.created': false,
         'ticket.status.updated': true,
+        'ticket.priority.updated': true,
       });
       expect(result).not.toHaveProperty('ticket.assigned');
     });
