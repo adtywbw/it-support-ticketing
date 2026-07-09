@@ -125,6 +125,12 @@ export class NotificationsGateway
   private scheduleExpiryDisconnect(client: Socket, exp?: number) {
     if (!exp) return;
 
+    // NOTE: The expiry timer is set once at connection time and not updated
+    // when the user refreshes their access token via HTTP. The socket will
+    // disconnect at the original expiry, then the client's reconnect_attempt
+    // handler picks up the fresh token and reconnects — resulting in a brief
+    // ~1–2s notification gap. This is acceptable given the low frequency of
+    // real-time events during token refresh windows.
     const delayMs = exp * 1000 - Date.now();
     if (delayMs <= 0) {
       client.disconnect();

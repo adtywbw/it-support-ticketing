@@ -28,7 +28,7 @@ describe('MaintenanceService restore safety', () => {
   let service: MaintenanceService;
 
   beforeEach(() => {
-    service = new MaintenanceService({} as any);
+    service = new MaintenanceService({ set: jest.fn(), get: jest.fn(), del: jest.fn(), expire: jest.fn().mockResolvedValue(undefined), mget: jest.fn(), eval: jest.fn(), setNx: jest.fn() } as any);
     jest.spyOn(service as any, 'getBackup').mockResolvedValue({
       id: '20260627-120000000',
       createdAt: '2026-06-27T12:00:00.000Z',

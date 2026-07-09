@@ -74,6 +74,7 @@ interface CsvExportTicket {
   subject: string;
   status: string;
   priority: string;
+  categoryId: string;
   category?: { name: string } | null;
   subCategory?: { name: string } | null;
   location?: { name: string } | null;
@@ -82,6 +83,7 @@ interface CsvExportTicket {
   assignedTo?: { name: string } | null;
   createdAt: Date;
   resolvedAt?: Date | null;
+  slaDueAt?: Date | null;
   slaStatus?: string | null;
 }
 
@@ -333,15 +335,27 @@ export class TicketsService {
    * For tickets that still have slaDueAt/slaStatus set but whose matching SLA
    * config has been deactivated, null out those fields so the frontend does
    * not display stale SLA info.
+   *
+   * Active SLA configs are memoized with a short TTL to avoid a DB call on
+   * every ticket list/detail fetch.
    */
-  private async stripStaleSlaValues<T extends { slaDueAt?: Date | null; slaStatus?: string | null; categoryId: string; priority: string }>(tickets: T[]): Promise<T[]> {
+  private activeConfigsCache: { data: { categoryId: string; priority: string }[]; expiresAt: number } | null = null;
+
+  private async getActiveConfigKeys(): Promise<Set<string>> {
+    const now = Date.now();
+    if (this.activeConfigsCache && this.activeConfigsCache.expiresAt > now) {
+      return new Set(this.activeConfigsCache.data.map((c) => `${c.categoryId}:${c.priority}`));
+    }
     const activeConfigs = await this.slaService.findAllActive();
-    const activeKeys = new Set(
-      activeConfigs.map(
-        (c: { categoryId: string; priority: string }) =>
-          `${c.categoryId}:${c.priority}`,
-      ),
-    );
+    this.activeConfigsCache = {
+      data: activeConfigs,
+      expiresAt: now + 30_000, // 30-second TTL
+    };
+    return new Set(activeConfigs.map((c) => `${c.categoryId}:${c.priority}`));
+  }
+
+  private async stripStaleSlaValues<T extends { slaDueAt?: Date | null; slaStatus?: string | null; categoryId: string; priority: string }>(tickets: T[]): Promise<T[]> {
+    const activeKeys = await this.getActiveConfigKeys();
     return tickets.map((t) => {
       if (t.slaDueAt && !activeKeys.has(`${t.categoryId}:${t.priority}`)) {
         return { ...t, slaDueAt: null, slaStatus: null };
@@ -465,7 +479,10 @@ export class TicketsService {
 
         if (batch.length === 0) break;
 
-        for (const ticket of batch as CsvExportTicket[]) {
+        // Strip stale SLA values from CSV batch (consistent with list/detail endpoints)
+        const cleanedBatch = await this.stripStaleSlaValues(batch as CsvExportTicket[]);
+
+        for (const ticket of cleanedBatch) {
           if (aborted) break;
           const row = [
             ticket.ticketNumber,

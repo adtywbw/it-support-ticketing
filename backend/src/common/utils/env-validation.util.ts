@@ -26,9 +26,14 @@ export function validateStartupEnv(env: NodeJS.ProcessEnv = process.env): void {
       'password',
     ];
     if (weakSecrets.includes(jwtSecret.toLowerCase().trim())) {
-      throw new Error(
-        'JWT_SECRET is too weak for production. Please set a strong, unique secret.',
-      );
+      // Also check normalized (stripped of non-alphanumeric chars) to catch
+      // variants like "Change-This-To-Random-Secret" vs "changethistorandomsecret".
+      const normalized = jwtSecret.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      if (weakSecrets.some((s) => normalized === s.replace(/[^a-z0-9]/g, ''))) {
+        throw new Error(
+          'JWT_SECRET is too weak for production. Please set a strong, unique secret.',
+        );
+      }
     }
     if (jwtSecret.length < 32) {
       throw new Error(

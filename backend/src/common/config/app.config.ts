@@ -56,6 +56,6 @@ export const appConfig = {
   tickets: {
     maxExportRows: envNumber('TICKET_MAX_EXPORT_ROWS', 10000),
     exportBatchSize: envNumber('TICKET_EXPORT_BATCH_SIZE', 500),
-    creationRetries: envNumber('TICKET_CREATION_RETRIES', 3),
+    creationRetries: envNumber('TICKET_CREATION_RETRIES', 5),
   },
 } as const;

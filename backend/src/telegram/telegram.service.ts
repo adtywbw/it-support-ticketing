@@ -46,6 +46,7 @@ export class TelegramService
   private polling = false;
   private pollingGeneration = 0;
   private pollTimeout: ReturnType<typeof setTimeout> | null = null;
+  private consecutiveAuthFailures = 0;
 
   constructor(
     private readonly telegramConfigRepository: TelegramConfigRepository,
@@ -65,6 +66,7 @@ export class TelegramService
   async startBot() {
     this.polling = false;
     this.pollingGeneration += 1;
+    this.consecutiveAuthFailures = 0;
     this.clearPollTimeout();
 
     const generation = this.pollingGeneration;
@@ -111,11 +113,30 @@ export class TelegramService
       );
       const data = await res.json();
 
-      if (data.ok && data.result) {
-        for (const update of data.result) {
-          offset = update.update_id + 1;
-          await this.handleUpdate(token, update);
-          hasUpdates = true;
+      // Detect permanent auth failure (HTTP 401 → invalid/revoked bot token)
+      if (res.status === 401) {
+        this.consecutiveAuthFailures += 1;
+        if (this.consecutiveAuthFailures >= 5) {
+          this.logger.error(
+            'Telegram bot token permanently invalid (HTTP 401 ×5). Stopping poll. Update bot token to resume.',
+          );
+          this.polling = false;
+          this.pollingGeneration += 1;
+          this.clearPollTimeout();
+          return;
+        }
+        this.logger.warn(
+          `Telegram auth failure (HTTP 401) — attempt ${this.consecutiveAuthFailures}/5`,
+        );
+      } else if (data.ok) {
+        this.consecutiveAuthFailures = 0; // reset on success
+
+        if (data.result) {
+          for (const update of data.result) {
+            offset = update.update_id + 1;
+            await this.handleUpdate(token, update);
+            hasUpdates = true;
+          }
         }
       }
     } catch (err) {

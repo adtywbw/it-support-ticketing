@@ -2,6 +2,19 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 67 — Code Review R3: SLA Performance, CSV Consistency, Telegram Resilience, Secret Validation (2026-07-09)
+
+- **Perf: SLA config memoization** — `getActiveConfigKeys()` caches `findAllActive()` results with 30s TTL, avoiding a DB call on every ticket list/detail fetch. `stripStaleSlaValues()` uses memoized keys.
+- **Fix: CSV export strips stale SLA values** — Added `stripStaleSlaValues()` call per CSV batch, consistent with list/detail endpoints. `CsvExportTicket` extended with `categoryId`/`slaDueAt` fields.
+- **Fix: maintenance key TTL on restore** — Both `maintenance:enabled` and `maintenance:message` keys set with 1-hour expiry during restore. Prevents indefinite maintenance if process crashes before `setMaintenanceMode(false)`.
+- **Fix: Telegram polling stops on permanent auth failure** — Tracks consecutive HTTP 401 responses; after 5 failures, stops polling with log message. Resets on `startBot()` or successful response.
+- **Fix: weak secret detection normalization** — Strips non-alphanumeric characters before comparison to catch variants like `Change-This-To-Random-Secret`.
+- **Fix: SVG accessibility** — Added `aria-hidden="true"` + `focusable="false"` to back-arrow SVG in `TicketDetailPage`.
+- **Docs: AuditLog FK comment** — Added schema comment explaining no FK constraint (preserves audit trail after user deletion).
+- **Config: ticket creation retries 3→5** — Reduces theoretical deadlock risk under extreme concurrency.
+- **Docs: WebSocket expiry limitation** — Added comment in `scheduleExpiryDisconnect` explaining the ~1-2s notification gap on token refresh.
+- **Verification**: lint 0 errors ✅ | 763/763 tests ✅ | build ✅ | E2E 36/36 (prod HTTPS) ✅
+
 ## Session 66 — Code Review Round 2: WebP Tests, HSTS Gap, Type Safety, Dead Code (2026-07-09)
 
 - **Feat: WebP MIME unit tests** — 6 new tests covering valid WebP (zero and non-zero file sizes), buffer < 12 bytes, non-WebP RIFF (AVI), WebP accept, and spoofing rejection.

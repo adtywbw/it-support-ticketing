@@ -306,6 +306,12 @@ export class MaintenanceService {
 
     try {
       await this.setMaintenanceMode(true, 'Data restore in progress. Please wait...');
+      // Set TTL on maintenance keys so they auto-expire if recovery fails
+      // (e.g., process crash before setMaintenanceMode(false) runs).
+      await Promise.all([
+        this.redis.expire(MAINTENANCE_KEY, 3600).catch(() => {}),
+        this.redis.expire(MAINTENANCE_MESSAGE_KEY, 3600).catch(() => {}),
+      ]);
       await new Promise((resolve) => setTimeout(resolve, appConfig.maintenance.drainTimeMs));
 
       preRestoreBackup = await this.createBackup('pre-restore');

@@ -291,7 +291,7 @@ model AuditLog {
   action    String
   entity    String
   entityId  String
-  userId    String?
+  userId    String?  // No FK constraint — preserve audit trail after user deletion
   metadata  Json?
   createdAt DateTime @default(now())
 
