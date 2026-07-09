@@ -39,6 +39,39 @@ describe('MIME validation', () => {
       const buffer = Buffer.from([0x00, 0x01, 0x02, 0x03]);
       expect(detectMimeFromMagicBytes(buffer)).toBeNull();
     });
+
+    it('should detect WebP via RIFF+WEBP special-case', () => {
+      const buffer = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x30, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38]);
+      expect(detectMimeFromMagicBytes(buffer)).toBe('image/webp');
+    });
+
+    it('should detect WebP with non-zero file size bytes', () => {
+      const buffer = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x12, 0x34, 0x56, 0x78, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38]);
+      expect(detectMimeFromMagicBytes(buffer)).toBe('image/webp');
+    });
+
+    it('should return null for buffer shorter than WebP minimum (12 bytes)', () => {
+      const buffer = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x01, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42]);
+      expect(detectMimeFromMagicBytes(buffer)).toBeNull();
+    });
+
+    it('should return null for non-WebP RIFF (AVI)', () => {
+      const aviBuffer = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x41, 0x56, 0x49, 0x20, 0x4c, 0x49, 0x53, 0x54]);
+      expect(detectMimeFromMagicBytes(aviBuffer)).toBeNull();
+    });
+  });
+
+  describe('assertMimeTypeIntegrity — WebP', () => {
+    const webpBuffer = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x30, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38]);
+
+    it('should accept image/webp when magic bytes match', () => {
+      expect(() => assertMimeTypeIntegrity(makeFile(webpBuffer, 'image/webp'))).not.toThrow();
+    });
+
+    it('should reject image/webp declared but non-WebP content', () => {
+      const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+      expect(() => assertMimeTypeIntegrity(makeFile(pngBuffer, 'image/webp'))).toThrow(BadRequestException);
+    });
   });
 
   describe('assertMimeTypeIntegrity — Office file compatibility', () => {

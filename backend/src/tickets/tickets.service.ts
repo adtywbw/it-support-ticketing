@@ -20,7 +20,6 @@ import { CreateTicketDto } from "./dto/create-ticket.dto";
 import {
   QueryTicketDto,
   TICKET_SORT_FIELDS,
-  type TicketSortField,
 } from "./dto/query-ticket.dto";
 import { UpdateStatusDto } from "./dto/update-status.dto";
 import { AssignTicketDto } from "./dto/assign-ticket.dto";
@@ -240,8 +239,6 @@ export class TicketsService {
       dateFrom,
       dateTo,
       search,
-      sortBy = "createdAt",
-      sortOrder = "desc",
     } = queryTicketDto;
 
     const { where, orderField, orderDir } = buildTicketQueryInput(
@@ -337,7 +334,7 @@ export class TicketsService {
    * config has been deactivated, null out those fields so the frontend does
    * not display stale SLA info.
    */
-  private async stripStaleSlaValues(tickets: any[]) {
+  private async stripStaleSlaValues<T extends { slaDueAt?: Date | null; slaStatus?: string | null; categoryId: string; priority: string }>(tickets: T[]): Promise<T[]> {
     const activeConfigs = await this.slaService.findAllActive();
     const activeKeys = new Set(
       activeConfigs.map(
@@ -372,8 +369,6 @@ export class TicketsService {
       dateFrom,
       dateTo,
       search,
-      sortBy = "createdAt",
-      sortOrder = "desc",
     } = queryTicketDto;
 
     const { where, orderField, orderDir } = buildTicketQueryInput(

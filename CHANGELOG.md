@@ -2,6 +2,17 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 66 — Code Review Round 2: WebP Tests, HSTS Gap, Type Safety, Dead Code (2026-07-09)
+
+- **Feat: WebP MIME unit tests** — 6 new tests covering valid WebP (zero and non-zero file sizes), buffer < 12 bytes, non-WebP RIFF (AVI), WebP accept, and spoofing rejection.
+- **Fix: nginx ssl.conf /socket.io/ HSTS gap (Critical)** — Added `Strict-Transport-Security` header to `/socket.io/` location block for consistency with all other locations.
+- **Refactor: remove unused `TicketSortField` type import** from `tickets.service.ts`. Removed redundant `sortBy`/`sortOrder` destructuring (×2) — values already provided by `buildTicketQueryInput()`.
+- **Refactor: `stripStaleSlaValues` typed** — Replaced `tickets: any[]` with generic `<T extends { slaDueAt?, slaStatus?, categoryId, priority }>`.
+- **Refactor: remove unused imports** — `stat` from `attachments.service.ts`, `Prisma` from `sla.service.ts`, `ExecutionContext` from `app-throttler.guard.ts`.
+- **Security: noindex meta** — Added `<meta name="robots" content="noindex, nofollow">` to `frontend/index.html` to prevent search engine indexing of internal app.
+- **Fix: axios URL comparison** — Added `startsWith("/api/auth/refresh")` / `startsWith("/api/auth/login")` guards alongside existing `!==` checks for robustness against base URL variations.
+- **Verification**: backend lint 0 errors ✅ | backend 763/763 tests (24 WebP) ✅ | backend build ✅ | frontend lint 0 errors ✅ | frontend build ✅ | E2E 36/36 (production HTTPS) ✅
+
 ## Session 65 — Code Review: Full App Deep-Dive Fixes (2026-07-09)
 
 - **Fix: WebP MIME magic-byte signature (Critical)** — Removed broken hardcoded file-size bytes from `MIME_SIGNATURES`. Added special-case detection in `detectMimeFromMagicBytes()` that checks RIFF header (bytes 0-3) + WEBP chunk (bytes 8-11), skipping the variable file-size field. Prevents silent bypass of MIME integrity checks for WebP uploads.

@@ -9,7 +9,7 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { Role, AttachmentVisibility, Prisma } from '@prisma/client';
 import { Express } from 'express';
-import { readdir, unlink, stat } from 'fs/promises';
+import { readdir, unlink } from 'fs/promises';
 import * as path from 'path';
 import { AttachmentRepository } from '../common/repositories/attachment.repository';
 import { TicketRepository } from '../common/repositories/ticket.repository';

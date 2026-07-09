@@ -104,7 +104,9 @@ apiClient.interceptors.response.use(
       error.response?.status === 401 &&
       !originalRequest._retry &&
       error.response?.config?.url !== "/auth/refresh" &&
-      error.response?.config?.url !== "/auth/login"
+      error.response?.config?.url !== "/auth/login" &&
+      !error.response?.config?.url?.startsWith("/api/auth/refresh") &&
+      !error.response?.config?.url?.startsWith("/api/auth/login")
     ) {
       const state = useAuthStore.getState();
       if (!state.accessToken) {

@@ -5,7 +5,6 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
 import { Cron } from "@nestjs/schedule";
 import { SlaConfigRepository } from "../common/repositories/sla-config.repository";
 import { TicketRepository } from "../common/repositories/ticket.repository";
