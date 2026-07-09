@@ -184,7 +184,7 @@ postgres/postgresql.conf
 - Config is stored in `TelegramConfig`: `botToken`, `enabledEvents`, templates, `enableGroupChat`, `groupChatId`, `notifyIndividualsWhenGroupChat`.
 - Bot token fallback order: DB config -> `.env TELEGRAM_BOT_TOKEN`.
 - Bot polling uses `TelegramService.pollLoop()` with non-blocking `setTimeout`, 30s long-poll timeout, and 30s idle delay.
-- Event listener sends `ticket.created`, `ticket.assigned`, and `ticket.status.updated` notifications.
+- Event listener sends `ticket.created`, `ticket.assigned`, `ticket.status.updated`, and `ticket.priority.updated` notifications.
 - If group chat is enabled, messages go to group first; individual linked-user sends happen only when `notifyIndividualsWhenGroupChat=true`.
 - Frontend Telegram section in My Account is Admin-only.
 - Frontend receives secret presence flags only, such as `hasBotToken` and `hasGroupChatId`.

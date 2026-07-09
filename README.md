@@ -57,9 +57,9 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - Dropdown toggle in navbar with recent notifications
 - Mark all as read & Clear all from dropdown and full page
 - Click notification → navigate to ticket
-- Triggers: new ticket, status change, assignment, new comment
+- Triggers: new ticket, status change, assignment, priority change, new comment
 - Requester also notified on ticket creation and status updates (if not ITSupport/Admin)
-- **Notification Preferences**: users choose which in-app notification types appear in their notification panel. Toggle set scoped by role (EndUser: `ticket.created`, `ticket.status.updated`; ITSupport/Admin: all three). Default all ON; `null`/absent = enabled. Filter applied at creation — unread count and WebSocket gateway unchanged.
+- **Notification Preferences**: users choose which in-app notification types appear in their notification panel. Toggle set scoped by role (EndUser: `ticket.created`, `ticket.status.updated`, `ticket.priority.updated`; ITSupport/Admin: all four — add `ticket.assigned`). Default all ON; `null`/absent = enabled. Filter applied at creation — unread count and WebSocket gateway unchanged.
 - Event-driven design (`@nestjs/event-emitter`) — extensible to email/Slack
 
 ### Telegram Integration (Admin)
