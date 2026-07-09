@@ -252,6 +252,7 @@ postgres/postgresql.conf
 ## Common Pitfalls
 - **`CsrfGuard` blocks non-browser clients**: Any programmatic/script caller (curl without `-H 'X-Requested-With: XMLHttpRequest'`, Postman, E2E tests) will get 403 on state-changing requests. Always include the custom header or use the exempt paths for public endpoints.
 - Do not inject `PrismaService` directly into new services; always go through the repository in `common/repositories/`. The `AuditService` and `AuditLogsService` now use `AuditLogRepository` (added after code review) — follow this pattern for any future data-access layer.
+- **`app.enableShutdownHooks()` must be called BEFORE `app.listen()`** — NestJS requires this order. Calling it after means SIGTERM handlers (Prisma `$disconnect()`, `@Cron` cleanup, `onApplicationShutdown` hooks) are never registered, causing connection leaks on Docker stop / K8s restart.
 - `TransformInterceptor` already wraps responses into `{ data, meta? }` globally — do not manually wrap in controllers.
 - `AttachmentVisibilityPolicy` is the single source of truth for attachment visibility — do not duplicate filter logic elsewhere.
 - WebSocket `NotificationsGateway` must validate the `Origin` header in `handleConnection()` against the allowed CORS origins before processing any token. This provides defense-in-depth alongside the `@WebSocketGateway` cors config.
