@@ -2,6 +2,18 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 68 — Code Review R4: Shutdown Hooks, Race Conditions, Test Coverage, SLA Reopen (2026-07-09)
+
+- **Fix: graceful shutdown (Critical)** — Added `app.enableShutdownHooks()` in `main.ts`. Prisma and Redis connections now properly disconnect on SIGTERM, preventing connection leaks on deploy.
+- **Fix: assignTicket race condition (Critical)** — Replaced read-before-write pattern with optimistic locking via `updateMany({ where: { id, assignedToId: oldId } })`. Concurrent assigns now throw `ConflictException` instead of silently overwriting. User validation moved inside transaction.
+- **Fix: reopened ticket SLA recalculation (Important)** — Tickets reopened from Closed/Resolved to an active status now recalculate `slaDueAt` and `slaStatus` via `SLAService.getSLAConfig()`. Previously stayed null indefinitely.
+- **Feat: pg_trgm GIN indexes** — Added `tickets_item_code_trgm_idx` and `locations_name_trgm_idx` for full-text search on itemCode and location name. (Ticket subject, description, ticketNumber, and user name/email indexes already existed from earlier migration.)
+- **Feat: locations service tests** — 10 new tests covering CRUD, conflict detection, reactivation of inactive locations, and soft/hard-delete logic.
+- **Feat: audit-logs tests** — 7 new tests covering pagination, filtering (action/entity/userId), and edge cases (totalPages for zero results). Controller test added.
+- **Fix: useSocket cleanup** — Removed `removeAllListeners()` which stripped Socket.IO internal transport handlers. `disconnect()` alone is sufficient.
+- **Fix: revokeRefreshToken debug log** — Added `logger.debug()` for invalid/unparseable tokens to aid troubleshooting.
+- **Verification**: lint 0 errors ✅ | backend 783/783 tests (75 suites, +20 new) ✅ | backend build ✅ | frontend build ✅
+
 ## Session 67 — Code Review R3: SLA Performance, CSV Consistency, Telegram Resilience, Secret Validation (2026-07-09)
 
 - **Perf: SLA config memoization** — `getActiveConfigKeys()` caches `findAllActive()` results with 30s TTL, avoiding a DB call on every ticket list/detail fetch. `stripStaleSlaValues()` uses memoized keys.

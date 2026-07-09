@@ -58,7 +58,8 @@ export function useSocket() {
     // When accessToken changes (e.g. refresh), the effect tears down the old
     // socket and creates a new one with the latest token.
     return () => {
-      socket.removeAllListeners();
+      // socket.disconnect() detaches all listeners internally — no need for
+      // removeAllListeners() which strips Socket.IO's transport-level handlers
       socket.disconnect();
       socketRef.current = null;
     };

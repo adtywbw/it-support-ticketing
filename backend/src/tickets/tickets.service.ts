@@ -685,6 +685,33 @@ export class TicketsService {
       updatedBy: userId,
     });
 
+    // Recalculate SLA when reopening a closed/resolved ticket to an active status
+    if (
+      (oldStatus === TicketStatus.Closed || oldStatus === TicketStatus.Resolved) &&
+      updateStatusDto.status !== TicketStatus.Closed &&
+      updateStatusDto.status !== TicketStatus.Resolved
+    ) {
+      const fullTicket = result.updatedTicket as { categoryId: string; priority: Priority } | null;
+      if (fullTicket) {
+        try {
+          const slaConfig = await this.slaService.getSLAConfig(
+            fullTicket.categoryId,
+            fullTicket.priority,
+          );
+          if (slaConfig) {
+            const slaDueAt = new Date(Date.now() + slaConfig.resolutionTimeMinutes * 60 * 1000);
+            await this.ticketRepository.update(id, {
+              slaDueAt,
+              slaStatus: SLAStatus.OnTrack,
+            });
+          }
+        } catch (err) {
+          // Logger not injected in this service — log to stderr for ops visibility
+          console.error(`Failed to recalculate SLA on ticket reopen: ${id}`, err);
+        }
+      }
+    }
+
     return result.updatedTicket;
   }
 
@@ -698,31 +725,41 @@ export class TicketsService {
       throw new NotFoundException("Ticket not found");
     }
 
-    if (assignTicketDto.assignedToId) {
-      const assignedUser = await this.userRepository.getForValidation(
-        assignTicketDto.assignedToId,
-      );
-      if (
-        !assignedUser ||
-        assignedUser.role === "EndUser" ||
-        !assignedUser.isActive
-      ) {
-        throw new BadRequestException("Cannot assign ticket to this user");
-      }
-    }
-
     const oldAssigneeId = ticket.assignedToId;
 
+    // Validate assignee and update atomically inside a transaction to prevent
+    // race conditions: two concurrent assigns would both pass the user check and
+    // silently overwrite each other. Using updateMany with assignedToId in the
+    // WHERE clause provides optimistic locking.
     const updatedTicket = await this.ticketRepository.transaction(
       async (tx) => {
-        const updated = await tx.ticket.update({
-          where: { id },
+        if (assignTicketDto.assignedToId) {
+          const assignedUser = await tx.user.findUnique({
+            where: { id: assignTicketDto.assignedToId },
+            select: { id: true, role: true, isActive: true },
+          });
+          if (
+            !assignedUser ||
+            assignedUser.role === "EndUser" ||
+            !assignedUser.isActive
+          ) {
+            throw new BadRequestException("Cannot assign ticket to this user");
+          }
+        }
+
+        const updated = await tx.ticket.updateMany({
+          where: { id, assignedToId: oldAssigneeId ?? null },
           data: {
-            assignedTo: assignTicketDto.assignedToId
-              ? { connect: { id: assignTicketDto.assignedToId } }
-              : { disconnect: true },
+            assignedToId: assignTicketDto.assignedToId ?? null,
           },
         });
+
+        if (updated.count !== 1) {
+          throw new ConflictException(
+            "Ticket assignment changed. Please refresh and retry.",
+          );
+        }
+
         await tx.ticketHistory.create({
           data: {
             ticketId: id,
@@ -732,7 +769,14 @@ export class TicketsService {
             newValue: assignTicketDto.assignedToId || null,
           },
         });
-        return updated;
+
+        // Re-fetch to get the full ticket with relations for the return value
+        return tx.ticket.findUnique({
+          where: { id },
+          include: {
+            assignedTo: { select: { id: true, name: true, email: true, isActive: true } },
+          },
+        });
       },
     );
 

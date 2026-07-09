@@ -172,6 +172,7 @@ export class AuthService implements OnModuleInit {
         algorithms: ['HS256'],
       });
     } catch {
+      this.logger.debug('revokeRefreshToken called with invalid/unparseable token — silently ignored');
       return;
     }
 
