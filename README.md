@@ -306,6 +306,12 @@ The repo ships `nginx/nginx.ssl.conf` and `docker-compose.prod.yml`. The product
    ```
 
 > **Trust:** mkcert certificates are trusted only by machines that have the mkcert root CA installed. Run `mkcert -CAROOT` to find the root CA and distribute it to client devices. For larger deployments, use a public CA (Let's Encrypt) or an internal PKI.
+>
+> **Certificate renewal:** mkcert certificates expire after ~2.5 years. When the cert nears expiry, regenerate it with the same `mkcert -cert-file ...` command from step 2, then restart nginx to pick up the new cert:
+> ```bash
+> docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+> ```
+> Client devices do **not** need to reinstall the CA — the root CA remains valid for ~10 years.
 
 ### 3. Build and Start
 
