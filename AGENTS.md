@@ -1,4 +1,4 @@
-# IT Support Ticketing
+# IT HelpDesk
 
 ## Purpose
 - Compact project memory for agents; read before starting work.

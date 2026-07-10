@@ -1,6 +1,6 @@
-# IT Support Ticketing System
+# IT HelpDesk
 
-Full-stack ticketing application for internal IT support, built with **NestJS**, **React 18**, **PostgreSQL**, **Redis**, and **Docker**.
+Full-stack ticketing application for internal IT support — **IT HelpDesk**, built with **NestJS**, **React 18**, **PostgreSQL**, **Redis**, and **Docker**.
 
 ## Architecture
 

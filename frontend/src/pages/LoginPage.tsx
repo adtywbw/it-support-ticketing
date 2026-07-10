@@ -24,7 +24,7 @@ export default function LoginPage() {
             <div className="flex items-center gap-3">
               <BrandMark size="lg" />
               <div>
-                <p className="text-lg font-bold tracking-tight text-navy-950 dark:text-blue-50">Support Hub</p>
+                <p className="text-lg font-bold tracking-tight text-navy-950 dark:text-blue-50">IT HelpDesk</p>
                 <p className="text-sm text-navy-500 dark:text-blue-300">IT Service Portal</p>
               </div>
             </div>
@@ -38,7 +38,7 @@ export default function LoginPage() {
               <div className="mx-auto max-w-md">
                 <div className="mb-8">
                   <p className="text-sm font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-300">Welcome back</p>
-                  <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy-950 dark:text-blue-50">Sign in to Support Hub</h1>
+                  <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy-950 dark:text-blue-50">Sign in to IT HelpDesk</h1>
                   <p className="mt-3 text-sm text-navy-600 dark:text-blue-200">Use your assigned account to submit, track, and resolve IT support tickets.</p>
                 </div>
 
@@ -90,7 +90,7 @@ export default function LoginPage() {
 
         <footer className="px-4 py-6 text-center">
           <p className="text-xs text-navy-500 dark:text-blue-300">
-            © {new Date().getFullYear()} Support Hub. All rights reserved.
+            © 2026 Aditya Wibowo. All rights reserved.
           </p>
         </footer>
       </div>

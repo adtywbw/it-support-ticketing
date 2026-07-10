@@ -1,7 +1,7 @@
 {
   "name": "it-support-ticketing-backend",
   "version": "1.0.0",
-  "description": "IT Support Ticketing System - NestJS Backend",
+  "description": "IT HelpDesk - NestJS Backend",
   "private": true,
   "license": "MIT",
   "scripts": {

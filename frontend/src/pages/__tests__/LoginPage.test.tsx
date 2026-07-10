@@ -36,7 +36,7 @@ describe('LoginPage', () => {
   it('renders the Enterprise Portal support-assist layout for unauthenticated users', () => {
     renderLoginPage();
 
-    expect(screen.getByLabelText('Support Hub')).toHaveTextContent('SH');
+    expect(screen.getByLabelText('IT HelpDesk')).toBeInTheDocument();
     expect(screen.getByText('IT Service Portal')).toBeInTheDocument();
     expect(screen.getByText('Secure Access')).toBeInTheDocument();
     expect(screen.getByText('Need help signing in?')).toBeInTheDocument();

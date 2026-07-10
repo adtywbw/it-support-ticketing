@@ -2,6 +2,20 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 71 — Brand Rename: "Support Hub" → "IT HelpDesk" (2026-07-10)
+
+- **Feat: Brand rename (High)** — Changed app name from "Support Hub" to "IT HelpDesk" across all surfaces:
+  - BrandMark: replaced "SH" text with eye icon (responsive: black in light / white in dark except sidebar which always uses white)
+  - Favicon: eye icon, black stroke on transparent background
+  - Login page title, heading, and sidebar header updated
+  - Browser tab title: "IT HelpDesk"
+  - Backend Swagger title & description updated
+- **Fix: BrandMark a11y (Medium)** — Added `role="img"` to fix `aria-prohibited-attr` violation in axe-core
+- **Fix: Sidebar button overlap (Medium)** — Moved expand button to bottom of sidebar when collapsed to prevent overlap with BrandMark. Used cleaner chevron icons (Heroicons style)
+- **Footer** — Updated to "© 2026 Aditya Wibowo. All rights reserved." (login page only, per enterprise best practice)
+- **Docs**: AGENTS.md, README.md, ARCHITECTURE.md headers updated; changelog entry added
+- **Verification**: lint 0 errors ✅ | 220/220 tests ✅ | frontend build ✅
+
 ## Session 70 — Code Review R6: Priority Notifications, Double Toast, Submission Guard (2026-07-09)
 
 - **Feat: `ticket.priority.updated` notification (High)** — Added `@OnEvent` handler in `NotificationsService` for priority change events. Notifies both assignee and requester via in-app + WebSocket. Added to `NOTIFICATION_EVENTS` list as 4th event (all roles).

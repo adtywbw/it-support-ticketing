@@ -1,4 +1,4 @@
-# Architecture Documentation — IT Support Ticketing
+# Architecture Documentation — IT HelpDesk
 
 ## 1. Architecture Overview
 

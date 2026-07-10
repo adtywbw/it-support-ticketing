@@ -457,7 +457,7 @@ export class TelegramService
 
     const settings = await this.resolveSettings();
     const message =
-      'This is a test notification from your IT Support Ticketing system. If you receive this, your Telegram integration is working correctly!';
+      'This is a test notification from your IT HelpDesk system. If you receive this, your Telegram integration is working correctly!';
 
     let groupSent = false;
 

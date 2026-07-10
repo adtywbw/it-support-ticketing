@@ -43,8 +43,8 @@ async function bootstrap() {
   // OpenAPI / Swagger — only enabled in development for security
   if (process.env.NODE_ENV !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle("IT Support Ticketing API")
-      .setDescription("Full-stack ticketing system for internal IT support")
+      .setTitle("IT HelpDesk API")
+      .setDescription("Full-stack ticketing system for internal IT support — IT HelpDesk")
       .setVersion("1.0.0")
       .addBearerAuth()
       .build();

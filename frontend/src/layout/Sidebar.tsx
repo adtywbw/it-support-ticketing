@@ -100,32 +100,21 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           'flex h-16 items-center border-b border-navy-900',
           collapsed ? 'justify-center px-0' : 'gap-2 px-6',
         )}>
-          <BrandMark size="md" />
-          {!collapsed && <span className="text-lg font-semibold text-blue-50">Support Hub</span>}
+          <BrandMark size="md" variant="light" />
+          {!collapsed && <span className="text-lg font-semibold text-blue-50">IT HelpDesk</span>}
           {!collapsed && (
             <>
               <div className="flex-1" />
               <button
                 onClick={onToggleCollapse}
-                className="rounded-lg p-1.5 text-blue-200 hover:bg-navy-800 hover:text-blue-50"
+                className="rounded-lg p-1.5 text-blue-200 hover:bg-navy-800 hover:text-blue-50 transition-colors"
                 title="Minimize sidebar"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                 </svg>
               </button>
             </>
-          )}
-          {collapsed && (
-            <button
-              onClick={onToggleCollapse}
-              className="rounded-lg p-1.5 text-blue-200 hover:bg-navy-800 hover:text-blue-50"
-              title="Expand sidebar"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 4.5l15 15m0 0V8.25m0 11.25H8.25" />
-              </svg>
-            </button>
           )}
         </div>
 
@@ -153,7 +142,18 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           ))}
         </nav>
 
-        <div className="border-t border-navy-900 p-2 space-y-2">
+        <div className="border-t border-navy-900 p-2 space-y-1">
+          {collapsed && (
+            <button
+              onClick={onToggleCollapse}
+              className="flex w-full items-center justify-center rounded-lg px-3 py-2 text-blue-200 hover:bg-navy-800 hover:text-blue-50 transition-colors"
+              title="Expand sidebar"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5 15.75 12l-7.5 7.5" />
+              </svg>
+            </button>
+          )}
           <NavLink
             to="/my-account"
             onClick={onClose}
