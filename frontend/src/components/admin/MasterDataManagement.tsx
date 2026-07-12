@@ -310,7 +310,7 @@ function CategoryManager() {
   );
 }
 
-function SubCategoryManager() {
+export function SubCategoryManager() {
   const queryClient = useQueryClient();
   const { data: categories, isLoading, isError, error, refetch } = useCategories();
 
@@ -414,8 +414,11 @@ function SubCategoryManager() {
   };
 
   const handleDeleteClick = (sub: SubCategory & { categoryId: string }) => {
-    if ((sub._count?.tickets ?? 0) > 0) {
-      setBlockedItem({ name: sub.name, reasons: [`${sub._count!.tickets} ticket(s)`] });
+    const reasons: string[] = [];
+    if ((sub._count?.tickets ?? 0) > 0) reasons.push(`${sub._count!.tickets} ticket(s)`);
+    if ((sub._count?.faqs ?? 0) > 0) reasons.push(`${sub._count!.faqs} FAQ(s)`);
+    if (reasons.length > 0) {
+      setBlockedItem({ name: sub.name, reasons });
     } else {
       setDeletingItem({ id: sub.id, categoryId: sub.categoryId });
       setIsDeleteOpen(true);
