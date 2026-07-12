@@ -12,7 +12,7 @@ describe('FaqsService', () => {
     'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete' | 'findActiveForRecommendations' | 'findActiveById'
   >>;
   let subCategoryRepository: jest.Mocked<Pick<SubCategoryRepository, 'findById' | 'findUnique'>>;
-  let interactionRepository: jest.Mocked<Pick<FaqInteractionRepository, 'create' | 'deleteOlderThan' | 'getSummary' | 'getTopOpenedFaqs' | 'getTopResolvedFaqs' | 'getCategoryStats'>>;
+  let interactionRepository: jest.Mocked<Pick<FaqInteractionRepository, 'create' | 'deleteOlderThan' | 'getSummary' | 'getTopOpenedFaqs' | 'getTopResolvedFaqs' | 'getSubCategoryStats'>>;
 
   const subCategoryId = 'sc-uuid';
   const faqId = 'faq-uuid';
@@ -41,7 +41,7 @@ describe('FaqsService', () => {
       getSummary: jest.fn(),
       getTopOpenedFaqs: jest.fn(),
       getTopResolvedFaqs: jest.fn(),
-      getCategoryStats: jest.fn(),
+      getSubCategoryStats: jest.fn(),
     };
     service = new FaqsService(repo as any, subCategoryRepository as any, interactionRepository as any);
   });
@@ -232,7 +232,7 @@ describe('FaqsService', () => {
       });
       interactionRepository.getTopOpenedFaqs.mockResolvedValue([]);
       interactionRepository.getTopResolvedFaqs.mockResolvedValue([]);
-      interactionRepository.getCategoryStats.mockResolvedValue([]);
+      interactionRepository.getSubCategoryStats.mockResolvedValue([]);
 
       const result = await service.getAnalytics({ range: '30d' });
 
@@ -249,11 +249,37 @@ describe('FaqsService', () => {
       });
       interactionRepository.getTopOpenedFaqs.mockResolvedValue([]);
       interactionRepository.getTopResolvedFaqs.mockResolvedValue([]);
-      interactionRepository.getCategoryStats.mockResolvedValue([]);
+      interactionRepository.getSubCategoryStats.mockResolvedValue([]);
 
       const result = await service.getAnalytics({ range: '30d' });
       expect(result.deflectionRate).toBe(33.3);
       expect(result.continuedToTicketRate).toBe(66.7);
+    });
+
+    it('maps sub-category analytics and rates', async () => {
+      interactionRepository.getSummary.mockResolvedValue({
+        recommendationSessions: 10,
+        resolvedWithoutTicketSessions: 2,
+        continuedToTicketSessions: 8,
+      });
+      interactionRepository.getTopOpenedFaqs.mockResolvedValue([]);
+      interactionRepository.getTopResolvedFaqs.mockResolvedValue([]);
+      interactionRepository.getSubCategoryStats.mockResolvedValue([{
+        subCategoryId,
+        subCategoryName: 'Email',
+        categoryName: 'Software',
+        recommendationSessions: 4,
+        resolvedWithoutTicketSessions: 1,
+      }]);
+
+      const result = await service.getAnalytics({ range: '30d' });
+      expect(result.subCategoryStats[0]).toEqual(expect.objectContaining({
+        subCategoryId,
+        subCategoryName: 'Email',
+        categoryName: 'Software',
+        deflectionRate: 25,
+      }));
+      expect(result).not.toHaveProperty('categoryStats');
     });
   });
 

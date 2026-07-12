@@ -85,11 +85,11 @@ export class FaqsService {
   async getAnalytics(query: QueryFaqAnalyticsDto) {
     const to = new Date();
     const from = new Date(to.getTime() - 30 * 86_400_000);
-    const [summary, topOpenedFaqs, topResolvedFaqs, categoryRows] = await Promise.all([
+    const [summary, topOpenedFaqs, topResolvedFaqs, subCategoryRows] = await Promise.all([
       this.faqInteractionRepository.getSummary(from),
       this.faqInteractionRepository.getTopOpenedFaqs(from),
       this.faqInteractionRepository.getTopResolvedFaqs(from),
-      this.faqInteractionRepository.getCategoryStats(from),
+      this.faqInteractionRepository.getSubCategoryStats(from),
     ]);
 
     const percentage = (value: number, total: number) =>
@@ -110,9 +110,10 @@ export class FaqsService {
       ),
       topOpenedFaqs,
       topResolvedFaqs,
-      categoryStats: categoryRows.map((row) => ({
+      subCategoryStats: subCategoryRows.map((row) => ({
         subCategoryId: row.subCategoryId,
         subCategoryName: row.subCategoryName,
+        categoryName: row.categoryName,
         recommendationSessions: row.recommendationSessions,
         resolvedWithoutTicketSessions: row.resolvedWithoutTicketSessions,
         deflectionRate: percentage(

@@ -14,9 +14,10 @@ export interface FaqMetricRow {
   sessions: number;
 }
 
-export interface FaqCategoryMetricRow {
+export interface FaqSubCategoryMetricRow {
   subCategoryId: string;
   subCategoryName: string;
+  categoryName: string;
   recommendationSessions: number;
   resolvedWithoutTicketSessions: number;
 }
@@ -100,8 +101,8 @@ export class FaqInteractionRepository {
     `);
   }
 
-  async getCategoryStats(since: Date, limit = 5): Promise<FaqCategoryMetricRow[]> {
-    return this.prisma.$queryRaw<FaqCategoryMetricRow[]>(Prisma.sql`
+  async getSubCategoryStats(since: Date, limit = 5): Promise<FaqSubCategoryMetricRow[]> {
+    return this.prisma.$queryRaw<FaqSubCategoryMetricRow[]>(Prisma.sql`
       WITH sub_category_sessions AS (
         SELECT
           "sessionId",
@@ -114,8 +115,9 @@ export class FaqInteractionRepository {
         GROUP BY "sessionId", "subCategoryId"
       )
       SELECT
-        sc."id" AS "subCategoryId",
-        sc."name" AS "subCategoryName",
+        sub_category."id" AS "subCategoryId",
+        sub_category."name" AS "subCategoryName",
+        category."name" AS "categoryName",
         COUNT(*) FILTER (WHERE sub_category_sessions.shown)::int AS "recommendationSessions",
         COUNT(*) FILTER (
           WHERE sub_category_sessions.shown
@@ -123,9 +125,10 @@ export class FaqInteractionRepository {
             AND NOT sub_category_sessions.ticket_created
         )::int AS "resolvedWithoutTicketSessions"
       FROM sub_category_sessions
-      JOIN "sub_categories" sc ON sc."id" = sub_category_sessions."subCategoryId"
-      GROUP BY sc."id", sc."name"
-      ORDER BY "recommendationSessions" DESC, sc."name" ASC
+      JOIN "sub_categories" sub_category ON sub_category."id" = sub_category_sessions."subCategoryId"
+      JOIN "categories" category ON category."id" = sub_category."categoryId"
+      GROUP BY sub_category."id", sub_category."name", category."name"
+      ORDER BY "recommendationSessions" DESC, category."name" ASC, sub_category."name" ASC
       LIMIT ${limit}
     `);
   }
