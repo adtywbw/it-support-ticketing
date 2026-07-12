@@ -46,8 +46,9 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - Admin UI: **SLA Configuration** tab in Master Data for CRUD by category/priority with human-readable time inputs (minutes/hours/days)
 
 ### FAQ & Self-Service
-- Contextual self-service suggests up to five active FAQs from category, subject, and keywords while a ticket is created.
-- Admin FAQ analytics reports 30-day recommendation sessions, ticket deflection, continuation, top FAQs, and category opportunities.
+- Contextual self-service suggests up to five active FAQs from sub-category, subject, and keywords while a ticket is created. Recommendations require `subCategoryId` and are hidden until a sub-category is selected.
+- Admin FAQ analytics reports 30-day recommendation sessions, ticket deflection, continuation, top FAQs, and sub-category analytics (`subCategoryStats`, not `categoryStats`).
+- FAQs are scoped to a sub-category (required FK, `ON DELETE Restrict`). Logged-in users can view "show on login" FAQs on the login page.
 
 ### Dashboard & Statistics
 - Current operational snapshot: active tickets, open, in progress, SLA risk, and unassigned

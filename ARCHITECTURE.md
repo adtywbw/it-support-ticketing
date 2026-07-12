@@ -159,6 +159,8 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ updatedAt                  DateTime
 │ UNIQUE: (categoryId, name)
 │ 1──< tickets (subCategoryId)
+│ 1──< faqs (subCategoryId)
+│ 1──< faq_interactions (subCategoryId)
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -258,29 +260,31 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ PK id (UUID)
 │ question                   VARCHAR
 │ answer                     TEXT
-│ FK categoryId → categories  UUID? (nullable)
 │ keywords                   VARCHAR[]? (nullable)
 │ displayOrder               Int     @default(0)
 │ isActive                   Boolean
+│ showOnLogin                Boolean               @default(false)
+│ FK subCategoryId → sub_categories  UUID          (ON DELETE Restrict)
 │ createdAt                  DateTime
 │ updatedAt                  DateTime
-│ INDEXES: (categoryId), (isActive)
+│ INDEXES: (subCategoryId, isActive)
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │ faq_interactions
 │ PK id (UUID)
-│ sessionId                  UUID
-│ FK faqId → faqs            UUID? (nullable)
-│ FK categoryId → categories  UUID? (nullable)
+│ sessionId                  String
+│ userId                     String? (nullable, ON DELETE SetNull)
+│ FK faqId → faqs            String? (nullable, ON DELETE SetNull)
+│ FK subCategoryId → sub_categories  String          (ON DELETE Cascade)
 │ eventType                  FaqInteractionType (RecommendationsShown|ArticleOpened|ProblemResolved|TicketCreated)
 │ createdAt                  DateTime
-│ INDEXES: (createdAt), (sessionId, eventType), (faqId, createdAt), (categoryId, createdAt)
+│ INDEXES: (createdAt), (sessionId, eventType), (faqId, createdAt), (subCategoryId, createdAt)
 │ NOTE: Privacy-safe — stores no session IP, user agent, or ticket
 │       content. Rows older than 180 days removed by daily cleanup.
 └─────────────────────────────────────────────────────────────────────┘
 
-Additionally, `GET /api/faqs/recommendations` returns up to five active FAQs ranked by category, subject, and keyword match. `POST /api/faqs/interactions` records self-service events (60 req/min/user throttle). `GET /api/faqs/analytics` provides Admin-only 30-day deflection summary. All interaction events are privacy-safe and never store ticket subjects, descriptions, IP addresses, or user agents.
+Additionally, `GET /api/faqs/recommendations` returns up to five active FAQs ranked by sub-category, subject, and keyword match — requires `subCategoryId`. `POST /api/faqs/interactions` records self-service events (60 req/min/user throttle); uses `subCategoryId` (not `categoryId`). `GET /api/faqs/analytics` provides Admin-only 30-day deflection summary with `subCategoryStats` (not `categoryStats`). All interaction events are privacy-safe and never store ticket subjects, descriptions, IP addresses, or user agents.
 
 ---
 

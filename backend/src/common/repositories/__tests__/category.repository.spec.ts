@@ -221,7 +221,7 @@ describe('SubCategoryRepository', () => {
         expect.objectContaining({
           where: { categoryId: 'c1', isActive: true },
           orderBy: { name: 'asc' },
-          include: { _count: { select: { tickets: true } } },
+          include: { _count: { select: { tickets: true, faqs: true } } },
         }),
       );
     });
@@ -235,7 +235,7 @@ describe('SubCategoryRepository', () => {
         expect.objectContaining({
           where: { categoryId: 'c1' },
           orderBy: { name: 'asc' },
-          include: { _count: { select: { tickets: true } } },
+          include: { _count: { select: { tickets: true, faqs: true } } },
         }),
       );
     });
@@ -249,7 +249,7 @@ describe('SubCategoryRepository', () => {
         expect.objectContaining({
           where: { categoryId: 'c1', isActive: true },
           orderBy: { name: 'asc' },
-          include: { _count: { select: { tickets: true } } },
+          include: { _count: { select: { tickets: true, faqs: true } } },
         }),
       );
     });

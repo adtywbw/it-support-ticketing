@@ -23,7 +23,7 @@ vi.mock("@/hooks/use-faqs", async () => {
           question: "How to reset your Wi-Fi adapter",
           answer: "Go to Settings > Network > Adapter and restart it.",
           displayOrder: 0,
-          categoryId: null,
+          subCategoryId: "73955f5b-d64c-4fc7-b497-378e688bb25a",
         },
       ],
       isLoading: false,

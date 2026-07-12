@@ -77,6 +77,7 @@ describe("E2E Extended Tests", () => {
   const runId = Date.now().toString(36);
   const tokens: Record<string, string> = {};
   const ids: Record<string, string> = {};
+  // selfServiceSubCategory added by FAQ create test
 
   // ── Auth & Role Isolation ────────────────────────────────────────
 
@@ -341,7 +342,7 @@ describe("E2E Extended Tests", () => {
     expect(res.data.data.status).toBe("healthy");
   });
 
-  // ── FAQ ──────────────────────────────────────────────────────────
+  // ── FAQ (sub-category-only) ──────────────────────────────────────
 
   test("GET /faqs — returns public FAQs", async () => {
     await new Promise((r) => setTimeout(r, 200)); // drain rate limit
@@ -352,18 +353,21 @@ describe("E2E Extended Tests", () => {
 
   // ── Self-Service Flow ────────────────────────────────────────────
 
-  test("POST /faqs — Admin creates a categorized FAQ", async () => {
+  test("POST /faqs — Admin creates a sub-category-scoped FAQ", async () => {
     const categories = await request("GET", "/categories", undefined, tokens.admin);
     ids.selfServiceCategory = categories.data.data[0].id;
+    const subId = categories.data.data[0].subCategories[0].id;
+    ids.selfServiceSubCategory = subId;
     const response = await request(
       "POST",
       "/faqs",
       {
         question: `Reset E2E Wi-Fi ${runId}`,
         answer: "Restart the wireless adapter.",
-        categoryId: ids.selfServiceCategory,
+        subCategoryId: subId,
         keywords: ["wifi", "adapter"],
         isActive: true,
+        showOnLogin: true,
       },
       tokens.admin,
     );
@@ -371,17 +375,18 @@ describe("E2E Extended Tests", () => {
     ids.selfServiceFaq = response.data.data.id;
   });
 
-  it("returns contextual recommendations to an authenticated end user", async () => {
+  it("returns contextual recommendations by subCategoryId", async () => {
     if (!tokens.endUser) return;
     const response = await request(
       "GET",
-      `/faqs/recommendations?categoryId=${ids.selfServiceCategory}&query=wifi%20adapter`,
+      `/faqs/recommendations?subCategoryId=${ids.selfServiceSubCategory}&query=wifi%20adapter`,
       undefined,
       tokens.endUser,
     );
     expect(response.status).toBe(200);
     expect(response.data.data.length).toBeLessThanOrEqual(5);
     expect(response.data.data[0]).not.toHaveProperty("keywords");
+    expect(response.data.data[0]).toHaveProperty("subCategoryId");
   });
 
   it("rejects FAQ analytics for non-admin users", async () => {
@@ -390,7 +395,7 @@ describe("E2E Extended Tests", () => {
     expect(response.status).toBe(403);
   });
 
-  it("links a created ticket to a self-service session", async () => {
+  it("links a created ticket to a self-service session via subCategory", async () => {
     if (!tokens.endUser) return;
     const sessionId = randomUUID();
     const categories = await request("GET", "/categories", undefined, tokens.endUser);
@@ -404,7 +409,7 @@ describe("E2E Extended Tests", () => {
       {
         sessionId,
         eventType: "RecommendationsShown",
-        categoryId: ids.selfServiceCategory,
+        subCategoryId: ids.selfServiceSubCategory,
       },
       tokens.endUser,
     );
@@ -418,7 +423,7 @@ describe("E2E Extended Tests", () => {
         description: "Testing a ticket linked to a self-service session.",
         priority: "Low",
         categoryId: ids.selfServiceCategory,
-        subCategoryId: category.subCategories[0].id,
+        subCategoryId: ids.selfServiceSubCategory,
         locationId: locations.data.data[0].id,
         itemCode: "E2E-SELF",
         selfServiceSessionId: sessionId,
@@ -431,6 +436,20 @@ describe("E2E Extended Tests", () => {
     const analyticsResponse = await request("GET", "/faqs/analytics?range=30d", undefined, tokens.admin);
     expect(analyticsResponse.status).toBe(200);
     expect(analyticsResponse.data.data.continuedToTicketSessions).toBeGreaterThanOrEqual(1);
+    expect(analyticsResponse.data.data).toHaveProperty("subCategoryStats");
+    expect(analyticsResponse.data.data).not.toHaveProperty("categoryStats");
+  });
+
+  it("DELETE sub-category with existing FAQ returns 409", async () => {
+    if (!ids.selfServiceSubCategory) return;
+    await new Promise((r) => setTimeout(r, 200)); // rate limit drain
+    const res = await request(
+      "DELETE",
+      `/categories/${ids.selfServiceCategory}/sub-categories/${ids.selfServiceSubCategory}`,
+      undefined,
+      tokens.admin,
+    );
+    expect(res.status).toBe(409);
   });
 
   test("DELETE self-service fixtures — Admin cleanup", async () => {

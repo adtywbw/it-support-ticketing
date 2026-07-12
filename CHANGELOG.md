@@ -2,12 +2,24 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 73 — Sub-Category-Only FAQ Contracts: Destructive Migration, Delete Guard, Documentation (2026-07-12)
+
+- **Breaking: FAQ categoryId removed (Critical)** — `Faq.categoryId` removed; `subCategoryId` is now required (FK, ON DELETE Restrict). Existing FAQ content and FAQ interaction analytics are deleted by the destructive migration `20260712160000_faq_subcategory_only`. Admin must re-create FAQs after deployment.
+- **Breaking: FaqInteraction categoryId removed (Critical)** — `FaqInteraction.categoryId` replaced by required `subCategoryId` (FK, ON DELETE Cascade). All interaction history prior to this migration is lost.
+- **Feat: showOnLogin (Medium)** — New `showOnLogin` boolean field on Faq model (default `false`). Controls whether an FAQ appears on the login page for authenticated users.
+- **Feat: SubCategory delete guard with FAQ check (Medium)** — `SubCategoriesService.delete()` now checks `_count.faqs` alongside existing `_count.tickets`. Returns 409 Conflict when FAQs reference the sub-category.
+- **Feat: subCategoryStats analytics (Medium)** — FAQ analytics endpoint returns `subCategoryStats` (array of per-sub-category metrics) instead of `categoryStats`. Asserted in E2E tests.
+- **Fix: self-service ticket session correlation wording (Low)** — `Ticket.selfServiceSessionId` is a DTO-only field (not persisted in DB). Corrected Session 72 documentation from "persisted field" to "DTO-only session correlation."
+- **Test: E2E sub-category-only flow** — FAQ creation uses `subCategoryId`/`showOnLogin`, recommendations and interactions use `subCategoryId`, analytics asserts `subCategoryStats` shape and absence of `categoryStats`, delete-guard test verifies 409 when deleting a sub-category with existing FAQs.
+- **Docs**: AGENTS.md, ARCHITECTURE.md, README.md updated for sub-category-only contracts, `showOnLogin`, destructive migration, delete guard, and `subCategoryStats` analytics.
+- **Verification**: lint 0 errors ✅ | backend tests ✅ | frontend tests ✅ | build ✅
+
 ## Session 72 — Contextual Self-Service: FAQ Recommendations + Deflection Analytics (2026-07-12)
 
 - **Feat: contextual FAQ recommendations (High)** — Up to 5 active FAQs suggested from category, subject, and keywords during ticket creation. Frontend `TicketSolutionSuggestions` component with session tracking (shown, opened, resolved) and debounced subject input.
 - **Feat: FAQ metadata (High)** — Optional `categoryId` and `keywords` array on FAQ model. Admin FAQ manager updated with category select and keyword tags.
 - **Feat: self-service interaction analytics (Medium)** — `faq_interactions` table stores privacy-safe session events (RecommendationsShown, ArticleOpened, ProblemResolved, TicketCreated). Admin-only `GET /api/faqs/analytics?range=30d` reports deflection rate, continuation rate, top FAQs, category opportunities. 180-day retention with @Cron cleanup.
-- **Feat: ticket deflection linkage (Medium)** — `Ticket.selfServiceSessionId` links created tickets to self-service sessions. Analytics counts `continuedToTicketSessions` from linked tickets. `TicketCreated` events emitted server-side only (fail-open on error).
+- **Feat: ticket deflection linkage (Medium)** — `selfServiceSessionId` (DTO-only, not persisted) links created tickets to self-service sessions. Analytics counts `continuedToTicketSessions` from linked tickets. `TicketCreated` events emitted server-side only (fail-open on error).
 - **Test: E2E + a11y + regression coverage** — 5 new E2E tests (FAQ create, recommendations, analytics auth, linked ticket, cleanup). 1 new a11y test for `TicketSolutionSuggestions`. Full backend + frontend test passes.
 - **Docs**: AGENTS.md, ARCHITECTURE.md, README.md, CHANGELOG.md updated with FAQ self-service API map, schema, and model fields.
 - **Verification**: lint 0 errors ✅ | backend 824/824 tests ✅ | frontend 236/236 tests ✅ | build ✅

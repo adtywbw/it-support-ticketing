@@ -217,7 +217,7 @@ postgres/postgresql.conf
 - Tickets: `GET|POST /api/tickets`, `GET|PATCH|DELETE /api/tickets/:id`, `PATCH /api/tickets/:id/status|assign|priority`, `GET /api/tickets/export/csv`.
 - Ticket children: `GET|POST /api/tickets/:id/comments|attachments`; EndUser sees only own visible resources.
 - Categories: `GET|POST|PATCH|DELETE /api/categories`, `GET /api/categories/:id`, and `/api/categories/:categoryId/sub-categories`.
-- Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path.
+- Deprecated sub-category shortcuts: `PATCH|DELETE /api/sub-categories/:id`; prefer full category path. SubCategory delete is blocked (409) when tickets or FAQs reference it.
 - SLA: `GET|POST|PATCH|DELETE /api/sla-configs`. Create and timing update auto-recalculate affected non-terminal tickets. Delete blocked when tickets exist. `isActive`-only deactivation clears `slaDueAt`/`slaStatus` on non-terminal tickets.
 - Dashboard: `GET /api/dashboard/stats` supports range query (`?range=7d|30d|90d|custom&from=YYYY-MM-DD&to=YYYY-MM-DD`); returns `{ current, attention, analytics }`.
   - `current`: `{ activeTickets, open, inProgress, slaRisk, unassigned }` — snapshot counts of active (non-Resolved/Closed) tickets.
@@ -228,7 +228,7 @@ postgres/postgresql.conf
 - Locations: `GET|POST|PATCH|DELETE /api/locations`. Admin sees all (incl. `_count.tickets`); other roles see active only (`id`, `name`). Admin-only write.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
 - Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
-- FAQ: `GET|POST /api/faqs`; `GET|PATCH|DELETE /api/faqs/:id` (Admin CRUD); `GET /api/faqs/recommendations` (authenticated, up to 5 active FAQs filtered by categoryId/query); `POST /api/faqs/interactions` (authenticated, throttled 60/min/user); `GET /api/faqs/analytics?range=30d` (Admin-only deflection analytics). `TicketCreated` interaction events are server-only and fail-open. FAQ analytics must never store ticket subjects, descriptions, IP addresses, user agents, or attachment metadata.
+- FAQ: `GET|POST /api/faqs`; `GET|PATCH|DELETE /api/faqs/:id` (Admin CRUD); `GET /api/faqs/recommendations` (authenticated, up to 5 active FAQs filtered by subCategoryId/query); `POST /api/faqs/interactions` (authenticated, throttled 60/min/user); `GET /api/faqs/analytics?range=30d` (Admin-only deflection analytics returns `subCategoryStats`, not `categoryStats`). `TicketCreated` interaction events are server-only and fail-open. FAQ analytics must never store ticket subjects, descriptions, IP addresses, user agents, or attachment metadata.
 
 ## Models
 - Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig, Faq, FaqInteraction.
@@ -240,8 +240,8 @@ postgres/postgresql.conf
 - `TelegramConfig` is singleton enforced by `key` column (`@unique @default("default")`); repository uses `findOrCreate()` on the fixed key.
 
 ## Key Model Fields (anti-hallucination)
-- `Faq`: `question`, `answer`, `displayOrder`, `isActive`; `categoryId` (nullable FK, ON DELETE SET NULL), `keywords` (string array, max 20 × 50 chars). Public `GET /api/faqs` returns only `{ id, question, answer, displayOrder }` — no metadata.
-- `FaqInteraction`: stores session events — `sessionId`, `userId`, `faqId?`, `categoryId?`, `eventType: FaqInteractionType`. Client can submit RecommendationsShown/ArticleOpened/ProblemResolved only; `TicketCreated` is server-generated. Never stores ticket subject, description, IP, or user agent.
+- `Faq`: `question`, `answer`, `displayOrder`, `isActive`, `showOnLogin`; `subCategoryId` (required FK, ON DELETE Restrict), `keywords` (string array, max 20 × 50 chars). Public `GET /api/faqs` returns only `{ id, question, answer, displayOrder }` — no metadata.
+- `FaqInteraction`: stores session events — `sessionId`, `userId`, `faqId?`, `subCategoryId` (required FK, ON DELETE Cascade), `eventType: FaqInteractionType`. Client can submit RecommendationsShown/ArticleOpened/ProblemResolved only; `TicketCreated` is server-generated. Never stores ticket subject, description, IP, or user agent.
 - `Ticket`: `ticketNumber` (from sequence, not MAX), `status`, `priority`; `visibility` does not exist on the Ticket model — visibility belongs to `Attachment`.
 - `Attachment`: `visibility: PUBLIC | INTERNAL`, `originalName` (for display only), filename on disk = uuid + safe extension.
 - `Comment`: there is no `isInternal` boolean field — use the `type: CommentType` field (`PUBLIC`|`INTERNAL`). Internal attachment visibility is controlled via `AttachmentVisibilityPolicy`.
@@ -295,7 +295,7 @@ postgres/postgresql.conf
 - **File save ordering**: `CommentsService.create()` saves uploaded files **inside** the Prisma transaction callback, not before it. This ensures that if the transaction fails (e.g., max attachments exceeded), no files linger on disk. A catch block inside the transaction handles cleanup of partial saves.
 - **SLA lock sharing**: `SLAService.recalculateOpenTicketsForConfig()` (triggered by SLA config create/update) uses the same Redis lock key (`sla:check:lock`) as `checkSLA()` cron. If the cron is mid-flight when a config update triggers recalculation, the recalculation skips with a log message. This prevents concurrent writes to `slaDueAt`/`slaStatus` on overlapping ticket sets.
 - **Restore safety**: `MaintenanceService.restoreDatabase()` COMMITs `DROP SCHEMA ... CASCADE` in a separate psql call before the restore pipeline runs. If the restore pipe (gzip→awk→psql) fails, the schema is already dropped — safety is provided by the **pre-restore backup** (created automatically before the DROP SCHEMA), which the admin can use to recover.
-- **SubCategory delete**: backend throws `ConflictException` when tickets exist (no silent soft-delete). Frontend shows blocked popup if `_count.tickets > 0`.
+- **SubCategory delete**: backend throws `ConflictException` when tickets or FAQs exist (no silent soft-delete). Frontend shows blocked popup if `_count.tickets > 0` or `_count.faqs > 0`.
 - **User delete guard**: `USER_SAFE_SELECT` includes `_count { createdTickets, assignedTickets, comments, attachments }`. Frontend checks counts before showing ConfirmDialog.
 - **Ticket assignment lock**: when `assignedTo.isActive === false`, the assign dropdown is disabled with tooltip "Assigned user is inactive — reactivate to change". `useUpdateUser` invalidates `['tickets']` and `['users', 'assignable']` on any user update.
 - **Stale SLA values**: `TicketsService.stripStaleSlaValues()` nuls out `slaDueAt`/`slaStatus` for tickets whose SLA config is inactive. Runs on every ticket list/detail fetch.
