@@ -273,12 +273,11 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ sessionId                  UUID
 │ FK faqId → faqs            UUID? (nullable)
 │ FK categoryId → categories  UUID? (nullable)
-│ FK ticketId → tickets       UUID? (nullable)
-│ eventType                  FaqEventType (RecommendationsShown|ArticleOpened|ProblemResolved|TicketCreated)
+│ eventType                  FaqInteractionType (RecommendationsShown|ArticleOpened|ProblemResolved|TicketCreated)
 │ createdAt                  DateTime
-│ INDEXES: (sessionId), (createdAt), (eventType), (faqId), (categoryId)
+│ INDEXES: (createdAt), (sessionId, eventType), (faqId, createdAt), (categoryId, createdAt)
 │ NOTE: Privacy-safe — stores no session IP, user agent, or ticket
-│       content. rows older than 180 days are cleaned by cron.
+│       content. Rows older than 180 days removed by daily cleanup.
 └─────────────────────────────────────────────────────────────────────┘
 
 Additionally, `GET /api/faqs/recommendations` returns up to five active FAQs ranked by category, subject, and keyword match. `POST /api/faqs/interactions` records self-service events (60 req/min/user throttle). `GET /api/faqs/analytics` provides Admin-only 30-day deflection summary. All interaction events are privacy-safe and never store ticket subjects, descriptions, IP addresses, or user agents.
