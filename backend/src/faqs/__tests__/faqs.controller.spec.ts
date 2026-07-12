@@ -1,9 +1,10 @@
 import { FaqsController } from '../faqs.controller';
 import { FaqsService } from '../faqs.service';
+import { FaqInteractionType } from '@prisma/client';
 
 describe('FaqsController', () => {
   let controller: FaqsController;
-  let service: jest.Mocked<Pick<FaqsService, 'findActiveOrdered' | 'findAll' | 'create' | 'update' | 'remove' | 'getRecommendations'>>;
+  let service: jest.Mocked<Pick<FaqsService, 'findActiveOrdered' | 'findAll' | 'create' | 'update' | 'remove' | 'getRecommendations' | 'recordInteraction'>>;
 
   beforeEach(() => {
     service = {
@@ -13,6 +14,7 @@ describe('FaqsController', () => {
       update: jest.fn(),
       remove: jest.fn(),
       getRecommendations: jest.fn(),
+      recordInteraction: jest.fn(),
     };
     controller = new FaqsController(service as any);
   });
@@ -51,5 +53,15 @@ describe('FaqsController', () => {
     service.getRecommendations.mockResolvedValue([]);
     await expect(controller.getRecommendations(dto as any)).resolves.toEqual([]);
     expect(service.getRecommendations).toHaveBeenCalledWith(dto);
+  });
+
+  it('recordInteraction delegates to service.recordInteraction and returns recorded response', async () => {
+    const dto = { sessionId: 'session-uuid', eventType: FaqInteractionType.RecommendationsShown };
+    service.recordInteraction.mockResolvedValue(undefined);
+
+    const result = await controller.recordInteraction(dto as any, 'user-uuid');
+
+    expect(service.recordInteraction).toHaveBeenCalledWith(dto, 'user-uuid');
+    expect(result).toEqual({ recorded: true });
   });
 });

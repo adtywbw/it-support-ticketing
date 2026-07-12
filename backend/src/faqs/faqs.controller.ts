@@ -1,13 +1,16 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { FaqsService } from './faqs.service';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
+import { CreateFaqInteractionDto } from './dto/create-faq-interaction.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('FAQs')
 @Controller('faqs')
@@ -52,5 +55,15 @@ export class FaqsController {
   async remove(@Param('id') id: string) {
     await this.faqsService.remove(id);
     return { message: 'FAQ deleted successfully' };
+  }
+
+  @Post('interactions')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  async recordInteraction(
+    @Body() dto: CreateFaqInteractionDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    await this.faqsService.recordInteraction(dto, userId);
+    return { recorded: true };
   }
 }

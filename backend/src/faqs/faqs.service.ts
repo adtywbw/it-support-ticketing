@@ -1,9 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { FaqRepository } from '../common/repositories/faq.repository';
+import { FaqInteractionRepository } from '../common/repositories/faq-interaction.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
+import { CreateFaqInteractionDto } from './dto/create-faq-interaction.dto';
 
 function tokenize(value: string): string[] {
   return [...new Set(
@@ -36,9 +39,12 @@ function scoreFaq(
 
 @Injectable()
 export class FaqsService {
+  private readonly logger = new Logger(FaqsService.name);
+
   constructor(
     private readonly faqRepository: FaqRepository,
     private readonly categoryRepository: CategoryRepository,
+    private readonly faqInteractionRepository: FaqInteractionRepository,
   ) {}
 
   async findActiveOrdered() {
@@ -133,5 +139,33 @@ export class FaqsService {
       throw new NotFoundException('FAQ not found');
     }
     await this.faqRepository.delete(id);
+  }
+
+  async recordInteraction(dto: CreateFaqInteractionDto, userId: string): Promise<void> {
+    if (dto.faqId && !(await this.faqRepository.findById(dto.faqId))) {
+      throw new NotFoundException('FAQ not found');
+    }
+    if (dto.categoryId && !(await this.categoryRepository.findById(dto.categoryId))) {
+      throw new NotFoundException('Category not found');
+    }
+
+    await this.faqInteractionRepository.create({
+      sessionId: dto.sessionId,
+      userId,
+      faqId: dto.faqId,
+      categoryId: dto.categoryId,
+      eventType: dto.eventType,
+    });
+  }
+
+  @Cron('30 3 * * *')
+  async cleanupOldInteractions(): Promise<void> {
+    const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
+    try {
+      const count = await this.faqInteractionRepository.deleteOlderThan(cutoff);
+      if (count > 0) this.logger.log(`Deleted ${count} expired FAQ interactions`);
+    } catch (error) {
+      this.logger.error('Failed to clean up FAQ interactions', error instanceof Error ? error.stack : undefined);
+    }
   }
 }
