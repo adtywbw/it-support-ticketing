@@ -9,6 +9,7 @@ import type { TicketPriority } from '@/types';
 import { formatFileSize } from '@/lib/utils';
 import { MAX_TICKET_ATTACHMENT_SIZE } from '@/lib/constants';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import TicketSolutionSuggestions from '@/components/tickets/TicketSolutionSuggestions';
 
 interface FormData {
   subject: string;
@@ -39,6 +40,7 @@ export default function CreateTicketForm() {
   const createMutation = useCreateTicket();
   const uploadMutation = useUploadAttachment();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selfServiceSessionId] = useState(() => crypto.randomUUID());
 
   const [formData, setFormData] = useState<FormData>({
     subject: '',
@@ -93,6 +95,7 @@ export default function CreateTicketForm() {
         locationId: formData.locationId,
         itemCode: formData.itemCode.trim() || '-',
         priority: formData.priority as TicketPriority,
+        selfServiceSessionId,
       });
 
       const uploadErrors: string[] = [];
@@ -140,21 +143,6 @@ export default function CreateTicketForm() {
           placeholder="Brief summary of the issue"
         />
         {errors.subject && <p className="mt-1 text-xs text-red-600">{errors.subject}</p>}
-      </div>
-
-      <div>
-        <label htmlFor="description" className="label">
-          Description
-        </label>
-        <textarea
-          id="description"
-          rows={5}
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          className={`input resize-y ${errors.description ? 'border-red-500' : ''}`}
-          placeholder="Detailed description of the issue"
-        />
-        {errors.description && <p className="mt-1 text-xs text-red-600">{errors.description}</p>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -206,7 +194,30 @@ export default function CreateTicketForm() {
           </select>
           {errors.subCategoryId && <p className="mt-1 text-xs text-red-600">{errors.subCategoryId}</p>}
         </div>
+      </div>
 
+      <TicketSolutionSuggestions
+        sessionId={selfServiceSessionId}
+        categoryId={formData.categoryId || undefined}
+        subject={formData.subject}
+      />
+
+      <div>
+        <label htmlFor="description" className="label">
+          Description
+        </label>
+        <textarea
+          id="description"
+          rows={5}
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className={`input resize-y ${errors.description ? 'border-red-500' : ''}`}
+          placeholder="Detailed description of the issue"
+        />
+        {errors.description && <p className="mt-1 text-xs text-red-600">{errors.description}</p>}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
           <label htmlFor="priority" className="label">
             Priority
