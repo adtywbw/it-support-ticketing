@@ -272,6 +272,7 @@ export interface CreateTicketPayload {
   locationId: string;
   itemCode: string;
   priority: TicketPriority;
+  selfServiceSessionId?: string;
 }
 
 export interface Location {
@@ -354,14 +355,64 @@ export interface UpdateSLAConfigPayload {
   isActive?: boolean;
 }
 
-export interface Faq {
+export interface PublicFaq {
   id: string;
   question: string;
   answer: string;
   displayOrder: number;
+}
+
+export interface Faq extends PublicFaq {
   isActive: boolean;
+  categoryId: string | null;
+  keywords: string[];
+  category: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FaqRecommendation extends PublicFaq {
+  categoryId: string | null;
+}
+
+export type ClientFaqInteractionType =
+  | 'RecommendationsShown'
+  | 'ArticleOpened'
+  | 'ProblemResolved';
+
+export interface FaqInteractionPayload {
+  sessionId: string;
+  eventType: ClientFaqInteractionType;
+  faqId?: string;
+  categoryId?: string;
+}
+
+export interface FaqMetric {
+  faqId: string;
+  question: string;
+  sessions: number;
+}
+
+export interface FaqCategoryMetric {
+  categoryId: string;
+  categoryName: string;
+  recommendationSessions: number;
+  resolvedWithoutTicketSessions: number;
+  deflectionRate: number;
+}
+
+export interface FaqAnalytics {
+  range: '30d';
+  from: string;
+  to: string;
+  recommendationSessions: number;
+  resolvedWithoutTicketSessions: number;
+  continuedToTicketSessions: number;
+  deflectionRate: number;
+  continuedToTicketRate: number;
+  topOpenedFaqs: FaqMetric[];
+  topResolvedFaqs: FaqMetric[];
+  categoryStats: FaqCategoryMetric[];
 }
 
 export interface TelegramSettings {
