@@ -362,6 +362,8 @@ it-support-ticketing/
 │       │       ├── notification.repository.ts
 │       │       ├── location.repository.ts
 │       │       ├── telegram-config.repository.ts
+│       │       ├── faq.repository.ts
+│       │       ├── faq-interaction.repository.ts
 │       ├── auth/
 │       │   ├── auth.module.ts
 │       │   ├── auth.controller.ts
@@ -402,6 +404,16 @@ it-support-ticketing/
 │       │   ├── categories.controller.ts
 │       │   ├── categories.service.ts
 │       │   └── dto/
+│       ├── faqs/
+│       │   ├── faqs.module.ts
+│       │   ├── faqs.controller.ts
+│       │   ├── faqs.service.ts
+│       │   └── dto/
+│       │       ├── create-faq.dto.ts
+│       │       ├── update-faq.dto.ts
+│       │       ├── query-faq-recommendations.dto.ts
+│       │       ├── create-faq-interaction.dto.ts
+│       │       └── query-faq-analytics.dto.ts
 │       ├── sub-categories/
 │       │   ├── sub-categories.module.ts
 │       │   ├── sub-categories.controller.ts
