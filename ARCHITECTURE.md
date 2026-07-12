@@ -68,6 +68,7 @@ Business logic services (`TicketsService`, `UsersService`, etc.) depend on **dom
 | `NotificationRepository` | `notification` | `NotificationsService` |
 | `TelegramConfigRepository` | `telegramConfig` | `TelegramService` |
 | `FaqRepository` | `faq` | `FaqsService` |
+| `FaqInteractionRepository` | `faqInteraction` + raw SQL | `FaqsService` |
 | `LocationRepository` | `location` | `LocationsService` |
 | `AuditLogRepository` | `auditLog` | `AuditService`, `AuditLogsService` |
 
@@ -279,6 +280,8 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ NOTE: Privacy-safe — stores no session IP, user agent, or ticket
 │       content. rows older than 180 days are cleaned by cron.
 └─────────────────────────────────────────────────────────────────────┘
+
+Additionally, `GET /api/faqs/recommendations` returns up to five active FAQs ranked by category, subject, and keyword match. `POST /api/faqs/interactions` records self-service events (60 req/min/user throttle). `GET /api/faqs/analytics` provides Admin-only 30-day deflection summary. All interaction events are privacy-safe and never store ticket subjects, descriptions, IP addresses, or user agents.
 
 ---
 
