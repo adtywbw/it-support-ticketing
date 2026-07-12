@@ -1,6 +1,17 @@
 import { Transform } from 'class-transformer';
-import { IsString, IsNotEmpty, IsInt, IsBoolean, IsOptional, Min, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsInt, IsBoolean, IsOptional, IsUUID, IsArray, ArrayMaxSize, Min, MaxLength } from 'class-validator';
 import { trimString } from '../../common/utils/transform.util';
+
+export function normalizeFaqKeywords(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return [...new Set(
+    value
+      .map((item) => typeof item === 'string'
+        ? item.trim().toLowerCase().replace(/\s+/g, ' ')
+        : item)
+      .filter((item) => item !== ''),
+  )];
+}
 
 export class CreateFaqDto {
   @Transform(trimString)
@@ -23,4 +34,16 @@ export class CreateFaqDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }) => normalizeFaqKeywords(value))
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  keywords?: string[];
 }

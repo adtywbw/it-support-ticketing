@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { FaqsService } from '../faqs.service';
 import { FaqRepository } from '../../common/repositories/faq.repository';
+import { CategoryRepository } from '../../common/repositories/category.repository';
 
 describe('FaqsService', () => {
   let service: FaqsService;
@@ -8,6 +9,10 @@ describe('FaqsService', () => {
     FaqRepository,
     'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete'
   >>;
+  let categoryRepository: jest.Mocked<Pick<CategoryRepository, 'findById'>>;
+
+  const categoryId = 'cat-uuid';
+  const faqId = 'faq-uuid';
 
   beforeEach(() => {
     repo = {
@@ -18,10 +23,13 @@ describe('FaqsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     };
-    service = new FaqsService(repo as any);
+    categoryRepository = {
+      findById: jest.fn(),
+    };
+    service = new FaqsService(repo as any, categoryRepository as any);
   });
 
-  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, categoryId: null, keywords: [], createdAt: new Date(), updatedAt: new Date() };
+  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, categoryId: null, category: null, keywords: [], createdAt: new Date(), updatedAt: new Date() };
 
   describe('findActiveOrdered', () => {
     it('delegates to repository.findActiveOrdered', async () => {
@@ -43,7 +51,7 @@ describe('FaqsService', () => {
     it('delegates to repository.create with dto', async () => {
       repo.create.mockResolvedValue(faq);
       await expect(service.create({ question: 'Q', answer: 'A' } as any)).resolves.toEqual(faq);
-      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A', displayOrder: 0, isActive: true });
+      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A', displayOrder: 0, isActive: true, keywords: [], category: undefined });
     });
   });
 
@@ -66,6 +74,42 @@ describe('FaqsService', () => {
       repo.update.mockResolvedValue({ ...faq, isActive: false });
       await expect(service.update('a', { isActive: false } as any)).resolves.toMatchObject({ isActive: false });
       expect(repo.update).toHaveBeenCalledWith('a', { isActive: false });
+    });
+  });
+
+  describe('create with metadata', () => {
+    it('creates FAQ metadata with a category relation', async () => {
+      categoryRepository.findById.mockResolvedValue({ id: categoryId } as any);
+      repo.create.mockResolvedValue({ id: faqId } as any);
+
+      await service.create({
+        question: 'Reset Wi-Fi',
+        answer: 'Restart the adapter.',
+        categoryId,
+        keywords: ['wi-fi'],
+      });
+
+      expect(repo.create).toHaveBeenCalledWith({
+        question: 'Reset Wi-Fi',
+        answer: 'Restart the adapter.',
+        displayOrder: 0,
+        isActive: true,
+        keywords: ['wi-fi'],
+        category: { connect: { id: categoryId } },
+      });
+    });
+  });
+
+  describe('update with metadata', () => {
+    it('disconnects the category when categoryId is null', async () => {
+      repo.findById.mockResolvedValue({ id: faqId } as any);
+      repo.update.mockResolvedValue({ id: faqId } as any);
+
+      await service.update(faqId, { categoryId: null });
+
+      expect(repo.update).toHaveBeenCalledWith(faqId, {
+        category: { disconnect: true },
+      });
     });
   });
 

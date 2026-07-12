@@ -85,4 +85,9 @@ describe('UpdateFaqDto', () => {
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].constraints).toHaveProperty('whitelistValidation');
   });
+
+  it('accepts null categoryId so PATCH can clear the relation', async () => {
+    const errors = await validateDto({ categoryId: null });
+    expect(errors).toHaveLength(0);
+  });
 });

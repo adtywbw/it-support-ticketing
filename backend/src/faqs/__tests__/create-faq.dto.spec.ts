@@ -91,4 +91,25 @@ describe('CreateFaqDto', () => {
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0].constraints).toHaveProperty('whitelistValidation');
   });
+
+  it('normalizes and deduplicates keyword arrays', async () => {
+    const dto = plainToInstance(CreateFaqDto, {
+      question: 'Reset Wi-Fi',
+      answer: 'Restart the adapter.',
+      keywords: [' Wi-Fi ', 'wifi', '', 'WI-FI'],
+    });
+
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.keywords).toEqual(['wi-fi', 'wifi']);
+  });
+
+  it('rejects more than 20 keywords', async () => {
+    const dto = plainToInstance(CreateFaqDto, {
+      question: 'Question',
+      answer: 'Answer',
+      keywords: Array.from({ length: 21 }, (_, index) => `key-${index}`),
+    });
+
+    expect(await validate(dto)).not.toHaveLength(0);
+  });
 });

@@ -9,13 +9,30 @@ export class FaqRepository {
   async findActiveOrdered() {
     return this.prisma.faq.findMany({
       where: { isActive: true },
-      orderBy: { displayOrder: 'asc' },
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, question: true, answer: true, displayOrder: true },
     });
   }
 
   async findAll() {
     return this.prisma.faq.findMany({
-      orderBy: { displayOrder: 'asc' },
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
+      include: { category: { select: { id: true, name: true } } },
+    });
+  }
+
+  async findActiveForRecommendations() {
+    return this.prisma.faq.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        question: true,
+        answer: true,
+        displayOrder: true,
+        updatedAt: true,
+        categoryId: true,
+        keywords: true,
+      },
     });
   }
 

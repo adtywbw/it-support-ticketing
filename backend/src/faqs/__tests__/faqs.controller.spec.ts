@@ -16,7 +16,7 @@ describe('FaqsController', () => {
     controller = new FaqsController(service as any);
   });
 
-  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, categoryId: null, keywords: [], createdAt: new Date(), updatedAt: new Date() };
+  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, categoryId: null, category: null, keywords: [], createdAt: new Date(), updatedAt: new Date() };
 
   it('findAllPublic delegates to service.findActiveOrdered', async () => {
     service.findActiveOrdered.mockResolvedValue([faq]);
