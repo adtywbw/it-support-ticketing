@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import TicketSolutionSuggestions from '../TicketSolutionSuggestions';
 
 const sessionId = 'test-session-123';
-const categoryId = 'cat-1';
+const subCategoryId = 'sub-1';
 const faqId = 'faq-1';
 
 const { mockMutateAsync, mockRecommendations } = vi.hoisted(() => ({
@@ -25,7 +25,7 @@ function renderSuggestions(overrides: Record<string, unknown> = {}) {
     <MemoryRouter>
       <TicketSolutionSuggestions
         sessionId={sessionId}
-        categoryId={categoryId}
+        subCategoryId={subCategoryId}
         subject="wifi issue"
         {...overrides}
       />
@@ -53,7 +53,7 @@ describe('TicketSolutionSuggestions', () => {
     expect(mockMutateAsync).toHaveBeenCalledTimes(1);
     expect(mockMutateAsync).toHaveBeenCalledWith({
       sessionId,
-      categoryId,
+      subCategoryId,
       eventType: 'RecommendationsShown',
     });
   });
@@ -79,12 +79,11 @@ describe('TicketSolutionSuggestions', () => {
     expect(openedCalls[0][0]).toEqual({
       sessionId,
       faqId,
-      categoryId,
       eventType: 'ArticleOpened',
     });
   });
 
-  it('renders null when categoryId and subject are both empty', () => {
+  it('renders null when subCategoryId and subject are both empty', () => {
     mockRecommendations.mockReturnValue({
       data: [],
       isLoading: false,
@@ -93,7 +92,7 @@ describe('TicketSolutionSuggestions', () => {
 
     const { container } = render(
       <MemoryRouter>
-        <TicketSolutionSuggestions sessionId={sessionId} categoryId="" subject="" />
+        <TicketSolutionSuggestions sessionId={sessionId} subCategoryId="" subject="" />
       </MemoryRouter>,
     );
     expect(container.firstChild).toBeNull();
@@ -147,7 +146,7 @@ describe('TicketSolutionSuggestions', () => {
 
     rerender(
       <MemoryRouter>
-        <TicketSolutionSuggestions sessionId={sessionId} categoryId={categoryId} subject="different" />
+        <TicketSolutionSuggestions sessionId={sessionId} subCategoryId={subCategoryId} subject="different" />
       </MemoryRouter>,
     );
 
@@ -173,7 +172,6 @@ describe('TicketSolutionSuggestions', () => {
     expect(mockMutateAsync).toHaveBeenCalledWith({
       sessionId,
       faqId,
-      categoryId,
       eventType: 'ProblemResolved',
     });
   });
@@ -206,5 +204,73 @@ describe('TicketSolutionSuggestions', () => {
     // The second rejection should NOT trigger a second toast because interactionErrorShownRef is already set
     // We can't easily assert toast count here, but the test confirms no crash
     expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays hidden and disabled without a sub-category even when subject is present', () => {
+    mockRecommendations.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <TicketSolutionSuggestions sessionId={sessionId} subject="wifi adapter issue" />
+      </MemoryRouter>,
+    );
+
+    expect(mockRecommendations).toHaveBeenCalledWith({ subCategoryId: undefined, query: undefined });
+    expect(screen.queryByText('Solutions that might help')).not.toBeInTheDocument();
+  });
+
+  it('records RecommendationsShown once for each viewed sub-category', async () => {
+    const firstId = 'sub-first';
+    const secondId = 'sub-second';
+    mockRecommendations.mockReturnValue({
+      data: [{ id: faqId, question: 'Reset Wi-Fi', answer: 'Restart it.' }],
+      isLoading: false,
+      isError: false,
+    });
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <TicketSolutionSuggestions sessionId={sessionId} subCategoryId={firstId} subject="wifi" />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Solutions that might help');
+
+    rerender(
+      <MemoryRouter>
+        <TicketSolutionSuggestions sessionId={sessionId} subCategoryId={secondId} subject="wifi" />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalledWith({
+      sessionId,
+      subCategoryId: secondId,
+      eventType: 'RecommendationsShown',
+    }));
+  });
+
+  it('does not send taxonomy context for ArticleOpened', async () => {
+    mockRecommendations.mockReturnValue({
+      data: [{ id: faqId, question: 'Reset Wi-Fi', answer: 'Restart it.' }],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <TicketSolutionSuggestions sessionId={sessionId} subCategoryId={subCategoryId} subject="wifi" />
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByText('Reset Wi-Fi'));
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      sessionId,
+      faqId,
+      eventType: 'ArticleOpened',
+    });
   });
 });

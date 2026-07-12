@@ -118,7 +118,7 @@ describe("Accessibility (a11y)", () => {
     const { container } = render(
       <TicketSolutionSuggestions
         sessionId="c8fc98e1-0cab-4f60-8904-600adbf348c2"
-        categoryId="73955f5b-d64c-4fc7-b497-378e688bb25a"
+        subCategoryId="73955f5b-d64c-4fc7-b497-378e688bb25a"
         subject="wifi adapter issue"
       />,
       { wrapper: TestWrapper },

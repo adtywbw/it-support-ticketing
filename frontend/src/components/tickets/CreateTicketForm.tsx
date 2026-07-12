@@ -198,7 +198,7 @@ export default function CreateTicketForm() {
 
       <TicketSolutionSuggestions
         sessionId={selfServiceSessionId}
-        categoryId={formData.categoryId || undefined}
+        subCategoryId={formData.subCategoryId || undefined}
         subject={formData.subject}
       />
 

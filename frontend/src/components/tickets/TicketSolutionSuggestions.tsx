@@ -6,19 +6,22 @@ import type { FaqInteractionPayload } from '@/types';
 
 interface TicketSolutionSuggestionsProps {
   sessionId: string;
-  categoryId?: string;
+  subCategoryId?: string;
   subject: string;
 }
 
 export default function TicketSolutionSuggestions({
   sessionId,
-  categoryId,
+  subCategoryId,
   subject,
 }: TicketSolutionSuggestionsProps) {
   const [debouncedSubject, setDebouncedSubject] = useState('');
-  const [resolvedFaqId, setResolvedFaqId] = useState<string | null>(null);
-  const shownRef = useRef(false);
-  const openedRef = useRef(new Set<string>());
+  const [resolved, setResolved] = useState<{
+    subCategoryId: string;
+    faqId: string;
+  } | null>(null);
+  const shownSubCategoriesRef = useRef(new Set<string>());
+  const openedBySubCategoryRef = useRef(new Map<string, Set<string>>());
   const interactionErrorShownRef = useRef(false);
 
   useEffect(() => {
@@ -27,10 +30,20 @@ export default function TicketSolutionSuggestions({
   }, [subject]);
 
   const recommendations = useFaqRecommendations({
-    subCategoryId: categoryId || undefined,
+    subCategoryId: subCategoryId || undefined,
     query: debouncedSubject.length >= 3 ? debouncedSubject : undefined,
   });
   const { mutateAsync: recordInteraction } = useRecordFaqInteraction();
+
+  const getOpenedForCurrentSubCategory = useCallback(() => {
+    if (!subCategoryId) return undefined;
+    let opened = openedBySubCategoryRef.current.get(subCategoryId);
+    if (!opened) {
+      opened = new Set<string>();
+      openedBySubCategoryRef.current.set(subCategoryId, opened);
+    }
+    return opened;
+  }, [subCategoryId]);
 
   const record = useCallback(
     async (payload: FaqInteractionPayload) => {
@@ -49,28 +62,35 @@ export default function TicketSolutionSuggestions({
   );
 
   useEffect(() => {
-    if (!shownRef.current && recommendations.data?.length && categoryId) {
-      shownRef.current = true;
+    if (
+      subCategoryId &&
+      !shownSubCategoriesRef.current.has(subCategoryId) &&
+      recommendations.data?.length
+    ) {
+      shownSubCategoriesRef.current.add(subCategoryId);
       void record({
         sessionId,
-        subCategoryId: categoryId,
+        subCategoryId,
         eventType: 'RecommendationsShown',
       });
     }
-  }, [categoryId, recommendations.data, record, sessionId]);
+  }, [subCategoryId, recommendations.data, record, sessionId]);
 
   const openArticle = (faqId: string) => {
-    if (openedRef.current.has(faqId)) return;
-    openedRef.current.add(faqId);
+    if (!subCategoryId) return;
+    const opened = getOpenedForCurrentSubCategory();
+    if (opened?.has(faqId)) return;
+    opened?.add(faqId);
     void record({ sessionId, faqId, eventType: 'ArticleOpened' });
   };
 
   const resolveProblem = (faqId: string) => {
-    setResolvedFaqId(faqId);
+    if (!subCategoryId) return;
+    setResolved({ subCategoryId, faqId });
     void record({ sessionId, faqId, eventType: 'ProblemResolved' });
   };
 
-  const canRecommend = Boolean(categoryId);
+  const canRecommend = Boolean(subCategoryId);
 
   if (!canRecommend || recommendations.isError) return null;
 
@@ -93,7 +113,7 @@ export default function TicketSolutionSuggestions({
 
   if (!recommendations.data?.length) return null;
 
-  if (resolvedFaqId) {
+  if (resolved && resolved.subCategoryId === subCategoryId) {
     return (
       <section
         className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30"
@@ -112,7 +132,7 @@ export default function TicketSolutionSuggestions({
           <button
             type="button"
             className="btn-secondary btn-sm"
-            onClick={() => setResolvedFaqId(null)}
+            onClick={() => setResolved(null)}
           >
             Continue creating ticket
           </button>
