@@ -9,6 +9,7 @@ Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 - **Feat: self-service interaction analytics (Medium)** — `faq_interactions` table stores privacy-safe session events (RecommendationsShown, ArticleOpened, ProblemResolved, TicketCreated). Admin-only `GET /api/faqs/analytics?range=30d` reports deflection rate, continuation rate, top FAQs, category opportunities. 180-day retention with @Cron cleanup.
 - **Feat: ticket deflection linkage (Medium)** — `Ticket.selfServiceSessionId` links created tickets to self-service sessions. Analytics counts `continuedToTicketSessions` from linked tickets. `TicketCreated` events emitted server-side only (fail-open on error).
 - **Test: E2E + a11y + regression coverage** — 5 new E2E tests (FAQ create, recommendations, analytics auth, linked ticket, cleanup). 1 new a11y test for `TicketSolutionSuggestions`. Full backend + frontend test passes.
+- **Docs**: AGENTS.md, ARCHITECTURE.md, README.md, CHANGELOG.md updated with FAQ self-service API map, schema, and model fields.
 - **Verification**: lint 0 errors ✅ | backend 824/824 tests ✅ | frontend 236/236 tests ✅ | build ✅
 
 ## Session 71 — Brand Rename: "Support Hub" → "IT HelpDesk" (2026-07-10)
