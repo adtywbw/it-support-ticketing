@@ -7,6 +7,7 @@ import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
 import { CreateFaqInteractionDto } from './dto/create-faq-interaction.dto';
+import { QueryFaqAnalyticsDto } from './dto/query-faq-analytics.dto';
 
 function tokenize(value: string): string[] {
   return [...new Set(
@@ -86,6 +87,44 @@ export class FaqsService {
         displayOrder: faq.displayOrder,
         categoryId: faq.categoryId,
       }));
+  }
+
+  async getAnalytics(query: QueryFaqAnalyticsDto) {
+    const to = new Date();
+    const from = new Date(to.getTime() - 30 * 86_400_000);
+    const [summary, topOpenedFaqs, topResolvedFaqs, categoryRows] = await Promise.all([
+      this.faqInteractionRepository.getSummary(from),
+      this.faqInteractionRepository.getTopOpenedFaqs(from),
+      this.faqInteractionRepository.getTopResolvedFaqs(from),
+      this.faqInteractionRepository.getCategoryStats(from),
+    ]);
+
+    const percentage = (value: number, total: number) =>
+      total === 0 ? 0 : Math.round((value / total) * 1000) / 10;
+
+    return {
+      range: query.range,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      ...summary,
+      deflectionRate: percentage(
+        summary.resolvedWithoutTicketSessions,
+        summary.recommendationSessions,
+      ),
+      continuedToTicketRate: percentage(
+        summary.continuedToTicketSessions,
+        summary.recommendationSessions,
+      ),
+      topOpenedFaqs,
+      topResolvedFaqs,
+      categoryStats: categoryRows.map((row) => ({
+        ...row,
+        deflectionRate: percentage(
+          row.resolvedWithoutTicketSessions,
+          row.recommendationSessions,
+        ),
+      })),
+    };
   }
 
   async create(dto: CreateFaqDto) {

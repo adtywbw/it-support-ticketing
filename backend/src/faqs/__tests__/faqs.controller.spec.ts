@@ -4,7 +4,7 @@ import { FaqInteractionType } from '@prisma/client';
 
 describe('FaqsController', () => {
   let controller: FaqsController;
-  let service: jest.Mocked<Pick<FaqsService, 'findActiveOrdered' | 'findAll' | 'create' | 'update' | 'remove' | 'getRecommendations' | 'recordInteraction'>>;
+  let service: jest.Mocked<Pick<FaqsService, 'findActiveOrdered' | 'findAll' | 'create' | 'update' | 'remove' | 'getRecommendations' | 'getAnalytics' | 'recordInteraction'>>;
 
   beforeEach(() => {
     service = {
@@ -14,6 +14,7 @@ describe('FaqsController', () => {
       update: jest.fn(),
       remove: jest.fn(),
       getRecommendations: jest.fn(),
+      getAnalytics: jest.fn(),
       recordInteraction: jest.fn(),
     };
     controller = new FaqsController(service as any);
@@ -46,6 +47,13 @@ describe('FaqsController', () => {
     service.remove.mockResolvedValue(undefined);
     await expect(controller.remove('a')).resolves.toEqual({ message: 'FAQ deleted successfully' });
     expect(service.remove).toHaveBeenCalledWith('a');
+  });
+
+  it('getAnalytics delegates to service.getAnalytics', async () => {
+    const dto = { range: '30d' };
+    service.getAnalytics.mockResolvedValue({ range: '30d' } as any);
+    await expect(controller.getAnalytics(dto as any)).resolves.toEqual({ range: '30d' });
+    expect(service.getAnalytics).toHaveBeenCalledWith(dto);
   });
 
   it('getRecommendations delegates to service.getRecommendations', async () => {

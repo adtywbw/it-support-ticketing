@@ -12,7 +12,7 @@ describe('FaqsService', () => {
     'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete' | 'findActiveForRecommendations'
   >>;
   let categoryRepository: jest.Mocked<Pick<CategoryRepository, 'findById'>>;
-  let interactionRepository: jest.Mocked<Pick<FaqInteractionRepository, 'create' | 'deleteOlderThan'>>;
+  let interactionRepository: jest.Mocked<Pick<FaqInteractionRepository, 'create' | 'deleteOlderThan' | 'getSummary' | 'getTopOpenedFaqs' | 'getTopResolvedFaqs' | 'getCategoryStats'>>;
 
   const categoryId = 'cat-uuid';
   const faqId = 'faq-uuid';
@@ -36,6 +36,10 @@ describe('FaqsService', () => {
     interactionRepository = {
       create: jest.fn(),
       deleteOlderThan: jest.fn(),
+      getSummary: jest.fn(),
+      getTopOpenedFaqs: jest.fn(),
+      getTopResolvedFaqs: jest.fn(),
+      getCategoryStats: jest.fn(),
     };
     service = new FaqsService(repo as any, categoryRepository as any, interactionRepository as any);
   });
@@ -201,6 +205,40 @@ describe('FaqsService', () => {
         categoryId: undefined,
         eventType: FaqInteractionType.RecommendationsShown,
       });
+    });
+  });
+
+  describe('getAnalytics', () => {
+    it('returns zero rates when no recommendation sessions exist', async () => {
+      interactionRepository.getSummary.mockResolvedValue({
+        recommendationSessions: 0,
+        resolvedWithoutTicketSessions: 0,
+        continuedToTicketSessions: 0,
+      });
+      interactionRepository.getTopOpenedFaqs.mockResolvedValue([]);
+      interactionRepository.getTopResolvedFaqs.mockResolvedValue([]);
+      interactionRepository.getCategoryStats.mockResolvedValue([]);
+
+      const result = await service.getAnalytics({ range: '30d' });
+
+      expect(result.deflectionRate).toBe(0);
+      expect(result.continuedToTicketRate).toBe(0);
+      expect(result.range).toBe('30d');
+    });
+
+    it('rounds rates to one decimal', async () => {
+      interactionRepository.getSummary.mockResolvedValue({
+        recommendationSessions: 3,
+        resolvedWithoutTicketSessions: 1,
+        continuedToTicketSessions: 2,
+      });
+      interactionRepository.getTopOpenedFaqs.mockResolvedValue([]);
+      interactionRepository.getTopResolvedFaqs.mockResolvedValue([]);
+      interactionRepository.getCategoryStats.mockResolvedValue([]);
+
+      const result = await service.getAnalytics({ range: '30d' });
+      expect(result.deflectionRate).toBe(33.3);
+      expect(result.continuedToTicketRate).toBe(66.7);
     });
   });
 

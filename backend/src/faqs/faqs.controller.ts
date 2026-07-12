@@ -6,6 +6,7 @@ import { FaqsService } from './faqs.service';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
+import { QueryFaqAnalyticsDto } from './dto/query-faq-analytics.dto';
 import { CreateFaqInteractionDto } from './dto/create-faq-interaction.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -33,6 +34,13 @@ export class FaqsController {
   @Get('recommendations')
   getRecommendations(@Query() query: QueryFaqRecommendationsDto) {
     return this.faqsService.getRecommendations(query);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
+  @Get('analytics')
+  getAnalytics(@Query() query: QueryFaqAnalyticsDto) {
+    return this.faqsService.getAnalytics(query);
   }
 
   @UseGuards(RolesGuard)
