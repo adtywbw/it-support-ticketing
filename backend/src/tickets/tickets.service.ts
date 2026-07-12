@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  Logger,
 } from "@nestjs/common";
 import { Response } from "express";
 import { EventEmitter2 } from "@nestjs/event-emitter";
@@ -31,12 +32,14 @@ import {
   CommentType,
   AttachmentVisibility,
   Prisma,
+  FaqInteractionType,
 } from "@prisma/client";
 import { STORAGE_SERVICE } from "../attachments/interfaces/storage-service.interface";
 import type { StorageService } from "../attachments/interfaces/storage-service.interface";
 import { AttachmentVisibilityPolicy } from "../common/policies/attachment-visibility.policy";
 import { buildPaginationMeta } from "../common/utils/pagination.util";
 import { appConfig } from "../common/config/app.config";
+import { FaqInteractionRepository } from "../common/repositories/faq-interaction.repository";
 
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   [TicketStatus.Open]: [TicketStatus.InProgress],
@@ -160,6 +163,8 @@ function buildTicketQueryInput(
 
 @Injectable()
 export class TicketsService {
+  private readonly logger = new Logger(TicketsService.name);
+
   constructor(
     private readonly ticketRepository: TicketRepository,
     private readonly categoryRepository: CategoryRepository,
@@ -169,6 +174,7 @@ export class TicketsService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: StorageService,
+    private readonly faqInteractionRepository: FaqInteractionRepository,
   ) {}
 
   async create(createTicketDto: CreateTicketDto, requesterId: string) {
@@ -219,6 +225,22 @@ export class TicketsService {
       requesterId,
       requesterEmail: ticket.requester.email,
     });
+
+    if (createTicketDto.selfServiceSessionId) {
+      try {
+        await this.faqInteractionRepository.create({
+          sessionId: createTicketDto.selfServiceSessionId,
+          userId: requesterId,
+          categoryId: createTicketDto.categoryId,
+          eventType: FaqInteractionType.TicketCreated,
+        });
+      } catch (error) {
+        this.logger.error(
+          "Failed to record FAQ TicketCreated interaction",
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
 
     return ticket;
   }

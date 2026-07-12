@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TicketsService } from './tickets.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TicketStatus, Priority, SLAStatus } from '@prisma/client';
+import { TicketStatus, Priority, SLAStatus, FaqInteractionType } from '@prisma/client';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { QueryTicketDto } from './dto/query-ticket.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -12,6 +12,7 @@ import { SubCategoryRepository } from '../common/repositories/sub-category.repos
 import { UserRepository } from '../common/repositories/user.repository';
 import { SLAService } from '../sla/sla.service';
 import { STORAGE_SERVICE } from '../attachments/interfaces/storage-service.interface';
+import { FaqInteractionRepository } from '../common/repositories/faq-interaction.repository';
 
 describe('TicketsService', () => {
   let service: TicketsService;
@@ -20,6 +21,7 @@ describe('TicketsService', () => {
   let subCategoryRepository: any;
   let userRepository: any;
   let eventEmitter: any;
+  let faqInteractionRepository: any;
 
   const mockTicketRepository = {
     create: jest.fn(),
@@ -77,6 +79,10 @@ describe('TicketsService', () => {
     getReadStream: jest.fn(),
   };
 
+  const mockFaqInteractionRepository = {
+    create: jest.fn().mockResolvedValue({}),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -88,6 +94,7 @@ describe('TicketsService', () => {
         { provide: SLAService, useValue: mockSlaService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: STORAGE_SERVICE, useValue: mockStorageService },
+        { provide: FaqInteractionRepository, useValue: mockFaqInteractionRepository },
       ],
     }).compile();
 
@@ -97,6 +104,7 @@ describe('TicketsService', () => {
     subCategoryRepository = module.get(SubCategoryRepository);
     userRepository = module.get(UserRepository);
     eventEmitter = module.get(EventEmitter2);
+    faqInteractionRepository = module.get(FaqInteractionRepository);
 
     mockTicketRepository.transaction.mockImplementation(
       (fn: (tx: Record<string, unknown>) => unknown) =>
@@ -387,6 +395,69 @@ describe('TicketsService', () => {
         }),
         expect.any(Object),
       );
+    });
+
+    describe('FAQ analytics integration', () => {
+      const sessionId = '550e8400-e29b-41d4-a716-446655440003';
+      const createdTicket = {
+        id: 'ticket-1',
+        ticketNumber: 'TKT-001',
+        subject: createTicketDto.subject,
+        description: createTicketDto.description,
+        requesterId,
+        categoryId: createTicketDto.categoryId,
+        subCategoryId: null,
+        priority: Priority.High,
+        slaDueAt: null,
+        slaStatus: null,
+        status: TicketStatus.Open,
+        requester: { id: requesterId, name: 'John Doe', email: 'john@test.com' },
+        category: { id: 'cat-1', name: 'Network' },
+        subCategory: null,
+      };
+
+      beforeEach(() => {
+        mockCategoryRepository.findById.mockResolvedValue({
+          id: 'cat-1',
+          name: 'Network',
+          isActive: true,
+        });
+        mockTicketRepository.findFirst.mockResolvedValue(null);
+        mockTicketRepository.create.mockResolvedValue(createdTicket);
+        jest.clearAllMocks();
+      });
+
+      it('records TicketCreated after successful ticket creation', async () => {
+        const result = await service.create(
+          { ...createTicketDto, selfServiceSessionId: sessionId },
+          requesterId,
+        );
+
+        expect(result).toEqual(createdTicket);
+        expect(faqInteractionRepository.create).toHaveBeenCalledWith({
+          sessionId,
+          userId: requesterId,
+          categoryId: createTicketDto.categoryId,
+          eventType: FaqInteractionType.TicketCreated,
+        });
+      });
+
+      it('does not write FAQ analytics without a session ID', async () => {
+        await service.create(createTicketDto, requesterId);
+        expect(faqInteractionRepository.create).not.toHaveBeenCalled();
+      });
+
+      it('returns the ticket when FAQ analytics recording fails', async () => {
+        faqInteractionRepository.create.mockRejectedValue(
+          new Error('analytics unavailable'),
+        );
+        await expect(
+          service.create(
+            { ...createTicketDto, selfServiceSessionId: sessionId },
+            requesterId,
+          ),
+        ).resolves.toEqual(createdTicket);
+      });
     });
   });
 

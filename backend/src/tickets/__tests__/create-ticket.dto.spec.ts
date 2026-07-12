@@ -66,4 +66,27 @@ describe('CreateTicketDto', () => {
     const errors = await validateDto({ ...validData, description: undefined });
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  describe('selfServiceSessionId', () => {
+    it('should pass when selfServiceSessionId is a valid UUID', async () => {
+      const errors = await validateDto({
+        ...validData,
+        selfServiceSessionId: '550e8400-e29b-41d4-a716-446655440003',
+      });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should pass when selfServiceSessionId is not provided', async () => {
+      const errors = await validateDto(validData);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should reject an invalid UUID for selfServiceSessionId', async () => {
+      const errors = await validateDto({
+        ...validData,
+        selfServiceSessionId: 'not-a-valid-uuid',
+      });
+      expect(errors.length).toBeGreaterThan(0);
+    });
+  });
 });

@@ -55,4 +55,9 @@ export class CreateTicketDto {
   @IsOptional()
   @IsEnum(Priority)
   priority?: Priority;
+
+  @ApiProperty({ description: 'Self-service session ID for FAQ analytics', required: false, example: '550e8400-e29b-41d4-a716-446655440003' })
+  @IsOptional()
+  @IsUUID()
+  selfServiceSessionId?: string;
 }
