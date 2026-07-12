@@ -30,6 +30,7 @@ export default function FaqManager() {
   const [formAnswer, setFormAnswer] = useState('');
   const [formOrder, setFormOrder] = useState(0);
   const [formActive, setFormActive] = useState(true);
+  const [formCategoryId, setFormCategoryId] = useState('');
   const [formSubCategoryId, setFormSubCategoryId] = useState('');
   const [formShowOnLogin, setFormShowOnLogin] = useState(true);
   const [formKeywords, setFormKeywords] = useState('');
@@ -43,12 +44,16 @@ export default function FaqManager() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const selectedCategory = categories?.find((c) => c.id === formCategoryId);
+  const subCategories = selectedCategory?.subCategories ?? [];
+
   const openCreate = () => {
     setEditingItem(null);
     setFormQuestion('');
     setFormAnswer('');
     setFormOrder(0);
     setFormActive(true);
+    setFormCategoryId('');
     setFormSubCategoryId('');
     setFormShowOnLogin(true);
     setFormKeywords('');
@@ -61,6 +66,7 @@ export default function FaqManager() {
     setFormAnswer(faq.answer);
     setFormOrder(faq.displayOrder);
     setFormActive(faq.isActive);
+    setFormCategoryId(faq.subCategory.category.id);
     setFormSubCategoryId(faq.subCategoryId);
     setFormShowOnLogin(faq.showOnLogin);
     setFormKeywords(faq.keywords.join(', '));
@@ -98,6 +104,8 @@ export default function FaqManager() {
     deleteMutation.mutate(deletingId, { onSuccess: () => setIsDeleteOpen(false) });
   };
 
+  const canSave = formQuestion.trim() && formAnswer.trim() && formSubCategoryId;
+
   const isPending =
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
@@ -127,8 +135,10 @@ export default function FaqManager() {
               <thead className="bg-blue-50 dark:bg-navy-900">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Question</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Category / Sub-category</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Order</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Active</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Show on Login</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-navy-500 uppercase dark:text-blue-300">Actions</th>
                 </tr>
               </thead>
@@ -136,9 +146,20 @@ export default function FaqManager() {
                 {faqs.map((faq) => (
                   <tr key={faq.id}>
                     <td className="px-6 py-4 text-sm text-navy-950 dark:text-blue-50 max-w-md truncate">{faq.question}</td>
+                    <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">
+                      {faq.subCategory.category.name} &gt; {faq.subCategory.name}
+                    </td>
                     <td className="px-6 py-4 text-sm text-navy-500 dark:text-blue-300">{faq.displayOrder}</td>
                     <td className="px-6 py-4">
                       <Switch checked={faq.isActive} onChange={() => handleToggleActive(faq)} disabled={isPending} label={"Toggle " + faq.question} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <Switch
+                        checked={faq.showOnLogin}
+                        onChange={() => updateMutation.mutate({ id: faq.id, payload: { showOnLogin: !faq.showOnLogin } })}
+                        disabled={isPending}
+                        label={"Toggle login visibility for " + faq.question}
+                      />
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
                       <button onClick={() => openEdit(faq)} className="btn-secondary btn-sm">Edit</button>
@@ -201,19 +222,35 @@ export default function FaqManager() {
             </div>
           </div>
           <div>
+            <label htmlFor="faq-category" className="label">Category</label>
+            <select
+              id="faq-category"
+              value={formCategoryId}
+              onChange={(e) => {
+                setFormCategoryId(e.target.value);
+                setFormSubCategoryId('');
+              }}
+              className="input"
+            >
+              <option value="">Select category</option>
+              {categories?.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="faq-subcategory" className="label">Sub-category</label>
             <select
               id="faq-subcategory"
               value={formSubCategoryId}
               onChange={(e) => setFormSubCategoryId(e.target.value)}
               className="input"
+              disabled={!formCategoryId}
             >
               <option value="">Select sub-category</option>
-              {categories?.flatMap((cat) =>
-                (cat.subCategories ?? []).map((sub) => (
-                  <option key={sub.id} value={sub.id}>{cat.name} &gt; {sub.name}</option>
-                )),
-              )}
+              {subCategories.map((sub) => (
+                <option key={sub.id} value={sub.id}>{sub.name}</option>
+              ))}
             </select>
           </div>
           <div className="flex items-end gap-2 pb-1">
@@ -242,7 +279,7 @@ export default function FaqManager() {
             <button
               onClick={handleSave}
               className="btn-primary"
-              disabled={isPending || !formQuestion.trim() || !formAnswer.trim()}
+              disabled={isPending || !canSave}
             >
               {isPending ? 'Saving...' : 'Save'}
             </button>

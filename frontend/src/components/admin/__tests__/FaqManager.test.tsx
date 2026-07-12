@@ -34,6 +34,8 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 const categoryId = 'cat-1';
+const secondCategoryId = 'cat-2';
+const subCategoryId = 'sub-1';
 
 function mockFaqAnalyticsError() {
   mockUseFaqAnalytics.mockReturnValue({
@@ -56,9 +58,14 @@ describe('FaqManager', () => {
           answer: 'Answer.',
           displayOrder: 0,
           isActive: true,
-          categoryId: null,
+          showOnLogin: false,
+          subCategoryId: 'sub-1',
           keywords: [],
-          category: null,
+          subCategory: {
+            id: 'sub-1',
+            name: 'Wi-Fi',
+            category: { id: 'cat-1', name: 'Network' },
+          },
           createdAt: '',
           updatedAt: '',
         },
@@ -86,14 +93,25 @@ describe('FaqManager', () => {
         continuedToTicketRate: 20,
         topOpenedFaqs: [],
         topResolvedFaqs: [],
-        categoryStats: [],
+        subCategoryStats: [],
       },
       refetch: mockRefetchAnalytics,
     });
     mockUseCategories.mockReturnValue({
       data: [
-        { id: 'cat-1', name: 'Network', isActive: true },
-        { id: 'cat-2', name: 'Software', isActive: true },
+        {
+          id: 'cat-1', name: 'Network', isActive: true,
+          subCategories: [
+            { id: 'sub-1', name: 'Wi-Fi', isActive: true },
+            { id: 'sub-3', name: 'VPN', isActive: true },
+          ],
+        },
+        {
+          id: 'cat-2', name: 'Software', isActive: true,
+          subCategories: [
+            { id: 'sub-2', name: 'Office', isActive: true },
+          ],
+        },
       ],
       isLoading: false,
       isError: false,
@@ -102,23 +120,51 @@ describe('FaqManager', () => {
     });
   });
 
-  it('submits normalized category and comma-separated keywords', async () => {
+  it('submits metadata with sub-category id and keywords', async () => {
     const user = userEvent.setup();
     render(<FaqManager />);
     await user.click(screen.getByRole('button', { name: /add faq/i }));
     await user.type(screen.getByLabelText(/question/i), 'Reset Wi-Fi');
     await user.type(screen.getByLabelText(/answer/i), 'Restart the adapter.');
-    await user.selectOptions(screen.getByLabelText(/category/i), categoryId);
+    await user.selectOptions(screen.getByLabelText(/^category$/i), categoryId);
+    await user.selectOptions(screen.getByLabelText(/sub-category/i), subCategoryId);
     await user.type(screen.getByLabelText(/keywords/i), ' Wi-Fi, adapter, wi-fi ');
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     expect(mockCreateMutate).toHaveBeenCalledWith(
       expect.objectContaining({
-        categoryId,
+        subCategoryId,
+        showOnLogin: true,
         keywords: ['wi-fi', 'adapter'],
       }),
       expect.anything(),
     );
+  });
+
+  it('requires and submits the selected sub-category', async () => {
+    const user = userEvent.setup();
+    render(<FaqManager />);
+    await user.click(screen.getByRole('button', { name: /add faq/i }));
+    await user.selectOptions(screen.getByLabelText(/^category$/i), categoryId);
+    expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled();
+    await user.selectOptions(screen.getByLabelText(/sub-category/i), subCategoryId);
+    await user.type(screen.getByLabelText(/question/i), 'Question');
+    await user.type(screen.getByLabelText(/answer/i), 'Answer');
+    await user.click(screen.getByRole('button', { name: /^save$/i }));
+    expect(mockCreateMutate).toHaveBeenCalledWith(expect.objectContaining({
+      subCategoryId,
+      showOnLogin: true,
+    }), expect.anything());
+  });
+
+  it('clears sub-category when category changes', async () => {
+    const user = userEvent.setup();
+    render(<FaqManager />);
+    await user.click(screen.getByRole('button', { name: /add faq/i }));
+    await user.selectOptions(screen.getByLabelText(/^category$/i), categoryId);
+    await user.selectOptions(screen.getByLabelText(/sub-category/i), subCategoryId);
+    await user.selectOptions(screen.getByLabelText(/^category$/i), secondCategoryId);
+    expect(screen.getByLabelText(/sub-category/i)).toHaveValue('');
   });
 
   it('shows analytics retry UI when the summary query fails', async () => {
