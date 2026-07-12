@@ -9,6 +9,7 @@ import { SlaConfigRepository } from './sla-config.repository';
 import { NotificationRepository } from './notification.repository';
 import { TelegramConfigRepository } from './telegram-config.repository';
 import { FaqRepository } from './faq.repository';
+import { FaqInteractionRepository } from './faq-interaction.repository';
 import { AuditLogRepository } from './audit-log.repository';
 import { LocationRepository } from './location.repository';
 
@@ -25,6 +26,7 @@ import { LocationRepository } from './location.repository';
     NotificationRepository,
     TelegramConfigRepository,
     FaqRepository,
+    FaqInteractionRepository,
     LocationRepository,
     AuditLogRepository,
   ],
@@ -39,6 +41,7 @@ import { LocationRepository } from './location.repository';
     NotificationRepository,
     TelegramConfigRepository,
     FaqRepository,
+    FaqInteractionRepository,
     LocationRepository,
     AuditLogRepository,
   ],

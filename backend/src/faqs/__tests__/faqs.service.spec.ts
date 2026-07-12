@@ -21,7 +21,7 @@ describe('FaqsService', () => {
     service = new FaqsService(repo as any);
   });
 
-  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, createdAt: new Date(), updatedAt: new Date() };
+  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, categoryId: null, keywords: [], createdAt: new Date(), updatedAt: new Date() };
 
   describe('findActiveOrdered', () => {
     it('delegates to repository.findActiveOrdered', async () => {

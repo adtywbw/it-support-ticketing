@@ -28,6 +28,7 @@ model User {
   attachments     Attachment[]
   notifications   Notification[]
   ticketHistories TicketHistory[]
+  faqInteractions FaqInteraction[]
 
   @@index([email])
   @@index([role])
@@ -191,6 +192,8 @@ model Category {
   subCategories SubCategory[]
   tickets       Ticket[]
   slaConfigs    SLAConfig[]
+  faqs          Faq[]
+  faqInteractions FaqInteraction[]
 
   @@map("categories")
 }
@@ -274,16 +277,47 @@ model TelegramConfig {
   @@map("telegram_config")
 }
 
+enum FaqInteractionType {
+  RecommendationsShown
+  ArticleOpened
+  ProblemResolved
+  TicketCreated
+}
+
 model Faq {
-  id           String   @id @default(uuid())
+  id           String           @id @default(uuid())
   question     String
   answer       String
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  displayOrder Int              @default(0)
+  isActive     Boolean          @default(true)
+  categoryId   String?
+  keywords     String[]         @default([])
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  interactions FaqInteraction[]
 
+  @@index([categoryId, isActive])
   @@map("faqs")
+}
+
+model FaqInteraction {
+  id         String             @id @default(uuid())
+  sessionId  String
+  userId     String?
+  faqId      String?
+  categoryId String?
+  eventType  FaqInteractionType
+  createdAt  DateTime           @default(now())
+  user       User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  faq        Faq?               @relation(fields: [faqId], references: [id], onDelete: SetNull)
+  category   Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([sessionId, eventType])
+  @@index([faqId, createdAt])
+  @@index([categoryId, createdAt])
+  @@map("faq_interactions")
 }
 
 model AuditLog {
