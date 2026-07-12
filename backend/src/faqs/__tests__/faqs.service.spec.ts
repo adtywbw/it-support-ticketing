@@ -9,9 +9,9 @@ describe('FaqsService', () => {
   let service: FaqsService;
   let repo: jest.Mocked<Pick<
     FaqRepository,
-    'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete' | 'findActiveForRecommendations'
+    'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete' | 'findActiveForRecommendations' | 'findActiveById'
   >>;
-  let subCategoryRepository: jest.Mocked<Pick<SubCategoryRepository, 'findById'>>;
+  let subCategoryRepository: jest.Mocked<Pick<SubCategoryRepository, 'findById' | 'findUnique'>>;
   let interactionRepository: jest.Mocked<Pick<FaqInteractionRepository, 'create' | 'deleteOlderThan' | 'getSummary' | 'getTopOpenedFaqs' | 'getTopResolvedFaqs' | 'getCategoryStats'>>;
 
   const subCategoryId = 'sc-uuid';
@@ -29,9 +29,11 @@ describe('FaqsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       findActiveForRecommendations: jest.fn(),
+      findActiveById: jest.fn(),
     };
     subCategoryRepository = {
       findById: jest.fn(),
+      findUnique: jest.fn(),
     };
     interactionRepository = {
       create: jest.fn(),
@@ -133,22 +135,24 @@ describe('FaqsService', () => {
   });
 
   describe('getRecommendations', () => {
-    it('ranks sub-category, question, keyword, and answer matches deterministically', async () => {
-      subCategoryRepository.findById.mockResolvedValue({ id: subCategoryId } as any);
+    it('returns only exact-sub-category candidates and preserves text ranking', async () => {
+      subCategoryRepository.findUnique.mockResolvedValue({
+        id: subCategoryId, isActive: true, category: { isActive: true },
+      } as any);
       repo.findActiveForRecommendations.mockResolvedValue([
-        { id: 'category', question: 'General setup', answer: 'Steps', subCategoryId, keywords: [], displayOrder: 3, showOnLogin: false, updatedAt: new Date('2026-01-01') },
-        { id: 'question', question: 'Reset Wi-Fi adapter', answer: 'Steps', subCategoryId, keywords: [], displayOrder: 1, showOnLogin: false, updatedAt: new Date('2026-01-01') },
-        { id: 'keyword', question: 'Network guide', answer: 'Steps', subCategoryId: 'other-sc', keywords: ['wi-fi'], displayOrder: 2, showOnLogin: false, updatedAt: new Date('2026-01-01') },
+        { id: 'keyword', question: 'Network guide', answer: 'Steps', subCategoryId, keywords: ['wifi'], displayOrder: 2, updatedAt: new Date('2026-01-01') },
+        { id: 'question', question: 'Reset wifi adapter', answer: 'Steps', subCategoryId, keywords: [], displayOrder: 1, updatedAt: new Date('2026-01-01') },
       ]);
 
-      const result = await service.getRecommendations({ subCategoryId, query: 'wi-fi' });
+      const result = await service.getRecommendations({ subCategoryId, query: 'wifi' });
 
-      expect(result.map((r) => r.id)).toEqual(['question', 'category', 'keyword']);
-      expect(result.every((r) => !('keywords' in r))).toBe(true);
+      expect(repo.findActiveForRecommendations).toHaveBeenCalledWith(subCategoryId);
+      expect(result.map((r) => r.id)).toEqual(['question', 'keyword']);
+      expect(result.every((r) => r.subCategoryId === subCategoryId)).toBe(true);
     });
 
-    it('rejects a request without subCategoryId or query', async () => {
-      await expect(service.getRecommendations({})).rejects.toThrow(BadRequestException);
+    it('rejects a request without subCategoryId', async () => {
+      await expect(service.getRecommendations({} as any)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -168,50 +172,54 @@ describe('FaqsService', () => {
   });
 
   describe('recordInteraction', () => {
-    it('records an article event with the authenticated user', async () => {
-      (repo.findById as jest.Mock).mockResolvedValue({ id: faqId });
-      (subCategoryRepository.findById as jest.Mock).mockResolvedValue({ id: subCategoryId });
-      (interactionRepository.create as jest.Mock).mockResolvedValue({ id: interactionId });
+    it('derives sub-category from the FAQ for ArticleOpened', async () => {
+      repo.findActiveById.mockResolvedValue({ id: faqId, subCategoryId });
 
-      await service.recordInteraction({ sessionId, faqId, subCategoryId, eventType: FaqInteractionType.ArticleOpened }, userId);
+      await service.recordInteraction({ sessionId, faqId, eventType: FaqInteractionType.ArticleOpened }, userId);
 
       expect(interactionRepository.create).toHaveBeenCalledWith({
-        sessionId,
-        userId,
-        faqId,
-        subCategoryId,
-        eventType: FaqInteractionType.ArticleOpened,
+        sessionId, userId, faqId, subCategoryId, eventType: FaqInteractionType.ArticleOpened,
       });
     });
 
-    it('throws NotFoundException when faq does not exist', async () => {
-      (repo.findById as jest.Mock).mockResolvedValue(null);
-      (subCategoryRepository.findById as jest.Mock).mockResolvedValue({ id: subCategoryId });
+    it('derives sub-category from the FAQ for ProblemResolved', async () => {
+      repo.findActiveById.mockResolvedValue({ id: faqId, subCategoryId });
 
-      await expect(service.recordInteraction({ sessionId, faqId, subCategoryId, eventType: FaqInteractionType.ArticleOpened }, userId)).rejects.toThrow(NotFoundException);
+      await service.recordInteraction({ sessionId, faqId, eventType: FaqInteractionType.ProblemResolved }, userId);
+
+      expect(interactionRepository.create).toHaveBeenCalledWith({
+        sessionId, userId, faqId, subCategoryId, eventType: FaqInteractionType.ProblemResolved,
+      });
+    });
+
+    it('throws NotFoundException when FAQ is not found or inactive', async () => {
+      repo.findActiveById.mockResolvedValue(null);
+
+      await expect(
+        service.recordInteraction({ sessionId, faqId, eventType: FaqInteractionType.ArticleOpened }, userId),
+      ).rejects.toThrow(NotFoundException);
       expect(interactionRepository.create).not.toHaveBeenCalled();
     });
 
-    it('throws NotFoundException when subCategory does not exist', async () => {
-      (subCategoryRepository.findById as jest.Mock).mockResolvedValue(null);
-
-      await expect(service.recordInteraction({ sessionId, subCategoryId, eventType: FaqInteractionType.RecommendationsShown }, userId)).rejects.toThrow(NotFoundException);
-      expect(interactionRepository.create).not.toHaveBeenCalled();
-    });
-
-    it('records RecommendationsShown without faqId', async () => {
-      (subCategoryRepository.findById as jest.Mock).mockResolvedValue({ id: subCategoryId });
-      (interactionRepository.create as jest.Mock).mockResolvedValue({ id: interactionId });
+    it('records RecommendationsShown with subCategoryId', async () => {
+      subCategoryRepository.findUnique.mockResolvedValue({
+        id: subCategoryId, isActive: true, category: { isActive: true },
+      } as any);
 
       await service.recordInteraction({ sessionId, subCategoryId, eventType: FaqInteractionType.RecommendationsShown }, userId);
 
       expect(interactionRepository.create).toHaveBeenCalledWith({
-        sessionId,
-        userId,
-        faqId: undefined,
-        subCategoryId,
-        eventType: FaqInteractionType.RecommendationsShown,
+        sessionId, userId, faqId: undefined, subCategoryId, eventType: FaqInteractionType.RecommendationsShown,
       });
+    });
+
+    it('throws NotFoundException when sub-category is inactive for RecommendationsShown', async () => {
+      subCategoryRepository.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.recordInteraction({ sessionId, subCategoryId, eventType: FaqInteractionType.RecommendationsShown }, userId),
+      ).rejects.toThrow(NotFoundException);
+      expect(interactionRepository.create).not.toHaveBeenCalled();
     });
   });
 

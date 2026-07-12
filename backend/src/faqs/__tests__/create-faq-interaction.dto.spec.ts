@@ -29,6 +29,14 @@ describe('CreateFaqInteractionDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('requires subCategoryId for RecommendationsShown', async () => {
+    const dto = plainToInstance(CreateFaqInteractionDto, {
+      sessionId, eventType: FaqInteractionType.RecommendationsShown,
+    });
+    const errors = await validate(dto);
+    expect(errors).not.toHaveLength(0);
+  });
+
   it.each(['ArticleOpened', 'ProblemResolved'])('requires faqId for %s', async (eventType) => {
     const errors = await validateDto({ sessionId, subCategoryId, eventType });
     expect(errors).not.toHaveLength(0);

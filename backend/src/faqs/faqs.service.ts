@@ -8,6 +8,7 @@ import { UpdateFaqDto } from './dto/update-faq.dto';
 import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
 import { CreateFaqInteractionDto } from './dto/create-faq-interaction.dto';
 import { QueryFaqAnalyticsDto } from './dto/query-faq-analytics.dto';
+import { FaqInteractionType } from '@prisma/client';
 
 function tokenize(value: string): string[] {
   return [...new Set(
@@ -21,11 +22,10 @@ function tokenize(value: string): string[] {
 }
 
 function scoreFaq(
-  faq: { question: string; answer: string; subCategoryId: string; keywords: string[] },
-  subCategoryId: string | undefined,
+  faq: { question: string; answer: string; keywords: string[] },
   queryTokens: string[],
 ): number {
-  let score = subCategoryId && faq.subCategoryId === subCategoryId ? 100 : 0;
+  let score = 100;
   const questionTokens = new Set(tokenize(faq.question));
   const answerTokens = new Set(tokenize(faq.answer));
   const keywordTokens = new Set(faq.keywords.flatMap(tokenize));
@@ -57,23 +57,16 @@ export class FaqsService {
   }
 
   async getRecommendations(query: QueryFaqRecommendationsDto) {
-    if (!query.subCategoryId && !query.query) {
-      throw new BadRequestException('subCategoryId or query is required');
-    }
-
-    if (query.subCategoryId && !(await this.subCategoryRepository.findById(query.subCategoryId))) {
-      throw new NotFoundException('Sub-category not found');
-    }
+    const subCategoryId = await this.requireActiveSubCategory(query.subCategoryId);
 
     const queryTokens = tokenize(query.query ?? '');
-    const candidates = await this.faqRepository.findActiveForRecommendations();
+    const candidates = await this.faqRepository.findActiveForRecommendations(subCategoryId);
 
     return candidates
       .map((faq) => ({
         faq,
-        score: scoreFaq(faq, query.subCategoryId, queryTokens),
+        score: scoreFaq(faq, queryTokens),
       }))
-      .filter(({ score }) => score > 0)
       .sort((left, right) =>
         right.score - left.score ||
         left.faq.displayOrder - right.faq.displayOrder ||
@@ -181,21 +174,36 @@ export class FaqsService {
   }
 
   async recordInteraction(dto: CreateFaqInteractionDto, userId: string): Promise<void> {
-    if (dto.faqId && !(await this.faqRepository.findById(dto.faqId))) {
-      throw new NotFoundException('FAQ not found');
-    }
-    const subCategory = await this.subCategoryRepository.findById(dto.subCategoryId);
-    if (!subCategory) {
-      throw new NotFoundException('Sub-category not found');
-    }
+    const subCategoryId = dto.eventType === FaqInteractionType.RecommendationsShown
+      ? await this.requireActiveSubCategory(dto.subCategoryId)
+      : (await this.requireActiveFaq(dto.faqId)).subCategoryId;
 
     await this.faqInteractionRepository.create({
       sessionId: dto.sessionId,
       userId,
       faqId: dto.faqId,
-      subCategoryId: dto.subCategoryId,
+      subCategoryId,
       eventType: dto.eventType,
     });
+  }
+
+  private async requireActiveSubCategory(id: string | undefined): Promise<string> {
+    if (!id) throw new BadRequestException('subCategoryId is required');
+    const subCategory = await this.subCategoryRepository.findUnique({
+      where: { id },
+      include: { category: true },
+    }) as { id: string; isActive: boolean; category: { isActive: boolean } } | null;
+    if (!subCategory || !subCategory.isActive || !subCategory.category.isActive) {
+      throw new NotFoundException('Sub-category not found or inactive');
+    }
+    return subCategory.id;
+  }
+
+  private async requireActiveFaq(id: string | undefined) {
+    if (!id) throw new BadRequestException('faqId is required');
+    const faq = await this.faqRepository.findActiveById(id);
+    if (!faq) throw new NotFoundException('FAQ not found or inactive');
+    return faq;
   }
 
   @Cron('30 3 * * *')

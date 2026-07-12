@@ -22,6 +22,10 @@ export class CreateFaqInteractionDto {
   @IsUUID()
   faqId?: string;
 
+  @ValidateIf((dto: CreateFaqInteractionDto) =>
+    dto.subCategoryId !== undefined ||
+    dto.eventType === FaqInteractionType.RecommendationsShown,
+  )
   @IsUUID()
-  subCategoryId!: string;
+  subCategoryId?: string;
 }

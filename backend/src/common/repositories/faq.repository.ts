@@ -29,19 +29,28 @@ export class FaqRepository {
     });
   }
 
-  async findActiveForRecommendations() {
+  async findActiveForRecommendations(subCategoryId: string) {
     return this.prisma.faq.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        question: true,
-        answer: true,
-        displayOrder: true,
-        updatedAt: true,
-        subCategoryId: true,
-        showOnLogin: true,
-        keywords: true,
+      where: {
+        isActive: true,
+        subCategoryId,
+        subCategory: { isActive: true, category: { isActive: true } },
       },
+      select: {
+        id: true, question: true, answer: true, displayOrder: true,
+        updatedAt: true, subCategoryId: true, keywords: true,
+      },
+    });
+  }
+
+  async findActiveById(id: string) {
+    return this.prisma.faq.findFirst({
+      where: {
+        id,
+        isActive: true,
+        subCategory: { isActive: true, category: { isActive: true } },
+      },
+      select: { id: true, subCategoryId: true },
     });
   }
 
