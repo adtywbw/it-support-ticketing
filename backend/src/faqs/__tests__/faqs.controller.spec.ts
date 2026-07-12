@@ -3,7 +3,7 @@ import { FaqsService } from '../faqs.service';
 
 describe('FaqsController', () => {
   let controller: FaqsController;
-  let service: jest.Mocked<Pick<FaqsService, 'findActiveOrdered' | 'findAll' | 'create' | 'update' | 'remove'>>;
+  let service: jest.Mocked<Pick<FaqsService, 'findActiveOrdered' | 'findAll' | 'create' | 'update' | 'remove' | 'getRecommendations'>>;
 
   beforeEach(() => {
     service = {
@@ -12,6 +12,7 @@ describe('FaqsController', () => {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
+      getRecommendations: jest.fn(),
     };
     controller = new FaqsController(service as any);
   });
@@ -43,5 +44,12 @@ describe('FaqsController', () => {
     service.remove.mockResolvedValue(undefined);
     await expect(controller.remove('a')).resolves.toEqual({ message: 'FAQ deleted successfully' });
     expect(service.remove).toHaveBeenCalledWith('a');
+  });
+
+  it('getRecommendations delegates to service.getRecommendations', async () => {
+    const dto = { categoryId: 'uuid', query: 'wi-fi' };
+    service.getRecommendations.mockResolvedValue([]);
+    await expect(controller.getRecommendations(dto as any)).resolves.toEqual([]);
+    expect(service.getRecommendations).toHaveBeenCalledWith(dto);
   });
 });

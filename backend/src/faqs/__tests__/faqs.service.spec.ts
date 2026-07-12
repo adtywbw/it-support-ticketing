@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { FaqsService } from '../faqs.service';
 import { FaqRepository } from '../../common/repositories/faq.repository';
 import { CategoryRepository } from '../../common/repositories/category.repository';
@@ -7,7 +7,7 @@ describe('FaqsService', () => {
   let service: FaqsService;
   let repo: jest.Mocked<Pick<
     FaqRepository,
-    'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete'
+    'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete' | 'findActiveForRecommendations'
   >>;
   let categoryRepository: jest.Mocked<Pick<CategoryRepository, 'findById'>>;
 
@@ -22,6 +22,7 @@ describe('FaqsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      findActiveForRecommendations: jest.fn(),
     };
     categoryRepository = {
       findById: jest.fn(),
@@ -110,6 +111,26 @@ describe('FaqsService', () => {
       expect(repo.update).toHaveBeenCalledWith(faqId, {
         category: { disconnect: true },
       });
+    });
+  });
+
+  describe('getRecommendations', () => {
+    it('ranks category, question, keyword, and answer matches deterministically', async () => {
+      categoryRepository.findById.mockResolvedValue({ id: categoryId } as any);
+      repo.findActiveForRecommendations.mockResolvedValue([
+        { id: 'category', question: 'General setup', answer: 'Steps', categoryId, keywords: [], displayOrder: 3, updatedAt: new Date('2026-01-01') },
+        { id: 'question', question: 'Reset Wi-Fi adapter', answer: 'Steps', categoryId: null, keywords: [], displayOrder: 1, updatedAt: new Date('2026-01-01') },
+        { id: 'keyword', question: 'Network guide', answer: 'Steps', categoryId: null, keywords: ['wi-fi'], displayOrder: 2, updatedAt: new Date('2026-01-01') },
+      ]);
+
+      const result = await service.getRecommendations({ categoryId, query: 'wi-fi' });
+
+      expect(result.map((faq) => faq.id)).toEqual(['category', 'question', 'keyword']);
+      expect(result.every((faq) => !('keywords' in faq))).toBe(true);
+    });
+
+    it('rejects a request without category or query', async () => {
+      await expect(service.getRecommendations({})).rejects.toThrow(BadRequestException);
     });
   });
 

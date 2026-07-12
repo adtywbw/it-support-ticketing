@@ -1,8 +1,38 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { FaqRepository } from '../common/repositories/faq.repository';
 import { CategoryRepository } from '../common/repositories/category.repository';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
+import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
+
+function tokenize(value: string): string[] {
+  return [...new Set(
+    value
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean),
+  )];
+}
+
+function scoreFaq(
+  faq: { question: string; answer: string; categoryId: string | null; keywords: string[] },
+  categoryId: string | undefined,
+  queryTokens: string[],
+): number {
+  let score = categoryId && faq.categoryId === categoryId ? 100 : 0;
+  const questionTokens = new Set(tokenize(faq.question));
+  const answerTokens = new Set(tokenize(faq.answer));
+  const keywordTokens = new Set(faq.keywords.flatMap(tokenize));
+
+  for (const token of queryTokens) {
+    if (questionTokens.has(token)) score += 10;
+    if (keywordTokens.has(token)) score += 8;
+    if (answerTokens.has(token)) score += 2;
+  }
+  return score;
+}
 
 @Injectable()
 export class FaqsService {
@@ -17,6 +47,39 @@ export class FaqsService {
 
   async findAll() {
     return this.faqRepository.findAll();
+  }
+
+  async getRecommendations(query: QueryFaqRecommendationsDto) {
+    if (!query.categoryId && !query.query) {
+      throw new BadRequestException('categoryId or query is required');
+    }
+
+    if (query.categoryId && !(await this.categoryRepository.findById(query.categoryId))) {
+      throw new NotFoundException('Category not found');
+    }
+
+    const queryTokens = tokenize(query.query ?? '');
+    const candidates = await this.faqRepository.findActiveForRecommendations();
+
+    return candidates
+      .map((faq) => ({
+        faq,
+        score: scoreFaq(faq, query.categoryId, queryTokens),
+      }))
+      .filter(({ score }) => score > 0)
+      .sort((left, right) =>
+        right.score - left.score ||
+        left.faq.displayOrder - right.faq.displayOrder ||
+        right.faq.updatedAt.getTime() - left.faq.updatedAt.getTime(),
+      )
+      .slice(0, 5)
+      .map(({ faq }) => ({
+        id: faq.id,
+        question: faq.question,
+        answer: faq.answer,
+        displayOrder: faq.displayOrder,
+        categoryId: faq.categoryId,
+      }));
   }
 
   async create(dto: CreateFaqDto) {

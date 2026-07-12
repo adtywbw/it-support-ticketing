@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { FaqsService } from './faqs.service';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
+import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -24,6 +25,11 @@ export class FaqsController {
   @Get('all')
   findAllAdmin() {
     return this.faqsService.findAll();
+  }
+
+  @Get('recommendations')
+  getRecommendations(@Query() query: QueryFaqRecommendationsDto) {
+    return this.faqsService.getRecommendations(query);
   }
 
   @UseGuards(RolesGuard)
