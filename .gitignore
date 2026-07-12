@@ -10,6 +10,7 @@ coverage/
 graphify-out/
 nginx/certs/
 backups/
+.superpowers/
 docs/superpowers/
 .idea/
 .vscode/
