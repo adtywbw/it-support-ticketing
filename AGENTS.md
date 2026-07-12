@@ -228,10 +228,10 @@ postgres/postgresql.conf
 - Locations: `GET|POST|PATCH|DELETE /api/locations`. Admin sees all (incl. `_count.tickets`); other roles see active only (`id`, `name`). Admin-only write.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
 - Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
-
+- FAQ: `GET|POST /api/faqs`; `GET|PATCH|DELETE /api/faqs/:id` (Admin CRUD); `GET /api/faqs/recommendations` (authenticated, up to 5 active FAQs filtered by categoryId/query); `POST /api/faqs/interactions` (authenticated, throttled 60/min/user); `GET /api/faqs/analytics?range=30d` (Admin-only deflection analytics). `TicketCreated` interaction events are server-only and fail-open. FAQ analytics must never store ticket subjects, descriptions, IP addresses, user agents, or attachment metadata.
 
 ## Models
-- Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig.
+- Models: User, Ticket, Comment, Attachment, Category, SubCategory, SLAConfig, TicketHistory, Notification, TelegramConfig, Faq, FaqInteraction.
 - User has `notificationPreferences Json?` (nullable JSONB) — per-event enable/disable map; `null` = all on. Role-scoped toggle set defined in `notification-preference.util.ts`.
 - Ticket relates to requester user, assignee user, category, and sub-category.
 - Comment relates to ticket and user.

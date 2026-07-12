@@ -2,6 +2,15 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 72 — Contextual Self-Service: FAQ Recommendations + Deflection Analytics (2026-07-12)
+
+- **Feat: contextual FAQ recommendations (High)** — Up to 5 active FAQs suggested from category, subject, and keywords during ticket creation. Frontend `TicketSolutionSuggestions` component with session tracking (shown, opened, resolved) and debounced subject input.
+- **Feat: FAQ metadata (High)** — Optional `categoryId` and `keywords` array on FAQ model. Admin FAQ manager updated with category select and keyword tags.
+- **Feat: self-service interaction analytics (Medium)** — `faq_interactions` table stores privacy-safe session events (RecommendationsShown, ArticleOpened, ProblemResolved, TicketCreated). Admin-only `GET /api/faqs/analytics?range=30d` reports deflection rate, continuation rate, top FAQs, category opportunities. 180-day retention with @Cron cleanup.
+- **Feat: ticket deflection linkage (Medium)** — `Ticket.selfServiceSessionId` links created tickets to self-service sessions. Analytics counts `continuedToTicketSessions` from linked tickets. `TicketCreated` events emitted server-side only (fail-open on error).
+- **Test: E2E + a11y + regression coverage** — 5 new E2E tests (FAQ create, recommendations, analytics auth, linked ticket, cleanup). 1 new a11y test for `TicketSolutionSuggestions`. Full backend + frontend test passes.
+- **Verification**: lint 0 errors ✅ | backend 824/824 tests ✅ | frontend 236/236 tests ✅ | build ✅
+
 ## Session 71 — Brand Rename: "Support Hub" → "IT HelpDesk" (2026-07-10)
 
 - **Feat: Brand rename (High)** — Changed app name from "Support Hub" to "IT HelpDesk" across all surfaces:

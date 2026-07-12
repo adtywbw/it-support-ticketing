@@ -252,7 +252,33 @@ All repositories are exported from `RepositoriesModule` (marked `@Global()`) and
 │ 1──< tickets (locationId) — ON DELETE SET NULL
 └─────────────────────────────────────────────────────────────────────┘
 
-```
+┌─────────────────────────────────────────────────────────────────────┐
+│ faqs
+│ PK id (UUID)
+│ question                   VARCHAR
+│ answer                     TEXT
+│ FK categoryId → categories  UUID? (nullable)
+│ keywords                   VARCHAR[]? (nullable)
+│ displayOrder               Int     @default(0)
+│ isActive                   Boolean
+│ createdAt                  DateTime
+│ updatedAt                  DateTime
+│ INDEXES: (categoryId), (isActive)
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ faq_interactions
+│ PK id (UUID)
+│ sessionId                  UUID
+│ FK faqId → faqs            UUID? (nullable)
+│ FK categoryId → categories  UUID? (nullable)
+│ FK ticketId → tickets       UUID? (nullable)
+│ eventType                  FaqEventType (RecommendationsShown|ArticleOpened|ProblemResolved|TicketCreated)
+│ createdAt                  DateTime
+│ INDEXES: (sessionId), (createdAt), (eventType), (faqId), (categoryId)
+│ NOTE: Privacy-safe — stores no session IP, user agent, or ticket
+│       content. rows older than 180 days are cleaned by cron.
+└─────────────────────────────────────────────────────────────────────┘
 
 ---
 

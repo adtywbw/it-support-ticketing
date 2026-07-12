@@ -7,6 +7,7 @@
  */
 import * as https from "https";
 import * as http from "http";
+import { randomUUID } from "crypto";
 
 const E2E_HOST = process.env.E2E_HOST || "localhost";
 const E2E_PORT = parseInt(process.env.E2E_PORT || "80", 10);
@@ -347,6 +348,100 @@ describe("E2E Extended Tests", () => {
     const res = await request("GET", "/faqs");
     expect(res.status).toBe(200);
     expect(Array.isArray(res.data.data)).toBe(true);
+  });
+
+  // ── Self-Service Flow ────────────────────────────────────────────
+
+  test("POST /faqs — Admin creates a categorized FAQ", async () => {
+    const categories = await request("GET", "/categories", undefined, tokens.admin);
+    ids.selfServiceCategory = categories.data.data[0].id;
+    const response = await request(
+      "POST",
+      "/faqs",
+      {
+        question: `Reset E2E Wi-Fi ${runId}`,
+        answer: "Restart the wireless adapter.",
+        categoryId: ids.selfServiceCategory,
+        keywords: ["wifi", "adapter"],
+        isActive: true,
+      },
+      tokens.admin,
+    );
+    expect(response.status).toBe(201);
+    ids.selfServiceFaq = response.data.data.id;
+  });
+
+  it("returns contextual recommendations to an authenticated end user", async () => {
+    if (!tokens.endUser) return;
+    const response = await request(
+      "GET",
+      `/faqs/recommendations?categoryId=${ids.selfServiceCategory}&query=wifi%20adapter`,
+      undefined,
+      tokens.endUser,
+    );
+    expect(response.status).toBe(200);
+    expect(response.data.data.length).toBeLessThanOrEqual(5);
+    expect(response.data.data[0]).not.toHaveProperty("keywords");
+  });
+
+  it("rejects FAQ analytics for non-admin users", async () => {
+    if (!tokens.endUser) return;
+    const response = await request("GET", "/faqs/analytics?range=30d", undefined, tokens.endUser);
+    expect(response.status).toBe(403);
+  });
+
+  it("links a created ticket to a self-service session", async () => {
+    if (!tokens.endUser) return;
+    const sessionId = randomUUID();
+    const categories = await request("GET", "/categories", undefined, tokens.endUser);
+    const category = categories.data.data.find((item: any) => item.id === ids.selfServiceCategory);
+    const locations = await request("GET", "/locations", undefined, tokens.endUser);
+    if (!category?.subCategories?.[0] || !locations.data.data[0]) return;
+
+    const interactionResponse = await request(
+      "POST",
+      "/faqs/interactions",
+      {
+        sessionId,
+        eventType: "RecommendationsShown",
+        categoryId: ids.selfServiceCategory,
+      },
+      tokens.endUser,
+    );
+    expect(interactionResponse.status).toBe(201);
+
+    const ticketResponse = await request(
+      "POST",
+      "/tickets",
+      {
+        subject: `E2E Self Service ${runId}`,
+        description: "Testing a ticket linked to a self-service session.",
+        priority: "Low",
+        categoryId: ids.selfServiceCategory,
+        subCategoryId: category.subCategories[0].id,
+        locationId: locations.data.data[0].id,
+        itemCode: "E2E-SELF",
+        selfServiceSessionId: sessionId,
+      },
+      tokens.endUser,
+    );
+    expect(ticketResponse.status).toBe(201);
+    ids.selfServiceTicket = ticketResponse.data.data.id;
+
+    const analyticsResponse = await request("GET", "/faqs/analytics?range=30d", undefined, tokens.admin);
+    expect(analyticsResponse.status).toBe(200);
+    expect(analyticsResponse.data.data.continuedToTicketSessions).toBeGreaterThanOrEqual(1);
+  });
+
+  test("DELETE self-service fixtures — Admin cleanup", async () => {
+    if (ids.selfServiceTicket) {
+      const ticket = await request("DELETE", `/tickets/${ids.selfServiceTicket}`, undefined, tokens.admin);
+      expect(ticket.status).toBe(200);
+    }
+    if (ids.selfServiceFaq) {
+      const faq = await request("DELETE", `/faqs/${ids.selfServiceFaq}`, undefined, tokens.admin);
+      expect(faq.status).toBe(200);
+    }
   });
 
   // ── Cleanup (Admin can delete any ticket) ────────────────────────

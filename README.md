@@ -45,6 +45,10 @@ See [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-architecture-overview) for the con
 - SLA status: `OnTrack`, `AtRisk` (≤20% remaining), `Breached`
 - Admin UI: **SLA Configuration** tab in Master Data for CRUD by category/priority with human-readable time inputs (minutes/hours/days)
 
+### FAQ & Self-Service
+- Contextual self-service suggests up to five active FAQs from category, subject, and keywords while a ticket is created.
+- Admin FAQ analytics reports 30-day recommendation sessions, ticket deflection, continuation, top FAQs, and category opportunities.
+
 ### Dashboard & Statistics
 - Current operational snapshot: active tickets, open, in progress, SLA risk, and unassigned
 - Need Attention lists: SLA Risk, Critical/High Priority, and Unassigned tickets with direct links to ticket detail
