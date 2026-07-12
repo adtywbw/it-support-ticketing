@@ -18,6 +18,28 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class FaqsController {
   constructor(private readonly faqsService: FaqsService) {}
 
+  @Get('recommendations')
+  getRecommendations(@Query() query: QueryFaqRecommendationsDto) {
+    return this.faqsService.getRecommendations(query);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
+  @Get('analytics')
+  getAnalytics(@Query() query: QueryFaqAnalyticsDto) {
+    return this.faqsService.getAnalytics(query);
+  }
+
+  @Post('interactions')
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  async recordInteraction(
+    @Body() dto: CreateFaqInteractionDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    await this.faqsService.recordInteraction(dto, userId);
+    return { recorded: true };
+  }
+
   @Public()
   @Get()
   findAllPublic() {
@@ -29,18 +51,6 @@ export class FaqsController {
   @Get('all')
   findAllAdmin() {
     return this.faqsService.findAll();
-  }
-
-  @Get('recommendations')
-  getRecommendations(@Query() query: QueryFaqRecommendationsDto) {
-    return this.faqsService.getRecommendations(query);
-  }
-
-  @UseGuards(RolesGuard)
-  @Roles(Role.Admin)
-  @Get('analytics')
-  getAnalytics(@Query() query: QueryFaqAnalyticsDto) {
-    return this.faqsService.getAnalytics(query);
   }
 
   @UseGuards(RolesGuard)
@@ -63,15 +73,5 @@ export class FaqsController {
   async remove(@Param('id') id: string) {
     await this.faqsService.remove(id);
     return { message: 'FAQ deleted successfully' };
-  }
-
-  @Post('interactions')
-  @Throttle({ default: { limit: 60, ttl: 60000 } })
-  async recordInteraction(
-    @Body() dto: CreateFaqInteractionDto,
-    @CurrentUser('id') userId: string,
-  ) {
-    await this.faqsService.recordInteraction(dto, userId);
-    return { recorded: true };
   }
 }
