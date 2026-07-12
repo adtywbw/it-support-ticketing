@@ -44,7 +44,7 @@ describe('FaqsService', () => {
     service = new FaqsService(repo as any, subCategoryRepository as any, interactionRepository as any);
   });
 
-  const subCategory = { id: 'sc-uuid', name: 'Sub' };
+  const subCategory = { id: 'sc-uuid', name: 'Sub', category: { id: 'cat-uuid', name: 'Cat' } };
   const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, showOnLogin: false, subCategoryId: 'sc-uuid', subCategory, keywords: [], createdAt: new Date(), updatedAt: new Date() };
 
   describe('findActiveOrdered', () => {
@@ -68,7 +68,7 @@ describe('FaqsService', () => {
       subCategoryRepository.findById.mockResolvedValue({ id: subCategoryId } as any);
       repo.create.mockResolvedValue(faq);
       await expect(service.create({ question: 'Q', answer: 'A', subCategoryId } as any)).resolves.toEqual(faq);
-      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A', displayOrder: 0, isActive: true, keywords: [], subCategory: { connect: { id: subCategoryId } } });
+      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A', displayOrder: 0, isActive: true, showOnLogin: false, keywords: [], subCategory: { connect: { id: subCategoryId } } });
     });
   });
 
@@ -111,6 +111,7 @@ describe('FaqsService', () => {
         answer: 'Restart the adapter.',
         displayOrder: 0,
         isActive: true,
+        showOnLogin: false,
         keywords: ['wi-fi'],
         subCategory: { connect: { id: subCategoryId } },
       });

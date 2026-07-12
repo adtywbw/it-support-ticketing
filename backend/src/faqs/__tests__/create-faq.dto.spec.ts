@@ -116,4 +116,21 @@ describe('CreateFaqDto', () => {
 
     expect(await validate(dto)).not.toHaveLength(0);
   });
+
+  it('requires a valid subCategoryId when creating an FAQ', async () => {
+    const missing = plainToInstance(CreateFaqDto, { question: 'Question', answer: 'Answer' });
+    const invalid = plainToInstance(CreateFaqDto, {
+      question: 'Question', answer: 'Answer', subCategoryId: 'invalid',
+    });
+    expect(await validate(missing)).not.toHaveLength(0);
+    expect(await validate(invalid)).not.toHaveLength(0);
+  });
+
+  it('accepts showOnLogin but leaves its default to the service', async () => {
+    const dto = plainToInstance(CreateFaqDto, {
+      question: 'Question', answer: 'Answer', subCategoryId, showOnLogin: true,
+    });
+    expect(await validate(dto)).toHaveLength(0);
+    expect(dto.showOnLogin).toBe(true);
+  });
 });

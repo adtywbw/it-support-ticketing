@@ -20,7 +20,7 @@ describe('FaqsController', () => {
     controller = new FaqsController(service as any);
   });
 
-  const subCategory = { id: 'sc-uuid', name: 'Sub' };
+  const subCategory = { id: 'sc-uuid', name: 'Sub', category: { id: 'cat-uuid', name: 'Cat' } };
   const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, showOnLogin: false, subCategoryId: 'sc-uuid', subCategory, keywords: [], createdAt: new Date(), updatedAt: new Date() };
 
   it('findAllPublic delegates to service.findActiveOrdered', async () => {

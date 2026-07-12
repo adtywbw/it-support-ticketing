@@ -95,4 +95,9 @@ describe('UpdateFaqDto', () => {
     const errors = await validateDto({ subCategoryId: 'bad' });
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it('allows update to omit subCategoryId but rejects null', async () => {
+    expect(await validateDto({ question: 'Updated' })).toHaveLength(0);
+    expect(await validateDto({ subCategoryId: null as any })).not.toHaveLength(0);
+  });
 });

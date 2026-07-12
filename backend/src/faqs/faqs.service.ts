@@ -141,6 +141,7 @@ export class FaqsService {
       ...fields,
       displayOrder: dto.displayOrder ?? 0,
       isActive: dto.isActive ?? true,
+      showOnLogin: dto.showOnLogin ?? false,
       keywords: dto.keywords ?? [],
       subCategory: { connect: { id: subCategoryId } },
     });

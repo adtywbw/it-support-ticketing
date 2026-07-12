@@ -8,7 +8,11 @@ export class FaqRepository {
 
   async findActiveOrdered() {
     return this.prisma.faq.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        showOnLogin: true,
+        subCategory: { isActive: true, category: { isActive: true } },
+      },
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
       select: { id: true, question: true, answer: true, displayOrder: true },
     });
@@ -17,7 +21,11 @@ export class FaqRepository {
   async findAll() {
     return this.prisma.faq.findMany({
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
-      include: { subCategory: { select: { id: true, name: true } } },
+      include: {
+        subCategory: {
+          select: { id: true, name: true, category: { select: { id: true, name: true } } },
+        },
+      },
     });
   }
 
