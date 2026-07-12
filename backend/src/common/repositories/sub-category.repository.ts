@@ -10,7 +10,7 @@ export class SubCategoryRepository {
     return this.prisma.subCategory.findMany({
       where: includeInactive ? { categoryId } : { categoryId, isActive: true },
       orderBy: { name: 'asc' },
-      include: { _count: { select: { tickets: true } } },
+      include: { _count: { select: { tickets: true, faqs: true } } },
     });
   }
 

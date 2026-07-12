@@ -81,18 +81,18 @@ export class SubCategoriesService {
   async delete(id: string): Promise<void> {
     const subCategory = await this.subCategoryRepository.findUnique({
       where: { id },
-      include: { _count: { select: { tickets: true } } },
+      include: { _count: { select: { tickets: true, faqs: true } } },
     }) as Prisma.SubCategoryGetPayload<{
-      include: { _count: { select: { tickets: true } } };
+      include: { _count: { select: { tickets: true; faqs: true } } };
     }> | null;
 
     if (!subCategory) {
       throw new NotFoundException('Sub-category not found');
     }
 
-    if (subCategory._count.tickets > 0) {
+    if (subCategory._count.tickets > 0 || subCategory._count.faqs > 0) {
       throw new ConflictException(
-        `Cannot delete: ${subCategory._count.tickets} ticket(s) still use this sub-category. Deactivate it instead.`,
+        `Cannot delete: ${subCategory._count.tickets} ticket(s) and ${subCategory._count.faqs} FAQ(s) still use this sub-category. Deactivate it instead.`,
       );
     } else {
       await this.subCategoryRepository.delete(id);
