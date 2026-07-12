@@ -1,5 +1,5 @@
 import { FaqInteractionType } from '@prisma/client';
-import { IsIn, IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { IsIn, IsUUID, ValidateIf } from 'class-validator';
 
 export const CLIENT_FAQ_INTERACTION_TYPES = [
   FaqInteractionType.RecommendationsShown,
@@ -22,7 +22,6 @@ export class CreateFaqInteractionDto {
   @IsUUID()
   faqId?: string;
 
-  @IsOptional()
   @IsUUID()
-  categoryId?: string;
+  subCategoryId!: string;
 }

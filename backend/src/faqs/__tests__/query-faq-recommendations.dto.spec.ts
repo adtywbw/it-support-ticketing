@@ -5,16 +5,16 @@ import { QueryFaqRecommendationsDto } from '../dto/query-faq-recommendations.dto
 describe('QueryFaqRecommendationsDto', () => {
   it('accepts a valid UUID and query', async () => {
     const dto = plainToInstance(QueryFaqRecommendationsDto, {
-      categoryId: '550e8400-e29b-41d4-a716-446655440000',
+      subCategoryId: '550e8400-e29b-41d4-a716-446655440000',
       query: 'reset wi-fi',
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
   });
 
-  it('accepts categoryId alone', async () => {
+  it('accepts subCategoryId alone', async () => {
     const dto = plainToInstance(QueryFaqRecommendationsDto, {
-      categoryId: '550e8400-e29b-41d4-a716-446655440000',
+      subCategoryId: '550e8400-e29b-41d4-a716-446655440000',
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
@@ -26,13 +26,13 @@ describe('QueryFaqRecommendationsDto', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('rejects an invalid UUID for categoryId', async () => {
+  it('rejects an invalid UUID for subCategoryId', async () => {
     const dto = plainToInstance(QueryFaqRecommendationsDto, {
-      categoryId: 'not-a-uuid',
+      subCategoryId: 'not-a-uuid',
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(1);
-    expect(errors[0].property).toBe('categoryId');
+    expect(errors[0].property).toBe('subCategoryId');
   });
 
   it('rejects a query shorter than 3 characters', async () => {

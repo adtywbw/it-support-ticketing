@@ -112,7 +112,7 @@ async function main() {
     },
   });
 
-  await prisma.subCategory.upsert({
+  const desktopLaptopSubCategory = await prisma.subCategory.upsert({
     where: { categoryId_name: { categoryId: hardwareCategory.id, name: 'Desktop/Laptop' } },
     update: {},
     create: {
@@ -122,7 +122,7 @@ async function main() {
     },
   });
 
-  await prisma.subCategory.upsert({
+  const printerSubCategory = await prisma.subCategory.upsert({
     where: { categoryId_name: { categoryId: hardwareCategory.id, name: 'Printer' } },
     update: {},
     create: {
@@ -132,7 +132,7 @@ async function main() {
     },
   });
 
-  await prisma.subCategory.upsert({
+  const emailSubCategory = await prisma.subCategory.upsert({
     where: { categoryId_name: { categoryId: softwareCategory.id, name: 'Email' } },
     update: {},
     create: {
@@ -142,7 +142,7 @@ async function main() {
     },
   });
 
-  await prisma.subCategory.upsert({
+  const applicationSubCategory = await prisma.subCategory.upsert({
     where: { categoryId_name: { categoryId: softwareCategory.id, name: 'Application' } },
     update: {},
     create: {
@@ -177,25 +177,31 @@ async function main() {
       await prisma.faq.createMany({
         data: [
           {
-            question: 'How do I reset my password?',
-            answer:
-              'End users cannot reset their own password. Please contact Admin or ITSupport to request a password reset.',
+            question: 'What should I check when my laptop will not start?',
+            answer: 'Disconnect external devices, confirm the power adapter is connected, and note any indicator lights or beep codes before creating a ticket.',
             displayOrder: 0,
             isActive: true,
+            showOnLogin: true,
+            subCategoryId: desktopLaptopSubCategory.id,
+            keywords: ['laptop', 'power', 'boot'],
           },
           {
-            question: 'What should I include in a ticket?',
-            answer:
-              'Provide a clear subject, select the relevant category and sub-category, and describe the issue with steps to reproduce and any error messages you see.',
+            question: 'What should I check when email is not syncing?',
+            answer: 'Confirm the device is online, refresh the mailbox, and record any displayed error before creating a ticket.',
             displayOrder: 1,
             isActive: true,
+            showOnLogin: true,
+            subCategoryId: emailSubCategory.id,
+            keywords: ['email', 'sync', 'mailbox'],
           },
           {
-            question: 'Who can see my tickets?',
-            answer:
-              'Only you and the IT support staff assigned to your ticket can view your tickets.',
+            question: 'What should I do when an application stops responding?',
+            answer: 'Wait briefly, save other work, restart the application, and record the application name and error message if the problem continues.',
             displayOrder: 2,
             isActive: true,
+            showOnLogin: true,
+            subCategoryId: applicationSubCategory.id,
+            keywords: ['application', 'freeze', 'not responding'],
           },
         ],
       });

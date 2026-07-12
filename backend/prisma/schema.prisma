@@ -192,8 +192,6 @@ model Category {
   subCategories SubCategory[]
   tickets       Ticket[]
   slaConfigs    SLAConfig[]
-  faqs          Faq[]
-  faqInteractions FaqInteraction[]
 
   @@map("categories")
 }
@@ -207,8 +205,10 @@ model SubCategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  category Category @relation(fields: [categoryId], references: [id])
-  tickets  Ticket[]
+  category        Category           @relation(fields: [categoryId], references: [id])
+  tickets         Ticket[]
+  faqs            Faq[]
+  faqInteractions FaqInteraction[]
 
   @@unique([categoryId, name])
   @@map("sub_categories")
@@ -285,38 +285,39 @@ enum FaqInteractionType {
 }
 
 model Faq {
-  id           String           @id @default(uuid())
-  question     String
-  answer       String
-  displayOrder Int              @default(0)
-  isActive     Boolean          @default(true)
-  categoryId   String?
-  keywords     String[]         @default([])
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  interactions FaqInteraction[]
+  id            String      @id @default(uuid())
+  question      String
+  answer        String
+  displayOrder  Int         @default(0)
+  isActive      Boolean     @default(true)
+  showOnLogin   Boolean     @default(false)
+  subCategoryId String
+  keywords      String[]    @default([])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Restrict)
+  interactions  FaqInteraction[]
 
-  @@index([categoryId, isActive])
+  @@index([subCategoryId, isActive])
   @@map("faqs")
 }
 
 model FaqInteraction {
-  id         String             @id @default(uuid())
-  sessionId  String
-  userId     String?
-  faqId      String?
-  categoryId String?
-  eventType  FaqInteractionType
-  createdAt  DateTime           @default(now())
-  user       User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
-  faq        Faq?               @relation(fields: [faqId], references: [id], onDelete: SetNull)
-  category   Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  id            String             @id @default(uuid())
+  sessionId     String
+  userId        String?
+  faqId         String?
+  subCategoryId String
+  eventType     FaqInteractionType
+  createdAt     DateTime           @default(now())
+  user          User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  faq           Faq?               @relation(fields: [faqId], references: [id], onDelete: SetNull)
+  subCategory   SubCategory        @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([sessionId, eventType])
   @@index([faqId, createdAt])
-  @@index([categoryId, createdAt])
+  @@index([subCategoryId, createdAt])
   @@map("faq_interactions")
 }
 

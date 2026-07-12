@@ -1,7 +1,7 @@
 import { BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { FaqsService } from '../faqs.service';
 import { FaqRepository } from '../../common/repositories/faq.repository';
-import { CategoryRepository } from '../../common/repositories/category.repository';
+import { SubCategoryRepository } from '../../common/repositories/sub-category.repository';
 import { FaqInteractionRepository } from '../../common/repositories/faq-interaction.repository';
 import { FaqInteractionType } from '@prisma/client';
 
@@ -11,10 +11,10 @@ describe('FaqsService', () => {
     FaqRepository,
     'findActiveOrdered' | 'findAll' | 'findById' | 'create' | 'update' | 'delete' | 'findActiveForRecommendations'
   >>;
-  let categoryRepository: jest.Mocked<Pick<CategoryRepository, 'findById'>>;
+  let subCategoryRepository: jest.Mocked<Pick<SubCategoryRepository, 'findById'>>;
   let interactionRepository: jest.Mocked<Pick<FaqInteractionRepository, 'create' | 'deleteOlderThan' | 'getSummary' | 'getTopOpenedFaqs' | 'getTopResolvedFaqs' | 'getCategoryStats'>>;
 
-  const categoryId = 'cat-uuid';
+  const subCategoryId = 'sc-uuid';
   const faqId = 'faq-uuid';
   const sessionId = 'session-uuid';
   const userId = 'user-uuid';
@@ -30,7 +30,7 @@ describe('FaqsService', () => {
       delete: jest.fn(),
       findActiveForRecommendations: jest.fn(),
     };
-    categoryRepository = {
+    subCategoryRepository = {
       findById: jest.fn(),
     };
     interactionRepository = {
@@ -41,10 +41,11 @@ describe('FaqsService', () => {
       getTopResolvedFaqs: jest.fn(),
       getCategoryStats: jest.fn(),
     };
-    service = new FaqsService(repo as any, categoryRepository as any, interactionRepository as any);
+    service = new FaqsService(repo as any, subCategoryRepository as any, interactionRepository as any);
   });
 
-  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, categoryId: null, category: null, keywords: [], createdAt: new Date(), updatedAt: new Date() };
+  const subCategory = { id: 'sc-uuid', name: 'Sub' };
+  const faq = { id: 'a', question: 'Q', answer: 'A', displayOrder: 0, isActive: true, showOnLogin: false, subCategoryId: 'sc-uuid', subCategory, keywords: [], createdAt: new Date(), updatedAt: new Date() };
 
   describe('findActiveOrdered', () => {
     it('delegates to repository.findActiveOrdered', async () => {
@@ -64,9 +65,10 @@ describe('FaqsService', () => {
 
   describe('create', () => {
     it('delegates to repository.create with dto', async () => {
+      subCategoryRepository.findById.mockResolvedValue({ id: subCategoryId } as any);
       repo.create.mockResolvedValue(faq);
-      await expect(service.create({ question: 'Q', answer: 'A' } as any)).resolves.toEqual(faq);
-      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A', displayOrder: 0, isActive: true, keywords: [], category: undefined });
+      await expect(service.create({ question: 'Q', answer: 'A', subCategoryId } as any)).resolves.toEqual(faq);
+      expect(repo.create).toHaveBeenCalledWith({ question: 'Q', answer: 'A', displayOrder: 0, isActive: true, keywords: [], subCategory: { connect: { id: subCategoryId } } });
     });
   });
 
@@ -93,14 +95,14 @@ describe('FaqsService', () => {
   });
 
   describe('create with metadata', () => {
-    it('creates FAQ metadata with a category relation', async () => {
-      categoryRepository.findById.mockResolvedValue({ id: categoryId } as any);
+    it('creates FAQ metadata with a sub-category relation', async () => {
+      subCategoryRepository.findById.mockResolvedValue({ id: subCategoryId } as any);
       repo.create.mockResolvedValue({ id: faqId } as any);
 
       await service.create({
         question: 'Reset Wi-Fi',
         answer: 'Restart the adapter.',
-        categoryId,
+        subCategoryId,
         keywords: ['wi-fi'],
       });
 
@@ -110,40 +112,41 @@ describe('FaqsService', () => {
         displayOrder: 0,
         isActive: true,
         keywords: ['wi-fi'],
-        category: { connect: { id: categoryId } },
+        subCategory: { connect: { id: subCategoryId } },
       });
     });
   });
 
   describe('update with metadata', () => {
-    it('disconnects the category when categoryId is null', async () => {
+    it('updates subCategoryId', async () => {
       repo.findById.mockResolvedValue({ id: faqId } as any);
+      subCategoryRepository.findById.mockResolvedValue({ id: 'new-sc-uuid' } as any);
       repo.update.mockResolvedValue({ id: faqId } as any);
 
-      await service.update(faqId, { categoryId: null });
+      await service.update(faqId, { subCategoryId: 'new-sc-uuid' });
 
       expect(repo.update).toHaveBeenCalledWith(faqId, {
-        category: { disconnect: true },
+        subCategory: { connect: { id: 'new-sc-uuid' } },
       });
     });
   });
 
   describe('getRecommendations', () => {
-    it('ranks category, question, keyword, and answer matches deterministically', async () => {
-      categoryRepository.findById.mockResolvedValue({ id: categoryId } as any);
+    it('ranks sub-category, question, keyword, and answer matches deterministically', async () => {
+      subCategoryRepository.findById.mockResolvedValue({ id: subCategoryId } as any);
       repo.findActiveForRecommendations.mockResolvedValue([
-        { id: 'category', question: 'General setup', answer: 'Steps', categoryId, keywords: [], displayOrder: 3, updatedAt: new Date('2026-01-01') },
-        { id: 'question', question: 'Reset Wi-Fi adapter', answer: 'Steps', categoryId: null, keywords: [], displayOrder: 1, updatedAt: new Date('2026-01-01') },
-        { id: 'keyword', question: 'Network guide', answer: 'Steps', categoryId: null, keywords: ['wi-fi'], displayOrder: 2, updatedAt: new Date('2026-01-01') },
+        { id: 'category', question: 'General setup', answer: 'Steps', subCategoryId, keywords: [], displayOrder: 3, showOnLogin: false, updatedAt: new Date('2026-01-01') },
+        { id: 'question', question: 'Reset Wi-Fi adapter', answer: 'Steps', subCategoryId, keywords: [], displayOrder: 1, showOnLogin: false, updatedAt: new Date('2026-01-01') },
+        { id: 'keyword', question: 'Network guide', answer: 'Steps', subCategoryId: 'other-sc', keywords: ['wi-fi'], displayOrder: 2, showOnLogin: false, updatedAt: new Date('2026-01-01') },
       ]);
 
-      const result = await service.getRecommendations({ categoryId, query: 'wi-fi' });
+      const result = await service.getRecommendations({ subCategoryId, query: 'wi-fi' });
 
-      expect(result.map((faq) => faq.id)).toEqual(['category', 'question', 'keyword']);
-      expect(result.every((faq) => !('keywords' in faq))).toBe(true);
+      expect(result.map((r) => r.id)).toEqual(['question', 'category', 'keyword']);
+      expect(result.every((r) => !('keywords' in r))).toBe(true);
     });
 
-    it('rejects a request without category or query', async () => {
+    it('rejects a request without subCategoryId or query', async () => {
       await expect(service.getRecommendations({})).rejects.toThrow(BadRequestException);
     });
   });
@@ -166,43 +169,46 @@ describe('FaqsService', () => {
   describe('recordInteraction', () => {
     it('records an article event with the authenticated user', async () => {
       (repo.findById as jest.Mock).mockResolvedValue({ id: faqId });
+      (subCategoryRepository.findById as jest.Mock).mockResolvedValue({ id: subCategoryId });
       (interactionRepository.create as jest.Mock).mockResolvedValue({ id: interactionId });
 
-      await service.recordInteraction({ sessionId, faqId, eventType: FaqInteractionType.ArticleOpened }, userId);
+      await service.recordInteraction({ sessionId, faqId, subCategoryId, eventType: FaqInteractionType.ArticleOpened }, userId);
 
       expect(interactionRepository.create).toHaveBeenCalledWith({
         sessionId,
         userId,
         faqId,
-        categoryId: undefined,
+        subCategoryId,
         eventType: FaqInteractionType.ArticleOpened,
       });
     });
 
     it('throws NotFoundException when faq does not exist', async () => {
       (repo.findById as jest.Mock).mockResolvedValue(null);
+      (subCategoryRepository.findById as jest.Mock).mockResolvedValue({ id: subCategoryId });
 
-      await expect(service.recordInteraction({ sessionId, faqId, eventType: FaqInteractionType.ArticleOpened }, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.recordInteraction({ sessionId, faqId, subCategoryId, eventType: FaqInteractionType.ArticleOpened }, userId)).rejects.toThrow(NotFoundException);
       expect(interactionRepository.create).not.toHaveBeenCalled();
     });
 
-    it('throws NotFoundException when category does not exist', async () => {
-      (categoryRepository.findById as jest.Mock).mockResolvedValue(null);
+    it('throws NotFoundException when subCategory does not exist', async () => {
+      (subCategoryRepository.findById as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.recordInteraction({ sessionId, eventType: FaqInteractionType.RecommendationsShown, categoryId }, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.recordInteraction({ sessionId, subCategoryId, eventType: FaqInteractionType.RecommendationsShown }, userId)).rejects.toThrow(NotFoundException);
       expect(interactionRepository.create).not.toHaveBeenCalled();
     });
 
     it('records RecommendationsShown without faqId', async () => {
+      (subCategoryRepository.findById as jest.Mock).mockResolvedValue({ id: subCategoryId });
       (interactionRepository.create as jest.Mock).mockResolvedValue({ id: interactionId });
 
-      await service.recordInteraction({ sessionId, eventType: FaqInteractionType.RecommendationsShown }, userId);
+      await service.recordInteraction({ sessionId, subCategoryId, eventType: FaqInteractionType.RecommendationsShown }, userId);
 
       expect(interactionRepository.create).toHaveBeenCalledWith({
         sessionId,
         userId,
         faqId: undefined,
-        categoryId: undefined,
+        subCategoryId,
         eventType: FaqInteractionType.RecommendationsShown,
       });
     });

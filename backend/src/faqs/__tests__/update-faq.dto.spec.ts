@@ -86,8 +86,13 @@ describe('UpdateFaqDto', () => {
     expect(errors[0].constraints).toHaveProperty('whitelistValidation');
   });
 
-  it('accepts null categoryId so PATCH can clear the relation', async () => {
-    const errors = await validateDto({ categoryId: null });
+  it('accepts valid subCategoryId', async () => {
+    const errors = await validateDto({ subCategoryId: '550e8400-e29b-41d4-a716-446655440000' });
     expect(errors).toHaveLength(0);
+  });
+
+  it('rejects invalid subCategoryId', async () => {
+    const errors = await validateDto({ subCategoryId: 'bad' });
+    expect(errors.length).toBeGreaterThan(0);
   });
 });

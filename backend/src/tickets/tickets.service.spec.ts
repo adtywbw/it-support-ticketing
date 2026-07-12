@@ -406,14 +406,14 @@ describe('TicketsService', () => {
         description: createTicketDto.description,
         requesterId,
         categoryId: createTicketDto.categoryId,
-        subCategoryId: null,
+        subCategoryId: createTicketDto.subCategoryId,
         priority: Priority.High,
         slaDueAt: null,
         slaStatus: null,
         status: TicketStatus.Open,
         requester: { id: requesterId, name: 'John Doe', email: 'john@test.com' },
         category: { id: 'cat-1', name: 'Network' },
-        subCategory: null,
+        subCategory: { id: 'sub-1', name: 'VPN Issues', categoryId: 'cat-1' },
       };
 
       beforeEach(() => {
@@ -437,7 +437,7 @@ describe('TicketsService', () => {
         expect(faqInteractionRepository.create).toHaveBeenCalledWith({
           sessionId,
           userId: requesterId,
-          categoryId: createTicketDto.categoryId,
+          subCategoryId: createTicketDto.subCategoryId,
           eventType: FaqInteractionType.TicketCreated,
         });
       });

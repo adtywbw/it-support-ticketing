@@ -9,9 +9,11 @@ async function validateDto(data: Record<string, unknown>) {
 }
 
 describe('CreateFaqDto', () => {
+  const subCategoryId = '550e8400-e29b-41d4-a716-446655440000';
   const validData = {
     question: 'How do I reset my password?',
     answer: 'Contact Admin or ITSupport to request a password reset.',
+    subCategoryId,
   };
 
   it('should pass with valid data', async () => {
@@ -96,6 +98,7 @@ describe('CreateFaqDto', () => {
     const dto = plainToInstance(CreateFaqDto, {
       question: 'Reset Wi-Fi',
       answer: 'Restart the adapter.',
+      subCategoryId,
       keywords: [' Wi-Fi ', 'wifi', '', 'WI-FI'],
     });
 
@@ -107,6 +110,7 @@ describe('CreateFaqDto', () => {
     const dto = plainToInstance(CreateFaqDto, {
       question: 'Question',
       answer: 'Answer',
+      subCategoryId,
       keywords: Array.from({ length: 21 }, (_, index) => `key-${index}`),
     });
 

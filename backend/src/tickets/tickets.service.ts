@@ -226,12 +226,12 @@ export class TicketsService {
       requesterEmail: ticket.requester.email,
     });
 
-    if (createTicketDto.selfServiceSessionId) {
+    if (createTicketDto.selfServiceSessionId && ticket.subCategoryId) {
       try {
         await this.faqInteractionRepository.create({
           sessionId: createTicketDto.selfServiceSessionId,
           userId: requesterId,
-          categoryId: createTicketDto.categoryId,
+          subCategoryId: ticket.subCategoryId,
           eventType: FaqInteractionType.TicketCreated,
         });
       } catch (error) {

@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Cron } from '@nestjs/schedule';
 import { FaqRepository } from '../common/repositories/faq.repository';
 import { FaqInteractionRepository } from '../common/repositories/faq-interaction.repository';
-import { CategoryRepository } from '../common/repositories/category.repository';
+import { SubCategoryRepository } from '../common/repositories/sub-category.repository';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import { QueryFaqRecommendationsDto } from './dto/query-faq-recommendations.dto';
@@ -21,11 +21,11 @@ function tokenize(value: string): string[] {
 }
 
 function scoreFaq(
-  faq: { question: string; answer: string; categoryId: string | null; keywords: string[] },
-  categoryId: string | undefined,
+  faq: { question: string; answer: string; subCategoryId: string; keywords: string[] },
+  subCategoryId: string | undefined,
   queryTokens: string[],
 ): number {
-  let score = categoryId && faq.categoryId === categoryId ? 100 : 0;
+  let score = subCategoryId && faq.subCategoryId === subCategoryId ? 100 : 0;
   const questionTokens = new Set(tokenize(faq.question));
   const answerTokens = new Set(tokenize(faq.answer));
   const keywordTokens = new Set(faq.keywords.flatMap(tokenize));
@@ -44,7 +44,7 @@ export class FaqsService {
 
   constructor(
     private readonly faqRepository: FaqRepository,
-    private readonly categoryRepository: CategoryRepository,
+    private readonly subCategoryRepository: SubCategoryRepository,
     private readonly faqInteractionRepository: FaqInteractionRepository,
   ) {}
 
@@ -57,12 +57,12 @@ export class FaqsService {
   }
 
   async getRecommendations(query: QueryFaqRecommendationsDto) {
-    if (!query.categoryId && !query.query) {
-      throw new BadRequestException('categoryId or query is required');
+    if (!query.subCategoryId && !query.query) {
+      throw new BadRequestException('subCategoryId or query is required');
     }
 
-    if (query.categoryId && !(await this.categoryRepository.findById(query.categoryId))) {
-      throw new NotFoundException('Category not found');
+    if (query.subCategoryId && !(await this.subCategoryRepository.findById(query.subCategoryId))) {
+      throw new NotFoundException('Sub-category not found');
     }
 
     const queryTokens = tokenize(query.query ?? '');
@@ -71,7 +71,7 @@ export class FaqsService {
     return candidates
       .map((faq) => ({
         faq,
-        score: scoreFaq(faq, query.categoryId, queryTokens),
+        score: scoreFaq(faq, query.subCategoryId, queryTokens),
       }))
       .filter(({ score }) => score > 0)
       .sort((left, right) =>
@@ -85,7 +85,7 @@ export class FaqsService {
         question: faq.question,
         answer: faq.answer,
         displayOrder: faq.displayOrder,
-        categoryId: faq.categoryId,
+        subCategoryId: faq.subCategoryId,
       }));
   }
 
@@ -118,7 +118,10 @@ export class FaqsService {
       topOpenedFaqs,
       topResolvedFaqs,
       categoryStats: categoryRows.map((row) => ({
-        ...row,
+        subCategoryId: row.subCategoryId,
+        subCategoryName: row.subCategoryName,
+        recommendationSessions: row.recommendationSessions,
+        resolvedWithoutTicketSessions: row.resolvedWithoutTicketSessions,
         deflectionRate: percentage(
           row.resolvedWithoutTicketSessions,
           row.recommendationSessions,
@@ -128,20 +131,18 @@ export class FaqsService {
   }
 
   async create(dto: CreateFaqDto) {
-    if (dto.categoryId) {
-      const category = await this.categoryRepository.findById(dto.categoryId);
-      if (!category) {
-        throw new NotFoundException('Category not found');
-      }
+    const subCategory = await this.subCategoryRepository.findById(dto.subCategoryId);
+    if (!subCategory) {
+      throw new NotFoundException('Sub-category not found');
     }
 
-    const { categoryId, ...fields } = dto;
+    const { subCategoryId, ...fields } = dto;
     return this.faqRepository.create({
       ...fields,
       displayOrder: dto.displayOrder ?? 0,
       isActive: dto.isActive ?? true,
       keywords: dto.keywords ?? [],
-      category: categoryId ? { connect: { id: categoryId } } : undefined,
+      subCategory: { connect: { id: subCategoryId } },
     });
   }
 
@@ -151,24 +152,22 @@ export class FaqsService {
       throw new NotFoundException('FAQ not found');
     }
 
-    const { categoryId, ...fields } = dto;
+    const { subCategoryId, ...fields } = dto;
 
-    if (categoryId) {
-      const category = await this.categoryRepository.findById(categoryId);
-      if (!category) {
-        throw new NotFoundException('Category not found');
+    if (subCategoryId) {
+      const subCategory = await this.subCategoryRepository.findById(subCategoryId);
+      if (!subCategory) {
+        throw new NotFoundException('Sub-category not found');
       }
     }
 
-    const category = categoryId === null
-      ? { disconnect: true }
-      : categoryId
-        ? { connect: { id: categoryId } }
-        : undefined;
+    const subCategory = subCategoryId
+      ? { connect: { id: subCategoryId } }
+      : undefined;
 
     return this.faqRepository.update(id, {
       ...fields,
-      ...(category ? { category } : {}),
+      ...(subCategory ? { subCategory } : {}),
     });
   }
 
@@ -184,15 +183,16 @@ export class FaqsService {
     if (dto.faqId && !(await this.faqRepository.findById(dto.faqId))) {
       throw new NotFoundException('FAQ not found');
     }
-    if (dto.categoryId && !(await this.categoryRepository.findById(dto.categoryId))) {
-      throw new NotFoundException('Category not found');
+    const subCategory = await this.subCategoryRepository.findById(dto.subCategoryId);
+    if (!subCategory) {
+      throw new NotFoundException('Sub-category not found');
     }
 
     await this.faqInteractionRepository.create({
       sessionId: dto.sessionId,
       userId,
       faqId: dto.faqId,
-      categoryId: dto.categoryId,
+      subCategoryId: dto.subCategoryId,
       eventType: dto.eventType,
     });
   }

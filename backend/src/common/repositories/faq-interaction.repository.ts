@@ -15,8 +15,8 @@ export interface FaqMetricRow {
 }
 
 export interface FaqCategoryMetricRow {
-  categoryId: string;
-  categoryName: string;
+  subCategoryId: string;
+  subCategoryName: string;
   recommendationSessions: number;
   resolvedWithoutTicketSessions: number;
 }
@@ -102,31 +102,30 @@ export class FaqInteractionRepository {
 
   async getCategoryStats(since: Date, limit = 5): Promise<FaqCategoryMetricRow[]> {
     return this.prisma.$queryRaw<FaqCategoryMetricRow[]>(Prisma.sql`
-      WITH category_sessions AS (
+      WITH sub_category_sessions AS (
         SELECT
           "sessionId",
-          "categoryId",
+          "subCategoryId",
           BOOL_OR("eventType" = 'RecommendationsShown') AS shown,
           BOOL_OR("eventType" = 'ProblemResolved') AS resolved,
           BOOL_OR("eventType" = 'TicketCreated') AS ticket_created
         FROM "faq_interactions"
         WHERE "createdAt" >= ${since}
-          AND "categoryId" IS NOT NULL
-        GROUP BY "sessionId", "categoryId"
+        GROUP BY "sessionId", "subCategoryId"
       )
       SELECT
-        category."id" AS "categoryId",
-        category."name" AS "categoryName",
-        COUNT(*) FILTER (WHERE category_sessions.shown)::int AS "recommendationSessions",
+        sc."id" AS "subCategoryId",
+        sc."name" AS "subCategoryName",
+        COUNT(*) FILTER (WHERE sub_category_sessions.shown)::int AS "recommendationSessions",
         COUNT(*) FILTER (
-          WHERE category_sessions.shown
-            AND category_sessions.resolved
-            AND NOT category_sessions.ticket_created
+          WHERE sub_category_sessions.shown
+            AND sub_category_sessions.resolved
+            AND NOT sub_category_sessions.ticket_created
         )::int AS "resolvedWithoutTicketSessions"
-      FROM category_sessions
-      JOIN "categories" category ON category."id" = category_sessions."categoryId"
-      GROUP BY category."id", category."name"
-      ORDER BY "recommendationSessions" DESC, category."name" ASC
+      FROM sub_category_sessions
+      JOIN "sub_categories" sc ON sc."id" = sub_category_sessions."subCategoryId"
+      GROUP BY sc."id", sc."name"
+      ORDER BY "recommendationSessions" DESC, sc."name" ASC
       LIMIT ${limit}
     `);
   }

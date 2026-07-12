@@ -17,7 +17,7 @@ export class FaqRepository {
   async findAll() {
     return this.prisma.faq.findMany({
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
-      include: { category: { select: { id: true, name: true } } },
+      include: { subCategory: { select: { id: true, name: true } } },
     });
   }
 
@@ -30,7 +30,8 @@ export class FaqRepository {
         answer: true,
         displayOrder: true,
         updatedAt: true,
-        categoryId: true,
+        subCategoryId: true,
+        showOnLogin: true,
         keywords: true,
       },
     });

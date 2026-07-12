@@ -5,7 +5,7 @@ import { trimOptionalString } from '../../common/utils/transform.util';
 export class QueryFaqRecommendationsDto {
   @IsOptional()
   @IsUUID()
-  categoryId?: string;
+  subCategoryId?: string;
 
   @IsOptional()
   @Transform(trimOptionalString)

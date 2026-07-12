@@ -36,8 +36,11 @@ export class CreateFaqDto {
   isActive?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  showOnLogin?: boolean;
+
   @IsUUID()
-  categoryId?: string | null;
+  subCategoryId!: string;
 
   @IsOptional()
   @Transform(({ value }) => normalizeFaqKeywords(value))
