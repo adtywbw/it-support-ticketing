@@ -13,6 +13,8 @@ import {
   useDeleteFaq,
   type CreateFaqPayload,
 } from '@/hooks/use-faqs';
+import { useCategories } from '@/hooks/use-categories';
+import FaqAnalyticsSummary from '@/components/admin/FaqAnalyticsSummary';
 import type { Faq } from '@/types';
 
 export default function FaqManager() {
@@ -20,6 +22,7 @@ export default function FaqManager() {
   const createMutation = useCreateFaq();
   const updateMutation = useUpdateFaq();
   const deleteMutation = useDeleteFaq();
+  const { data: categories } = useCategories();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Faq | null>(null);
@@ -27,6 +30,15 @@ export default function FaqManager() {
   const [formAnswer, setFormAnswer] = useState('');
   const [formOrder, setFormOrder] = useState(0);
   const [formActive, setFormActive] = useState(true);
+  const [formCategoryId, setFormCategoryId] = useState('');
+  const [formKeywords, setFormKeywords] = useState('');
+
+  const parseKeywords = (value: string) => [...new Set(
+    value
+      .split(',')
+      .map((keyword) => keyword.trim().toLowerCase().replace(/\s+/g, ' '))
+      .filter(Boolean),
+  )];
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -36,6 +48,8 @@ export default function FaqManager() {
     setFormAnswer('');
     setFormOrder(0);
     setFormActive(true);
+    setFormCategoryId('');
+    setFormKeywords('');
     setIsModalOpen(true);
   };
 
@@ -45,6 +59,8 @@ export default function FaqManager() {
     setFormAnswer(faq.answer);
     setFormOrder(faq.displayOrder);
     setFormActive(faq.isActive);
+    setFormCategoryId(faq.categoryId ?? '');
+    setFormKeywords(faq.keywords.join(', '));
     setIsModalOpen(true);
   };
 
@@ -54,6 +70,8 @@ export default function FaqManager() {
       answer: formAnswer.trim(),
       displayOrder: formOrder,
       isActive: formActive,
+      categoryId: formCategoryId || null,
+      keywords: parseKeywords(formKeywords),
     };
     if (editingItem) {
       updateMutation.mutate({ id: editingItem.id, payload }, { onSuccess: () => setIsModalOpen(false) });
@@ -87,6 +105,8 @@ export default function FaqManager() {
       <div className="flex justify-end">
         <button onClick={openCreate} className="btn-primary">Add FAQ</button>
       </div>
+
+      <FaqAnalyticsSummary />
 
       {!faqs || faqs.length === 0 ? (
         <div className="card">
@@ -175,6 +195,31 @@ export default function FaqManager() {
               />
               <label htmlFor="faq-active" className="text-sm text-navy-700 dark:text-blue-200">Active (visible on login)</label>
             </div>
+          </div>
+          <div>
+            <label htmlFor="faq-category" className="label">Category</label>
+            <select
+              id="faq-category"
+              value={formCategoryId}
+              onChange={(e) => setFormCategoryId(e.target.value)}
+              className="input"
+            >
+              <option value="">No category</option>
+              {categories?.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="faq-keywords" className="label">Keywords</label>
+            <input
+              id="faq-keywords"
+              type="text"
+              value={formKeywords}
+              onChange={(e) => setFormKeywords(e.target.value)}
+              className="input"
+              placeholder="Separate keywords with commas"
+            />
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={() => setIsModalOpen(false)} className="btn-secondary" disabled={isPending}>Cancel</button>
