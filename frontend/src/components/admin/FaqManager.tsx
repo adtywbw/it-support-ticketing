@@ -30,7 +30,8 @@ export default function FaqManager() {
   const [formAnswer, setFormAnswer] = useState('');
   const [formOrder, setFormOrder] = useState(0);
   const [formActive, setFormActive] = useState(true);
-  const [formCategoryId, setFormCategoryId] = useState('');
+  const [formSubCategoryId, setFormSubCategoryId] = useState('');
+  const [formShowOnLogin, setFormShowOnLogin] = useState(true);
   const [formKeywords, setFormKeywords] = useState('');
 
   const parseKeywords = (value: string) => [...new Set(
@@ -48,7 +49,8 @@ export default function FaqManager() {
     setFormAnswer('');
     setFormOrder(0);
     setFormActive(true);
-    setFormCategoryId('');
+    setFormSubCategoryId('');
+    setFormShowOnLogin(true);
     setFormKeywords('');
     setIsModalOpen(true);
   };
@@ -59,7 +61,8 @@ export default function FaqManager() {
     setFormAnswer(faq.answer);
     setFormOrder(faq.displayOrder);
     setFormActive(faq.isActive);
-    setFormCategoryId(faq.categoryId ?? '');
+    setFormSubCategoryId(faq.subCategoryId);
+    setFormShowOnLogin(faq.showOnLogin);
     setFormKeywords(faq.keywords.join(', '));
     setIsModalOpen(true);
   };
@@ -70,7 +73,8 @@ export default function FaqManager() {
       answer: formAnswer.trim(),
       displayOrder: formOrder,
       isActive: formActive,
-      categoryId: formCategoryId || null,
+      showOnLogin: formShowOnLogin,
+      subCategoryId: formSubCategoryId,
       keywords: parseKeywords(formKeywords),
     };
     if (editingItem) {
@@ -197,18 +201,30 @@ export default function FaqManager() {
             </div>
           </div>
           <div>
-            <label htmlFor="faq-category" className="label">Category</label>
+            <label htmlFor="faq-subcategory" className="label">Sub-category</label>
             <select
-              id="faq-category"
-              value={formCategoryId}
-              onChange={(e) => setFormCategoryId(e.target.value)}
+              id="faq-subcategory"
+              value={formSubCategoryId}
+              onChange={(e) => setFormSubCategoryId(e.target.value)}
               className="input"
             >
-              <option value="">No category</option>
-              {categories?.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
+              <option value="">Select sub-category</option>
+              {categories?.flatMap((cat) =>
+                (cat.subCategories ?? []).map((sub) => (
+                  <option key={sub.id} value={sub.id}>{cat.name} &gt; {sub.name}</option>
+                )),
+              )}
             </select>
+          </div>
+          <div className="flex items-end gap-2 pb-1">
+            <input
+              id="faq-show-on-login"
+              type="checkbox"
+              checked={formShowOnLogin}
+              onChange={(e) => setFormShowOnLogin(e.target.checked)}
+              className="h-4 w-4 rounded border-blue-200 text-primary-600 focus:ring-primary-500 dark:border-navy-800 dark:bg-navy-900"
+            />
+            <label htmlFor="faq-show-on-login" className="text-sm text-navy-700 dark:text-blue-200">Show on login page</label>
           </div>
           <div>
             <label htmlFor="faq-keywords" className="label">Keywords</label>

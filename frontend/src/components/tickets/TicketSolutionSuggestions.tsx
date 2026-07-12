@@ -27,7 +27,7 @@ export default function TicketSolutionSuggestions({
   }, [subject]);
 
   const recommendations = useFaqRecommendations({
-    categoryId: categoryId || undefined,
+    subCategoryId: categoryId || undefined,
     query: debouncedSubject.length >= 3 ? debouncedSubject : undefined,
   });
   const { mutateAsync: recordInteraction } = useRecordFaqInteraction();
@@ -49,11 +49,11 @@ export default function TicketSolutionSuggestions({
   );
 
   useEffect(() => {
-    if (!shownRef.current && recommendations.data?.length) {
+    if (!shownRef.current && recommendations.data?.length && categoryId) {
       shownRef.current = true;
       void record({
         sessionId,
-        categoryId,
+        subCategoryId: categoryId,
         eventType: 'RecommendationsShown',
       });
     }
@@ -62,15 +62,15 @@ export default function TicketSolutionSuggestions({
   const openArticle = (faqId: string) => {
     if (openedRef.current.has(faqId)) return;
     openedRef.current.add(faqId);
-    void record({ sessionId, faqId, categoryId, eventType: 'ArticleOpened' });
+    void record({ sessionId, faqId, eventType: 'ArticleOpened' });
   };
 
   const resolveProblem = (faqId: string) => {
     setResolvedFaqId(faqId);
-    void record({ sessionId, faqId, categoryId, eventType: 'ProblemResolved' });
+    void record({ sessionId, faqId, eventType: 'ProblemResolved' });
   };
 
-  const canRecommend = Boolean(categoryId || debouncedSubject.length >= 3);
+  const canRecommend = Boolean(categoryId);
 
   if (!canRecommend || recommendations.isError) return null;
 

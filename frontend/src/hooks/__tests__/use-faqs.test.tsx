@@ -29,21 +29,32 @@ describe('use-faqs', () => {
     vi.clearAllMocks();
   });
 
-  it('requests recommendations with params and query cancellation signal', async () => {
+  it('does not request recommendations without sub-category', async () => {
+    const queryClient = createQueryClient();
+
+    const { useFaqRecommendations } = await import('../use-faqs');
+
+    renderHook(() => useFaqRecommendations({ query: 'wifi' }), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('uses sub-category in recommendation params and query key', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { data: [] } });
     const queryClient = createQueryClient();
 
     const { useFaqRecommendations } = await import('../use-faqs');
 
-    renderHook(() => useFaqRecommendations({ categoryId: 'cat-1', query: 'wifi' }), {
+    renderHook(() => useFaqRecommendations({ subCategoryId: 'sub-cat-1', query: 'wifi' }), {
       wrapper: createWrapper(queryClient),
     });
 
-    await waitFor(() => expect(apiClient.get).toHaveBeenCalled());
-    expect(apiClient.get).toHaveBeenCalledWith('/faqs/recommendations', {
-      params: { categoryId: 'cat-1', query: 'wifi' },
-      signal: expect.any(AbortSignal),
-    });
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(
+      '/faqs/recommendations',
+      { params: { subCategoryId: 'sub-cat-1', query: 'wifi' }, signal: expect.any(AbortSignal) },
+    ));
   });
 
   it('does not add a hook-level interaction error toast', async () => {
@@ -60,6 +71,7 @@ describe('use-faqs', () => {
       result.current.mutateAsync({
         sessionId: 'sess-1',
         eventType: 'ArticleOpened',
+        faqId: 'faq-1',
       }),
     ).rejects.toThrow('offline');
     expect(toast.error).not.toHaveBeenCalled();

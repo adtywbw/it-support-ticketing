@@ -107,7 +107,7 @@ export interface SubCategory {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  _count?: { tickets: number };
+  _count?: { tickets: number; faqs: number };
 }
 
 export interface Notification {
@@ -364,28 +364,25 @@ export interface PublicFaq {
 
 export interface Faq extends PublicFaq {
   isActive: boolean;
-  categoryId: string | null;
+  showOnLogin: boolean;
+  subCategoryId: string;
   keywords: string[];
-  category: { id: string; name: string } | null;
+  subCategory: {
+    id: string;
+    name: string;
+    category: { id: string; name: string };
+  };
   createdAt: string;
   updatedAt: string;
 }
 
 export interface FaqRecommendation extends PublicFaq {
-  categoryId: string | null;
+  subCategoryId: string;
 }
 
-export type ClientFaqInteractionType =
-  | 'RecommendationsShown'
-  | 'ArticleOpened'
-  | 'ProblemResolved';
-
-export interface FaqInteractionPayload {
-  sessionId: string;
-  eventType: ClientFaqInteractionType;
-  faqId?: string;
-  categoryId?: string;
-}
+export type FaqInteractionPayload =
+  | { sessionId: string; eventType: 'RecommendationsShown'; subCategoryId: string }
+  | { sessionId: string; eventType: 'ArticleOpened' | 'ProblemResolved'; faqId: string };
 
 export interface FaqMetric {
   faqId: string;
@@ -393,8 +390,9 @@ export interface FaqMetric {
   sessions: number;
 }
 
-export interface FaqCategoryMetric {
-  categoryId: string;
+export interface FaqSubCategoryMetric {
+  subCategoryId: string;
+  subCategoryName: string;
   categoryName: string;
   recommendationSessions: number;
   resolvedWithoutTicketSessions: number;
@@ -412,7 +410,7 @@ export interface FaqAnalytics {
   continuedToTicketRate: number;
   topOpenedFaqs: FaqMetric[];
   topResolvedFaqs: FaqMetric[];
-  categoryStats: FaqCategoryMetric[];
+  subCategoryStats: FaqSubCategoryMetric[];
 }
 
 export interface TelegramSettings {

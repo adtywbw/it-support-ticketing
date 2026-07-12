@@ -82,20 +82,20 @@ export default function FaqAnalyticsSummary() {
       </div>
 
       <div className="card">
-        <div className="card-header"><h3>Category opportunities</h3></div>
+        <div className="card-header"><h3>Sub-category opportunities</h3></div>
         <div className="card-body overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-navy-500 dark:text-blue-300">
-                <th className="pb-2">Category</th>
+                <th className="pb-2">Sub-category</th>
                 <th className="pb-2">Sessions</th>
                 <th className="pb-2">Deflection</th>
               </tr>
             </thead>
             <tbody>
-              {data.categoryStats.map((row) => (
-                <tr key={row.categoryId} className="border-t border-blue-100 dark:border-navy-800">
-                  <td className="py-2 text-navy-800 dark:text-blue-100">{row.categoryName}</td>
+              {data.subCategoryStats.map((row) => (
+                <tr key={row.subCategoryId} className="border-t border-blue-100 dark:border-navy-800">
+                  <td className="py-2 text-navy-800 dark:text-blue-100">{row.subCategoryName} ({row.categoryName})</td>
                   <td className="py-2">{row.recommendationSessions}</td>
                   <td className="py-2">{row.deflectionRate.toFixed(1)}%</td>
                 </tr>

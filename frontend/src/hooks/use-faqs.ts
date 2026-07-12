@@ -14,9 +14,10 @@ import type {
 export interface CreateFaqPayload {
   question: string;
   answer: string;
+  subCategoryId: string;
   displayOrder?: number;
   isActive?: boolean;
-  categoryId?: string | null;
+  showOnLogin?: boolean;
   keywords?: string[];
 }
 export type UpdateFaqPayload = Partial<CreateFaqPayload>;
@@ -90,11 +91,10 @@ export function useDeleteFaq() {
   });
 }
 
-export function useFaqRecommendations(params: { categoryId?: string; query?: string }) {
-  const enabled = Boolean(params.categoryId || (params.query?.trim().length ?? 0) >= 3);
+export function useFaqRecommendations(params: { subCategoryId?: string; query?: string }) {
   return useQuery({
-    queryKey: ['faqs', 'recommendations', params.categoryId ?? '', params.query ?? ''],
-    enabled,
+    queryKey: ['faqs', 'recommendations', params.subCategoryId ?? '', params.query ?? ''],
+    enabled: Boolean(params.subCategoryId),
     queryFn: async ({ signal }) => {
       const response = await apiClient.get<ApiEnvelope<FaqRecommendation[]>>(
         '/faqs/recommendations',
