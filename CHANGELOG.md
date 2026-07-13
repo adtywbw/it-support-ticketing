@@ -2,6 +2,12 @@
 
 Riwayat perubahan project. Dipadatkan dari versi sebelumnya.
 
+## Session 74 — Fix: Location Dropdown Empty for Non-Admin Roles (2026-07-13)
+
+- **Fix: location dropdown empty for EndUser/ITSupport (Critical)** — `LocationRepository.findAllForForm()` (used by non-admin `GET /api/locations`) only selected `id` and `name`, omitting `isActive`. Frontend `CreateTicketForm` filtered `locations.filter(l => l.isActive)`, causing `undefined` (falsy) to drop all entries. Added `isActive: true` to the `select` clause, matching the pattern already used by `CategoryRepository.findAllForTicketForm()`.
+- **Docs**: AGENTS.md updated — non-admin locations response documented as `(id, name, isActive)`.
+- **Verification**: lint 0 errors ✅ | backend 830/830 tests ✅ | build ✅
+
 ## Session 73 — Sub-Category-Only FAQ Contracts: Destructive Migration, Delete Guard, Documentation (2026-07-12)
 
 - **Breaking: FAQ categoryId removed (Critical)** — `Faq.categoryId` removed; `subCategoryId` is now required (FK, ON DELETE Restrict). Existing FAQ content and FAQ interaction analytics are deleted by the destructive migration `20260712160000_faq_subcategory_only`. Admin must re-create FAQs after deployment.

@@ -225,7 +225,7 @@ postgres/postgresql.conf
   - `analytics`: `{ range, trend[], statusCounts, priorityCounts, slaComplianceRate, avgResolutionTimeByCategory[], topCategories[] }` — range-scoped analytics.
 - Users: `GET|POST|PATCH|DELETE /api/users`, `GET /api/users/:id`, `GET /api/users/assignable`; `GET ?includeInactive=true` includes inactive users.
 - Notifications: `GET|PATCH|DELETE /api/notifications`; supports clear-all, read-all, mark-read, unread-count, and preferences (`GET|PATCH /api/notifications/preferences`) operations.
-- Locations: `GET|POST|PATCH|DELETE /api/locations`. Admin sees all (incl. `_count.tickets`); other roles see active only (`id`, `name`). Admin-only write.
+- Locations: `GET|POST|PATCH|DELETE /api/locations`. Admin sees all (incl. `_count.tickets`); other roles see active only (`id`, `name`, `isActive`). Admin-only write.
 - Telegram: `GET /api/telegram/status|config`, `POST /api/telegram/link|test-notification|check`, `DELETE /api/telegram/link`, `PUT /api/telegram/config`.
 - Maintenance: `/api/maintenance/mode`, `/api/maintenance/backups`, restore, download, and delete endpoints.
 - FAQ: `GET|POST /api/faqs`; `GET|PATCH|DELETE /api/faqs/:id` (Admin CRUD); `GET /api/faqs/recommendations` (authenticated, up to 5 active FAQs filtered by subCategoryId/query); `POST /api/faqs/interactions` (authenticated, throttled 60/min/user); `GET /api/faqs/analytics?range=30d` (Admin-only deflection analytics returns `subCategoryStats`, not `categoryStats`). `TicketCreated` interaction events are server-only and fail-open. FAQ analytics must never store ticket subjects, descriptions, IP addresses, user agents, or attachment metadata.

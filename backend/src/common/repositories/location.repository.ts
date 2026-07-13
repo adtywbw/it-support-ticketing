@@ -23,6 +23,7 @@ export class LocationRepository {
       select: {
         id: true,
         name: true,
+        isActive: true,
       },
     });
   }
